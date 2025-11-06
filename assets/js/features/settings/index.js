@@ -30,29 +30,35 @@ function createSection() {
 }
 
 function renderCompanyPane(pane, state, services) {
+  const escapeAttr = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const escapeHtml = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   pane.innerHTML = `
     <div class="card card-dark">
       <div class="card-body">
         <form id="company-form" class="row g-3">
           <div class="col-md-6">
             <label class="form-label" for="company-name">Firmenname</label>
-            <input class="form-control" id="company-name" name="company-name" value="${state.company.name || ''}" />
+            <input class="form-control" id="company-name" name="company-name" value="${escapeAttr(state.company.name)}" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="company-headline">Überschrift / Claim</label>
+            <input class="form-control" id="company-headline" name="company-headline" value="${escapeAttr(state.company.headline)}" />
           </div>
           <div class="col-md-6">
             <label class="form-label" for="company-email">Kontakt-E-Mail</label>
-            <input class="form-control" id="company-email" name="company-email" value="${state.company.contactEmail || ''}" />
+            <input class="form-control" id="company-email" name="company-email" value="${escapeAttr(state.company.contactEmail)}" />
           </div>
           <div class="col-md-6">
             <label class="form-label" for="company-logo">Logo-URL</label>
-            <input class="form-control" id="company-logo" name="company-logo" value="${state.company.logoUrl || ''}" />
+            <input class="form-control" id="company-logo" name="company-logo" value="${escapeAttr(state.company.logoUrl)}" />
           </div>
           <div class="col-md-6">
             <label class="form-label" for="company-accent">Akzentfarbe (Hex)</label>
-            <input class="form-control" id="company-accent" name="company-accent" value="${state.company.accentColor || ''}" />
+            <input class="form-control" id="company-accent" name="company-accent" value="${escapeAttr(state.company.accentColor)}" />
           </div>
           <div class="col-12">
             <label class="form-label" for="company-address">Adresse</label>
-            <textarea class="form-control" id="company-address" name="company-address" rows="2">${state.company.address || ''}</textarea>
+            <textarea class="form-control" id="company-address" name="company-address" rows="2">${escapeHtml(state.company.address)}</textarea>
           </div>
           <div class="col-12">
             <button class="btn btn-primary" type="submit">Speichern</button>
@@ -69,6 +75,7 @@ function renderCompanyPane(pane, state, services) {
     services.state.updateSlice('company', company => ({
       ...company,
       name: formData.get('company-name')?.toString() ?? '',
+      headline: formData.get('company-headline')?.toString() ?? '',
       contactEmail: formData.get('company-email')?.toString() ?? '',
       logoUrl: formData.get('company-logo')?.toString() ?? '',
       accentColor: formData.get('company-accent')?.toString() ?? '',

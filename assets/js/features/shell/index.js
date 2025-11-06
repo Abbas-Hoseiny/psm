@@ -21,9 +21,12 @@ export function initShell(regions, services) {
   nav.className = 'navbar navbar-dark shell-navbar mb-4 no-print';
   nav.innerHTML = `
     <div class="container">
-      <a class="navbar-brand" href="#">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="#">
         <img class="brand-logo" alt="Firmalogo" />
-        <span class="brand-title h4 mb-0"></span>
+        <div class="brand-copy d-flex flex-column">
+          <span class="brand-title h4 mb-0"></span>
+          <span class="brand-tagline small text-muted"></span>
+        </div>
       </a>
       <div class="d-flex flex-wrap gap-2"></div>
     </div>
@@ -48,6 +51,7 @@ export function initShell(regions, services) {
 
   const brandLogo = nav.querySelector('.brand-logo');
   const brandTitle = nav.querySelector('.brand-title');
+  const brandTagline = nav.querySelector('.brand-tagline');
 
   function updateShell(state) {
     const { company, app } = state;
@@ -59,6 +63,13 @@ export function initShell(regions, services) {
     }
     brandLogo.alt = company.name || 'Logo';
     brandTitle.textContent = company.name || 'Bio-Pflanzenschutz';
+  brandTagline.textContent = company.headline || '';
+  brandTagline.classList.toggle('d-none', !company.headline);
+    if (company.accentColor) {
+      brandTagline.style.color = company.accentColor;
+    } else {
+      brandTagline.style.removeProperty('color');
+    }
 
     nav.style.setProperty('--accent-color', company.accentColor || '');
 
