@@ -1,10 +1,12 @@
 # TODO-Plan
 
+- [ ] Startup-Wizard für neue Datenbank: Formular für Firmenname, Überschrift, Logo-URL und weitere Stammdaten; JSON anhand der Eingaben erzeugen.
+- [ ] Download-Option im Startup-Screen: JSON/ZIP-Download der so erzeugten Datenbank (inkl. File-System-Variante) für neue Nutzer ohne bestehende DB.
 - [ ] Validierungslogik für JSON-Datenbanken anhand von `assets/config/schema.json` implementieren (Import/Export prüfen, Fehler anzeigen).
-- [ ] `settings`-Feature um UI zur Bearbeitung von Berechnungsmethoden erweitern (CRUD, Eingabefelder je Methode, Typauswahl).
-- [ ] Dynamische Eingabefelder im Berechnungsformular rendern, abhängig von den in den Methoden geforderten `requires`-Feldern.
 - [ ] Speicherung von History-Einträgen über Storage-Adapter sicherstellen (Schreibstatus und Fehlerkommunikation anzeigen).
 - [ ] Benachrichtigungssystem (Toast/Alert) für Erfolg- und Fehlermeldungen einführen.
+- [ ] `settings`-Feature um UI zur Bearbeitung von Berechnungsmethoden erweitern (CRUD, Eingabefelder je Methode, Typauswahl).
+- [ ] Dynamische Eingabefelder im Berechnungsformular rendern, abhängig von den in den Methoden geforderten `requires`-Feldern.
 - [ ] Export-/Import-Workflow für JSON-Dateien anbieten (Download-Button, Drag&Drop-Upload als Alternative zum File-Picker).
 - [ ] Druck-/PDF-Layouts überarbeiten und Firmenbranding dynamisch ziehen.
 - [ ] Reporting-Ansicht um Aggregationen (Summen/Diagramme) erweitern.

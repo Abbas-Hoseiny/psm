@@ -15,6 +15,7 @@
           "required": ["name", "logoUrl", "contactEmail"],
           "properties": {
             "name": { "type": "string" },
+            "headline": { "type": "string" },
             "logoUrl": { "type": "string" },
             "contactEmail": { "type": "string" },
             "address": { "type": "string" },

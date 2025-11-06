@@ -5,6 +5,26 @@ function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+function deepMerge(target, source) {
+  if (!source || typeof source !== 'object') {
+    return target;
+  }
+  const result = Array.isArray(target) ? [...target] : { ...target };
+  for (const [key, value] of Object.entries(source)) {
+    if (Array.isArray(value)) {
+      result[key] = value.map(item => (item && typeof item === 'object' ? clone(item) : item));
+      continue;
+    }
+    if (value && typeof value === 'object') {
+      const baseValue = result[key] && typeof result[key] === 'object' && !Array.isArray(result[key]) ? result[key] : {};
+      result[key] = deepMerge(baseValue, value);
+      continue;
+    }
+    result[key] = value;
+  }
+  return result;
+}
+
 export function applyDatabase(data) {
   if (!data) {
     throw new Error('Keine Daten zum Anwenden übergeben');
@@ -23,13 +43,14 @@ export function applyDatabase(data) {
   });
 }
 
-export function createInitialDatabase() {
+export function createInitialDatabase(overrides = {}) {
   const defaults = getDefaultsConfig();
   if (defaults) {
-    return clone(defaults);
+    const base = clone(defaults);
+    return deepMerge(base, overrides);
   }
   const state = getState();
-  return {
+  const base = {
     meta: {
       version: state.app.version || 1,
       company: { ...state.company },
@@ -39,6 +60,7 @@ export function createInitialDatabase() {
     mediums: [...state.mediums],
     history: []
   };
+  return deepMerge(base, overrides);
 }
 
 export function getDatabaseSnapshot() {

@@ -11,6 +11,7 @@ let state = {
   },
   company: {
     name: '',
+    headline: '',
     logoUrl: '',
     contactEmail: '',
     address: '',
@@ -80,6 +81,7 @@ export function resetState(newState = undefined) {
     },
     company: {
       name: '',
+      headline: '',
       logoUrl: '',
       contactEmail: '',
       address: '',
