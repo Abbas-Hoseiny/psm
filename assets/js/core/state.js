@@ -1,3 +1,5 @@
+import { getDefaultFieldLabels } from './labels.js';
+
 const listeners = new Set();
 
 let state = {
@@ -19,11 +21,18 @@ let state = {
   },
   defaults: {
     waterPerKisteL: 5,
-    kistenProAr: 300
+    kistenProAr: 300,
+    form: {
+      creator: '',
+      location: '',
+      crop: '',
+      quantity: ''
+    }
   },
   measurementMethods: [],
   mediums: [],
   history: [],
+  fieldLabels: getDefaultFieldLabels(),
   calcContext: null,
   ui: {
     notifications: []
@@ -89,11 +98,18 @@ export function resetState(newState = undefined) {
     },
     defaults: {
       waterPerKisteL: 5,
-      kistenProAr: 300
+      kistenProAr: 300,
+      form: {
+        creator: '',
+        location: '',
+        crop: '',
+        quantity: ''
+      }
     },
     measurementMethods: [],
     mediums: [],
     history: [],
+    fieldLabels: getDefaultFieldLabels(),
     calcContext: null,
     ui: {
       notifications: []

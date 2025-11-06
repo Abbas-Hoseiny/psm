@@ -3,6 +3,19 @@ import { saveDatabase } from '../../core/storage/index.js';
 import { getDatabaseSnapshot } from '../../core/database.js';
 
 let initialized = false;
+let mediumsTableBody;
+let methodInput;
+let methodDatalist;
+let addForm;
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 function createSection() {
   const section = document.createElement('section');
@@ -10,16 +23,61 @@ function createSection() {
   section.dataset.section = 'settings';
   section.innerHTML = `
     <div class="section-inner">
-      <h2 class="text-center mb-4">Einstellungen</h2>
-      <div class="tab-nav no-print">
-        <button class="btn btn-outline-light" data-tab="company">Unternehmen</button>
-        <button class="btn btn-outline-light" data-tab="mediums">Mittel</button>
-        <button class="btn btn-outline-light" data-tab="methods">Berechnungsmethoden</button>
+      <h2 class="text-center mb-4">Mittel-Verwaltung</h2>
+      <div class="card card-dark mb-4">
+        <div class="card-body">
+          <p class="mb-2"><strong>Was kann ich hier tun?</strong></p>
+          <p class="text-muted mb-0">
+            Erfasse, bearbeite oder lösche deine Mittel. Trage Name, Einheit, Methode und den Faktor ein und speichere
+            die Änderungen anschließend in der Datenbank. Tippe bei der Methode einfach einen bestehenden Namen oder
+            vergib einen neuen – neu erfasste Methoden stehen beim nächsten Mal automatisch zur Auswahl.
+          </p>
+        </div>
       </div>
-      <div class="tab-content">
-        <div class="tab-pane" data-pane="company"></div>
-        <div class="tab-pane d-none" data-pane="mediums"></div>
-        <div class="tab-pane d-none" data-pane="methods"></div>
+      <div class="card card-dark mb-4">
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-dark table-bordered" id="settings-mediums-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Einheit</th>
+                  <th>Methode</th>
+                  <th>Wert</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card card-dark">
+        <div class="card-body">
+          <h3 class="h5 text-success mb-3">Neues Mittel hinzufügen</h3>
+          <p class="text-muted">Trage alle Felder aus. Der Wert beschreibt den Faktor, der bei der Berechnung angewendet wird.</p>
+          <form id="settings-medium-form" class="row g-3">
+            <div class="col-md-3">
+              <input class="form-control" name="medium-name" placeholder="Name (z. B. Elot-Vis)" required />
+            </div>
+            <div class="col-md-2">
+              <input class="form-control" name="medium-unit" placeholder="Einheit (z. B. ml, %)" required />
+            </div>
+            <div class="col-md-3">
+              <input class="form-control" name="medium-method" placeholder="Methode (z. B. perKiste)" list="settings-method-options" required />
+              <datalist id="settings-method-options"></datalist>
+            </div>
+            <div class="col-md-2">
+              <input type="number" step="any" class="form-control" name="medium-value" placeholder="Wert" required />
+            </div>
+            <div class="col-md-2 d-grid">
+              <button class="btn btn-success" type="submit">Hinzufügen</button>
+            </div>
+          </form>
+          <div class="mt-3 small text-muted">
+            Nach dem Hinzufügen kannst du Mittel jederzeit löschen. Änderungen werden erst mit dem Button unten dauerhaft gespeichert.
+          </div>
+        </div>
       </div>
       <div class="mt-4 no-print">
         <button class="btn btn-success" data-action="persist">Änderungen speichern</button>
@@ -29,202 +87,96 @@ function createSection() {
   return section;
 }
 
-function renderCompanyPane(pane, state, services) {
-  const escapeAttr = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  const escapeHtml = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  pane.innerHTML = `
-    <div class="card card-dark">
-      <div class="card-body">
-        <form id="company-form" class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label" for="company-name">Firmenname</label>
-            <input class="form-control" id="company-name" name="company-name" value="${escapeAttr(state.company.name)}" />
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="company-headline">Überschrift / Claim</label>
-            <input class="form-control" id="company-headline" name="company-headline" value="${escapeAttr(state.company.headline)}" />
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="company-email">Kontakt-E-Mail</label>
-            <input class="form-control" id="company-email" name="company-email" value="${escapeAttr(state.company.contactEmail)}" />
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="company-logo">Logo-URL</label>
-            <input class="form-control" id="company-logo" name="company-logo" value="${escapeAttr(state.company.logoUrl)}" />
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="company-accent">Akzentfarbe (Hex)</label>
-            <input class="form-control" id="company-accent" name="company-accent" value="${escapeAttr(state.company.accentColor)}" />
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="company-address">Adresse</label>
-            <textarea class="form-control" id="company-address" name="company-address" rows="2">${escapeHtml(state.company.address)}</textarea>
-          </div>
-          <div class="col-12">
-            <button class="btn btn-primary" type="submit">Speichern</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  `;
-
-  const form = pane.querySelector('#company-form');
-  form.addEventListener('submit', event => {
-    event.preventDefault();
-    const formData = new FormData(form);
-    services.state.updateSlice('company', company => ({
-      ...company,
-      name: formData.get('company-name')?.toString() ?? '',
-      headline: formData.get('company-headline')?.toString() ?? '',
-      contactEmail: formData.get('company-email')?.toString() ?? '',
-      logoUrl: formData.get('company-logo')?.toString() ?? '',
-      accentColor: formData.get('company-accent')?.toString() ?? '',
-      address: formData.get('company-address')?.toString() ?? ''
-    }));
-    alert('Firmendaten aktualisiert');
+function renderMediumRows(state) {
+  if (!mediumsTableBody) {
+    return;
+  }
+  const methodsById = new Map(state.measurementMethods.map(method => [method.id, method]));
+  if (!state.mediums.length) {
+    mediumsTableBody.innerHTML = `
+      <tr>
+        <td colspan="5" class="text-center text-muted">Noch keine Mittel gespeichert.</td>
+      </tr>
+    `;
+    return;
+  }
+  mediumsTableBody.innerHTML = '';
+  state.mediums.forEach((medium, index) => {
+    const row = document.createElement('tr');
+    const method = methodsById.get(medium.methodId);
+    row.innerHTML = `
+      <td>${escapeHtml(medium.name)}</td>
+      <td>${escapeHtml(medium.unit)}</td>
+      <td>${escapeHtml(method ? method.label : medium.methodId)}</td>
+      <td>${escapeHtml(medium.value != null ? String(medium.value) : '')}</td>
+      <td>
+        <button class="btn btn-sm btn-danger" data-action="delete" data-index="${index}">Löschen</button>
+      </td>
+    `;
+    mediumsTableBody.appendChild(row);
   });
 }
 
-function renderMediumsPane(pane, state, services) {
-  const methods = state.measurementMethods;
-  pane.innerHTML = `
-    <div class="card card-dark">
-      <div class="card-body">
-        <div class="table-responsive">
-          <table class="table table-dark table-bordered" id="mediums-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Einheit</th>
-                <th>Methode</th>
-                <th>Wert</th>
-                <th>Aktion</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${state.mediums
-                .map((medium, index) => `
-                  <tr data-index="${index}">
-                    <td><input class="form-control" data-field="name" value="${medium.name}" /></td>
-                    <td><input class="form-control" data-field="unit" value="${medium.unit}" /></td>
-                    <td>
-                      <select class="form-select" data-field="methodId">
-                        ${methods
-                          .map(method => `
-                            <option value="${method.id}" ${method.id === medium.methodId ? 'selected' : ''}>${method.label}</option>
-                          `)
-                          .join('')}
-                      </select>
-                    </td>
-                    <td><input type="number" step="any" class="form-control" data-field="value" value="${medium.value}" /></td>
-                    <td><button class="btn btn-sm btn-danger" data-action="delete">Löschen</button></td>
-                  </tr>
-                `)
-                .join('')}
-            </tbody>
-          </table>
-        </div>
-        <hr class="my-4" />
-        <form id="medium-add-form" class="row g-3">
-          <div class="col-md-3">
-            <input class="form-control" name="medium-name" placeholder="Name" required />
-          </div>
-          <div class="col-md-2">
-            <input class="form-control" name="medium-unit" placeholder="Einheit" required />
-          </div>
-          <div class="col-md-3">
-            <select class="form-select" name="medium-method" required>
-              <option value="" disabled selected>Methode wählen</option>
-              ${methods.map(method => `<option value="${method.id}">${method.label}</option>`).join('')}
-            </select>
-          </div>
-          <div class="col-md-2">
-            <input type="number" step="any" class="form-control" name="medium-value" placeholder="Wert" required />
-          </div>
-          <div class="col-md-2">
-            <button class="btn btn-success w-100" type="submit">Hinzufügen</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  `;
-
-  pane.querySelector('#mediums-table tbody').addEventListener('input', event => {
-    const target = event.target;
-    if (!target.dataset.field) {
-      return;
+function renderMethodSuggestions(state) {
+  if (!methodDatalist) {
+    return;
+  }
+  const seen = new Set();
+  methodDatalist.innerHTML = '';
+  state.measurementMethods.forEach(method => {
+    const labelKey = method.label.toLowerCase();
+    const idKey = method.id.toLowerCase();
+    if (!seen.has(labelKey)) {
+      seen.add(labelKey);
+      const labelOption = document.createElement('option');
+      labelOption.value = method.label;
+      methodDatalist.appendChild(labelOption);
     }
-    const row = target.closest('tr');
-    const index = Number(row.dataset.index);
-    if (Number.isNaN(index)) {
-      return;
+    if (!seen.has(idKey)) {
+      seen.add(idKey);
+      const idOption = document.createElement('option');
+      idOption.value = method.id;
+      methodDatalist.appendChild(idOption);
     }
-    const field = target.dataset.field;
-    const value = field === 'value' ? Number(target.value) : target.value;
-    services.state.updateSlice('mediums', mediums => {
-      const copy = [...mediums];
-      copy[index] = { ...copy[index], [field]: value };
-      return copy;
-    });
-  });
-
-  pane.querySelector('#mediums-table tbody').addEventListener('click', event => {
-    if (event.target.dataset.action !== 'delete') {
-      return;
-    }
-    const row = event.target.closest('tr');
-    const index = Number(row.dataset.index);
-    if (Number.isNaN(index)) {
-      return;
-    }
-    services.state.updateSlice('mediums', mediums => {
-      const copy = [...mediums];
-      copy.splice(index, 1);
-      return copy;
-    });
-  });
-
-  pane.querySelector('#medium-add-form').addEventListener('submit', event => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `medium-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const newMedium = {
-      id,
-      name: formData.get('medium-name')?.toString().trim() ?? '',
-      unit: formData.get('medium-unit')?.toString().trim() ?? '',
-      methodId: formData.get('medium-method')?.toString() ?? '',
-      value: Number(formData.get('medium-value'))
-    };
-    services.state.updateSlice('mediums', mediums => [...mediums, newMedium]);
-    event.currentTarget.reset();
   });
 }
 
-function renderMethodsPane(pane, state, services) {
-  pane.innerHTML = `
-    <div class="card card-dark">
-      <div class="card-body">
-        <p class="text-muted mb-0">Die Verwaltung der Berechnungsmethoden wird in einem späteren Schritt implementiert.</p>
-      </div>
-    </div>
-  `;
+function createMethodId(label) {
+  const slug = label
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (slug) {
+    return slug;
+  }
+  return `method-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
 }
 
-function activateTab(section, tabId) {
-  const tabs = section.querySelectorAll('[data-tab]');
-  const panes = section.querySelectorAll('[data-pane]');
-  tabs.forEach(btn => {
-    if (btn.dataset.tab === tabId) {
-      btn.classList.add('btn-success');
-      btn.classList.remove('btn-outline-light');
-    } else {
-      btn.classList.remove('btn-success');
-      btn.classList.add('btn-outline-light');
-    }
-  });
-  panes.forEach(pane => {
-    pane.classList.toggle('d-none', pane.dataset.pane !== tabId);
-  });
+function ensureMethodExists(state, services) {
+  const rawValue = methodInput.value.trim();
+  if (!rawValue) {
+    alert('Bitte eine Methode angeben.');
+    methodInput.focus();
+    return null;
+  }
+  const existing = state.measurementMethods.find(method =>
+    method.label.toLowerCase() === rawValue.toLowerCase() || method.id.toLowerCase() === rawValue.toLowerCase()
+  );
+  if (existing) {
+    return existing.id;
+  }
+  const id = createMethodId(rawValue);
+  const newMethod = {
+    id,
+    label: rawValue,
+    type: 'factor',
+    unit: state.fieldLabels?.calculation?.fields?.quantity?.unit || 'Kiste',
+    requires: ['kisten'],
+    config: { sourceField: 'kisten' }
+  };
+  services.state.updateSlice('measurementMethods', methods => [...methods, newMethod]);
+  return id;
 }
 
 async function persistChanges() {
@@ -242,22 +194,65 @@ export function initSettings(container, services) {
   if (!container || initialized) {
     return;
   }
+
   const section = createSection();
   container.appendChild(section);
 
-  const panes = {
-    company: section.querySelector('[data-pane="company"]'),
-    mediums: section.querySelector('[data-pane="mediums"]'),
-    methods: section.querySelector('[data-pane="methods"]')
-  };
+  mediumsTableBody = section.querySelector('#settings-mediums-table tbody');
+  methodInput = section.querySelector('input[name="medium-method"]');
+  methodDatalist = section.querySelector('#settings-method-options');
+  addForm = section.querySelector('#settings-medium-form');
 
-  function render(state) {
-    renderCompanyPane(panes.company, state, services);
-    renderMediumsPane(panes.mediums, state, services);
-    renderMethodsPane(panes.methods, state, services);
-  }
+  addForm.addEventListener('submit', event => {
+    event.preventDefault();
+    const state = getState();
+    const formData = new FormData(addForm);
+    const name = formData.get('medium-name')?.toString().trim();
+    const unit = formData.get('medium-unit')?.toString().trim();
+    const valueRaw = formData.get('medium-value');
+    const value = Number(valueRaw);
+    if (!name || !unit || Number.isNaN(value)) {
+      alert('Bitte alle Felder korrekt ausfüllen.');
+      return;
+    }
+    const methodId = ensureMethodExists(state, services);
+    if (!methodId) {
+      return;
+    }
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `medium-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const medium = {
+      id,
+      name,
+      unit,
+      methodId,
+      value
+    };
+    services.state.updateSlice('mediums', mediums => [...mediums, medium]);
+    addForm.reset();
+    renderMethodSuggestions(getState());
+  });
 
-  render(getState());
+  mediumsTableBody.addEventListener('click', event => {
+    const button = event.target.closest('[data-action="delete"]');
+    if (!button) {
+      return;
+    }
+    const index = Number(button.dataset.index);
+    if (Number.isNaN(index)) {
+      return;
+    }
+    services.state.updateSlice('mediums', mediums => {
+      const copy = mediums.slice();
+      copy.splice(index, 1);
+      return copy;
+    });
+  });
+
+  section.querySelector('[data-action="persist"]').addEventListener('click', () => {
+    persistChanges();
+  });
 
   function toggle(state) {
     const ready = state.app.hasDatabase;
@@ -265,26 +260,19 @@ export function initSettings(container, services) {
     section.classList.toggle('d-none', !(ready && active));
   }
 
+  function render(state) {
+    renderMediumRows(state);
+    renderMethodSuggestions(state);
+  }
+
+  render(getState());
   toggle(getState());
 
-  section.querySelector('.tab-nav').addEventListener('click', event => {
-    const tabId = event.target.dataset.tab;
-    if (!tabId) {
-      return;
-    }
-    activateTab(section, tabId);
-  });
-  activateTab(section, 'company');
-
-  services.state.subscribe((nextState) => {
+  services.state.subscribe(nextState => {
     if (nextState.app.activeSection === 'settings') {
       render(nextState);
     }
     toggle(nextState);
-  });
-
-  section.querySelector('[data-action="persist"]').addEventListener('click', () => {
-    persistChanges();
   });
 
   initialized = true;

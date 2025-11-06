@@ -10,7 +10,13 @@
     },
     "defaults": {
       "waterPerKisteL": 5,
-      "kistenProAr": 300
+      "kistenProAr": 300,
+      "form": {
+        "creator": "",
+        "location": "",
+        "crop": "",
+        "quantity": ""
+      }
     },
     "measurementMethods": [
       {

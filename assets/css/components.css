@@ -30,6 +30,12 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+.table-dark th,
+.table-dark td {
+  border: 1px solid var(--color-border);
+  background-color: transparent;
+}
+
 .table-dark tbody tr:hover {
   background-color: #464646;
 }
@@ -73,4 +79,97 @@
   padding: 0.2rem 0.65rem;
   font-size: 0.75rem;
   letter-spacing: 0.02em;
+}
+
+.print-overlay {
+  display: none;
+  padding: 18mm;
+  background: #fff;
+  color: #111;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.print-overlay table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.print-overlay th,
+.print-overlay td {
+  border: 1px solid #555;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.print-overlay .nowrap {
+  white-space: nowrap;
+}
+
+.print-overlay-active .app-root {
+  display: none !important;
+}
+
+.print-overlay-active .print-overlay {
+  display: block !important;
+}
+
+.calc-summary {
+  border: 1px solid var(--color-border);
+  padding: 1rem;
+  background-color: var(--color-surface-alt);
+  border-radius: 0.25rem;
+}
+
+.calc-summary p {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.calc-summary p:last-child {
+  margin-bottom: 0;
+}
+
+.calc-summary strong {
+  min-width: 150px;
+  font-weight: 600;
+}
+
+@media print {
+  .card-dark {
+    background-color: #fff !important;
+    color: #000 !important;
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+
+  .card-dark .card-header {
+    background-color: #fff !important;
+    border-bottom: 1px solid #000;
+    color: #000 !important;
+  }
+
+  .calc-summary {
+    background-color: #fff;
+    border-color: #000;
+  }
+
+  .table-dark {
+    background-color: #fff;
+    color: #000;
+  }
+
+  .table-dark thead tr {
+    background-color: #fff;
+  }
+
+  .table-dark th,
+  .table-dark td {
+    border-color: #000;
+  }
+
+  .table-dark tbody tr:hover {
+    background-color: #fff;
+  }
 }

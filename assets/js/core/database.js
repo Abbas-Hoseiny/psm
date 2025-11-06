@@ -1,4 +1,5 @@
 import { getDefaultsConfig } from './config.js';
+import { resolveFieldLabels } from './labels.js';
 import { getState, patchState } from './state.js';
 
 function clone(obj) {
@@ -25,17 +26,28 @@ function deepMerge(target, source) {
   return result;
 }
 
+function mergeDefaults(base = {}, incoming = {}) {
+  const merged = { ...base, ...incoming };
+  merged.form = {
+    ...(base.form || { creator: '', location: '', crop: '', quantity: '' }),
+    ...(incoming.form || {})
+  };
+  return merged;
+}
+
 export function applyDatabase(data) {
   if (!data) {
     throw new Error('Keine Daten zum Anwenden übergeben');
   }
   const current = getState();
+  const fieldLabels = resolveFieldLabels(data.meta?.fieldLabels ?? {});
   patchState({
     company: { ...current.company, ...(data.meta?.company ?? {}) },
-    defaults: { ...current.defaults, ...(data.meta?.defaults ?? {}) },
+    defaults: mergeDefaults(current.defaults, data.meta?.defaults ?? {}),
     measurementMethods: [...(data.meta?.measurementMethods ?? current.measurementMethods)],
     mediums: [...(data.mediums ?? [])],
     history: [...(data.history ?? [])],
+    fieldLabels,
     app: {
       ...current.app,
       hasDatabase: true
@@ -47,6 +59,21 @@ export function createInitialDatabase(overrides = {}) {
   const defaults = getDefaultsConfig();
   if (defaults) {
     const base = clone(defaults);
+    base.meta = base.meta || {};
+    base.meta.fieldLabels = resolveFieldLabels(base.meta.fieldLabels ?? {});
+    base.meta.defaults = mergeDefaults(
+      {
+        waterPerKisteL: 5,
+        kistenProAr: 300,
+        form: {
+          creator: '',
+          location: '',
+          crop: '',
+          quantity: ''
+        }
+      },
+      base.meta.defaults ?? {}
+    );
     return deepMerge(base, overrides);
   }
   const state = getState();
@@ -55,7 +82,8 @@ export function createInitialDatabase(overrides = {}) {
       version: state.app.version || 1,
       company: { ...state.company },
       defaults: { ...state.defaults },
-      measurementMethods: [...state.measurementMethods]
+      measurementMethods: [...state.measurementMethods],
+      fieldLabels: { ...state.fieldLabels }
     },
     mediums: [...state.mediums],
     history: []
@@ -70,7 +98,8 @@ export function getDatabaseSnapshot() {
       version: state.app.version || 1,
       company: { ...state.company },
       defaults: { ...state.defaults },
-      measurementMethods: [...state.measurementMethods]
+      measurementMethods: [...state.measurementMethods],
+      fieldLabels: { ...state.fieldLabels }
     },
     mediums: [...state.mediums],
     history: [...state.history]

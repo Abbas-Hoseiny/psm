@@ -1,8 +1,30 @@
 import { getState } from '../../core/state.js';
+import { setFieldLabelByPath } from '../../core/labels.js';
+import { getDatabaseSnapshot } from '../../core/database.js';
+import { saveDatabase, getActiveDriverKey } from '../../core/storage/index.js';
 
 let initialized = false;
 
-function createSection() {
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value);
+}
+
+function createSection(labels, defaultsState) {
+  const formDefaults = defaultsState?.form || {
+    creator: '',
+    location: '',
+    crop: '',
+    quantity: ''
+  };
   const section = document.createElement('section');
   section.className = 'section-container d-none';
   section.dataset.section = 'calc';
@@ -12,20 +34,20 @@ function createSection() {
         <div class="card-body">
           <form id="calculationForm" class="row g-3 no-print">
             <div class="col-md-3">
-              <label for="calc-ersteller" class="form-label">Erstellt von</label>
-              <input type="text" class="form-control" id="calc-ersteller" name="calc-ersteller" required />
+              <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.creator.label" data-default-label="${escapeAttr(labels.calculation.fields.creator.label)}" value="${escapeAttr(labels.calculation.fields.creator.label)}" placeholder="${escapeAttr(labels.calculation.fields.creator.label)}" aria-label="Bezeichnung für Feld" />
+              <input type="text" class="form-control" id="calc-ersteller" name="calc-ersteller" required data-placeholder-id="calc-form-creator" placeholder="${escapeAttr(labels.calculation.fields.creator.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.creator.label)}" value="${escapeAttr(formDefaults.creator || '')}" />
             </div>
             <div class="col-md-3">
-              <label for="calc-standort" class="form-label">Standort / Abteil</label>
-              <input type="text" class="form-control" id="calc-standort" name="calc-standort" />
+              <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.location.label" data-default-label="${escapeAttr(labels.calculation.fields.location.label)}" value="${escapeAttr(labels.calculation.fields.location.label)}" placeholder="${escapeAttr(labels.calculation.fields.location.label)}" aria-label="Bezeichnung für Feld" />
+              <input type="text" class="form-control" id="calc-standort" name="calc-standort" data-placeholder-id="calc-form-location" placeholder="${escapeAttr(labels.calculation.fields.location.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.location.label)}" value="${escapeAttr(formDefaults.location || '')}" />
             </div>
             <div class="col-md-3">
-              <label for="calc-kultur" class="form-label">Kultur</label>
-              <input type="text" class="form-control" id="calc-kultur" name="calc-kultur" placeholder="z. B. Kohl, Salat" />
+              <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.crop.label" data-default-label="${escapeAttr(labels.calculation.fields.crop.label)}" value="${escapeAttr(labels.calculation.fields.crop.label)}" placeholder="${escapeAttr(labels.calculation.fields.crop.label)}" aria-label="Bezeichnung für Feld" />
+              <input type="text" class="form-control" id="calc-kultur" name="calc-kultur" data-placeholder-id="calc-form-crop" placeholder="${escapeAttr(labels.calculation.fields.crop.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.crop.label)}" value="${escapeAttr(formDefaults.crop || '')}" />
             </div>
             <div class="col-md-3">
-              <label for="calc-kisten" class="form-label">Anzahl Kisten</label>
-              <input type="number" min="0" step="any" class="form-control" id="calc-kisten" name="calc-kisten" required />
+              <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.quantity.label" data-default-label="${escapeAttr(labels.calculation.fields.quantity.label)}" value="${escapeAttr(labels.calculation.fields.quantity.label)}" placeholder="${escapeAttr(labels.calculation.fields.quantity.label)}" aria-label="Bezeichnung für Feld" />
+              <input type="number" min="0" step="any" class="form-control" id="calc-kisten" name="calc-kisten" required data-placeholder-id="calc-form-quantity" placeholder="${escapeAttr(labels.calculation.fields.quantity.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.quantity.label)}" value="${escapeAttr(formDefaults.quantity || '')}" />
             </div>
             <div class="col-12 text-center">
               <button type="submit" class="btn btn-success px-4">Berechnen</button>
@@ -35,34 +57,27 @@ function createSection() {
       </div>
       <div id="calc-result" class="card card-dark d-none">
         <div class="card-header bg-success text-white">
-          <h5 class="mb-0">Benötigte Mittel</h5>
+          <h5 class="mb-0" data-label-id="calc-result-title">${escapeHtml(labels.calculation.resultTitle)}</h5>
         </div>
         <div class="card-body">
-          <div class="row g-3 mb-3">
-            <div class="col-md-6">
-              <p class="mb-1"><strong>Erstellt von:</strong> <span data-field="ersteller"></span></p>
-              <p class="mb-1"><strong>Standort / Abteil:</strong> <span data-field="standort"></span></p>
-              <p class="mb-1"><strong>Kultur:</strong> <span data-field="kultur"></span></p>
-            </div>
-            <div class="col-md-6 text-md-end">
-              <p class="mb-1"><strong>Datum:</strong> <span data-field="datum"></span></p>
-              <p class="mb-1"><strong>Kisten:</strong> <span data-field="kisten"></span></p>
-                <p class="mb-1"><strong>Gesamtwasser (L):</strong> <span data-field="wasser"></span></p>
-                <p class="mb-1"><strong>Fläche (Ar / m²):</strong> <span data-field="flaeche"></span></p>
-            </div>
+          <div class="calc-summary mb-3">
+            <p class="mb-1"><strong data-label-id="calc-summary-creator">${escapeHtml(labels.calculation.fields.creator.label)}</strong>: <span data-field="ersteller"></span></p>
+            <p class="mb-1"><strong data-label-id="calc-summary-location">${escapeHtml(labels.calculation.fields.location.label)}</strong>: <span data-field="standort"></span></p>
+            <p class="mb-1"><strong data-label-id="calc-summary-crop">${escapeHtml(labels.calculation.fields.crop.label)}</strong>: <span data-field="kultur"></span></p>
+            <p class="mb-1"><strong data-label-id="calc-summary-date">${escapeHtml(labels.calculation.summary.dateLabel || 'Datum')}</strong>: <span data-field="datum"></span></p>
           </div>
           <div class="table-responsive">
             <table class="table table-dark table-striped align-middle" id="calc-results-table">
               <thead>
                 <tr>
-                  <th>Mittel</th>
-                  <th>Einheit</th>
-                  <th>Methode</th>
-                  <th>Wert</th>
-                    <th>Kisten</th>
-                    <th>Ar</th>
-                    <th>m²</th>
-                    <th>Gesamt</th>
+                  <th data-label-id="calc-th-medium">${escapeHtml(labels.calculation.tableColumns.medium)}</th>
+                  <th data-label-id="calc-th-unit">${escapeHtml(labels.calculation.tableColumns.unit)}</th>
+                  <th data-label-id="calc-th-method">${escapeHtml(labels.calculation.tableColumns.method)}</th>
+                  <th data-label-id="calc-th-value">${escapeHtml(labels.calculation.tableColumns.value)}</th>
+                  <th data-label-id="calc-th-per-quantity">${escapeHtml(labels.calculation.tableColumns.perQuantity)}</th>
+                  <th data-label-id="calc-th-area-ar">${escapeHtml(labels.calculation.tableColumns.areaAr)}</th>
+                  <th data-label-id="calc-th-area-sqm">${escapeHtml(labels.calculation.tableColumns.areaSqm)}</th>
+                  <th data-label-id="calc-th-total">${escapeHtml(labels.calculation.tableColumns.total)}</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -79,12 +94,89 @@ function createSection() {
   return section;
 }
 
+function applyFieldLabels(section, labels) {
+  if (!section) {
+    return;
+  }
+  const labelMap = {
+    'calc-form-creator': labels.calculation.fields.creator.label,
+    'calc-form-location': labels.calculation.fields.location.label,
+    'calc-form-crop': labels.calculation.fields.crop.label,
+    'calc-form-quantity': labels.calculation.fields.quantity.label,
+    'calc-result-title': labels.calculation.resultTitle,
+    'calc-summary-creator': labels.calculation.fields.creator.label,
+    'calc-summary-location': labels.calculation.fields.location.label,
+    'calc-summary-crop': labels.calculation.fields.crop.label,
+    'calc-summary-date': labels.calculation.summary.dateLabel || 'Datum',
+    'calc-th-medium': labels.calculation.tableColumns.medium,
+    'calc-th-unit': labels.calculation.tableColumns.unit,
+    'calc-th-method': labels.calculation.tableColumns.method,
+    'calc-th-value': labels.calculation.tableColumns.value,
+    'calc-th-per-quantity': labels.calculation.tableColumns.perQuantity,
+    'calc-th-area-ar': labels.calculation.tableColumns.areaAr,
+    'calc-th-area-sqm': labels.calculation.tableColumns.areaSqm,
+    'calc-th-total': labels.calculation.tableColumns.total
+  };
+
+  Object.entries(labelMap).forEach(([key, text]) => {
+    const element = section.querySelector(`[data-label-id="${key}"]`);
+    if (element) {
+      element.textContent = typeof text === 'string' ? text : '';
+    }
+  });
+
+  section.querySelectorAll('.label-editor').forEach(input => {
+    const path = input.dataset.labelEditor;
+    if (!path) {
+      return;
+    }
+    const value = path.split('.').reduce((acc, segment) => (acc && acc[segment] !== undefined ? acc[segment] : null), labels);
+    if (typeof value === 'string') {
+      input.placeholder = value;
+      input.dataset.defaultLabel = value;
+      if (!input.matches(':focus')) {
+        input.value = value;
+      }
+    }
+  });
+
+  const placeholderMap = {
+    'calc-form-creator': labels.calculation.fields.creator.placeholder,
+    'calc-form-location': labels.calculation.fields.location.placeholder,
+    'calc-form-crop': labels.calculation.fields.crop.placeholder,
+    'calc-form-quantity': labels.calculation.fields.quantity.placeholder
+  };
+
+  Object.entries(placeholderMap).forEach(([key, text]) => {
+    const element = section.querySelector(`[data-placeholder-id="${key}"]`);
+    if (element) {
+      element.setAttribute('placeholder', typeof text === 'string' ? text : '');
+    }
+  });
+}
+
 function formatNumber(value, fractionDigits = 2) {
   const num = Number.parseFloat(value);
   if (Number.isNaN(num)) {
     return (0).toFixed(fractionDigits);
   }
   return num.toFixed(fractionDigits);
+}
+
+async function persistHistory(services) {
+  const driverKey = getActiveDriverKey();
+  if (!driverKey || driverKey === 'memory') {
+    return;
+  }
+  try {
+    const snapshot = getDatabaseSnapshot();
+    await saveDatabase(snapshot);
+    services.events.emit('database:saved', { scope: 'history', driver: driverKey });
+  } catch (err) {
+    console.error('Automatisches Speichern der Historie fehlgeschlagen', err);
+    services.events.emit('database:error', { scope: 'history', error: err });
+    alert('Berechnung gespeichert, aber die Datei konnte nicht aktualisiert werden. Bitte manuell sichern.');
+  }
 }
 
 function getWaterVolume(kisten, defaults) {
@@ -119,8 +211,10 @@ export function initCalculation(container, services) {
     return;
   }
 
-  const section = createSection();
+  const initialState = getState();
+  const section = createSection(initialState.fieldLabels, initialState.defaults);
   container.appendChild(section);
+  applyFieldLabels(section, getState().fieldLabels);
 
   const form = section.querySelector('#calculationForm');
   const resultCard = section.querySelector('#calc-result');
@@ -129,11 +223,15 @@ export function initCalculation(container, services) {
     ersteller: resultCard.querySelector('[data-field="ersteller"]'),
     standort: resultCard.querySelector('[data-field="standort"]'),
     kultur: resultCard.querySelector('[data-field="kultur"]'),
-    datum: resultCard.querySelector('[data-field="datum"]'),
-    kisten: resultCard.querySelector('[data-field="kisten"]'),
-     wasser: resultCard.querySelector('[data-field="wasser"]'),
-     flaeche: resultCard.querySelector('[data-field="flaeche"]')
+    datum: resultCard.querySelector('[data-field="datum"]')
   };
+
+  function resolveFieldEl(key) {
+    if (!fieldEls[key]) {
+      fieldEls[key] = resultCard.querySelector(`[data-field="${key}"]`);
+    }
+    return fieldEls[key];
+  }
 
   function toggleVisibility(state) {
     const active = state.app.activeSection === 'calc';
@@ -142,22 +240,45 @@ export function initCalculation(container, services) {
   }
 
   toggleVisibility(getState());
-  services.state.subscribe((nextState) => toggleVisibility(nextState));
+  services.state.subscribe((nextState) => {
+    toggleVisibility(nextState);
+    applyFieldLabels(section, nextState.fieldLabels);
+  });
 
-  function renderResults(calculation) {
+  section.querySelectorAll('.label-editor').forEach(input => {
+    input.addEventListener('change', event => {
+      const path = event.target.dataset.labelEditor;
+      if (!path) {
+        return;
+      }
+      const trimmed = event.target.value.trim();
+      const fallback = event.target.dataset.defaultLabel || event.target.getAttribute('placeholder') || event.target.value;
+      const nextValue = trimmed || fallback || '';
+      if (!trimmed) {
+        event.target.value = nextValue;
+      }
+      services.state.updateSlice('fieldLabels', currentLabels => setFieldLabelByPath(currentLabels, path, nextValue));
+    });
+  });
+
+  function renderResults(calculation, labels) {
     if (!calculation) {
       resultCard.classList.add('d-none');
       resultsBody.innerHTML = '';
       return;
     }
     const { header, items } = calculation;
-    fieldEls.ersteller.textContent = header.ersteller;
-    fieldEls.standort.textContent = header.standort;
-    fieldEls.kultur.textContent = header.kultur;
-    fieldEls.datum.textContent = header.datum;
-    fieldEls.kisten.textContent = header.kisten;
-    fieldEls.wasser.textContent = formatNumber(header.waterVolume, 2);
-      fieldEls.flaeche.textContent = `${formatNumber(header.areaAr, 2)} / ${formatNumber(header.areaSqm, 2)}`;
+    const setFieldText = (key, value) => {
+      const el = resolveFieldEl(key);
+      if (el) {
+        el.textContent = value ?? '';
+      }
+      return el;
+    };
+    setFieldText('ersteller', header.ersteller);
+    setFieldText('standort', header.standort);
+    setFieldText('kultur', header.kultur);
+    setFieldText('datum', header.datum);
 
     resultsBody.innerHTML = '';
     items.forEach(item => {
@@ -177,15 +298,19 @@ export function initCalculation(container, services) {
     resultCard.classList.remove('d-none');
   }
 
-  services.state.subscribe((nextState) => renderResults(nextState.calcContext));
+  services.state.subscribe((nextState) => renderResults(nextState.calcContext, nextState.fieldLabels));
 
   form.addEventListener('submit', event => {
     event.preventDefault();
     const formData = new FormData(form);
-    const ersteller = (formData.get('calc-ersteller') || '').toString().trim();
-    const standort = (formData.get('calc-standort') || '').toString().trim() || '-';
-    const kultur = (formData.get('calc-kultur') || '').toString().trim() || '-';
-    const kisten = Number(formData.get('calc-kisten'));
+    const rawErsteller = (formData.get('calc-ersteller') || '').toString().trim();
+    const rawStandort = (formData.get('calc-standort') || '').toString().trim();
+    const rawKultur = (formData.get('calc-kultur') || '').toString().trim();
+    const rawKisten = (formData.get('calc-kisten') || '').toString().trim();
+    const ersteller = rawErsteller;
+    const standort = rawStandort || '-';
+    const kultur = rawKultur || '-';
+    const kisten = Number(rawKisten);
     if (!ersteller || Number.isNaN(kisten)) {
       alert('Bitte Felder korrekt ausfüllen!');
       return;
@@ -226,15 +351,26 @@ export function initCalculation(container, services) {
       kultur,
       kisten,
       datum: new Date().toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' }),
-  waterVolume,
-  areaAr,
-  areaSqm
+      waterVolume,
+      areaAr,
+      areaSqm
     };
 
     const calculation = {
       header,
       items
     };
+
+    services.state.updateSlice('defaults', defaultsState => ({
+      ...defaultsState,
+      form: {
+        ...(defaultsState.form || { creator: '', location: '', crop: '', quantity: '' }),
+        creator: rawErsteller,
+        location: rawStandort,
+        crop: rawKultur,
+        quantity: rawKisten
+      }
+    }));
 
     services.state.updateSlice('calcContext', () => calculation);
   });
@@ -260,11 +396,14 @@ export function initCalculation(container, services) {
         };
         return [...history, entry];
       });
+      persistHistory(services).catch(err => {
+        console.error('Persist history promise error', err);
+      });
       alert('Berechnung gespeichert! (Siehe Historie)');
     }
   });
 
-  renderResults(getState().calcContext);
+  renderResults(getState().calcContext, getState().fieldLabels);
 
   initialized = true;
 }

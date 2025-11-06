@@ -30,6 +30,9 @@
             "kistenProAr": { "type": "number", "minimum": 0 }
           }
         },
+        "fieldLabels": {
+          "type": "object"
+        },
         "measurementMethods": {
           "type": "array",
           "items": {

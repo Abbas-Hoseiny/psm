@@ -14,19 +14,6 @@ function sanitizeFilename(name) {
   return `${slug || 'pflanzenschutz-datenbank'}.json`;
 }
 
-function triggerJsonDownload(data, filename) {
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
 async function withButtonBusy(button, task) {
   if (!button) {
     await task();
@@ -56,8 +43,6 @@ export function initStartup(container, services) {
 
   const stateSnapshot = getState();
   const baseCompany = stateSnapshot.company;
-  const baseDefaults = stateSnapshot.defaults;
-
   let wizard = null;
 
   const landingSection = document.createElement('section');
@@ -117,24 +102,9 @@ export function initStartup(container, services) {
                 <label class="form-label" for="wizard-company-email">Kontakt-E-Mail</label>
                 <input class="form-control" id="wizard-company-email" name="wizard-company-email" value="${escapeAttr(baseCompany.contactEmail)}" />
               </div>
-              <div class="col-md-6">
-                <label class="form-label" for="wizard-company-accent">Akzentfarbe (Hex)</label>
-                <input class="form-control" id="wizard-company-accent" name="wizard-company-accent" placeholder="#009688" value="${escapeAttr(baseCompany.accentColor)}" />
-              </div>
               <div class="col-12">
                 <label class="form-label" for="wizard-company-address">Adresse</label>
                 <textarea class="form-control" id="wizard-company-address" name="wizard-company-address" rows="2">${escapeHtml(baseCompany.address)}</textarea>
-              </div>
-              <div class="col-12">
-                <hr class="text-muted" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="wizard-default-water">Liter Wasser pro Kiste</label>
-                <input type="number" min="0" step="any" class="form-control" id="wizard-default-water" name="wizard-default-water" value="${escapeAttr(baseDefaults.waterPerKisteL)}" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="wizard-default-kisten">Kisten pro Ar</label>
-                <input type="number" min="0" step="any" class="form-control" id="wizard-default-kisten" name="wizard-default-kisten" value="${escapeAttr(baseDefaults.kistenProAr)}" />
               </div>
               <div class="col-12 d-flex flex-column flex-md-row gap-3">
                 <button type="submit" class="btn btn-success px-4">Datenbank erzeugen</button>
@@ -148,11 +118,10 @@ export function initStartup(container, services) {
             <h3 class="h5 mb-3">Datenbank erstellt</h3>
             <p class="mb-2">Vorschlag für den Dateinamen: <code data-role="wizard-filename"></code></p>
             <div class="d-flex flex-column flex-lg-row gap-2 mb-3">
-              <button type="button" class="btn btn-success" data-action="wizard-save">Datei speichern (Browser fragt Speicherort)</button>
-              <button type="button" class="btn btn-outline-light" data-action="wizard-download">JSON herunterladen</button>
-              <button type="button" class="btn btn-secondary" data-action="wizard-use">Jetzt in der App nutzen</button>
+              <button type="button" class="btn btn-success" data-action="wizard-save">Datei speichern</button>
             </div>
             <p class="text-muted small mb-2" data-role="wizard-save-hint"></p>
+            <p class="text-muted small mb-2">Vorschau der kompletten JSON-Struktur (scrollbar):</p>
             <pre class="bg-dark rounded p-3 small overflow-auto" style="max-height: 14rem;" data-role="wizard-preview"></pre>
           </div>
         </div>
@@ -165,8 +134,6 @@ export function initStartup(container, services) {
     const filenameLabel = section.querySelector('[data-role="wizard-filename"]');
     const saveHint = section.querySelector('[data-role="wizard-save-hint"]');
     const saveButton = section.querySelector('[data-action="wizard-save"]');
-    const downloadButton = section.querySelector('[data-action="wizard-download"]');
-    const useButton = section.querySelector('[data-action="wizard-use"]');
 
     return {
       section,
@@ -176,8 +143,6 @@ export function initStartup(container, services) {
       filenameLabel,
       saveHint,
       saveButton,
-      downloadButton,
-      useButton,
       reset() {
         form.reset();
         resultCard.classList.add('d-none');
@@ -194,12 +159,13 @@ export function initStartup(container, services) {
   const fileSystemSupported = typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function';
   if (wizard.saveButton) {
     if (!fileSystemSupported) {
-      wizard.saveButton.classList.add('d-none');
+      wizard.saveButton.disabled = true;
+      wizard.saveButton.textContent = 'Datei speichern (nicht verfügbar)';
       if (wizard.saveHint) {
-        wizard.saveHint.textContent = 'Hinweis: Dein Browser unterstützt keinen direkten Dateidialog. Lade stattdessen die JSON-Datei herunter und bewahre sie sicher auf.';
+        wizard.saveHint.textContent = 'Dieser Browser unterstützt keinen direkten Dateidialog. Bitte nutze einen Chromium-basierten Browser (z. B. Chrome, Edge) über HTTPS oder http://localhost.';
       }
     } else if (wizard.saveHint) {
-      wizard.saveHint.textContent = 'Tipp: Nach dem Speichern kannst du die Datei jederzeit erneut verbinden oder weitergeben.';
+      wizard.saveHint.textContent = 'Der Browser fragt nach einem Speicherort. Die erzeugte Datei kannst du später über "Bestehende Datei verbinden" erneut laden.';
     }
   }
 
@@ -274,33 +240,6 @@ export function initStartup(container, services) {
     });
   }
 
-  function handleWizardDownload() {
-    if (!generatedDatabase) {
-      alert('Bitte erst die Datenbank erzeugen.');
-      return;
-    }
-    triggerJsonDownload(generatedDatabase, generatedFilename);
-  }
-
-  async function handleWizardUse(button) {
-    if (!generatedDatabase) {
-      alert('Bitte erst die Datenbank erzeugen.');
-      return;
-    }
-    await withButtonBusy(button, async () => {
-      let driverKey = 'memory';
-      try {
-        setActiveDriver('fallback');
-        driverKey = getActiveDriverKey();
-      } catch (err) {
-        driverKey = getActiveDriverKey() || 'memory';
-      }
-      applyDatabase(generatedDatabase);
-      services.events.emit('database:connected', { driver: driverKey });
-      alert('Datenbank geladen. Du kannst jetzt mit den Funktionen der App fortfahren.');
-    });
-  }
-
   function handleWizardSubmit(event) {
     event.preventDefault();
     const formData = new FormData(wizard.form);
@@ -313,11 +252,7 @@ export function initStartup(container, services) {
     const headline = (formData.get('wizard-company-headline') || '').toString().trim();
     const logoUrl = (formData.get('wizard-company-logo') || '').toString().trim();
     const contactEmail = (formData.get('wizard-company-email') || '').toString().trim();
-    const accentColor = (formData.get('wizard-company-accent') || '').toString().trim();
     const address = (formData.get('wizard-company-address') || '').toString().trim();
-
-    const waterPerKiste = Number(formData.get('wizard-default-water'));
-    const kistenProAr = Number(formData.get('wizard-default-kisten'));
 
     const overrides = {
       meta: {
@@ -326,12 +261,7 @@ export function initStartup(container, services) {
           headline,
           logoUrl,
           contactEmail,
-          accentColor,
           address
-        },
-        defaults: {
-          waterPerKisteL: Number.isFinite(waterPerKiste) ? waterPerKiste : baseDefaults.waterPerKisteL,
-          kistenProAr: Number.isFinite(kistenProAr) ? kistenProAr : baseDefaults.kistenProAr
         }
       }
     };
@@ -391,10 +321,6 @@ export function initStartup(container, services) {
     }
     if (action === 'wizard-save') {
       handleWizardSave(button);
-    } else if (action === 'wizard-download') {
-      handleWizardDownload();
-    } else if (action === 'wizard-use') {
-      handleWizardUse(button);
     }
   });
 

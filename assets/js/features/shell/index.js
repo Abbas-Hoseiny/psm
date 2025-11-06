@@ -62,8 +62,8 @@ export function initShell(regions, services) {
       brandLogo.classList.add('d-none');
     }
     brandLogo.alt = company.name || 'Logo';
-    brandTitle.textContent = company.name || 'Bio-Pflanzenschutz';
-  brandTagline.textContent = company.headline || '';
+    brandTitle.textContent = company.name || 'Pflanzenschutz';
+    brandTagline.textContent = company.headline || '';
   brandTagline.classList.toggle('d-none', !company.headline);
     if (company.accentColor) {
       brandTagline.style.color = company.accentColor;
@@ -72,6 +72,11 @@ export function initShell(regions, services) {
     }
 
     nav.style.setProperty('--accent-color', company.accentColor || '');
+    if (company.name) {
+      document.title = `${company.name} – Pflanzenschutz`;
+    } else {
+      document.title = 'Pflanzenschutz';
+    }
 
     const buttons = nav.querySelectorAll('[data-section]');
     buttons.forEach(btn => {
