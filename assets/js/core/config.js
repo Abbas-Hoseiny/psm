@@ -1,6 +1,16 @@
+import { resolveFieldLabels } from './labels.js';
 import { getState, patchState } from './state.js';
 
 let cachedDefaults = null;
+
+function mergeDefaults(base = {}, incoming = {}) {
+  const merged = { ...base, ...incoming };
+  merged.form = {
+    ...(base.form || { creator: '', location: '', crop: '', quantity: '' }),
+    ...(incoming.form || {})
+  };
+  return merged;
+}
 
 export async function loadDefaultsConfig() {
   if (cachedDefaults) {
@@ -24,10 +34,11 @@ export async function loadDefaultsConfig() {
   // Apply defaults to store
   patchState({
     company: { ...current.company, ...(defaults.meta?.company ?? {}) },
-    defaults: { ...current.defaults, ...(defaults.meta?.defaults ?? {}) },
+    defaults: mergeDefaults(current.defaults, defaults.meta?.defaults ?? {}),
     measurementMethods: [...(defaults.meta?.measurementMethods ?? [])],
     mediums: [...(defaults.mediums ?? [])],
-    history: [...(defaults.history ?? [])]
+    history: [...(defaults.history ?? [])],
+    fieldLabels: resolveFieldLabels(defaults.meta?.fieldLabels ?? {})
   });
 
   return cachedDefaults;
