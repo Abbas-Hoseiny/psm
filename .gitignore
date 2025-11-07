@@ -1,0 +1,28 @@
+# Test files
+test-sqlite.html
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.bak
+
+# Local database files (for testing)
+*.sqlite
+*.db
+
+# Node modules (if ever added)
+node_modules/
+
+# Build output (if ever added)
+dist/
+build/
