@@ -1,91 +1,140 @@
-# Compact History & Reporting Redesign
+# SQLite-WASM Migration Blueprint
 
-The goal is to replace the table-based history/reporting views with compact "calculation snapshot" cards that automatically pick up the customizable field labels from the calculation module. The same layout must drive both the on-screen display and the print/PDF exports.
+This document is a detailed execution plan for introducing a full SQLite-WASM storage layer into the existing Pflanzenschutzliste web application. It is structured so that a coding agent can pick individual tasks, implement them, and validate the work step by step.
 
-## Scope
+## 1. Zielsetzung & Rahmen
+- Ersetze die bisherige JSON-basierte Persistenz durch eine SQLite-Datenbank im Browser, primär via OPFS (Origin Private File System).
+- Halte den bisherigen UX-Flow (Datenbank erstellen/öffnen/speichern) aufrecht; erweitere ihn um einen SQLite-Export/Import.
+- Stelle sicher, dass die App auch bei sehr großen Datenmengen performant bleibt (Lazy Loading, Worker, vorbereitete Statements).
+- Bewahre Kompatibilität: Fallback auf bestehende JSON-Treiber, falls SQLite-WASM/OPFS nicht verfügbar ist.
 
-- `assets/js/features/history/index.js`
-- `assets/js/features/reporting/index.js`
-- `assets/css/components.css` (or dedicated SCSS/CSS for the new card layout)
-- Any shared helpers that live under `assets/js/core/*`
+## 2. Architekturüberblick
+- **Neuer Storage-Treiber `sqlite`** (in `assets/js/core/storage/sqlite.js`).
+- **Web Worker** (`assets/js/core/storage/sqliteWorker.js`) lädt und betreibt SQLite-WASM, kapselt alle DB-Operationen und verhindert UI-Blocking.
+- **WASM Assets** (z. B. `assets/vendor/sqlite/sqlite3.wasm`, `sqlite3.js`, `sqlite3.wasm.wasmfs.data` falls benötigt) lokal bundlen.
+- **Message Bridge** zwischen Hauptthread und Worker (Request/Response mit IDs, Fehlerbehandlung, Cancel-Handling).
+- **Data Access Layer (DAL)** in Worker kapselt SQL, verwaltet Schema, Migrationen, Paging.
+- **State Layer** im Hauptthread bleibt die Single Source of Truth für die UI, holt Daten via DAL/Worker und schreibt aktualisierte Slices wie bisher.
 
-## Desired UX
+## 3. Schema & Migration
+1. Definiere SQL-Schema in `assets/js/core/storage/schema.sql` (neue Datei):
+   - `meta (key TEXT PRIMARY KEY, value TEXT)` für Settings wie Version, company JSON, defaults JSON, labels JSON.
+   - `measurement_methods (id TEXT PRIMARY KEY, label TEXT, type TEXT, unit TEXT, requires TEXT, config TEXT)`.
+   - `mediums (id TEXT PRIMARY KEY, name TEXT, unit TEXT, method_id TEXT, value REAL, FOREIGN KEY(method_id) REFERENCES measurement_methods(id))`.
+   - `history (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, header_json TEXT)`.
+   - `history_items (id INTEGER PRIMARY KEY AUTOINCREMENT, history_id INTEGER REFERENCES history(id) ON DELETE CASCADE, medium_id TEXT, payload_json TEXT)`.
+   - Optional: `indices` auf `history(created_at DESC)` und `history_items(history_id)`.
+2. Implementiere Migration-Manager im Worker (z. B. `applyMigrations(db)`):
+   - Nutze `PRAGMA user_version` zur Schema-Versionierung.
+   - Migration 1: Erstelle o. g. Tabellen + Defaultdaten.
+   - Migration 2+: Reserviert für zukünftige Anpassungen.
+3. JSON → SQLite Import:
+   - Parse `defaults.json` beim Erststart (wenn DB leer) und schreibe in Tabellen via Transaktion.
+   - Für User-Import (bestehende JSON-Datei) ähnlicher Pfad.
+4. SQLite → JSON Export:
+   - Baue Funktion, die alle Tabellen in das existierende `getDatabaseSnapshot()`-Format zurückführt.
 
-1. Each saved calculation renders as a **card**:
-   - Header block showing creator/location/crop/date with the current labels (`state.fieldLabels.calculation.fields.*`).
-   - Body block listing all mediums. This can be a slim 2–3 column layout or a small table; keep it compact.
-   - Footer actions: buttons for "Ansehen", "Löschen", Print checkbox, etc. The existing functionality must survive.
-2. **History view**
-   - Cards replace the `<table>` under `#history-table`.
-   - Selection still works (checkbox + highlighted card when selected).
-   - Detail drawer (`#history-detail`) reuses the same snapshot markup or gets simplified to display the card again with larger type.
-3. **Reporting view**
-   - Same card renderer (loop over filtered entries).
-   - Filter summary text remains at the top (no cards when empty).
-4. **Printing**
-   - Both history and reporting printouts use the card markup. No static column headers; labels come from state.
-   - Company header stays as-is at the top; card borders should render well in grey-scale.
+## 4. Worker-Implementierung
+- **Dateien:**
+  - `assets/js/core/storage/sqliteWorker.js` (Worker Script, per ES Module laden).
+  - Optional Hilfsdateien (`dal.js`, `migrations.js`, `queries.js`).
+- **Initialisierung:**
+  - `sqlite3InitModule` laden (`importScripts` oder `await import` in Worker context).
+  - `const sqlite3 = await sqlite3InitModule({ locateFile: file => 'assets/vendor/sqlite/' + file });`
+  - OPFS-Handle öffnen (`navigator.storage.getDirectory()`), DB-Datei `pflanzenschutz.sqlite` erzeugen, `sqlite3.oo1.DB` mit `{ filename: 'file:pflanzenschutz-prod?mode=rw', vfs: 'opfs', create: true }` initialisieren.
+  - Konfiguriere `PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-20000;`.
+- **Message Handling:**
+  - Request-Form: `{ id, action, payload }`.
+  - Response-Form: `{ id, ok, result }` oder `{ id, ok: false, error }`.
+  - Aktionen: `init`, `importSnapshot`, `exportSnapshot`, `upsertMedium`, `deleteMedium`, `listMediums`, `listHistory`, `getHistoryEntry`, `appendHistoryEntry`, `deleteHistoryEntry`, usw.
+- **Prepared Statements & Transaktionen:**
+  - Halte Statement-Pools für häufige Queries (z. B. Medium CRUD, History Paging).
+  - Nutze Transaktionen für Batch-Operationen und Imports.
 
-## Implementation Outline
+## 5. Hauptthread-Treiber (`sqlite.js`)
+- API kompatibel zu `fileSystem`/`fallback` Treibern: `isSupported`, `create`, `open`, `save`, `getContext`, `reset`.
+- Aufgaben:
+  1. Worker instanziieren (`new Worker(new URL('./sqliteWorker.js', import.meta.url), { type: 'module' })`).
+  2. Init-Sequenz: `await worker.call('init', { mode: detectMode() })`.
+  3. `create(initialData)`: DB neu erstellen, Schema anwenden, Snapshot importieren, optional FileHandle sichern.
+  4. `open()`: Existierende SQLite-Datei (via File Picker) lesen, Worker-DB aus `ArrayBuffer` initialisieren (`DB.createFrom`) oder OPFS-File mit Hochladen ersetzen.
+  5. `save(data)`: Aktualisierte Snapshots per `importSnapshot` (UPSERT) einspielen.
+  6. `exportFile()`: Worker `exportSnapshot`-Result in eine Datei schreiben (`db.export()` → `Uint8Array`).
+  7. `destroy()`: Worker terminieren, Ressourcen freigeben.
+- Ergänze `storage/index.js`:
+  - `DRIVERS.sqlite = sqliteDriver`.
+  - Passe `detectPreferredDriver` an (`if (sqliteDriver.isSupported()) return 'sqlite';`).
+  - Erweitere State `app.storageDriver` um Wert `'sqlite'`.
 
-1. **Shared helpers**
-   - Create a pure function (e.g. `renderCalculationSnapshot(entry, labels, options)`) returning DOM or HTML string.
-   - Inputs: `entry` (history object), `labels` (`state.fieldLabels`), optional flags (`compact`, `showActions`, `includeCheckbox`).
-   - Output: markup string you can inject with `innerHTML`.
-   - Handle value formatting (numbers → `formatNumber`), escaping HTML, and fallbacks (`'-'`).
-   - Add a variation helper for print that returns plain HTML (no buttons, no checkboxes).
+## 6. UI & State Anpassungen
+- **Startup Feature** (`assets/js/features/startup/index.js`):
+  - Neue Buttons für „SQLite-Datenbank erstellen“ / „SQLite-Datei verbinden“.
+  - Fallback-Hinweise, wenn Browser kein WASM/OPFS kann.
+  - Wizards aktualisieren, um `.sqlite` statt `.json` vorzuschlagen.
+- **Settings Feature** (`assets/js/features/settings/index.js`):
+  - CRUD-Aktionen via Worker-Calls implementieren (nicht mehr nur State-Arrays).
+  - Nach erfolgreicher Operation: UI-State synchronisieren (`services.state.updateSlice` mit Worker-Daten).
+- **History Feature** (`assets/js/features/history/index.js`):
+  - Paging/Lazy Loading bei großen Datenmengen (`loadHistoryPage(pageSize, cursor)` via Worker).
+  - Detail-Ansicht lädt Items on-demand (`getHistoryEntry(id)`).
+- **Calculation Feature** (`assets/js/features/calculation/index.js`):
+  - `save`-Button schreibt History-Eintrag über Worker, erhält ID zurück, aktualisiert UI-State minimal.
+  - Optionale Optimierung: Medium/Method-Lookups direkt aus SQLite (z. B. Worker `listMediums` bei Start).
+- **State Layer (`state.js`)**: State bleibt primär als UI-Cache; achte darauf, keine vollständigen Kopien großer Tabellen mehr zu halten (z. B. History nur aktuelle Seite).
+- **Labels/Config**: Persistiere Label-Änderungen in SQLite (`meta`-Tabelle). Beim Start Snapshot ziehen und State initialisieren.
 
-2. **History module**
-   - Replace `renderTable` with a renderer that clears a card container (`section.querySelector('[data-role="history-list"]')`).
-   - Each card:
-     - Checkbox (retain `data-action="toggle-select"`).
-     - Snapshot content.
-     - Action buttons (view/delete) at the bottom.
-     - Selected state toggles a class to highlight the card.
-   - Update event delegation to work with the new markup (`closest('[data-action]')`).
-   - Update `renderDetail` to reuse snapshot markup (maybe plus totals). Option: when "Ansehen" clicked, scroll to detail card and render snapshot with bigger typography.
-   - Update print helpers (`buildSummaryTable`, `buildDetailSection`) to call the shared renderer (print mode) so layout stays consistent.
+## 7. JSON-Kompatibilität
+- Biete weiterhin Import/Export von JSON-Snapshots als Brücke:
+  - Worker-Funktion `exportJsonSnapshot` generiert JSON aus DB.
+  - `createInitialDatabase` nutzt Worker statt `defaults.json` direkt.
+  - Datei-Uploads (`.json`) importieren via Worker-Transaktion.
 
-3. **Reporting module**
-   - Similar changes: replace table with container of cards.
-   - `renderTable` becomes something like `renderCards(section, entries, labels)`.
-   - Print function uses shared print renderer.
+## 8. Tests & Qualitätssicherung
+- Implementiere automatisierte Browser-Tests (Playwright) oder Integrationstests, die Worker-Funktionalität validieren (z. B. Import, CRUD, Export).
+- Führe Lasttests lokal aus: generiere mehrere tausend History-Einträge, prüfe Ladezeiten & Speicherverbrauch.
+- Prüfe Browser-Kompatibilität: Chrome/Edge (OPFS), Firefox (Fallback, ggf. Behind-Flag Hinweis), Safari (WASM Support, kein OPFS → fallback auf JSON).
+- Validierung nach jedem Schritt (`console`-Warnungen, Fehler-Handling).
+- Dokumentiere alle neuen NPM/Build-Schritte (falls bundler nötig wird, z. B. Rollup/Vite für Worker + WASM). Aktuell ES Module → Worker via `new URL`.
 
-4. **Styling**
-   - Define `.calc-snapshot-card` in `assets/css/components.css`:
-     - Border, padding, dark-mode friendly backgrounds.
-     - Responsive layout (stack on mobile, two-column for medium header).
-     - Print overrides to force white background, black text, 1px borders.
-   - `.snapshot-mediums` for the list of mediums (use CSS grid or definition list).
-   - `.snapshot-meta` for the header labels, align colon and values cleanly.
-   - Add `.snapshot-actions`, `.snapshot-select` etc.
+## 9. Schritt-für-Schritt-Umsetzung (empfohlene Reihenfolge)
+1. **Vorbereitung**
+   - SQLite-WASM Assets hinzufügen.
+   - Worker Grundgerüst + Init-Test (simple Query) erstellen.
+2. **Schema & Migrationen**
+   - `schema.sql`, Migration-Manager, Import `defaults.json`.
+3. **Worker-DAL API**
+   - CRUD-Methoden implementieren (Mediums, MeasurementMethods, History Paging, Meta).
+4. **Hauptthread-Treiber**
+   - `sqlite.js` implementieren, an `storage/index.js` anbinden.
+5. **Startup-Flow**
+   - UI aktualisieren, SQLite-Optionen integrieren, Fallback-Hinweise.
+6. **Settings/Calculation/History anpassen**
+   - UI-Events → Worker Calls, State-Sync.
+   - Paging & Lazy Loading für History.
+7. **Import/Export**
+   - JSON + SQLite Export/Import implementieren.
+   - Download/Upload via File Picker.
+8. **Fallback & Feature Detection**
+   - `isSupported` Checks, fallback to JSON driver, UI informiert Nutzer.
+9. **Optimierung & Tests**
+   - Performance-Tuning (Pragma, Statement-Reuse).
+   - Integrationstests, große Testdatensätze, Regressionen prüfen.
+10. **Dokumentation**
+    - README aktualisieren (neue Features, Browser-Anforderungen, bekannte Einschränkungen).
 
-5. **State/Labels**
-   - Use the same field labels as calculation form: `labels.calculation.fields.creator.label`, etc. for the header.
-   - For the medium list, reuse `labels.calculation.tableColumns` for column titles (if you show table headings) or embed label text in each row.
+## 10. Offene Fragen (für Product Owner / Stakeholder)
+- Welche Mindest-Browser sollen unterstützt werden? (OPFS/SharedArrayBuffer).
+- Soll History dauerhaft im UI-State cachen oder nur aktuelle Seite? (Memory-Verbrauch).
+- Benötigt der Export wahlweise JSON und SQLite parallel? (für Datenaustausch mit bestehenden Nutzern).
+- Ist eine Verschlüsselung / Passwortschutz vorgesehen? (SQLite unterstützt, aber zusätzliche Arbeit).
 
-6. **Testing / Validation**
-   - Manual regression:
-     - Load defaults, create new calculation, save, open history/reporting, verify labels match edited names.
-     - Toggle selection, print selected, ensure PDF uses card layout.
-     - Filter reporting entries by date; confirm only matching cards render.
-     - Delete an entry; ensure card disappears and selection count updates.
-   - Console: no errors or warnings.
-   - Run `node --check` on modified JS modules.
-   - (Optional) Write a quick DOM test harness if feasible; otherwise manual QA instructions suffice.
+## 11. Erfolgskriterien
+- SQLite-WASM läuft stabil in Chromium-basierten Browsern mit OPFS, inklusive Persistenz über Reloads.
+- App reagiert flüssig bei >10k History-Einträgen (Paging, on-demand Laden).
+- Import/Export (JSON & SQLite) funktioniert ohne Datenverlust.
+- Fallback auf JSON-Storage funktioniert, wenn SQLite-WASM nicht verfügbar.
+- Tests decken neue Persistenzlogik ab; keine Regressionen in bestehender UI.
 
-7. **Acceptance criteria**
-   - No static strings like "Erstellt von" remain; everything resolves through labels/state.
-   - History and reporting show identical card layout (only contextual differences like actions and filter info).
-   - Printing history/reporting yields cards with clear borders and correct data; no leftover table headers.
-   - All existing actions (select, delete, view, print, filter) still function.
+---
 
-## Notes for Coding Agent
-
-- Keep helper functions in plain JS modules (no framework). Consider putting them under `assets/js/features/shared/` if the folder exists; otherwise create one.
-- Use `escapeHtml` utilities already present (import if needed) to avoid XSS.
-- Maintain backward compatibility with saved data structure (`entry.items` etc.).
-- Treat `entry.datum` and `entry.date` interchangeably as currently handled.
-- Remember to update event listeners to accommodate the new markup; watch for `closest()` usage.
-- Add minimal inline comments only where behavior is not self-explanatory.
-- Ask for clarification before changing unrelated modules.
+Mit diesem Plan kann ein Coding Agent die Migration schrittweise durchführen und nach jedem Milestone testen. Änderungen sollten in kleinen, reviewbaren Pull Requests umgesetzt werden (z. B. pro Abschnitt aus Kapitel 9).
