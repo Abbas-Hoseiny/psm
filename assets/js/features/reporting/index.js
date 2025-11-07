@@ -1,5 +1,6 @@
 import { getState } from '../../core/state.js';
 import { printHtml } from '../../core/print.js';
+import { buildMediumSummaryLines } from '../shared/mediumTable.js';
 
 let initialized = false;
 let currentEntries = [];
@@ -66,14 +67,6 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function formatNumber(value) {
-  const num = Number.parseFloat(value);
-  if (Number.isNaN(num)) {
-    return '-';
-  }
-  return num.toFixed(2);
-}
-
 function parseDate(value) {
   if (!value) {
     return null;
@@ -121,17 +114,15 @@ function renderTable(section, entries, labels) {
   }
   entries.forEach(entry => {
     const row = document.createElement('tr');
-    const mittelHtml = (entry.items || [])
-      .map(formatMediumLine)
-      .map(line => `<div>${line}</div>`)
-      .join('');
+    const mediumLines = buildMediumSummaryLines(entry.items, resolvedLabels);
+    const mediumsCell = mediumLines.length ? mediumLines.map(line => `<div>${line}</div>`).join('') : '-';
     row.innerHTML = `
       <td>${escapeHtml(entry.datum || entry.date || '')}</td>
       <td>${escapeHtml(entry.ersteller || '')}</td>
       <td>${escapeHtml(entry.standort || '')}</td>
       <td>${escapeHtml(entry.kultur || '')}</td>
       <td>${escapeHtml(entry.kisten != null ? String(entry.kisten) : '')}</td>
-      <td>${mittelHtml}</td>
+      <td>${mediumsCell}</td>
     `;
     tbody.appendChild(row);
   });
@@ -288,18 +279,20 @@ function buildReportTable(entries, labels) {
   const resolvedLabels = labels || getState().fieldLabels;
   const tableLabels = resolvedLabels.reporting.tableColumns;
   const rows = entries
-    .map(entry => `
+    .map(entry => {
+      const summaryLines = buildMediumSummaryLines(entry.items, resolvedLabels);
+      const mediumsCell = summaryLines.length ? summaryLines.join('<br />') : '-';
+      return `
       <tr>
         <td>${escapeHtml(entry.datum || entry.date || '')}</td>
         <td>${escapeHtml(entry.ersteller || '')}</td>
         <td>${escapeHtml(entry.standort || '')}</td>
         <td>${escapeHtml(entry.kultur || '')}</td>
         <td class="nowrap">${escapeHtml(entry.kisten != null ? String(entry.kisten) : '')}</td>
-        <td>${(entry.items || [])
-          .map(formatMediumLine)
-          .join('<br />')}</td>
+        <td>${mediumsCell}</td>
       </tr>
-    `)
+      `;
+    })
     .join('');
   return `
     <section class="report-summary">
@@ -330,17 +323,4 @@ function printReport(entries, filter, labels) {
     styles: REPORT_STYLES,
     content
   });
-}
-
-function formatMediumLine(item = {}) {
-  const name = escapeHtml(item.name || '');
-  const unit = escapeHtml(item.unit || '');
-  const total = formatNumber(item.total);
-  if (!name) {
-    return '-';
-  }
-  if (total === '-') {
-    return `${name}: -`;
-  }
-  return `${name}: ${total} ${unit}`.trim();
 }

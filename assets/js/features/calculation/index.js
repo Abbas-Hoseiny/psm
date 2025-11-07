@@ -2,6 +2,7 @@ import { getState } from '../../core/state.js';
 import { setFieldLabelByPath } from '../../core/labels.js';
 import { getDatabaseSnapshot } from '../../core/database.js';
 import { saveDatabase, getActiveDriverKey } from '../../core/storage/index.js';
+import { buildMediumTableHead, buildMediumTableRows } from '../shared/mediumTable.js';
 
 let initialized = false;
 
@@ -30,7 +31,7 @@ function createSection(labels, defaultsState) {
   section.dataset.section = 'calc';
   section.innerHTML = `
     <div class="section-inner">
-      <div class="card card-dark mb-4">
+      <div class="card card-dark mb-4 no-print">
         <div class="card-body">
           <form id="calculationForm" class="row g-3 no-print">
             <div class="col-md-3">
@@ -56,33 +57,46 @@ function createSection(labels, defaultsState) {
         </div>
       </div>
       <div id="calc-result" class="card card-dark d-none">
-        <div class="card-header bg-success text-white">
-          <h5 class="mb-0" data-label-id="calc-result-title">${escapeHtml(labels.calculation.resultTitle)}</h5>
-        </div>
         <div class="card-body">
-          <div class="calc-company text-center mb-3 d-none">
-            <h4 class="calc-company-name mb-0" data-field="company"></h4>
-          </div>
           <div class="calc-summary mb-3">
-            <p class="mb-1"><strong data-label-id="calc-summary-creator">${escapeHtml(labels.calculation.fields.creator.label)}</strong>: <span data-field="ersteller"></span></p>
-            <p class="mb-1"><strong data-label-id="calc-summary-location">${escapeHtml(labels.calculation.fields.location.label)}</strong>: <span data-field="standort"></span></p>
-            <p class="mb-1"><strong data-label-id="calc-summary-crop">${escapeHtml(labels.calculation.fields.crop.label)}</strong>: <span data-field="kultur"></span></p>
-            <p class="mb-1"><strong data-label-id="calc-summary-date">${escapeHtml(labels.calculation.summary.dateLabel || 'Datum')}</strong>: <span data-field="datum"></span></p>
+            <div class="calc-summary-columns">
+              <div class="calc-summary-column calc-summary-main">
+                <div class="calc-summary-row">
+                  <span class="calc-summary-label" data-label-id="calc-summary-creator">${escapeHtml(labels.calculation.fields.creator.label)}</span>
+                  <span class="calc-summary-value" data-field="ersteller"></span>
+                </div>
+                <div class="calc-summary-row">
+                  <span class="calc-summary-label" data-label-id="calc-summary-location">${escapeHtml(labels.calculation.fields.location.label)}</span>
+                  <span class="calc-summary-value" data-field="standort"></span>
+                </div>
+                <div class="calc-summary-row">
+                  <span class="calc-summary-label" data-label-id="calc-summary-crop">${escapeHtml(labels.calculation.fields.crop.label)}</span>
+                  <span class="calc-summary-value" data-field="kultur"></span>
+                </div>
+                <div class="calc-summary-row">
+                  <span class="calc-summary-label" data-label-id="calc-summary-date">${escapeHtml(labels.calculation.summary.dateLabel || 'Datum')}</span>
+                  <span class="calc-summary-value" data-field="datum"></span>
+                </div>
+              </div>
+              <div class="calc-summary-column calc-summary-company">
+                <div class="calc-summary-row d-none" data-company-row="headline">
+                  <span class="calc-summary-label">Claim</span>
+                  <span class="calc-summary-value" data-field="company-headline"></span>
+                </div>
+                <div class="calc-summary-row d-none" data-company-row="address">
+                  <span class="calc-summary-label">Anschrift</span>
+                  <span class="calc-summary-value calc-summary-value--multiline" data-field="company-address"></span>
+                </div>
+                <div class="calc-summary-row d-none" data-company-row="email">
+                  <span class="calc-summary-label">E-Mail</span>
+                  <a class="calc-summary-value" data-field="company-email"></a>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="table-responsive">
-            <table class="table table-dark table-striped align-middle" id="calc-results-table">
-              <thead>
-                <tr>
-                  <th data-label-id="calc-th-medium">${escapeHtml(labels.calculation.tableColumns.medium)}</th>
-                  <th data-label-id="calc-th-unit">${escapeHtml(labels.calculation.tableColumns.unit)}</th>
-                  <th data-label-id="calc-th-method">${escapeHtml(labels.calculation.tableColumns.method)}</th>
-                  <th data-label-id="calc-th-value">${escapeHtml(labels.calculation.tableColumns.value)}</th>
-                  <th data-label-id="calc-th-per-quantity">${escapeHtml(labels.calculation.tableColumns.perQuantity)}</th>
-                  <th data-label-id="calc-th-area-ar">${escapeHtml(labels.calculation.tableColumns.areaAr)}</th>
-                  <th data-label-id="calc-th-area-sqm">${escapeHtml(labels.calculation.tableColumns.areaSqm)}</th>
-                  <th data-label-id="calc-th-total">${escapeHtml(labels.calculation.tableColumns.total)}</th>
-                </tr>
-              </thead>
+          <div class="calc-table-wrapper">
+            <table class="table table-dark table-striped align-middle calc-medium-table" id="calc-results-table">
+              <thead></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -106,19 +120,10 @@ function applyFieldLabels(section, labels) {
     'calc-form-location': labels.calculation.fields.location.label,
     'calc-form-crop': labels.calculation.fields.crop.label,
     'calc-form-quantity': labels.calculation.fields.quantity.label,
-    'calc-result-title': labels.calculation.resultTitle,
     'calc-summary-creator': labels.calculation.fields.creator.label,
     'calc-summary-location': labels.calculation.fields.location.label,
     'calc-summary-crop': labels.calculation.fields.crop.label,
-    'calc-summary-date': labels.calculation.summary.dateLabel || 'Datum',
-    'calc-th-medium': labels.calculation.tableColumns.medium,
-    'calc-th-unit': labels.calculation.tableColumns.unit,
-    'calc-th-method': labels.calculation.tableColumns.method,
-    'calc-th-value': labels.calculation.tableColumns.value,
-    'calc-th-per-quantity': labels.calculation.tableColumns.perQuantity,
-    'calc-th-area-ar': labels.calculation.tableColumns.areaAr,
-    'calc-th-area-sqm': labels.calculation.tableColumns.areaSqm,
-    'calc-th-total': labels.calculation.tableColumns.total
+    'calc-summary-date': labels.calculation.summary.dateLabel || 'Datum'
   };
 
   Object.entries(labelMap).forEach(([key, text]) => {
@@ -156,14 +161,11 @@ function applyFieldLabels(section, labels) {
       element.setAttribute('placeholder', typeof text === 'string' ? text : '');
     }
   });
-}
 
-function formatNumber(value, fractionDigits = 2) {
-  const num = Number.parseFloat(value);
-  if (Number.isNaN(num)) {
-    return (0).toFixed(fractionDigits);
+  const tableHead = section.querySelector('#calc-results-table thead');
+  if (tableHead) {
+    tableHead.innerHTML = buildMediumTableHead(labels, 'calculation');
   }
-  return num.toFixed(fractionDigits);
 }
 
 async function persistHistory(services) {
@@ -221,13 +223,17 @@ export function initCalculation(container, services) {
 
   const form = section.querySelector('#calculationForm');
   const resultCard = section.querySelector('#calc-result');
-  const resultsBody = section.querySelector('#calc-results-table tbody');
+  const resultsTable = section.querySelector('#calc-results-table');
+  const resultsHead = resultsTable.querySelector('thead');
+  const resultsBody = resultsTable.querySelector('tbody');
   const fieldEls = {
-    company: resultCard.querySelector('[data-field="company-name"]'),
     ersteller: resultCard.querySelector('[data-field="ersteller"]'),
     standort: resultCard.querySelector('[data-field="standort"]'),
     kultur: resultCard.querySelector('[data-field="kultur"]'),
-    datum: resultCard.querySelector('[data-field="datum"]')
+    datum: resultCard.querySelector('[data-field="datum"]'),
+    companyHeadline: resultCard.querySelector('[data-field="company-headline"]'),
+    companyAddress: resultCard.querySelector('[data-field="company-address"]'),
+    companyEmail: resultCard.querySelector('[data-field="company-email"]')
   };
 
   function resolveFieldEl(key) {
@@ -272,6 +278,8 @@ export function initCalculation(container, services) {
       return;
     }
     const { header, items } = calculation;
+    const stateSnapshot = getState();
+    const companyData = stateSnapshot.company || {};
     const setFieldText = (key, value) => {
       const el = resolveFieldEl(key);
       if (el) {
@@ -283,30 +291,48 @@ export function initCalculation(container, services) {
     setFieldText('standort', header.standort);
     setFieldText('kultur', header.kultur);
     setFieldText('datum', header.datum);
-    const companyName = getState().company?.name || '';
-    const companyEl = setFieldText('company', companyName);
-    if (companyEl) {
-      const wrapper = companyEl.closest('.calc-company');
-      if (wrapper) {
-        wrapper.classList.toggle('d-none', !companyName);
+
+    const updateCompanyRowVisibility = (rowKey, visible) => {
+      const row = resultCard.querySelector(`[data-company-row="${rowKey}"]`);
+      if (row) {
+        row.classList.toggle('d-none', !visible);
       }
+    };
+
+    const headlineValue = companyData.headline?.trim() || '';
+    const headlineEl = setFieldText('companyHeadline', headlineValue);
+    updateCompanyRowVisibility('headline', Boolean(headlineValue));
+
+    const addressEl = resolveFieldEl('companyAddress');
+    const addressValue = companyData.address?.trim() || '';
+    if (addressEl) {
+      addressEl.textContent = addressValue;
+      updateCompanyRowVisibility('address', Boolean(addressValue));
     }
 
-    resultsBody.innerHTML = '';
-    items.forEach(item => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${item.name}</td>
-        <td>${item.unit}</td>
-        <td>${item.methodLabel}</td>
-        <td>${formatNumber(item.value)}</td>
-          <td>${item.inputs.kisten}</td>
-          <td>${formatNumber(item.inputs.areaAr)}</td>
-          <td>${formatNumber(item.inputs.areaSqm)}</td>
-          <td>${formatNumber(item.total)} ${item.unit}</td>
-      `;
-      resultsBody.appendChild(row);
-    });
+    const emailEl = resolveFieldEl('companyEmail');
+    const emailValue = companyData.contactEmail?.trim() || '';
+    if (emailEl) {
+      if (emailValue) {
+        emailEl.textContent = emailValue;
+        emailEl.setAttribute('href', `mailto:${emailValue}`);
+      } else {
+        emailEl.textContent = '';
+        emailEl.removeAttribute('href');
+      }
+      updateCompanyRowVisibility('email', Boolean(emailValue));
+    }
+
+    const companyColumn = resultCard.querySelector('.calc-summary-company');
+    if (companyColumn) {
+      const hasVisibleRow = Array.from(companyColumn.querySelectorAll('[data-company-row]')).some(row => !row.classList.contains('d-none'));
+      companyColumn.classList.toggle('d-none', !hasVisibleRow);
+    }
+
+    if (resultsHead) {
+      resultsHead.innerHTML = buildMediumTableHead(labels, 'calculation');
+    }
+    resultsBody.innerHTML = buildMediumTableRows(items, labels, 'calculation');
     resultCard.classList.remove('d-none');
   }
 

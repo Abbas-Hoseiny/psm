@@ -1,5 +1,6 @@
 import { getState } from '../../core/state.js';
 import { printHtml } from '../../core/print.js';
+import { buildMediumTableHTML, buildMediumSummaryLines } from '../shared/mediumTable.js';
 
 let initialized = false;
 const selectedIndexes = new Set();
@@ -11,14 +12,6 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function formatNumber(value) {
-  const num = Number.parseFloat(value);
-  if (Number.isNaN(num)) {
-    return '-';
-  }
-  return num.toFixed(2);
 }
 
 function createSection() {
@@ -122,7 +115,7 @@ function renderDetail(entry, section, index = null, labels) {
   const resolvedLabels = labels || getState().fieldLabels;
   const tableLabels = resolvedLabels.history.tableColumns;
   const detailLabels = resolvedLabels.history.detail;
-  const calcColumns = resolvedLabels.calculation.tableColumns;
+  const snapshotTable = buildMediumTableHTML(entry.items, resolvedLabels, 'detail');
   detailBody.innerHTML = `
     <p>
       <strong>${escapeHtml(tableLabels.date)}:</strong> ${escapeHtml(entry.datum || entry.date || '')}<br />
@@ -132,38 +125,7 @@ function renderDetail(entry, section, index = null, labels) {
       <strong>${escapeHtml(detailLabels.quantity)}:</strong> ${escapeHtml(entry.kisten != null ? String(entry.kisten) : '')}
     </p>
     <div class="table-responsive">
-      <table class="table table-dark table-striped">
-        <thead>
-          <tr>
-            <th>${escapeHtml(calcColumns.medium)}</th>
-            <th>${escapeHtml(calcColumns.unit)}</th>
-            <th>${escapeHtml(calcColumns.method)}</th>
-            <th>${escapeHtml(calcColumns.value)}</th>
-            <th>${escapeHtml(calcColumns.total)}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${(entry.items || [])
-            .map(item => {
-              const name = escapeHtml(item.name || '');
-              const unit = escapeHtml(item.unit || '');
-              const method = escapeHtml(item.methodLabel || item.methodId || '');
-              const value = formatNumber(item.value);
-              const total = formatNumber(item.total);
-              const totalDisplay = total === '-' ? '-' : `${total} ${unit}`.trim();
-              return `
-                <tr>
-                  <td>${name}</td>
-                  <td>${unit}</td>
-                  <td>${method}</td>
-                  <td>${value}</td>
-                  <td>${totalDisplay}</td>
-                </tr>
-              `;
-            })
-            .join('')}
-        </tbody>
-      </table>
+      ${snapshotTable}
     </div>
     <button class="btn btn-outline-secondary no-print" data-action="detail-print">Drucken / PDF</button>
   `;
@@ -227,17 +189,18 @@ function buildCompanyHeader(company = {}) {
   `;
 }
 
-function mediumsList(items) {
-  return (items || [])
-    .map(item => `${escapeHtml(item.name)}: ${formatNumber(item.total)} ${escapeHtml(item.unit)}`)
-    .join('<br />');
-}
-
 function buildSummaryTable(entries, labels) {
   const resolvedLabels = labels || getState().fieldLabels;
   const tableLabels = resolvedLabels.history.tableColumns;
   const summaryTitle = resolvedLabels.history.summaryTitle;
   const mediumsHeading = resolvedLabels.history.mediumsHeading;
+  const renderMediumSummary = (items) => {
+    const lines = buildMediumSummaryLines(items, resolvedLabels);
+    if (!lines.length) {
+      return '-';
+    }
+    return lines.map(line => `<div>${line}</div>`).join('');
+  };
   const rows = entries
     .map(entry => `
       <tr>
@@ -246,7 +209,7 @@ function buildSummaryTable(entries, labels) {
         <td>${escapeHtml(entry.standort || '')}</td>
         <td>${escapeHtml(entry.kultur || '')}</td>
         <td class="nowrap">${escapeHtml(entry.kisten != null ? String(entry.kisten) : '')}</td>
-        <td>${mediumsList(entry.items)}</td>
+        <td>${renderMediumSummary(entry.items)}</td>
       </tr>
     `)
     .join('');
@@ -272,19 +235,8 @@ function buildSummaryTable(entries, labels) {
 
 function buildDetailSection(entry, labels) {
   const resolvedLabels = labels || getState().fieldLabels;
-  const rows = (entry.items || [])
-    .map(item => `
-      <tr>
-        <td>${escapeHtml(item.name)}</td>
-        <td class="nowrap">${escapeHtml(item.unit)}</td>
-        <td>${escapeHtml(item.methodLabel || item.methodId || '')}</td>
-        <td class="nowrap">${formatNumber(item.value)}</td>
-        <td class="nowrap">${formatNumber(item.total)} ${escapeHtml(item.unit)}</td>
-      </tr>
-    `)
-    .join('');
   const detailLabels = resolvedLabels.history.detail;
-  const calcColumns = resolvedLabels.calculation.tableColumns;
+  const snapshotTable = buildMediumTableHTML(entry.items, resolvedLabels, 'detail', { classes: 'history-detail-table' });
   return `
     <section class="history-detail">
       <h2>${escapeHtml(detailLabels.title)} – ${escapeHtml(entry.datum || entry.date || '')}</h2>
@@ -294,18 +246,7 @@ function buildDetailSection(entry, labels) {
         <strong>${escapeHtml(detailLabels.crop)}:</strong> ${escapeHtml(entry.kultur || '')}<br />
         <strong>${escapeHtml(detailLabels.quantity)}:</strong> ${escapeHtml(entry.kisten != null ? String(entry.kisten) : '')}
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th>${escapeHtml(calcColumns.medium)}</th>
-            <th>${escapeHtml(calcColumns.unit)}</th>
-            <th>${escapeHtml(calcColumns.method)}</th>
-            <th>${escapeHtml(calcColumns.value)}</th>
-            <th>${escapeHtml(calcColumns.total)}</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
+      ${snapshotTable}
     </section>
   `;
 }
