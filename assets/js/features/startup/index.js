@@ -1,4 +1,4 @@
-import { createDatabase, openDatabase, setActiveDriver, getActiveDriverKey } from '../../core/storage/index.js';
+import { createDatabase, openDatabase, setActiveDriver, getActiveDriverKey, detectPreferredDriver } from '../../core/storage/index.js';
 import { applyDatabase, createInitialDatabase } from '../../core/database.js';
 import { getState } from '../../core/state.js';
 
@@ -201,7 +201,15 @@ export function initStartup(container, services) {
 
   async function handleOpen() {
     try {
-      setActiveDriver('fileSystem');
+      // Use preferred driver (SQLite if available, otherwise fileSystem)
+      const preferred = getActiveDriverKey();
+      if (preferred === 'sqlite' || preferred === 'fileSystem') {
+        // SQLite and fileSystem both support file opening
+        setActiveDriver(preferred);
+      } else {
+        // Fall back to fileSystem for file opening
+        setActiveDriver('fileSystem');
+      }
     } catch (err) {
       alert('Dateisystemzugriff wird nicht unterstützt in diesem Browser.');
       return;
@@ -239,7 +247,13 @@ export function initStartup(container, services) {
     }
     await withButtonBusy(button, async () => {
       try {
-        setActiveDriver('fileSystem');
+        // Use preferred driver (SQLite if available, otherwise fileSystem)
+        const preferred = getActiveDriverKey();
+        if (preferred === 'sqlite' || preferred === 'fileSystem') {
+          setActiveDriver(preferred);
+        } else {
+          setActiveDriver('fileSystem');
+        }
       } catch (err) {
         alert('Dateisystemzugriff wird nicht unterstützt in diesem Browser.');
         return;
