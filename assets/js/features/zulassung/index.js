@@ -13,17 +13,31 @@ export function initZulassung(mainContainer, appServices) {
   container = mainContainer;
   services = appServices;
 
-  services.events.subscribe('section:change', (data) => {
-    if (data.section === 'zulassung') {
-      render();
-    } else {
-      hide();
-    }
+  // Initialize section
+  render();
+  
+  // Subscribe to state changes for visibility toggle
+  services.state.subscribe((state) => {
+    toggleVisibility(state);
   });
 
   services.events.subscribe('database:connected', async () => {
     await loadInitialData();
   });
+}
+
+function toggleVisibility(state) {
+  const section = container.querySelector('[data-section="zulassung"]');
+  if (!section) return;
+  
+  const active = state.app.activeSection === 'zulassung';
+  const ready = state.app.hasDatabase;
+  section.classList.toggle('d-none', !(active && ready));
+  
+  // Render when becoming visible
+  if (active && ready) {
+    render();
+  }
 }
 
 function hide() {
@@ -35,6 +49,11 @@ function hide() {
 
 async function loadInitialData() {
   try {
+    // Check if storage is available (worker initialized)
+    if (!storage.isSupported || !storage.isSupported()) {
+      return;
+    }
+    
     const lastSync = await storage.getBvlMeta('lastSyncIso');
     const lastSyncCounts = await storage.getBvlMeta('lastSyncCounts');
     
@@ -65,8 +84,6 @@ function render() {
     section.className = 'section-content';
     container.appendChild(section);
   }
-  
-  section.style.display = 'block';
   
   const state = services.state.getState();
   const { zulassung } = state;
