@@ -1,141 +1,101 @@
 # Bio-Pflanzenschutz – All in One
 
-Statische Web-Anwendung zur Verwaltung und Berechnung von Pflanzenschutzmitteln. Die App läuft komplett im Browser und nutzt **SQLite-WASM** für performante Datenverwaltung bei großen Datenmengen. Alternativ stehen die File System Access API oder ein LocalStorage-Fallback zur Verfügung. Die Oberfläche wurde in modulare Features aufgeteilt und lässt sich über GitHub Pages direkt ausliefern.
+Statische Web-Anwendung zur Verwaltung, Berechnung und Dokumentation von Pflanzenschutzmitteln. Die gesamte Logik läuft im Browser – inklusive einer **SQLite-WASM** Datenbank im Web Worker für große Datenmengen. Für Browser ohne OPFS stehen weiterhin JSON-basierte Speicher-Treiber zur Verfügung.
 
-## Architekturüberblick
+## Highlights
 
-- **index.html** – minimaler Host, bindet Bootstrap sowie die gebündelten Styles und lädt `assets/js/main.js` als ES-Modul.
-- **assets/css/** – thematische Stylesheets (`base.css`, `layout.css`, `components.css`) mit CSS-Variablen für das Branding.
-- **assets/config/** – Seed- und Schema-Dateien (`defaults.json`, `schema.json`) liefern Startdaten und Validierungsgrundlage.
-- **assets/js/core/** – Infrastrukturmodule (State-Management, EventBus, Storage-Abstraktion, Bootstrap, Config-Handling, Database-Snapshots).
-- **assets/js/core/storage/** – Storage-Treiber (SQLite-WASM, File System Access API, LocalStorage-Fallback) mit Web Worker für SQLite.
-- **assets/js/features/** – unabhängige Feature-Pakete (Startup, Shell, Calculation, History, Settings, Reporting, Starfield).
+- Moderne Single-Page-App (ES-Module, kein Build-Step nötig)
+- Persistent gespeicherte Berechnungen, History und Stammdaten
+- SQLite-WASM mit OPFS-Unterstützung, Fallback auf JSON-Dateien oder LocalStorage
+- Sofortdruck (PDF) und Export/Import von Datenbank-Dateien
+- Nutzerfreundliche Features wie `beforeunload`-Hinweis bei aktiver Datenbankverbindung
 
-## Storage-Systeme
+## Projektstruktur
 
-Die Anwendung unterstützt drei Storage-Backends, die automatisch nach Verfügbarkeit priorisiert werden:
+- `index.html` – Host-Dokument, bindet Bootstrap & App Entry-Point
+- `assets/css/` – Basistheme, Layout und Komponenten-Styles
+- `assets/config/` – Seed-Daten (`defaults.json`) und JSON-Schema (`schema.json`)
+- `assets/js/main.js` – Einstiegspunkt, bootstrapped die App
+- `assets/js/core/` – State-Management, Events, Storage, SQLite-Worker, Konfiguration
+- `assets/js/core/storage/` – Treiber für SQLite-WASM, File System Access API, LocalStorage
+- `assets/js/features/` – Feature-Module (Startup, Shell, Calculation, History, Settings, Reporting, Starfield)
 
-### 1. SQLite-WASM (Bevorzugt) 🚀
+## Storage-Treiber & Browser-Support
 
-- **Performance:** Optimiert für große Datenmengen (>10.000 Historie-Einträge)
-- **Technologie:** SQLite 3.46+ via WebAssembly
-- **Persistenz:** Origin Private File System (OPFS) in Chromium-Browsern
-- **Worker:** Alle Datenbankoperationen im Web Worker (kein UI-Blocking)
-- **Features:**
-  - Relationale Datenbank mit Foreign Keys und Indizes
-  - Transaktionale Integrität
-  - WAL-Modus für bessere Concurrency
-  - Optimierte Prepared Statements
-  - Lazy Loading für Historie
-- **Kompatibilität:**
-  - ✅ Chrome/Edge 108+ (mit OPFS)
-  - ⚠️ Firefox (in-memory Fallback, keine Persistenz über Reloads)
-  - ⚠️ Safari (in-memory Fallback)
-- **Import/Export:** Unterstützt sowohl `.sqlite`/`.db` als auch `.json` Dateien
+| Treiber | Format | Persistenz | Voraussetzungen | Empfohlen für |
+| --- | --- | --- | --- | --- |
+| SQLite-WASM | `.sqlite`/`.db` | OPFS (Chromium) oder In-Memory | Chromium ≥108, HTTPS/localhost, WebAssembly | Produktive Nutzung, große Historien |
+| File System Access | `.json` | Lokale Datei via Picker | Chromium ≥86, HTTPS/localhost | Kleine/mittlere Datenmengen, manuelles Speichern |
+| LocalStorage | `.json` | Browser-Storage (max. ~10 MB) | Alle modernen Browser | Demo/Test ohne Dateizugriff |
 
-### 2. File System Access API
+> Firefox & Safari unterstützen aktuell kein OPFS. In diesen Browsern läuft SQLite im Speicher und Änderungen sollten zusätzlich als JSON oder SQLite-Datei exportiert werden.
 
-- **Technologie:** Native Browser-API für Dateizugriff
-- **Format:** JSON
-- **Kompatibilität:** Chrome/Edge 86+, HTTPS oder localhost erforderlich
-- **Limitation:** Nur für kleinere Datenmengen empfohlen (<1000 Einträge)
+## Arbeiten mit SQLite-WASM
 
-### 3. LocalStorage Fallback
+1. **Neue Datenbank erstellen** – Dateien werden im OPFS abgelegt (Chromium-basiert) oder optional direkt als `.sqlite` exportiert.
+2. **Bestehende Datei verbinden** – sowohl JSON- als auch SQLite-Dateien werden erkannt und importiert.
+3. **Änderungen speichern** – History-Änderungen (Speichern/Löschen) schreiben direkt in die aktive Datenbank.
+4. **Seite verlassen** – Nutzer erhalten einen Hinweis, dass die Verbindung getrennt wird, solange eine DB aktiv ist.
 
-- **Technologie:** Browser LocalStorage
-- **Format:** JSON (komprimiert im Storage)
-- **Kompatibilität:** Alle modernen Browser
-- **Limitation:** Speicherlimit ~5-10 MB, nur für Tests geeignet
+## Datenmodell
 
-## Lokale Entwicklung
-
-1. Repository klonen oder Codespace öffnen.
-2. Projekt über einen lokalen Webserver ausliefern, z. B.:
-   ```bash
-   python3 -m http.server
-   ```
-3. Anschließend `http://localhost:8000` im Browser öffnen.
-4. Beim ersten Start eine neue Datenbank erstellen oder die Defaults laden.
-
-> **Empfehlung:** Verwende Chrome oder Edge für die Entwicklung, um SQLite-WASM mit OPFS-Persistenz zu nutzen.
-
-> **Hinweis:** SQLite-WASM lädt die benötigten Assets (~1 MB) einmalig von CDN. Eine Internetverbindung ist beim ersten Aufruf erforderlich.
-
-## Deployment auf GitHub Pages
-
-1. Stelle sicher, dass die statischen Assets committet sind.
-2. Aktiviere GitHub Pages für den `master`- (oder `main`-) Branch über die Repository-Einstellungen.
-3. Die Anwendung ist anschließend unter `https://<user>.github.io/pflanzenschutzliste/` erreichbar.
-
-## Datenstruktur
-
-### JSON-Format (Import/Export)
+### JSON-Snapshot (Export/Import)
 
 ```json
 {
   "meta": {
     "version": 1,
-    "company": { "name": "", "logoUrl": "", "contactEmail": "", "address": "", "accentColor": "" },
+    "company": { "name": "", "logoUrl": "", "contactEmail": "" },
     "defaults": { "waterPerKisteL": 5, "kistenProAr": 300 },
-    "measurementMethods": [ { "id": "perKiste", ... }, ... ],
-    "fieldLabels": { ... }
+    "measurementMethods": [ { "id": "perKiste", "label": "pro Kiste" } ],
+    "fieldLabels": { }
   },
-  "mediums": [ { "id": "water", "name": "Wasser", ... } ],
-  "history": [ { "header": {...}, "items": [...] } ]
+  "mediums": [ { "id": "water", "name": "Wasser", "methodId": "perKiste", "value": 0.0166 } ],
+  "history": [ { "ersteller": "…", "datum": "…", "items": [ … ] } ]
 }
 ```
 
-`assets/config/schema.json` enthält das vollständige JSON-Schema.
+`assets/config/schema.json` beschreibt das komplette JSON-Schema.
 
 ### SQLite-Schema
 
-Bei Verwendung von SQLite-WASM werden die Daten in folgenden Tabellen gespeichert:
+| Tabelle | Inhalt |
+| --- | --- |
+| `meta` | Schlüssel/Werte für Company, Defaults, Labels, Version |
+| `measurement_methods` | Messmethoden inkl. Konfiguration (JSON in Spalten) |
+| `mediums` | Mittel mit Referenz auf Messmethode |
+| `history` | Header eines Historien-Eintrags (JSON) |
+| `history_items` | Detailwerte pro Mittel |
 
-- **meta** – Konfiguration (company, defaults, fieldLabels)
-- **measurement_methods** – Messmethoden mit Config
-- **mediums** – Mittel mit Referenz zur Messmethode
-- **history** – Historie-Einträge (Header-Daten)
-- **history_items** – Historie-Details (Berechnungsergebnisse)
+SQL-Definition: `assets/js/core/storage/schema.sql`.
 
-Das vollständige SQL-Schema findet sich in `assets/js/core/storage/schema.sql`.
+## Entwicklung & Setup
 
-## Migration von JSON zu SQLite
+```bash
+# Repository klonen
+git clone https://github.com/Abbas-Hoseiny/pflanzenschutzliste.git
+cd pflanzenschutzliste
 
-Bestehende JSON-Datenbanken können problemlos weiterverwendet werden:
+# Statischer Dev-Server (Beispiel)
+python3 -m http.server
 
-1. **Automatischer Import:** Beim Öffnen einer `.json`-Datei wird diese automatisch in SQLite importiert
-2. **Export als JSON:** Jederzeit möglich über das Download-Feature
-3. **Export als SQLite:** Speichern der `.sqlite`/`.db` Datei für direktes Öffnen
+# Browser öffnen
+open http://localhost:8000
+```
 
-Die Anwendung erkennt automatisch das Dateiformat beim Öffnen.
+Empfohlener Browser für Entwicklung: Chrome oder Edge (ermöglicht SQLite + OPFS). Beim ersten Start können die bereitgestellten Defaults geladen oder direkt eine neue Datenbank erstellt werden.
 
-## Performance-Optimierungen
+Deployment auf GitHub Pages funktioniert out-of-the-box, da die App aus statischen Assets besteht.
 
-### SQLite-WASM Konfiguration
+## Tests & Qualität
 
-- **WAL-Modus:** Write-Ahead Logging für bessere Concurrency
-- **Foreign Keys:** Aktiviert für Datenintegrität
-- **Indizes:** Auf häufig abgefragte Felder (created_at, history_id)
-- **Cache:** 20 MB Seiten-Cache für schnellere Queries
-- **Prepared Statements:** Wiederverwendung für CRUD-Operationen
+Automatisierte Tests sind aktuell nicht hinterlegt. Für Releases sollten diese manuellen Szenarien geprüft werden:
 
-### Best Practices
-
-- Historie wird bei >1000 Einträgen per Lazy Loading geladen (automatisch)
-- Große Importe erfolgen in Transaktionen
-- Worker verhindert UI-Blocking bei komplexen Operationen
-
-## Tests
-
-Aktuell keine automatisierten Tests. Sichtprüfungen erfolgen manuell im Browser.
-
-**Manuelle Test-Szenarien:**
-1. Neue Datenbank mit SQLite erstellen
-2. JSON-Datei importieren
-3. Große Historie (>1000 Einträge) testen
-4. Export als JSON und SQLite
-5. Fallback-Verhalten in Firefox/Safari prüfen
+1. Neue SQLite-Datenbank erstellen, Berechnung durchführen, History speichern, Seite neu laden und Eintrag prüfen.
+2. Historie-Eintrag löschen, Seite neu laden und sicherstellen, dass der Eintrag entfernt bleibt.
+3. JSON-Datei importieren und anschließend als SQLite exportieren (und umgekehrt).
+4. Browser ohne OPFS (Firefox/Safari) – prüfen, dass Fallback funktioniert und der Nutzer bei Bedarf Dateien exportieren kann.
 
 ## Lizenz
 
-Noch nicht festgelegt – bitte ergänzen.
+[MIT License](LICENSE) © 2025 Pflanzenschutzliste
