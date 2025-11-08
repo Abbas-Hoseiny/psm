@@ -85,7 +85,7 @@ open http://localhost:8000
 
 Empfohlener Browser für Entwicklung: Chrome oder Edge (ermöglicht SQLite + OPFS). Beim ersten Start können die bereitgestellten Defaults geladen oder direkt eine neue Datenbank erstellt werden.
 
-Deployment auf GitHub Pages funktioniert out-of-the-box, da die App aus statischen Assets besteht.
+Deployment auf GitHub Pages funktioniert out-of-the-box, da die App aus statischen Assets besteht. Die Anwendung läuft dauerhaft öffentlich unter [https://abbas-hoseiny.github.io/pflanzenschutzliste/](https://abbas-hoseiny.github.io/pflanzenschutzliste/) und kann ohne Entwicklerkenntnisse direkt im Browser genutzt werden.
 
 ## Tests & Qualität
 
