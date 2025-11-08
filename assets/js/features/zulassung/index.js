@@ -249,11 +249,15 @@ async function loadInitialData() {
 
     const lastSync = await storage.getBvlMeta("lastSyncIso");
     const lastSyncCounts = await storage.getBvlMeta("lastSyncCounts");
+    const dataSource = await storage.getBvlMeta("dataSource");
+    const apiStand = await storage.getBvlMeta("apiStand");
 
     services.state.updateSlice("zulassung", (prev) => ({
       ...prev,
       lastSync: lastSync || null,
       lastResultCounts: lastSyncCounts ? JSON.parse(lastSyncCounts) : null,
+      dataSource: dataSource || null,
+      apiStand: apiStand || null,
     }));
 
     const cultures = await storage.listBvlCultures();
@@ -309,16 +313,24 @@ function renderStatusSection(zulassung) {
 
   const lastSyncDate = new Date(zulassung.lastSync).toLocaleString("de-DE");
   const counts = zulassung.lastResultCounts || {};
+  const dataSource = zulassung.dataSource || "BVL API";
+  const apiStand = zulassung.apiStand || null;
 
   return `
     <div class="alert alert-success mb-3">
-      <strong>Letzte Synchronisation:</strong> ${lastSyncDate}<br>
-      <small>
-        Mittel: ${counts.mittel || 0}, 
-        Anwendungen: ${counts.awg || 0}, 
-        Kulturen: ${counts.awg_kultur || 0}, 
-        Schadorganismen: ${counts.awg_schadorg || 0}
-      </small>
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <strong>Letzte Synchronisation:</strong> ${lastSyncDate}<br>
+          <strong>Datenquelle:</strong> ${escapeHtml(dataSource)}<br>
+          ${apiStand ? `<strong>API-Stand:</strong> ${escapeHtml(apiStand)}<br>` : ""}
+          <small class="mt-1 d-block">
+            Mittel: ${counts.mittel || counts.bvl_mittel || 0}, 
+            Anwendungen: ${counts.awg || counts.bvl_awg || 0}, 
+            Kulturen: ${counts.awg_kultur || counts.bvl_awg_kultur || 0}, 
+            Schadorganismen: ${counts.awg_schadorg || counts.bvl_awg_schadorg || 0}
+          </small>
+        </div>
+      </div>
     </div>
   `;
 }
