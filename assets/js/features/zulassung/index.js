@@ -4,6 +4,7 @@
  */
 
 import { syncBvlData } from "../../core/bvlSync.js";
+import { checkForUpdates } from "../../core/bvlDataset.js";
 import * as storage from "../../core/storage/sqlite.js";
 
 let container = null;
@@ -212,9 +213,48 @@ export function initZulassung(mainContainer, appServices) {
 
   services.events.subscribe("database:connected", async () => {
     await loadInitialData();
+    
+    // Perform auto-update check after loading initial data
+    setTimeout(() => {
+      performAutoUpdateCheck();
+    }, 2000);
   });
 
   toggleVisibility(services.state.getState());
+}
+
+async function performAutoUpdateCheck() {
+  try {
+    const state = services.state.getState();
+    const currentHash = state.zulassung.lastSyncHash;
+    
+    if (!currentHash) {
+      // No sync yet, skip auto-update check
+      return;
+    }
+
+    const updateCheck = await checkForUpdates(currentHash);
+    
+    const checkTime = new Date().toISOString();
+    services.state.updateSlice("zulassung", (prev) => ({
+      ...prev,
+      autoUpdateAvailable: updateCheck.available,
+      autoUpdateVersion: updateCheck.newVersion,
+      debug: {
+        ...prev.debug,
+        lastAutoUpdateCheck: {
+          time: checkTime,
+          result: updateCheck.available ? `Update verfügbar: ${updateCheck.newVersion}` : "Keine Updates",
+        },
+      },
+    }));
+
+    if (updateCheck.available) {
+      renderIfVisible();
+    }
+  } catch (error) {
+    console.warn("Auto-update check failed:", error);
+  }
 }
 
 function toggleVisibility(state) {
@@ -251,6 +291,9 @@ async function loadInitialData() {
     const lastSyncCounts = await storage.getBvlMeta("lastSyncCounts");
     const dataSource = await storage.getBvlMeta("dataSource");
     const apiStand = await storage.getBvlMeta("apiStand");
+    const manifestVersion = await storage.getBvlMeta("manifestVersion");
+    const lastSyncHash = await storage.getBvlMeta("lastSyncHash");
+    const manifestJson = await storage.getBvlMeta("manifest");
 
     services.state.updateSlice("zulassung", (prev) => ({
       ...prev,
@@ -258,6 +301,12 @@ async function loadInitialData() {
       lastResultCounts: lastSyncCounts ? JSON.parse(lastSyncCounts) : null,
       dataSource: dataSource || null,
       apiStand: apiStand || null,
+      manifestVersion: manifestVersion || null,
+      lastSyncHash: lastSyncHash || null,
+      debug: {
+        ...prev.debug,
+        manifest: manifestJson ? JSON.parse(manifestJson) : null,
+      },
     }));
 
     const cultures = await storage.listBvlCultures();
@@ -306,6 +355,7 @@ function renderStatusSection(zulassung) {
   if (!zulassung.lastSync) {
     return `
       <div class="alert alert-info mb-3">
+        <i class="bi bi-info-circle-fill me-2"></i>
         <strong>Keine Daten vorhanden.</strong> Bitte führen Sie eine Synchronisation durch, um BVL-Daten zu laden.
       </div>
     `;
@@ -315,16 +365,26 @@ function renderStatusSection(zulassung) {
   const counts = zulassung.lastResultCounts || {};
   const dataSource = zulassung.dataSource || "BVL API";
   const apiStand = zulassung.apiStand || null;
+  const manifestVersion = zulassung.manifestVersion || null;
+  const lastSyncHash = zulassung.lastSyncHash || null;
+  
+  // Count bio products if extras table exists
+  const bioCount = counts.bvl_mittel_extras || 0;
+  const totalMittel = counts.mittel || counts.bvl_mittel || 0;
 
   return `
     <div class="alert alert-success mb-3">
       <div class="d-flex justify-content-between align-items-start">
         <div>
+          <i class="bi bi-check-circle-fill me-2"></i>
           <strong>Letzte Synchronisation:</strong> ${lastSyncDate}<br>
           <strong>Datenquelle:</strong> ${escapeHtml(dataSource)}<br>
+          ${manifestVersion ? `<strong>Version:</strong> ${escapeHtml(manifestVersion)}<br>` : ""}
           ${apiStand ? `<strong>API-Stand:</strong> ${escapeHtml(apiStand)}<br>` : ""}
+          ${lastSyncHash ? `<small class="text-muted">Hash: ${escapeHtml(lastSyncHash.substring(0, 12))}...</small><br>` : ""}
           <small class="mt-1 d-block">
-            Mittel: ${counts.mittel || counts.bvl_mittel || 0}, 
+            <i class="bi bi-database me-1"></i>
+            Mittel: ${totalMittel}${bioCount > 0 ? ` <span class="badge bg-success-subtle text-success-emphasis"><i class="bi bi-leaf-fill"></i> ${bioCount} Bio</span>` : ""}, 
             Anwendungen: ${counts.awg || counts.bvl_awg || 0}, 
             Kulturen: ${counts.awg_kultur || counts.bvl_awg_kultur || 0}, 
             Schadorganismen: ${counts.awg_schadorg || counts.bvl_awg_schadorg || 0}
@@ -340,10 +400,35 @@ function renderSyncSection(zulassung) {
   const progress = zulassung.progress;
   const error = zulassung.error;
 
+  // Map progress steps to icons and colors
+  const stepInfo = {
+    manifest: { icon: 'bi-cloud-download', color: 'bg-info', label: 'Manifest' },
+    download: { icon: 'bi-cloud-arrow-down', color: 'bg-info', label: 'Download' },
+    decompress: { icon: 'bi-archive', color: 'bg-primary', label: 'Entpacken' },
+    import: { icon: 'bi-cpu', color: 'bg-warning', label: 'Import' },
+    verify: { icon: 'bi-check2', color: 'bg-success', label: 'Verifizierung' },
+    done: { icon: 'bi-check-circle-fill', color: 'bg-success', label: 'Fertig' },
+  };
+
+  const currentStep = progress.step ? stepInfo[progress.step] || stepInfo.done : null;
+
   return `
     <div class="card mb-3">
       <div class="card-body">
-        <h5 class="card-title">Synchronisation</h5>
+        <h5 class="card-title"><i class="bi bi-arrow-repeat me-2"></i>Synchronisation</h5>
+        
+        ${zulassung.autoUpdateAvailable ? `
+          <div class="alert alert-warning d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div class="flex-grow-1">
+              <strong>Neue Daten verfügbar!</strong><br>
+              <small>Version ${escapeHtml(zulassung.autoUpdateVersion || 'unbekannt')} ist verfügbar.</small>
+            </div>
+            <button class="btn btn-warning btn-sm ms-2" id="btn-apply-update">
+              <i class="bi bi-download me-1"></i>Jetzt aktualisieren
+            </button>
+          </div>
+        ` : ''}
         
         <button 
           id="btn-sync" 
@@ -352,8 +437,8 @@ function renderSyncSection(zulassung) {
         >
           ${
             isBusy
-              ? '<span class="spinner-border spinner-border-sm me-2"></span>'
-              : ""
+              ? `<span class="spinner-border spinner-border-sm me-2"></span><i class="${currentStep?.icon || 'bi-arrow-repeat'} me-1"></i>`
+              : '<i class="bi bi-arrow-repeat me-1"></i>'
           }
           ${isBusy ? "Synchronisiere..." : "Daten aktualisieren"}
         </button>
@@ -361,16 +446,25 @@ function renderSyncSection(zulassung) {
         ${
           progress.step && isBusy
             ? `
-          <div class="progress mt-3" style="height: 25px;">
-            <div 
-              class="progress-bar progress-bar-striped progress-bar-animated" 
-              role="progressbar" 
-              style="width: ${progress.percent}%"
-              aria-valuenow="${progress.percent}" 
-              aria-valuemin="0" 
-              aria-valuemax="100"
-            >
-              ${progress.percent}% - ${progress.message}
+          <div class="mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <small class="text-muted">
+                <i class="${currentStep?.icon || 'bi-arrow-repeat'} me-1"></i>
+                ${currentStep?.label || 'Verarbeite'}: ${escapeHtml(progress.message)}
+              </small>
+              <small class="text-muted">${progress.percent}%</small>
+            </div>
+            <div class="progress" style="height: 20px;" role="progressbar" 
+                 aria-valuenow="${progress.percent}" 
+                 aria-valuemin="0" 
+                 aria-valuemax="100"
+                 title="${escapeHtml(progress.message)}">
+              <div 
+                class="progress-bar progress-bar-striped progress-bar-animated ${currentStep?.color || 'bg-primary'}" 
+                style="width: ${progress.percent}%"
+              >
+                ${progress.percent}%
+              </div>
             </div>
           </div>
         `
@@ -380,9 +474,14 @@ function renderSyncSection(zulassung) {
         ${
           error
             ? `
-          <div class="alert alert-danger mt-3">
-            <strong>Fehler:</strong> ${escapeHtml(error)}
-            <button class="btn btn-sm btn-link" id="btn-show-debug">Details einblenden</button>
+          <div class="alert alert-danger mt-3 d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle-fill me-2 mt-1"></i>
+            <div class="flex-grow-1">
+              <strong>Fehler:</strong> ${escapeHtml(error)}
+            </div>
+            <button class="btn btn-sm btn-outline-danger ms-2" id="btn-show-debug">
+              <i class="bi bi-bug me-1"></i>Debug anzeigen
+            </button>
           </div>
         `
             : ""
@@ -398,9 +497,9 @@ function renderFilterSection(zulassung) {
   const pests = Array.isArray(lookups.pests) ? lookups.pests : [];
 
   return `
-    <div class="card mb-3">
+    <div class="card mb-3 filter-section">
       <div class="card-body">
-        <h5 class="card-title">Filter</h5>
+        <h5 class="card-title"><i class="bi bi-funnel me-2"></i>Filter</h5>
         
         <div class="row g-3">
           <div class="col-12">
@@ -416,7 +515,9 @@ function renderFilterSection(zulassung) {
           </div>
 
           <div class="col-md-4">
-            <label for="filter-culture" class="form-label">Kultur</label>
+            <label for="filter-culture" class="form-label">
+              <i class="bi bi-flower1 me-1"></i>Kultur
+            </label>
             <select id="filter-culture" class="form-select">
               <option value="">Alle Kulturen</option>
               ${cultures
@@ -433,7 +534,9 @@ function renderFilterSection(zulassung) {
           </div>
           
           <div class="col-md-4">
-            <label for="filter-pest" class="form-label">Schadorganismus</label>
+            <label for="filter-pest" class="form-label">
+              <i class="bi bi-bug me-1"></i>Schadorganismus
+            </label>
             <select id="filter-pest" class="form-select">
               <option value="">Alle Schadorganismen</option>
               ${pests
@@ -448,6 +551,22 @@ function renderFilterSection(zulassung) {
                 .join("")}
             </select>
           </div>
+          
+          <div class="col-md-4">
+            <label class="form-label d-block">&nbsp;</label>
+            <div class="form-check">
+              <input 
+                class="form-check-input" 
+                type="checkbox" 
+                id="filter-bio"
+                ${filters.bioOnly ? "checked" : ""}
+              >
+              <label class="form-check-label" for="filter-bio">
+                <i class="bi bi-leaf-fill text-success me-1"></i>
+                Nur Bio/Öko-zertifizierte Mittel
+              </label>
+            </div>
+          </div>
         </div>
         
         <div class="form-check mt-3">
@@ -458,21 +577,24 @@ function renderFilterSection(zulassung) {
             ${filters.includeExpired ? "checked" : ""}
           >
           <label class="form-check-label" for="filter-expired">
+            <i class="bi bi-clock-history me-1"></i>
             Abgelaufene Zulassungen einschließen
           </label>
         </div>
         
-        <button 
-          id="btn-search" 
-          class="btn btn-primary mt-3"
-          ${busy ? "disabled" : ""}
-        >
-          Suchen
-        </button>
-        
-        <button id="btn-clear-filters" class="btn btn-secondary mt-3 ms-2">
-          Filter zurücksetzen
-        </button>
+        <div class="mt-3">
+          <button 
+            id="btn-search" 
+            class="btn btn-primary"
+            ${busy ? "disabled" : ""}
+          >
+            <i class="bi bi-search me-1"></i>Suchen
+          </button>
+          
+          <button id="btn-clear-filters" class="btn btn-secondary ms-2">
+            <i class="bi bi-x-circle me-1"></i>Filter zurücksetzen
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -507,50 +629,59 @@ function renderResultsSection(zulassung) {
 
 function renderResultItem(result) {
   const status = result.status_json ? JSON.parse(result.status_json) : {};
+  const isBio = result.is_bio || result.is_oeko || (result.extras && (result.extras.is_bio || result.extras.is_oeko));
+  const certBody = result.certification_body || (result.extras && result.extras.certification_body);
 
   return `
     <div class="list-group-item">
-      <div class="d-flex w-100 justify-content-between">
+      <div class="d-flex w-100 justify-content-between align-items-start">
         <h6 class="mb-1">${escapeHtml(result.name)}</h6>
         <small class="text-muted">${escapeHtml(result.kennr)}</small>
       </div>
       
-      <p class="mb-1">
-  <strong>Formulierung:</strong> ${escapeHtml(result.formulierung || "-")}<br>
-  <strong>Status:</strong> ${escapeHtml(status.status || "-")}<br>
+      <div class="mb-2">
+        <strong>Formulierung:</strong> ${escapeHtml(result.formulierung || "-")}<br>
+        <strong>Status:</strong> ${escapeHtml(status.status || "-")}
+      </div>
+      
+      <div class="mb-2">
         ${
           result.geringes_risiko
-            ? '<span class="badge bg-success">Geringes Risiko</span>'
+            ? '<span class="badge bg-success me-1"><i class="bi bi-shield-check me-1"></i>Geringes Risiko</span>'
             : ""
         }
-  ${
-    result.zul_ende
-      ? `<span class="badge bg-warning text-dark">Gültig bis: ${escapeHtml(
+        ${
           result.zul_ende
-        )}</span>`
-      : ""
-  }
-  ${
-    result.extras && result.extras.is_bio
-      ? '<span class="badge bg-success">Bio/Öko</span>'
-      : ""
-  }
-      </p>
+            ? `<span class="badge bg-warning text-dark me-1"><i class="bi bi-calendar-event me-1"></i>Gültig bis: ${escapeHtml(
+                result.zul_ende
+              )}</span>`
+            : ""
+        }
+        ${
+          isBio
+            ? `<span class="badge bg-success-subtle text-success-emphasis me-1" title="${certBody ? `Bio-zertifiziert – ${escapeHtml(certBody)}` : 'Bio/Öko-zertifiziert'}"><i class="bi bi-leaf-fill me-1"></i>Bio/Öko</span>`
+            : ""
+        }
+      </div>
       
       ${
         result.wirkstoffe && result.wirkstoffe.length > 0
           ? `
         <div class="mt-2">
-          <strong>Wirkstoffe:</strong>
+          <strong><i class="bi bi-droplet me-1"></i>Wirkstoffe:</strong>
           <ul class="small mb-0">
             ${result.wirkstoffe
               .map(
-                (w) => `
-              <li>
-                ${escapeHtml(w.wirkstoff_name || w.wirkstoff || "-")}
-                ${w.gehalt ? ` - ${escapeHtml(String(w.gehalt))} ${escapeHtml(w.einheit || "")}` : ""}
-              </li>
-            `
+                (w) => {
+                  const gehalt = coerceNumber(w.gehalt);
+                  const gehaltStr = gehalt !== null ? numberFormatter.format(gehalt) : String(w.gehalt || "");
+                  return `
+                    <li>
+                      ${escapeHtml(w.wirkstoff_name || w.wirkstoff || "-")}
+                      ${w.gehalt ? ` - ${escapeHtml(gehaltStr)} ${escapeHtml(w.einheit || "")}` : ""}
+                    </li>
+                  `;
+                }
               )
               .join("")}
           </ul>
@@ -563,7 +694,7 @@ function renderResultItem(result) {
         result.vertrieb && result.vertrieb.length > 0
           ? `
         <div class="mt-2">
-          <strong>Hersteller/Vertrieb:</strong>
+          <strong><i class="bi bi-building me-1"></i>Hersteller/Vertrieb:</strong>
           ${result.vertrieb
             .map(
               (v) => `
@@ -571,7 +702,7 @@ function renderResultItem(result) {
               ${escapeHtml(v.hersteller_name || v.firma || "-")}
               ${
                 v.website
-                  ? ` - <a href="${escapeHtml(v.website)}" target="_blank" rel="noopener">Website</a>`
+                  ? ` <a href="${escapeHtml(v.website)}" target="_blank" rel="noopener" class="text-decoration-none"><i class="bi bi-box-arrow-up-right"></i></a>`
                   : ""
               }
             </div>
@@ -587,15 +718,19 @@ function renderResultItem(result) {
         result.gefahrhinweise && result.gefahrhinweise.length > 0
           ? `
         <div class="mt-2">
-          <strong>Gefahrenhinweise:</strong>
+          <strong><i class="bi bi-exclamation-triangle me-1"></i>Gefahrenhinweise:</strong>
           <div class="d-flex flex-wrap gap-1">
             ${result.gefahrhinweise
               .map(
-                (g) => `
-              <span class="badge bg-danger" title="${escapeHtml(g.hinweis_text || "")}">
-                ${escapeHtml(g.hinweis_kode || g.h_code || "")}
-              </span>
-            `
+                (g) => {
+                  const code = g.hinweis_kode || g.h_code || g.h_saetze || "";
+                  const text = g.hinweis_text || g.text || "";
+                  return `
+                    <span class="badge bg-danger" title="${escapeHtml(text)}" data-bs-toggle="tooltip">
+                      ${escapeHtml(code)}${text ? ` <i class="bi bi-info-circle-fill ms-1"></i>` : ""}
+                    </span>
+                  `;
+                }
               )
               .join("")}
           </div>
@@ -608,17 +743,19 @@ function renderResultItem(result) {
         result.kulturen && result.kulturen.length > 0
           ? `
         <div class="mt-2">
-          <strong>Kulturen:</strong>
-          ${result.kulturen
-            .map(
-              (k) =>
-                `<span class="badge ${
-                  k.ausgenommen ? "bg-danger" : "bg-info"
-                }" title="${escapeHtml(k.kultur)}">${escapeHtml(
-                  k.label || k.kultur
-                )}${k.ausgenommen ? " (ausgenommen)" : ""}</span>`
-            )
-            .join(" ")}
+          <strong><i class="bi bi-flower1 me-1"></i>Kulturen:</strong>
+          <div class="d-flex flex-wrap gap-1">
+            ${result.kulturen
+              .map(
+                (k) =>
+                  `<span class="badge ${
+                    k.ausgenommen ? "bg-danger" : "bg-info"
+                  }" title="${escapeHtml(k.kultur)}">${escapeHtml(
+                    k.label || k.kultur
+                  )}${k.ausgenommen ? " (ausgenommen)" : ""}</span>`
+              )
+              .join(" ")}
+          </div>
         </div>
       `
           : ""
@@ -628,17 +765,19 @@ function renderResultItem(result) {
         result.schadorganismen && result.schadorganismen.length > 0
           ? `
         <div class="mt-2">
-          <strong>Schadorganismen:</strong>
-          ${result.schadorganismen
-            .map(
-              (s) =>
-                `<span class="badge ${
-                  s.ausgenommen ? "bg-danger" : "bg-secondary"
-                }" title="${escapeHtml(s.schadorg)}">${escapeHtml(
-                  s.label || s.schadorg
-                )}${s.ausgenommen ? " (ausgenommen)" : ""}</span>`
-            )
-            .join(" ")}
+          <strong><i class="bi bi-bug me-1"></i>Schadorganismen:</strong>
+          <div class="d-flex flex-wrap gap-1">
+            ${result.schadorganismen
+              .map(
+                (s) =>
+                  `<span class="badge ${
+                    s.ausgenommen ? "bg-danger" : "bg-secondary"
+                  }" title="${escapeHtml(s.schadorg)}">${escapeHtml(
+                    s.label || s.schadorg
+                  )}${s.ausgenommen ? " (ausgenommen)" : ""}</span>`
+              )
+              .join(" ")}
+          </div>
         </div>
       `
           : ""
@@ -648,7 +787,7 @@ function renderResultItem(result) {
         result.aufwaende && result.aufwaende.length > 0
           ? `
         <div class="mt-2">
-          <strong>Aufwände:</strong>
+          <strong><i class="bi bi-activity me-1"></i>Aufwände:</strong>
           <ul class="small mb-0">
             ${result.aufwaende
               .map(
@@ -669,7 +808,7 @@ function renderResultItem(result) {
         result.wartezeiten && result.wartezeiten.length > 0
           ? `
         <div class="mt-2">
-          <strong>Wartezeiten:</strong>
+          <strong><i class="bi bi-clock me-1"></i>Wartezeiten:</strong>
           <ul class="small mb-0">
             ${result.wartezeiten
               .map(
@@ -707,13 +846,49 @@ function renderDebugSection(zulassung) {
             data-bs-toggle="collapse" 
             data-bs-target="#debug-panel"
           >
-            Debug-Informationen ▼
+            <i class="bi bi-tools me-2"></i>Debug-Informationen ▼
           </button>
         </h5>
         
         <div class="collapse" id="debug-panel">
+          ${
+            debug.manifest
+              ? `
+            <div class="mt-3">
+              <h6><i class="bi bi-file-code me-1"></i>Manifest</h6>
+              <details>
+                <summary class="btn btn-sm btn-outline-secondary">JSON anzeigen</summary>
+                <pre class="bg-dark text-light p-2 mt-2" style="font-size: 11px; max-height: 300px; overflow-y: auto;">${JSON.stringify(
+                  debug.manifest,
+                  null,
+                  2
+                )}</pre>
+              </details>
+            </div>
+          `
+              : ""
+          }
+          
+          ${
+            debug.lastAutoUpdateCheck
+              ? `
+            <div class="mt-3">
+              <h6><i class="bi bi-clock-history me-1"></i>Letzter Auto-Update-Check</h6>
+              <p class="small mb-0">
+                <strong>Zeit:</strong> ${new Date(
+                  debug.lastAutoUpdateCheck.time
+                ).toLocaleString("de-DE")}<br>
+                <strong>Ergebnis:</strong> ${escapeHtml(
+                  debug.lastAutoUpdateCheck.result || "OK"
+                )}
+              </p>
+            </div>
+          `
+              : ""
+          }
+          
           <div class="mt-3">
-            <h6>Sync-Logs (letzte 10)</h6>
+            <h6><i class="bi bi-list-ul me-1"></i>Sync-Logs (letzte 10)</h6>
             <div class="table-responsive">
               <table class="table table-sm">
                 <thead>
@@ -735,10 +910,10 @@ function renderDebugSection(zulassung) {
                         )}</small></td>
                         <td>${
                           log.ok
-                            ? '<span class="badge bg-success">OK</span>'
-                            : '<span class="badge bg-danger">Fehler</span>'
+                            ? '<span class="badge bg-success"><i class="bi bi-check-lg"></i> OK</span>'
+                            : '<span class="badge bg-danger"><i class="bi bi-x-lg"></i> Fehler</span>'
                         }</td>
-                        <td><small>${log.message}</small></td>
+                        <td><small>${escapeHtml(log.message)}</small></td>
                       </tr>
                     `
                           )
@@ -754,14 +929,23 @@ function renderDebugSection(zulassung) {
             logs.length > 0
               ? `
             <div class="mt-3">
-              <h6>Aktuelle Session Logs</h6>
+              <h6><i class="bi bi-terminal me-1"></i>Aktuelle Session Logs</h6>
               <div class="bg-dark text-light p-2" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;">
                 ${logs
                   .slice(-50)
-                  .map(
-                    (log) =>
-                      `<div>[${log.level.toUpperCase()}] ${log.message}</div>`
-                  )
+                  .map((log) => {
+                    const badgeClass =
+                      log.level === "error"
+                        ? "bg-danger"
+                        : log.level === "warn"
+                        ? "bg-warning"
+                        : log.level === "debug"
+                        ? "bg-secondary"
+                        : "bg-primary";
+                    return `<div><span class="badge ${badgeClass} me-1">${log.level.toUpperCase()}</span> ${escapeHtml(
+                      log.message
+                    )}</div>`;
+                  })
                   .join("")}
               </div>
             </div>
@@ -773,11 +957,11 @@ function renderDebugSection(zulassung) {
             debug.schema
               ? `
             <div class="mt-3">
-              <h6>Schema-Informationen</h6>
+              <h6><i class="bi bi-diagram-3 me-1"></i>Schema-Informationen</h6>
               <p><strong>User Version:</strong> ${debug.schema.user_version}</p>
               <details>
-                <summary>Tabellen</summary>
-                <pre class="bg-dark text-light p-2" style="font-size: 11px;">${JSON.stringify(
+                <summary class="btn btn-sm btn-outline-secondary">Tabellen anzeigen</summary>
+                <pre class="bg-dark text-light p-2 mt-2" style="font-size: 11px; max-height: 400px; overflow-y: auto;">${JSON.stringify(
                   debug.schema.tables,
                   null,
                   2
@@ -824,6 +1008,8 @@ function attachEventHandlers(section) {
   const filterPest = section.querySelector("#filter-pest");
   const filterText = section.querySelector("#filter-text");
   const filterExpired = section.querySelector("#filter-expired");
+  const filterBio = section.querySelector("#filter-bio");
+  const btnApplyUpdate = section.querySelector("#btn-apply-update");
 
   if (filterCulture) {
     filterCulture.addEventListener("change", (e) => {
@@ -866,6 +1052,22 @@ function attachEventHandlers(section) {
       }));
     });
   }
+
+  if (filterBio) {
+    filterBio.addEventListener("change", (e) => {
+      services.state.updateSlice("zulassung", (prev) => ({
+        ...prev,
+        filters: { ...prev.filters, bioOnly: e.target.checked },
+      }));
+    });
+  }
+
+  if (btnApplyUpdate) {
+    btnApplyUpdate.addEventListener("click", () => {
+      // Trigger sync which will download the new version
+      handleSync();
+    });
+  }
 }
 
 async function handleSync() {
@@ -901,7 +1103,13 @@ async function handleSync() {
       busy: false,
       lastSync: result.meta.lastSyncIso,
       lastResultCounts: result.meta.lastSyncCounts,
+      dataSource: result.meta.dataSource,
+      apiStand: result.meta.apiStand,
+      manifestVersion: result.meta.manifestVersion,
+      lastSyncHash: result.meta.lastSyncHash,
       progress: { step: null, percent: 0, message: "" },
+      autoUpdateAvailable: false,
+      autoUpdateVersion: null,
     }));
 
     await loadInitialData();
@@ -911,7 +1119,11 @@ async function handleSync() {
 
     services.state.updateSlice("zulassung", (prev) => ({
       ...prev,
-      debug: { schema, lastSyncLog: syncLog },
+      debug: {
+        ...prev.debug,
+        schema,
+        lastSyncLog: syncLog,
+      },
     }));
 
     render();
@@ -967,7 +1179,7 @@ async function handleSearch() {
 function handleClearFilters() {
   services.state.updateSlice("zulassung", (prev) => ({
     ...prev,
-    filters: { culture: null, pest: null, text: "", includeExpired: false },
+    filters: { culture: null, pest: null, text: "", includeExpired: false, bioOnly: false },
     results: [],
   }));
 

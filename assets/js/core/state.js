@@ -35,16 +35,22 @@ let state = {
   fieldLabels: getDefaultFieldLabels(),
   calcContext: null,
   zulassung: {
-    filters: { culture: null, pest: null, text: '', includeExpired: false },
+    filters: { culture: null, pest: null, text: '', includeExpired: false, bioOnly: false },
     results: [],
     lastSync: null,
     lastResultCounts: null,
+    dataSource: null,
+    apiStand: null,
+    manifestVersion: null,
+    lastSyncHash: null,
     busy: false,
     progress: { step: null, percent: 0, message: '' },
     error: null,
     logs: [],
-    debug: { schema: null, lastSyncLog: [] },
-    lookups: { cultures: [], pests: [] }
+    debug: { schema: null, lastSyncLog: [], manifest: null, lastAutoUpdateCheck: null },
+    lookups: { cultures: [], pests: [] },
+    autoUpdateAvailable: false,
+    autoUpdateVersion: null
   },
   ui: {
     notifications: []
@@ -124,16 +130,22 @@ export function resetState(newState = undefined) {
     fieldLabels: getDefaultFieldLabels(),
     calcContext: null,
     zulassung: {
-      filters: { culture: null, pest: null, text: '', includeExpired: false },
+      filters: { culture: null, pest: null, text: '', includeExpired: false, bioOnly: false },
       results: [],
       lastSync: null,
       lastResultCounts: null,
+      dataSource: null,
+      apiStand: null,
+      manifestVersion: null,
+      lastSyncHash: null,
       busy: false,
       progress: { step: null, percent: 0, message: '' },
       error: null,
       logs: [],
-      debug: { schema: null, lastSyncLog: [] },
-      lookups: { cultures: [], pests: [] }
+      debug: { schema: null, lastSyncLog: [], manifest: null, lastAutoUpdateCheck: null },
+      lookups: { cultures: [], pests: [] },
+      autoUpdateAvailable: false,
+      autoUpdateVersion: null
     },
     ui: {
       notifications: []
