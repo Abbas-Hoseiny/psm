@@ -1,31 +1,31 @@
-# BVL Zulassungsdaten Integration – Umsetzungsplan
+# BVL Zulassungsdaten Integration – Auftrag v2
 
 ## Zielbild
-- Nutzer koennen im Bereich "Zulassungs-Datenbank" zugelassene Mittel nach Kultur und Schadorganismus suchen und Details wie Aufwandmenge oder Wartezeit abrufen.
-- Daten werden lokal aus BVL OpenAPI Endpunkten geladen, in der bestehenden SQLite-WASM Persistenz gespeichert und ersetzen veraltete Eintraege.
-- Ein manueller Update-Button meldet Erfolg, Fehler oder "keine Aktualisierung" und haelt die lokale Datenbank synchron.
+- Nutzer koennen im Bereich "Zulassungs-Datenbank" zugelassene Mittel nach Kultur/Schadorganismus filtern und Details wie Aufwand, Wartezeit, Zulassungsstatus sehen.
+- Daten werden aus BVL OpenAPI Endpunkten geladen, lokal in SQLite-WASM persistiert und ersetzen bestehende Datensaetze ohne Primaerschluessel-Konflikte.
+- Ein Update-Button stoesst den Sync an, zeigt Fortschritt, Ergebnisstatus (aktualisiert / unveraendert / Fehler) und aktualisiert den Zeitstempel.
 
 ## Ziel-Endpoints (maximal 6)
-1. `mittel` – Stammdaten der Mittel (Kenr, Name, Formulierung, Zulassungsdaten, Risiko).
-2. `awg` – Anwendungen je Mittel (verbindet Mittel mit Kulturen, Schadorganismen, Zulassungsstatus).
-3. `awg_kultur` – Kulturen zu Anwendungen, inkl. Ausnahmen.
-4. `awg_schadorg` – Schadorganismen zu Anwendungen, inkl. Ausnahmen.
-5. `awg_aufwand` – Aufwand- und Wassermengen je Anwendung.
-6. `awg_wartezeit` – Wartezeiten mit Bemerkungskodes je Anwendung/Kultur.
+1. `mittel`
+2. `awg`
+3. `awg_kultur`
+4. `awg_schadorg`
+5. `awg_aufwand`
+6. `awg_wartezeit`
 
 ## Architektur-Erweiterungen
-- Neues Core-Modul `assets/js/core/bvlClient.js` fuer API-Aufrufe (Pagination, Fehlerbehandlung, Hashing).
-- Sync-Orchestrator `assets/js/core/bvlSync.js` fuer koordinierte Datenerfassung, Transform und Rueckmeldung.
-- SQLite-WASM Schema-Erweiterung (`user_version = 2`) fuer BVL Tabellen, inklusive Migrationspfad.
-- Neuer Worker-Support in `sqliteWorker.js` fuer BVL-spezifische Aktionen (Import, Query, Meta, Lookup).
-- State-Slice `zulassung` fuer Filter, Ergebnisse, Busy/Fehler-Status und letzten Sync-Zeitpunkt.
-- Neues Feature-Modul `assets/js/features/zulassung/index.js` mit Filter-UI, Ergebnisdarstellung und Update-Button.
-- Shell Navigation um Tab "Zulassung" erweitern; Anzeige nur bei verbundener Datenbank.
+- Neues Core-Modul `assets/js/core/bvlClient.js` fuer API-Zugriffe mit Pagination, Timeout, Fehlerklassifizierung, Hashing.
+- Sync-Orchestrator `assets/js/core/bvlSync.js` fuer orchestrierte Datenerfassung, Diff-Erkennung, Import und Logging.
+- SQLite-WASM Schema-Migration (`user_version = 2`) fuer robuste Tabellen und eindeutige Schluessel.
+- Erweiterte Worker-Actions (Import, Meta, Query, Lookup) in `sqliteWorker.js` plus Wrapper in `sqlite.js`.
+- State-Slice `zulassung` fuer Filter, Ergebnisse, Busy/Error, letzte Aktualisierung und Lookup-Caches.
+- Feature-Modul `assets/js/features/zulassung/index.js` mit Filter-UI, Ergebnisliste, Update-Button, Statusmeldungen.
+- Shell Navigation um Tab "Zulassung" erweitern, sichtbar nur bei verbundener Datenbank.
 
-## SQLite Datenmodell (Vorschlag)
+## SQLite Schema (Version 2)
 ```
 Table bvl_meta
-- key TEXT PRIMARY KEY (z. B. lastSyncIso, lastSyncHash)
+- key TEXT PRIMARY KEY
 - value TEXT
 
 Table bvl_mittel
@@ -47,32 +47,38 @@ Table bvl_awg_kultur
 - awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
 - kultur TEXT
 - ausgenommen INTEGER
-- PRIMARY KEY (awg_id, kultur)
+- sortier_nr INTEGER
+- PRIMARY KEY (awg_id, kultur, ausgenommen)
 
 Table bvl_awg_schadorg
 - awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
 - schadorg TEXT
 - ausgenommen INTEGER
-- PRIMARY KEY (awg_id, schadorg)
+- sortier_nr INTEGER
+- PRIMARY KEY (awg_id, schadorg, ausgenommen)
 
 Table bvl_awg_aufwand
 - awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
-- sortier_nr INTEGER
 - aufwand_bedingung TEXT
+- sortier_nr INTEGER
 - mittel_menge REAL
 - mittel_einheit TEXT
 - wasser_menge REAL
 - wasser_einheit TEXT
 - payload_json TEXT
-- PRIMARY KEY (awg_id, sortier_nr, aufwand_bedingung)
+- PRIMARY KEY (awg_id, aufwand_bedingung, sortier_nr)
 
 Table bvl_awg_wartezeit
+- awg_wartezeit_nr INTEGER
 - awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
 - kultur TEXT
+- sortier_nr INTEGER
 - tage INTEGER
 - bemerkung_kode TEXT
+- anwendungsbereich TEXT
+- erlaeuterung TEXT
 - payload_json TEXT
-- PRIMARY KEY (awg_id, kultur)
+- PRIMARY KEY (awg_wartezeit_nr, awg_id)
 
 Table bvl_sync_log
 - id INTEGER PRIMARY KEY AUTOINCREMENT
@@ -81,124 +87,86 @@ Table bvl_sync_log
 - message TEXT
 - payload_hash TEXT
 ```
-- Indizes: `CREATE INDEX idx_awg_kennr ON bvl_awg(kennr);`, `idx_awg_kultur_kultur`, `idx_awg_schadorg_schadorg`.
+- Zusaetzliche Indizes: `idx_awg_kennr` auf `bvl_awg(kennr)`, `idx_awg_kultur_kultur`, `idx_awg_schadorg_schadorg`, `idx_awg_aufwand_awg`, `idx_awg_wartezeit_awg`.
 
 ## Aufgabenpakete fuer den Coding-Agent
 
 ### 1. Core Utilities
-- Implementiere `assets/js/core/bvlClient.js`:
-  - `fetchCollection(endpoint, { query, signal })` mit `Accept: application/json`, Redirect-Toleranz, Pagination via `links.next`.
-  - Zeitlimit (z. B. 30 s) per `AbortController` und Fehlerklassifizierung.
-  - `hashData(payload)` Wrapper (SHA-256 -> hex) zur Diff-Erkennung.
-- Implementiere `assets/js/core/bvlSync.js`:
-  - `syncBvlData({ endpoints?, onProgress? })` Ablauf: Meta lesen -> Endpunkte laden -> Gesamt-Hash bilden -> no-change Fruehverlassen -> Transform -> Worker `importBvlDataset` -> Meta aktualisieren -> Sync-Log schreiben.
-  - Liefere strukturiertes Ergebnis `{ status, counts, message }` (status: updated | no-change | failed).
-  - Aufrufbar auch fuer Teilmengen (optional Parameter `endpoints`).
+- `assets/js/core/bvlClient.js`:
+  - `fetchCollection(endpoint, { query, signal })` mit `Accept: application/json`, automatischem Redirect-Handling.
+  - Pagination via `links.next`, Timeout (30 s) ueber `AbortController`, differenzierte Fehler (Network, HTTP >= 400, Parse).
+  - `hashData(payload)` (SHA-256 Hex) fuer deterministische Diff-Erkennung.
+- `assets/js/core/bvlSync.js`:
+  - `syncBvlData({ endpoints?, onProgress? })`: Meta lesen -> Endpunkte laden -> Hash bilden.
+  - Bei gleichem Hash: Sync-Log `no-change`, Rueckgabe `{ status: 'no-change' }`.
+  - Transformierte Datensaetze an Worker `importBvlDataset` uebergeben (Transaction, FULL REPLACE).
+  - Meta (`lastSyncHash`, `lastSyncIso`) aktualisieren, Log schreiben.
+  - Rueckgabe `{ status: 'updated', counts, message }` oder `{ status: 'failed', error }`.
 
 ### 2. SQLite Worker & Treiber
-- `assets/js/core/storage/sqliteWorker.js`:
-  - Migration: Wenn `user_version < 2`, neue Tabellen erzeugen und `PRAGMA user_version = 2` setzen.
-  - Neue Aktionen:
-    - `importBvlDataset` (Payload mit Arrays je Tabelle -> Transaction -> DELETE + INSERT).
-    - `getBvlMeta` / `setBvlMeta` / `appendBvlSyncLog`.
-    - `queryZulassung` (Filter `culture`, `pest`, `text`, `includeExpired`, `limit`, `offset`).
-    - `listBvlCultures`, `listBvlSchadorg` (distinct Werte, optional mit Trefferanzahl).
-  - Query Beispiel (Feintuning durch Agent):
-```
-SELECT m.kennr,
-       m.name AS mittelname,
-       m.formulierung,
-       m.zul_ende,
-       a.awg_id,
-       GROUP_CONCAT(DISTINCT CASE WHEN ak.ausgenommen = 0 THEN ak.kultur END) AS kulturen,
-       GROUP_CONCAT(DISTINCT CASE WHEN ak.ausgenommen = 1 THEN ak.kultur END) AS kulturen_ausgenommen,
-       GROUP_CONCAT(DISTINCT CASE WHEN asg.ausgenommen = 0 THEN asg.schadorg END) AS schadorg,
-       GROUP_CONCAT(DISTINCT CASE WHEN asg.ausgenommen = 1 THEN asg.schadorg END) AS schadorg_ausgenommen,
-       ao.mittel_menge,
-       ao.mittel_einheit,
-       ao.wasser_menge,
-       ao.wasser_einheit,
-       aw.tage,
-       aw.bemerkung_kode
-FROM bvl_awg a
-JOIN bvl_mittel m ON m.kennr = a.kennr
-LEFT JOIN bvl_awg_kultur ak ON ak.awg_id = a.awg_id
-LEFT JOIN bvl_awg_schadorg asg ON asg.awg_id = a.awg_id
-LEFT JOIN bvl_awg_aufwand ao ON ao.awg_id = a.awg_id
-LEFT JOIN bvl_awg_wartezeit aw ON aw.awg_id = a.awg_id AND (aw.kultur = ak.kultur OR aw.kultur IS NULL)
-WHERE (:culture IS NULL OR EXISTS (
-  SELECT 1 FROM bvl_awg_kultur ak2
-  WHERE ak2.awg_id = a.awg_id AND ak2.ausgenommen = 0 AND ak2.kultur = :culture
-))
-  AND (:pest IS NULL OR EXISTS (
-  SELECT 1 FROM bvl_awg_schadorg asg2
-  WHERE asg2.awg_id = a.awg_id AND asg2.ausgenommen = 0 AND asg2.schadorg = :pest
-))
-  AND (:text IS NULL OR (m.name LIKE :text OR m.kennr LIKE :text))
-  AND (:includeExpired = 1 OR m.zul_ende IS NULL OR m.zul_ende >= :currentDate)
-GROUP BY m.kennr, a.awg_id, ao.sortier_nr, aw.kultur
-ORDER BY m.name ASC, a.awg_id ASC, ao.sortier_nr ASC
-LIMIT :limit OFFSET :offset;
-```
-- `assets/js/core/storage/sqlite.js`: Worker-Aufrufe durchreichen (`importBvlDataset`, `getBvlMeta`, `setBvlMeta`, `appendBvlSyncLog`, `queryZulassung`, `listBvlCultures`, `listBvlSchadorg`).
+- `sqliteWorker.js` Migration:
+  - Bei `user_version < 2` alle bisherigen `bvl_*` Tabellen (falls vorhanden) droppen und neues Schema anlegen, `PRAGMA user_version = 2`.
+- Neue Worker-Actions:
+  - `importBvlDataset(payload)` – erwartet Arrays fuer jede Tabelle, setzt alle Primaerschluessel korrekt (inkl. `awg_wartezeit_nr`).
+  - `getBvlMeta`, `setBvlMeta`, `appendBvlSyncLog`.
+  - `queryZulassung(params)` – JOINs liefern mehrere Aufwaende und Wartezeiten je Anwendung; Ausnahmen (`ausgenommen = 1`) gesondert ausweisen.
+  - `listBvlCultures()` & `listBvlSchadorg()` – distinct Werte (nur Ausnahmen = 0), alphabetisch sortiert.
+- `sqlite.js` Wrapper fuer neue Aktionen ergaenzen.
 
 ### 3. State Management
-- `assets/js/core/state.js` initial um Slice erweitern:
+- `state.js`: neues Slice `zulassung` hinzufuegen:
 ```
 zulassung: {
   filters: { culture: null, pest: null, text: '', includeExpired: false },
   results: [],
-  lastSync: null,
   busy: false,
   error: null,
+  lastSync: null,
   lookups: { cultures: [], pests: [] }
 }
 ```
-- `resetState` und `createInitialDatabase` entsprechend anpassen.
-- Optional Hilfsfunktionen fuer Notifications (Toast) ueber `state.ui.notifications`.
+- `resetState` und `createInitialDatabase` anpassen.
 
 ### 4. UI Modul "Zulassung"
-- Neues Modul `assets/js/features/zulassung/index.js`:
-  - Baut Feature-Section mit Filterleiste (Dropdowns Kultur/Schadorganismus, Textfeld, Checkbox, Buttons).
-  - Nutzt Services (`state`, `events`) fuer Abhoeren und Aktualisieren.
-  - Initial lädt `lookups` via Worker Listen, zeigt Ladezustand.
-  - Suche triggert `queryZulassung`, Ergebnisse im State speichern, UI rendern (Tabelle oder Karten).
-  - Update-Button triggert `syncBvlData`, zeigt Busy/Status, aktualisiert `lastSync`.
-  - Hinweis bei leeren Daten: "Bitte zuerst Daten aktualisieren".
-  - Markiert Ausnahmen (wenn Kultur/Schadorg in `*_ausgenommen`).
-- Styling in vorhandenen CSS-Dateien erweitern (keine Inline Styles).
+- `assets/js/features/zulassung/index.js`:
+  - Filterbar (Dropdowns, Textfeld, Checkbox, Suche, Update-Button) rendern.
+  - Lookups beim Init laden; Ladeindikator.
+  - Suche: `queryZulassung` ausfuehren, Ergebnisse anzeigen (Tabelle/Karten) inkl. Mehrfach-Aufwaende und -Wartezeiten; Ausnahmen farblich markieren.
+  - Update-Button: `syncBvlData`, Busy-Zustand, Feedback (Toast/Alert), letztes Sync-Datum setzen.
+  - Hinweis bei leerem Datenbestand.
+- Styles in vorhandenen CSS-Dateien ergaenzen.
 
-### 5. Shell & Bootstrap Anpassungen
-- `assets/js/features/shell/index.js`: `SECTION_MAP` um `{ id: 'zulassung', label: 'Zulassung' }` ergaenzen.
-- `assets/js/core/bootstrap.js`: `initZulassung` importieren und aufrufen (analog zu anderen Features).
-- Sichtbarkeit: Tab bleibt deaktiviert solange `app.hasDatabase` false.
+### 5. Shell & Bootstrap
+- `assets/js/features/shell/index.js`: `SECTION_MAP` um `{ id: 'zulassung', label: 'Zulassung' }` erweitern.
+- `assets/js/core/bootstrap.js`: `initZulassung` einbinden.
+- Buttons bleiben deaktiviert solange `app.hasDatabase` false.
 
 ### 6. Startup/Settings Integration
-- Beim Event `database:connected` (siehe `features/startup`) `getBvlMeta('lastSyncIso')` aufrufen und State aktualisieren.
-- Optional in `features/settings` Anzeige "Letzte BVL Aktualisierung".
+- Nach `database:connected` -> `getBvlMeta('lastSyncIso')` abrufen und `state.zulassung.lastSync` setzen.
+- Optional: Anzeige "Letzte BVL Aktualisierung" im Settings-Feature.
 
-### 7. Fehler- und Offline-Verhalten
-- Sync-Button deaktivieren, wenn `sqliteDriver.isSupported()` false oder Worker nicht initialisiert.
-- Fehler beim Sync via Toast und State `error` anzeigen.
-- Timeout/Netrwerkfehler klar benennen.
-- Hinweis bei Browser ohne FileSystem/OPFS: z. B. "Automatische Speicherung nicht moeglich".
+### 7. Fehler- & Offline-Verhalten
+- Update-Button deaktivieren, wenn `sqliteDriver.isSupported()` false oder Worker nicht bereit.
+- Fehler differenziert anzeigen: Netzwerk/Timeout, HTTP-Fehler inkl. Response-Text.
+- Sync-Log-Eintraege optional im UI (z. B. Tooltip oder Verlauf) sichtbar machen.
 
-### 8. Manuelle Testliste
-1. Defaults laden -> Zulassung-Tab zeigt Hinweis "Keine BVL Daten".
-2. Update ausfuehren -> Spinner, Erfolgsmeldung, results > 0.
-3. Filter Kultur "SALAT" + Schadorganismus "LAUS" -> Ergebnisse plausibel, Ausnahmen sichtbar.
-4. Erneuter Update direkt danach -> Meldung "Keine Aktualisierung".
-5. Offline-Modus (DevTools) -> Update -> Fehlerhinweis, Daten unveraendert.
-6. Browser neu laden -> `lastSync` sichtbar, Daten persistent.
+### 8. Tests (manuell)
+1. Neue Datenbank -> Hinweis "Keine BVL Daten" im Zulassung-Tab.
+2. Update ausfuehren -> Daten werden geladen, keine Constraint-Fehler.
+3. Filter "SALAT" + "LAUS" -> sinnvolle Treffer, Ausnahmen gekennzeichnet.
+4. Beispiel Wartezeit mit Mehrfacheintraegen (z. B. `awg_id 050498-63/02-001`) erscheint vollstaendig.
+5. Erneuter Update ohne Datenaenderung -> Meldung "Keine Aktualisierung".
+6. Offline simulieren -> Update zeigt Fehler, Daten bleiben bestehen.
+7. Browser Reload -> Daten + Zeitstempel bleiben erhalten.
 
-## Annahmen (Dokumentation im PR)
-- Kultur- und Schadorganismus-Codes werden initial unveraendert angezeigt; Klartext-Dekodierung via `kode` Endpunkt kann spaeter folgen.
-- Aufwanddaten koennen mehrere Zeilen je Anwendung haben; UI zeigt Liste/Tabelle pro Anwendung.
-- Wartezeiten koennen fehlen; UI zeigt "keine Angabe".
+## Annahmen / Hinweise
+- Kultur- und Schadorganismus-Codes bleiben vorerst kodiert; Dekodierung via `kode` Endpunkt ist Folgeaufgabe.
+- Aufwand- und Wartezeitdaten koennen mehrere Varianten besitzen – UI muss Mehrfachzeilen darstellen.
+- Weitere Endpunkte nur nach Abstimmung ergaenzen.
 
 ## Definition of Done
-- Zulassung-Tab vorhanden, Filter und Ergebnisanzeige funktionieren.
-- Sync-Button aktualisiert Daten, ersetzt Tabelleninhalte und meldet Status korrekt.
-- SQLite Migration laeuft einmalig, bestehende Funktionalitaet (Berechnung, Historie, Einstellungen) bleibt intakt.
-- README oder Hilfeabschnitt ergaenzt Hinweise zu neuem Tab und Update-Vorgehen.
-- Code entspricht Projektstil (Module, Kommentare nur bei Bedarf, ASCII-only) und fuehrt zu keiner Regression laut manueller Testliste.
+- Zulassung-Feature inkl. Sync funktioniert ohne Primaerschluessel-Konflikte.
+- Schema Migration (user_version=2) garantiert eindeutige Schluessel und Indizes.
+- Update-Button liefert klare Statusmeldungen; Meta/Log werden gepflegt.
+- Tests aus Abschnitt 8 dokumentiert; README oder Settings enthalten Hinweis auf neuen Tab/Update-Prozess.
+- Keine Regressionen in Berechnung, Historie oder Einstellungen; Code folgt Projektstil (ASCII, sparsame Kommentare).
