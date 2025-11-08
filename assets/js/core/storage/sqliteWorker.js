@@ -1379,7 +1379,7 @@ async function listBvlSyncLog(payload) {
 async function queryZulassung(payload) {
   if (!db) throw new Error("Database not initialized");
 
-  const { culture, pest, text, includeExpired } = payload || {};
+  const { culture, pest, text, includeExpired, bioOnly } = payload || {};
 
   let sql = `
     SELECT DISTINCT
@@ -1397,6 +1397,20 @@ async function queryZulassung(payload) {
 
   const conditions = [];
   const bindings = [];
+
+  // Check if extras table exists for bio filtering
+  let extrasTableExists = false;
+  if (bioOnly) {
+    db.exec({
+      sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='bvl_mittel_extras'",
+      callback: () => { extrasTableExists = true; },
+    });
+    
+    if (extrasTableExists) {
+      sql += ` LEFT JOIN bvl_mittel_extras e ON m.kennr = e.kennr `;
+      conditions.push("(e.is_bio = 1 OR e.is_oeko = 1)");
+    }
+  }
 
   if (culture) {
     sql += ` JOIN bvl_awg_kultur ak ON a.awg_id = ak.awg_id `;
@@ -1648,6 +1662,9 @@ async function queryZulassung(payload) {
     }
 
     // Check for extras/flags (bio, öko, etc.) if table exists
+    result.is_bio = false;
+    result.is_oeko = false;
+    result.certification_body = null;
     let extrasTableExists = false;
     db.exec({
       sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='bvl_mittel_extras'",
@@ -1666,6 +1683,10 @@ async function queryZulassung(payload) {
           colNames.forEach((col, idx) => {
             result.extras[col[1]] = row[idx];
           });
+          // Extract common bio fields
+          if (result.extras.is_bio) result.is_bio = !!result.extras.is_bio;
+          if (result.extras.is_oeko) result.is_oeko = !!result.extras.is_oeko;
+          if (result.extras.certification_body) result.certification_body = result.extras.certification_body;
         },
       });
     }
