@@ -239,20 +239,16 @@ async function syncFromManifest(storage, { onProgress, onLog, log, startTime }) 
  * Sync from direct API (fallback)
  */
 async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
+  const datasets = {};
+  const fetchTimes = {};
+  let totalProgress = 0;
+  const fetchTasks = [
+    ...ENDPOINTS.map((endpoint) => ({ type: "dataset", endpoint })),
+    ...LOOKUP_CONFIG.map((lookup) => ({ type: "lookup", ...lookup })),
+  ];
+  const progressPerTask = 70 / fetchTasks.length;
 
-/**
- * Sync from direct API (fallback)
- */
-async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
-    const datasets = {};
-    const fetchTimes = {};
-    let totalProgress = 0;
-    const fetchTasks = [
-      ...ENDPOINTS.map((endpoint) => ({ type: "dataset", endpoint })),
-      ...LOOKUP_CONFIG.map((lookup) => ({ type: "lookup", ...lookup })),
-    ];
-    const progressPerTask = 70 / fetchTasks.length;
-
+  try {
     for (const task of fetchTasks) {
       const taskStart = Date.now();
       const progressStep =
@@ -302,9 +298,7 @@ async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
           status: error.status,
           attempt: error.attempt,
         });
-        throw new Error(
-          `Fehler beim Laden von ${identifier}: ${error.message}`
-        );
+        throw new Error(`Fehler beim Laden von ${identifier}: ${error.message}`);
       }
     }
 
