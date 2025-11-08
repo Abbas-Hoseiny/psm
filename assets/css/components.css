@@ -81,6 +81,89 @@
   letter-spacing: 0.02em;
 }
 
+/* Bio/Success badge subtle variant */
+.bg-success-subtle {
+  background-color: rgba(25, 135, 84, 0.25) !important;
+  border: 1px solid rgba(25, 135, 84, 0.5);
+}
+
+.text-success-emphasis {
+  color: #75b798 !important;
+}
+
+/* Warning badge subtle variant */
+.bg-warning-subtle {
+  background-color: rgba(255, 193, 7, 0.25) !important;
+  border: 1px solid rgba(255, 193, 7, 0.5);
+}
+
+.text-warning-emphasis {
+  color: #ffca2c !important;
+}
+
+/* Info badge subtle variant */
+.bg-info-subtle {
+  background-color: rgba(13, 202, 240, 0.25) !important;
+  border: 1px solid rgba(13, 202, 240, 0.5);
+}
+
+.text-info-emphasis {
+  color: #6edff6 !important;
+}
+
+/* Sticky filter section on desktop */
+@media (min-width: 768px) {
+  .filter-section {
+    position: sticky;
+    top: 1rem;
+    z-index: 100;
+  }
+}
+
+/* Icon spacing */
+.bi {
+  vertical-align: -0.125em;
+}
+
+/* Progress bar enhancements */
+.progress {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.progress-bar {
+  transition: width 0.3s ease;
+}
+
+/* Badge enhancements */
+.badge {
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+}
+
+.badge i.bi {
+  font-size: 0.875em;
+}
+
+/* List group item enhancements */
+.list-group-item {
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-body);
+}
+
+.list-group-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Gap utilities for badges */
+.gap-1 {
+  gap: 0.25rem;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
 .print-overlay {
   display: none;
   padding: 18mm;

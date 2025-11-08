@@ -338,3 +338,29 @@ export async function downloadDatabase(manifest, options = {}) {
     manifest,
   };
 }
+
+/**
+ * Check if a newer version is available without downloading
+ * @param {string|null} currentHash - Current data hash/version
+ * @returns {Promise<{available: boolean, manifest: object|null}>}
+ */
+export async function checkForUpdates(currentHash) {
+  try {
+    const manifest = await fetchManifest();
+    const manifestHash = manifest.hash || manifest.version;
+    
+    return {
+      available: currentHash !== manifestHash,
+      manifest: manifest,
+      newVersion: manifestHash,
+    };
+  } catch (error) {
+    console.warn("Failed to check for updates:", error);
+    return {
+      available: false,
+      manifest: null,
+      newVersion: null,
+      error: error.message,
+    };
+  }
+}
