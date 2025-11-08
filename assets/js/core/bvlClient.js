@@ -3,14 +3,14 @@
  * Handles fetching data from BVL API with pagination, retries, and error handling
  */
 
-const BVL_BASE_URL = 'https://psm-api.bvl.bund.de/ords/psm/api-v1';
+const BVL_BASE_URL = "https://psm-api.bvl.bund.de/ords/psm/api-v1";
 const DEFAULT_TIMEOUT = 30000;
 const MAX_RETRIES = 2;
 
 export class NetworkError extends Error {
   constructor(message, endpoint) {
     super(message);
-    this.name = 'NetworkError';
+    this.name = "NetworkError";
     this.endpoint = endpoint;
   }
 }
@@ -18,7 +18,7 @@ export class NetworkError extends Error {
 export class HttpError extends Error {
   constructor(message, status, endpoint, responseBody) {
     super(message);
-    this.name = 'HttpError';
+    this.name = "HttpError";
     this.status = status;
     this.endpoint = endpoint;
     this.responseBody = responseBody;
@@ -28,7 +28,7 @@ export class HttpError extends Error {
 export class ParseError extends Error {
   constructor(message, endpoint) {
     super(message);
-    this.name = 'ParseError';
+    this.name = "ParseError";
     this.endpoint = endpoint;
   }
 }
@@ -40,12 +40,13 @@ export async function fetchCollection(endpoint, options = {}) {
   const {
     timeout = DEFAULT_TIMEOUT,
     maxRetries = MAX_RETRIES,
-    onProgress = null
+    onProgress = null,
+    params = {},
+    pageSize = 1000,
   } = options;
 
   let allItems = [];
   let offset = 0;
-  const limit = 1000;
   let hasMore = true;
   let attempt = 0;
 
@@ -56,7 +57,16 @@ export async function fetchCollection(endpoint, options = {}) {
 
     while (!success && attempt <= maxRetries) {
       try {
-        const url = `${BVL_BASE_URL}/${endpoint}?limit=${limit}&offset=${offset}`;
+        const searchParams = new URLSearchParams();
+        for (const [key, value] of Object.entries(params)) {
+          if (value === undefined || value === null) {
+            continue;
+          }
+          searchParams.append(key, value);
+        }
+        searchParams.set("limit", pageSize);
+        searchParams.set("offset", offset);
+        const url = `${BVL_BASE_URL}/${endpoint}?${searchParams.toString()}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -64,18 +74,20 @@ export async function fetchCollection(endpoint, options = {}) {
         const response = await fetch(url, {
           signal: controller.signal,
           headers: {
-            'Accept': 'application/json'
-          }
+            Accept: "application/json",
+          },
         });
         clearTimeout(timeoutId);
 
         const duration = Date.now() - startTime;
 
         if (!response.ok) {
-          const responseText = await response.text().catch(() => '');
-          const truncatedBody = responseText.length > 200 ? 
-            responseText.substring(0, 200) + '...' : responseText;
-          
+          const responseText = await response.text().catch(() => "");
+          const truncatedBody =
+            responseText.length > 200
+              ? responseText.substring(0, 200) + "..."
+              : responseText;
+
           if (response.status >= 500 && attempt < maxRetries) {
             attempt++;
             lastError = new HttpError(
@@ -84,7 +96,7 @@ export async function fetchCollection(endpoint, options = {}) {
               endpoint,
               truncatedBody
             );
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
             continue;
           }
 
@@ -100,7 +112,10 @@ export async function fetchCollection(endpoint, options = {}) {
         try {
           data = await response.json();
         } catch (e) {
-          throw new ParseError(`Failed to parse JSON response: ${e.message}`, endpoint);
+          throw new ParseError(
+            `Failed to parse JSON response: ${e.message}`,
+            endpoint
+          );
         }
 
         const items = data.items || [];
@@ -112,34 +127,37 @@ export async function fetchCollection(endpoint, options = {}) {
             offset,
             count: items.length,
             total: allItems.length,
-            duration
+            duration,
           });
         }
 
-        if (items.length < limit) {
+        if (items.length < pageSize) {
           hasMore = false;
         } else {
-          offset += limit;
+          offset += pageSize;
         }
 
         success = true;
       } catch (error) {
-        if (error.name === 'AbortError') {
-          throw new NetworkError(`Request timeout after ${timeout}ms`, endpoint);
+        if (error.name === "AbortError") {
+          throw new NetworkError(
+            `Request timeout after ${timeout}ms`,
+            endpoint
+          );
         }
-        
+
         if (error instanceof HttpError || error instanceof ParseError) {
           throw error;
         }
 
         if (!navigator.onLine) {
-          throw new NetworkError('No internet connection', endpoint);
+          throw new NetworkError("No internet connection", endpoint);
         }
 
         if (attempt < maxRetries) {
           attempt++;
           lastError = error;
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
         } else {
           throw new NetworkError(
             `Network error after ${attempt} attempts: ${error.message}`,
@@ -161,11 +179,13 @@ export async function fetchCollection(endpoint, options = {}) {
  * Hash data using SHA-256
  */
 export async function hashData(data) {
-  const text = typeof data === 'string' ? data : JSON.stringify(data);
+  const text = typeof data === "string" ? data : JSON.stringify(data);
   const msgBuffer = new TextEncoder().encode(text);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const hashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
   return hashHex;
 }
 
@@ -182,6 +202,6 @@ export async function computeDatasetHashes(datasets) {
     combined.push(hash);
   }
 
-  hashes.combined = await hashData(combined.join(''));
+  hashes.combined = await hashData(combined.join(""));
   return hashes;
 }
