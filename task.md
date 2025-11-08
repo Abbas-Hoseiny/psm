@@ -1,199 +1,102 @@
-# BVL Zulassungsdaten Integration – Auftrag v3
+# Frontend-Task: BVL-Daten aus `pflanzenschutz-db` einbinden
 
-## Zielbild
-- Zulassungsdatenbank funktioniert stabil im Browser (OPFS oder Memory) und ersetzt bestehende Daten ohne Constraint-Fehler.
-- Nutzer sehen beim Sync einen Fortschrittsbalken (mehrstufig: Laden, Verarbeiten, Schreiben, Fertig) und erhalten klare Status- sowie Fehlerhinweise.
-- Detaillierte Debug-Informationen (Konsole + optionales Log-Panel) erleichtern das Nachvollziehen von Importproblemen.
-- UI liefert korrekte Filterergebnisse inklusive Mehrfach-Aufwände und Mehrfach-Wartezeiten.
+## Kontext
 
-## Ziel-Endpoints (maximal 6)
-1. `mittel`
-2. `awg`
-3. `awg_kultur`
-4. `awg_schadorg`
-5. `awg_aufwand`
-6. `awg_wartezeit`
+- Neues externes Repository [`pflanzenschutz-db`](https://github.com/Abbas-Hoseiny/pflanzenschutz-db) erzeugt per ETL-Pipeline eine komplette SQLite-Datenbank samt `manifest.json` und veröffentlicht sie über GitHub Pages (`https://abbas-hoseiny.github.io/pflanzenschutz-db/`).
+- Der aktuelle Frontend-Code (`assets/js/core/bvlSync.js`) lädt die 40 BVL-API-Endpunkte zur Laufzeit und befüllt die Tabellen in `sqliteWorker.js` über `importBvlDataset`.
+- Ziel ist, dass die App künftig **nur noch** die fertig gebaute SQLite-Datei aus dem Daten-Repo lädt, mit `manifest.json` abgleicht und sämtliche Zusatzinformationen (Gefahrhinweise, Wirkstoffe, Hersteller etc.) korrekt und vollständig im UI darstellt.
 
-## Architektur-Erweiterungen (Pflicht)
-- Core-Modul `assets/js/core/bvlClient.js` (Pagination, Timeout, Error-Klassen, SHA-256 Hashing).
-- Sync-Orchestrator `assets/js/core/bvlSync.js` mit Fortschritts-Callbacks, Diff-Erkennung, strukturierten Ergebnissen und erweitertem Logging.
-- SQLite-WASM Migration auf `user_version = 2`, die ALLE bisherigen `bvl_*` Tabellen konsequent droppt und nach neuem Schema erstellt (siehe unten).
-- Worker-Aktionsset (Import, Meta, Sync-Log, Query, Lookups, Diagnostics) in `assets/js/core/storage/sqliteWorker.js`; Wrapper in `assets/js/core/storage/sqlite.js`.
-- State-Slice `zulassung` mit Progress- und Debug-Infos.
-- Feature-Modul `assets/js/features/zulassung/index.js` inkl. Fortschrittsbalken, Statusbanner, optionaler Debug-Konsole.
-- Shell & Bootstrap Anpassungen (Tab sichtbar bei aktiver DB, Initialisierung mit Lookups und letztem Sync).
+## Ziele
 
-## SQLite Schema (Version 2 – Full Rebuild)
-Migration verlangt, dass beim Sprung `<2 -> 2` zuerst alle BVL-Tabellen und Indizes entfernt werden:
-```
-PRAGMA foreign_keys = OFF;
-DROP TABLE IF EXISTS bvl_awg_wartezeit;
-DROP TABLE IF EXISTS bvl_awg_aufwand;
-DROP TABLE IF EXISTS bvl_awg_schadorg;
-DROP TABLE IF EXISTS bvl_awg_kultur;
-DROP TABLE IF EXISTS bvl_awg;
-DROP TABLE IF EXISTS bvl_mittel;
-DROP TABLE IF EXISTS bvl_meta;
-DROP TABLE IF EXISTS bvl_sync_log;
-```
-Anschließend neu erstellen:
-```
-Table bvl_meta
-- key TEXT PRIMARY KEY
-- value TEXT
+1. Manifestgestützte Datensynchronisierung implementieren (kein direkter BVL-API-Download mehr im Browser).
+2. SQLite-Daten aus dem ETL-Repo in die bestehende Worker-Datenbank übernehmen, ohne Nutzer-Tabellen (`mediums`, `history`, ...) zu überschreiben.
+3. Zusätzliche Tabellen/Felder aus dem ETL-Schema im Zulassungs-UI anzeigen (so viel wie möglich, aber fachlich korrekt).
+4. Nachverfolgbare Metadaten (`version`, `hash`, `build`, `apiStand`) aus `manifest.json` speichern und im UI ausweisen.
 
-Table bvl_mittel
-- kennr TEXT PRIMARY KEY
-- name TEXT
-- formulierung TEXT
-- zul_erstmalig TEXT
-- zul_ende TEXT
-- geringes_risiko INTEGER
-- payload_json TEXT
+## Muss-Anforderungen
 
-Table bvl_awg
-- awg_id TEXT PRIMARY KEY
-- kennr TEXT REFERENCES bvl_mittel(kennr) ON DELETE CASCADE
-- status_json TEXT
-- zulassungsende TEXT
+### 1. Konfiguration & Manifest
 
-Table bvl_awg_kultur
-- awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
-- kultur TEXT
-- ausgenommen INTEGER
-- sortier_nr INTEGER
-- PRIMARY KEY (awg_id, kultur, ausgenommen)
+- Neues Modul (`assets/js/core/bvlDataset.js` o. ä.) schreiben:
+  - Standard-URL des Manifests: `https://abbas-hoseiny.github.io/pflanzenschutz-db/manifest.json` (per Konstante, optional über `localStorage` overridebar für Tests).
+  - Manifest laden, Minimalvalidierung durchführen (`files`, `version`, `tables`). Optional `manifest-schema.json` aus dem Daten-Repo einbinden und mit `ajv` o. ä. prüfen.
+  - Einen geeigneten Datei-Eintrag auswählen:
+    - Bevorzugt `.sqlite.br`, falls `DecompressionStream('brotli')` unterstützt.
+    - Fallback `.sqlite` (direkt einsetzbar).
+    - Fallback `.sqlite.zip` (per `JSZip` oder nativem `decompressionStream('gzip')`).
+  - Download mit Progress-Callback (für UI-Progressbar).
+  - Ergebnis als `Uint8Array` zurückgeben sowie Metainformationen (Dateigröße, Hash, Manifest).
 
-Table bvl_awg_schadorg
-- awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
-- schadorg TEXT
-- ausgenommen INTEGER
-- sortier_nr INTEGER
-- PRIMARY KEY (awg_id, schadorg, ausgenommen)
+### 2. Worker: Import aus SQLite-Datei
 
-Table bvl_awg_aufwand
-- awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
-- aufwand_bedingung TEXT
-- sortier_nr INTEGER
-- mittel_menge REAL
-- mittel_einheit TEXT
-- wasser_menge REAL
-- wasser_einheit TEXT
-- payload_json TEXT
-- PRIMARY KEY (awg_id, aufwand_bedingung, sortier_nr)
+- In `assets/js/core/storage/sqliteWorker.js` neues Kommando hinzufügen (`importBvlSqlite` o. ä.).
+- Umsetzungsidee:
 
-Table bvl_awg_wartezeit
-- awg_wartezeit_nr INTEGER
-- awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
-- kultur TEXT
-- sortier_nr INTEGER
-- tage INTEGER
-- bemerkung_kode TEXT
-- anwendungsbereich TEXT
-- erlaeuterung TEXT
-- payload_json TEXT
-- PRIMARY KEY (awg_wartezeit_nr, awg_id)
+  1. Remote-DB in Memory laden (`sqlite3.oo1.DB()` + `sqlite3_deserialize`).
+  2. Liste der relevanten BVL-Tabellen anhand `sqlite_master` bzw. Manifest bestimmen. Pflicht: `bvl_meta`, `bvl_mittel`, `bvl_awg`, `bvl_awg_kultur`, `bvl_awg_schadorg`, `bvl_awg_aufwand`, `bvl_awg_wartezeit`, `bvl_lookup_kultur`, `bvl_lookup_schadorg`. Optional (falls vorhanden) auch: `bvl_mittel_wirkstoffe`, `bvl_mittel_gefahrhinweise`, `bvl_mittel_sicherheitshinweise`, `bvl_mittel_gefahrenpiktogramm`, `bvl_mittel_vertrieb`, `bvl_mittel_abpackung`, `bvl_mittel_zusatzstoff`, `bvl_awg_partner`, `bvl_awg_verwendungszweck`, `bvl_lookup_*` weitere Listen etc.
+  3. Für jede Tabelle: `DELETE` auf Haupt-DB, anschließend `INSERT INTO main.table (cols...) SELECT cols... FROM remote.table`. Spaltenliste per `PRAGMA table_info` ermitteln, damit zusätzliche Spalten automatisch übernommen werden.
+  4. Indizes behalten (werden von Migration hergestellt). Falls neue Indizes benötigt werden, Schema entsprechend anpassen (Quelle: `pflanzenschutz-db/utils/sqlite_schema.sql`).
+  5. `bvl_meta` nach Import mit Manifest-Werten überschreiben: `lastSyncIso`, `lastSyncHash`, `lastSyncCounts`, `dataSource` (`pflanzenschutz-db@<manifest.version>`), `apiStand` (`manifest.api_version` oder `manifest.stand_endpoint.timestamp`).
+  6. Sauberes Error-Handling + `PRAGMA integrity_check` nach Import (Fehler werfen).
 
-Table bvl_sync_log
-- id INTEGER PRIMARY KEY AUTOINCREMENT
-- synced_at TEXT
-- ok INTEGER
-- message TEXT
-- payload_hash TEXT
-```
-Indizes (Pflicht):
-```
-idx_awg_kennr ON bvl_awg(kennr)
-idx_awg_kultur_kultur ON bvl_awg_kultur(kultur)
-idx_awg_schadorg_schadorg ON bvl_awg_schadorg(schadorg)
-idx_awg_aufwand_awg ON bvl_awg_aufwand(awg_id)
-idx_awg_wartezeit_awg ON bvl_awg_wartezeit(awg_id)
-```
-Zum Schluss `PRAGMA foreign_keys = ON; PRAGMA user_version = 2;` setzen.
+- `applySchema()` im Worker auf neue Tabellen/Spalten erweitern (Schema via ETL-Repo abgleichen). Wichtig: keine Nutzer-Tabellen löschen.
 
-## Aufgabenpakete
+### 3. Orchestrator (`bvlSync.js`)
 
-### 1. Core Utilities & Diagnostics
-- `bvlClient.fetchCollection` mit serverseitiger Pagination, `AbortController` Timeout (30 s), Retries (max. 2 bei 5xx), sauberen Fehlertypen (`NetworkError`, `HttpError`, `ParseError`).
-- `bvlClient.hashData` (SHA-256 Hex); separat `computeDatasetHashes` (per Endpoint und Gesamt).
-- `bvlSync.syncBvlData` akzeptiert `onProgress({ step, percent, message })` und `onLog(entry)` callbacks.
-- Fortschritts-Schritte mindestens: `start`, `fetch:<endpoint>`, `transform`, `write`, `verify`, `done`.
-- Sync nutzt `bvl_meta` (`lastSyncHash`, `lastSyncIso`, `lastSyncCounts`, `lastError`), schreibt Einträge ins `bvl_sync_log` (mit Hash, Counts, Dauer, Fehlermeldung).
-- Bei Fehlern differenzierte Messages inkl. HTTP-Status, Endpoint, Fetch-Versuche, ggf. verkürzter Response-Body.
+- `syncBvlData` so umbauen, dass es:
+  - Manifest lädt (`fetchManifest`), Version & Hash mit `bvl_meta` vergleicht.
+  - Beim Gleichstand (`hash` identisch) nur Metadaten aktualisiert und "keine Aktualisierung" meldet.
+  - Bei neuen Daten die SQLite-Datei herunterlädt, Worker-Kommando `importBvlSqlite` aufruft und Progress/Logs aktualisiert.
+  - Die bisherigen `fetchCollection`-Aufrufe komplett entfernt oder als reiner Fallback hinter Feature-Flag belässt.
+  - `lastSyncCounts` aus `manifest.tables` übernimmt.
+  - Debug-Log erweitern: Downloadgröße, Dekompressionsmethode, Importdauer.
 
-### 2. SQLite Worker & Wrapper
-- Migration wie oben beschrieben implementieren (Transaktion, Drop&Create, Version setzen).
-- Aktionen erweitern:
-  - `importBvlDataset(payload, meta)` (payload als Objekt mit Arrays pro Tabelle; Worker verifiziert Pflichtfelder, logged counts, nutzt `REPLACE`).
-  - `getBvlMeta`, `setBvlMeta`, `appendBvlSyncLog`, `listBvlSyncLog({ limit })`.
-  - `queryZulassung(params)` mit vollständigen JOINs und strukturierter Antwort (Pro Anwendung: Mittel, Status, Kulturen inkl. Ausnahmen, Schadorganismen, Aufwände sortiert nach `sortier_nr`, Wartezeiten sortiert nach `sortier_nr`).
-  - `listBvlCultures`, `listBvlSchadorg` (distinct, sortiert, optional Trefferanzahl).
-  - `diagnoseBvlSchema()` gibt `PRAGMA table_info`, Indexliste und user_version aus (für Debug-Panel).
-- Wrapper `sqlite.js` erhält Promise-basierte Helfer für alle neuen Aktionen.
+### 4. UI-Anpassungen (`features/zulassung/index.js`)
 
-### 3. State Management
-- Slice `zulassung` Struktur:
-```
-zulassung: {
-  filters: { culture: null, pest: null, text: '', includeExpired: false },
-  results: [],
-  lastSync: null,
-  lastResultCounts: null,
-  busy: false,
-  progress: { step: null, percent: 0, message: '' },
-  error: null,
-  logs: [],
-  debug: { schema: null, lastSyncLog: [] },
-  lookups: { cultures: [], pests: [] }
-}
-```
-- Actions/Reducers zum Aktualisieren von Fortschritt, Fehlern, Logs.
-- `resetState` berücksichtigt neue Felder; `createInitialDatabase` setzt `zulassung.lastSync` basierend auf `bvl_meta`.
+- Statuskarte ergänzen: Manifest-Version (`version`), Build-Zeit (`build.finished_at`), Datenquelle (`dataSource`), API-Stand.
+- Ergebnisse erweitern (dynamische Anzeige nur falls Daten vorhanden):
+  - **Wirkstoffe** mit Mengen/Einheiten (Tabelle `bvl_mittel_wirkstoffe`).
+  - **Gefahr- & Sicherheitshinweise** (H-/P-Sätze), Hazard-Kategorien, Piktogramme (ggf. als Badges/Icons).
+  - **Bio-/Öko-Flag** (`bvl_mittel_extras.is_bio` oder ähnlich) als Badge.
+  - **Hersteller / Vertrieb** (bvl_mittel_vertrieb) inkl. Website-Link (`manufacturer_url`).
+  - **Abpackungen** (Inhalt, Einheit, Artikelnummer), Zusatzstoffe, Auflagen (`bvl_awg_auflage`, falls vorhanden).
+  - **Partner/Verwendungszwecke** (Auflistung, falls Tabellen vorhanden).
+- Darstellung so gestalten, dass sie bei fehlenden Tabellen elegant ausblendet.
+- Filterbereich ggf. um zusätzliche Filter erweitern, sofern Lookup-Daten verfügbar (z. B. Bio-Filter, Gefahrklassen). Mindestens aber Klartext-Lookups weiter nutzen.
 
-### 4. UI Modul "Zulassung"
-- Fortschrittsbalken (z. B. unter Buttons), der Prozent und Text aus `state.zulassung.progress` anzeigt. Verwendet CSS-Animation, pseudo-balken in `components.css` oder `layout.css`.
-- Debug-Sektion (collapsible) zeigt letzte Sync-Log-Einträge, Schema-Infos (Tabellen, Spalten) und aktuelle Filter-Parameter.
-- Update-Button steuert Sync; zeigt Busy-Zustand (disabled + Spinner). Nach Abschluss Toast/Alert mit Status.
-- Bei Fehlern rotes Alert-Feld mit detaillierter Nachricht + Link „Details einblenden“ (zeigt Debug-Daten).
-- Ergebnisliste unterstützt Mehrzeilen-Aufwände, Wartezeiten; Ausnahmen visuell absetzen (z. B. rotes Tag „ausgenommen“).
-- UX: Filter bleiben verfügbar während Sync, aber Suchen-Button disabled solange Busy.
-- „Keine Daten“ Hinweis inklusive Button zum Sync.
+### 5. State & Meta
 
-### 5. Shell & Bootstrap
-- `features/shell/index.js`: Tab-Eintrag `{ id: 'zulassung', label: 'Zulassung' }`, Tab sichtbar wenn `app.hasDatabase` true.
-- `core/bootstrap.js`: `initZulassung` importieren, Worker-Aktionsverfügbarkeit prüfen, Debug-Infos initial laden (`diagnoseBvlSchema`).
-- `features/startup/index.js`: Nach `database:connected` -> Meta/Logs laden, Lookups aktualisieren.
+- `state.zulassung.debug` um Manifest und Import-Metriken ergänzen (z. B. `debug.manifest`).
+- `services.events.emit('database:connected', …)` sollte direkt manifestbasierten Sync anstoßen, wenn noch keine BVL-Daten importiert wurden (Auto-Load-Prüfung: `lastSyncIso` fehlt).
 
-### 6. Fehler- & Offline-Verhalten
-- Sync bricht bei Timeout ab und zeigt Nutzerfreundliche Meldung. `Retry`-Button im Fehlerbanner.
-- Pro Endpoint werden Fetch-Zeiten gemessen und im Debug-Log gespeichert.
-- Bei Browser ohne FileSystem/OPFS klarer Hinweis (Banner) und Fallback auf Memory.
-- Offline: `fetchCollection` erkennt `navigator.onLine === false` vor Start.
+### 6. Dokumentation
 
-### 7. Tests (manuell + Debug)
-1. First-run im frischen Browser -> Tab zeigt Hinweis, Sync läuft durch, keine SQL-Fehler; Progress-Bar wechselt sichtbar durch Schritte.
-2. `diagnoseBvlSchema` im Debug-Panel zeigt Spalte `sortier_nr` in `bvl_awg_kultur` und `bvl_awg_schadorg`.
-3. Filter `Kultur=SALAT`, `Schadorganismus=LAUS` liefert Treffer, Aufwände sortiert, Ausnahmen markiert.
-4. Beispiel `awg_id 050498-63/02-001` zeigt mehrere Wartezeiten.
-5. Zweiter Sync ohne Änderungen -> Status „Keine Aktualisierung“, Progress läuft dennoch durch, Log-Eintrag mit `ok=1` und `status=no-change`.
-6. Simulierter HTTP-Fehler (Endpoint 404 via devtools response override) -> Fehlerbanner, Debug-Panel zeigt Endpoint/Status.
-7. Offline (DevTools) -> Sync bricht sofort mit Offline-Hinweis ab, bestehende Daten bleiben.
-8. Browser-Reload -> `lastSync`, `progress` zurückgesetzt, Daten weiter vorhanden.
+- `README.md` im Frontend um neuen Datenfluss ergänzen (Abschnitt "Datenversorgung" verlinkt auf `pflanzenschutz-db`).
+- Kurzbeschreibung für Admins, wie Manifest-URL geändert werden kann (z. B. Browser-Konsole `localStorage.setItem('bvlManifestUrl', '...')`).
 
-## Debug & Logging Anforderungen
-- `bvlSync` ruft `onLog` mit Objekten `{ level, message, data, timestamp }`; UI speichert letzte 50 Einträge.
-- Worker schreibt `console.debug` Meldungen nur bei `payload.debug === true` (optional Toggle im Debug-Panel).
-- Fehler-Objekte enthalten `endpoint`, `attempt`, `status`, `detail`.
+## Tests & Verifikation
 
-## Annahmen / Hinweise
-- BVL-Daten werden immer komplett ersetzt (kein Delta); Drop&Rebuild ist unkritisch.
-- Kultur- und Schadorganismus-Codes bleiben unverändert; Klartext-Mapping ist Folgeaufgabe.
-- Frontend bleibt ASCII-only (keine Emojis), Kommentierung sparsam und nur wo Logik schwer erkennbar.
-- Netlify Preview soll wie gewohnt entstehen; Progress-Bar und Debug-Ausgaben müssen auch in Preview funktionieren.
+- Manuelle Tests (Chromium, Firefox, Safari):
+  1. Start ohne bestehende Daten -> Manifest-Sync startet, Daten sichtbar.
+  2. Erneuter Sync ohne Änderungen -> meldet "keine Aktualisierung", UI bleibt stabil.
+  3. Manifest-URL auf Test-Branch umlenken -> Sync nutzt neue Quelle.
+  4. Offline-Modus -> Sync verweigert sich mit eindeutiger Fehlermeldung.
+  5. Prüfung der UI-Anzeige: Gefahrenhinweise, Wirkstoffe, Bio-Flag, Hersteller, Abpackungen.
+- Unit-Tests optional: Hilfsfunktionen (Manifest-Pick, Dekompression, SQL-Import) mit Jest/vitest oder reinen JS-Tests.
+- Nach Import einmal `diagnoseBvlSchema` nutzen und prüfen, dass neue Tabellen/Spalten vorhanden sind.
 
-## Definition of Done
-- Migration v2 erstellt Tabellen exakt nach obigem Schema (inkl. `sortier_nr`) und wird bei bestehenden Datenbanken erfolgreich ausgeführt.
-- Sync-Prozess liefert nachvollziehbare Logs, Fortschrittsanzeige, stabile UI; keine `SQLITE_CONSTRAINT` oder „no column named“ Fehler mehr.
-- UX-Elemente (Fortschrittsbalken, Fehlerbanner, Debug-Panel) funktionieren in Desktop & Mobile.
-- Manuelle Tests aus Abschnitt 7 dokumentiert (z. B. im PR-Beschreibung). README oder Settings erklärt kurz neuen Tab und Sync-Prozess.
-- Bestehende Features (Berechnung, Historie, Einstellungen) unverändert funktionsfähig.
+## Abnahme-Kriterien
+
+- `syncBvlData` nutzt ausschließlich Manifest-Download (kein Live-API-Zugriff mehr bei Standardlauf).
+- `bvl_meta` enthält `dataSource`, `lastSyncIso`, `lastSyncHash`, `lastSyncCounts` aus dem Manifest.
+- Zulassungs-UI zeigt zusätzliche Detailinformationen (Wirkstoffe, Gefahren, Herstellerinfos) sofern in DB vorhanden.
+- Fehlerfälle (Manifest nicht erreichbar, Download bricht ab, DB invalid) werden im UI klar dargestellt.
+- Dokumentation aktualisiert.
+
+## Offene Punkte für Entwickler
+
+- Browser-Unterstützung für `DecompressionStream('brotli')` prüfen. Falls nicht verfügbar, Bundler-freie Brotli-Implementierung evaluieren oder `.sqlite` direkt laden.
+- Welche optionalen Tabellen produziert das ETL-Repo final? Schema-Datei ggf. automatisiert synchronisieren (Build-Skript?).
+- Performance bei großen Datenmengen beobachten (evtl. Anzeige paginieren, falls `results.length` > 200).
+
+> Bitte alle Änderungen inkrementell committen und offene Fragen in der PR dokumentieren.

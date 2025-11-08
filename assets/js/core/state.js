@@ -34,6 +34,18 @@ let state = {
   history: [],
   fieldLabels: getDefaultFieldLabels(),
   calcContext: null,
+  zulassung: {
+    filters: { culture: null, pest: null, text: '', includeExpired: false },
+    results: [],
+    lastSync: null,
+    lastResultCounts: null,
+    busy: false,
+    progress: { step: null, percent: 0, message: '' },
+    error: null,
+    logs: [],
+    debug: { schema: null, lastSyncLog: [] },
+    lookups: { cultures: [], pests: [] }
+  },
   ui: {
     notifications: []
   }
@@ -111,6 +123,18 @@ export function resetState(newState = undefined) {
     history: [],
     fieldLabels: getDefaultFieldLabels(),
     calcContext: null,
+    zulassung: {
+      filters: { culture: null, pest: null, text: '', includeExpired: false },
+      results: [],
+      lastSync: null,
+      lastResultCounts: null,
+      busy: false,
+      progress: { step: null, percent: 0, message: '' },
+      error: null,
+      logs: [],
+      debug: { schema: null, lastSyncLog: [] },
+      lookups: { cultures: [], pests: [] }
+    },
     ui: {
       notifications: []
     }
