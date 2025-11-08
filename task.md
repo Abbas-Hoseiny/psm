@@ -1,140 +1,204 @@
-# SQLite-WASM Migration Blueprint
+# BVL Zulassungsdaten Integration – Umsetzungsplan
 
-This document is a detailed execution plan for introducing a full SQLite-WASM storage layer into the existing Pflanzenschutzliste web application. It is structured so that a coding agent can pick individual tasks, implement them, and validate the work step by step.
+## Zielbild
+- Nutzer koennen im Bereich "Zulassungs-Datenbank" zugelassene Mittel nach Kultur und Schadorganismus suchen und Details wie Aufwandmenge oder Wartezeit abrufen.
+- Daten werden lokal aus BVL OpenAPI Endpunkten geladen, in der bestehenden SQLite-WASM Persistenz gespeichert und ersetzen veraltete Eintraege.
+- Ein manueller Update-Button meldet Erfolg, Fehler oder "keine Aktualisierung" und haelt die lokale Datenbank synchron.
 
-## 1. Zielsetzung & Rahmen
-- Ersetze die bisherige JSON-basierte Persistenz durch eine SQLite-Datenbank im Browser, primär via OPFS (Origin Private File System).
-- Halte den bisherigen UX-Flow (Datenbank erstellen/öffnen/speichern) aufrecht; erweitere ihn um einen SQLite-Export/Import.
-- Stelle sicher, dass die App auch bei sehr großen Datenmengen performant bleibt (Lazy Loading, Worker, vorbereitete Statements).
-- Bewahre Kompatibilität: Fallback auf bestehende JSON-Treiber, falls SQLite-WASM/OPFS nicht verfügbar ist.
+## Ziel-Endpoints (maximal 6)
+1. `mittel` – Stammdaten der Mittel (Kenr, Name, Formulierung, Zulassungsdaten, Risiko).
+2. `awg` – Anwendungen je Mittel (verbindet Mittel mit Kulturen, Schadorganismen, Zulassungsstatus).
+3. `awg_kultur` – Kulturen zu Anwendungen, inkl. Ausnahmen.
+4. `awg_schadorg` – Schadorganismen zu Anwendungen, inkl. Ausnahmen.
+5. `awg_aufwand` – Aufwand- und Wassermengen je Anwendung.
+6. `awg_wartezeit` – Wartezeiten mit Bemerkungskodes je Anwendung/Kultur.
 
-## 2. Architekturüberblick
-- **Neuer Storage-Treiber `sqlite`** (in `assets/js/core/storage/sqlite.js`).
-- **Web Worker** (`assets/js/core/storage/sqliteWorker.js`) lädt und betreibt SQLite-WASM, kapselt alle DB-Operationen und verhindert UI-Blocking.
-- **WASM Assets** (z. B. `assets/vendor/sqlite/sqlite3.wasm`, `sqlite3.js`, `sqlite3.wasm.wasmfs.data` falls benötigt) lokal bundlen.
-- **Message Bridge** zwischen Hauptthread und Worker (Request/Response mit IDs, Fehlerbehandlung, Cancel-Handling).
-- **Data Access Layer (DAL)** in Worker kapselt SQL, verwaltet Schema, Migrationen, Paging.
-- **State Layer** im Hauptthread bleibt die Single Source of Truth für die UI, holt Daten via DAL/Worker und schreibt aktualisierte Slices wie bisher.
+## Architektur-Erweiterungen
+- Neues Core-Modul `assets/js/core/bvlClient.js` fuer API-Aufrufe (Pagination, Fehlerbehandlung, Hashing).
+- Sync-Orchestrator `assets/js/core/bvlSync.js` fuer koordinierte Datenerfassung, Transform und Rueckmeldung.
+- SQLite-WASM Schema-Erweiterung (`user_version = 2`) fuer BVL Tabellen, inklusive Migrationspfad.
+- Neuer Worker-Support in `sqliteWorker.js` fuer BVL-spezifische Aktionen (Import, Query, Meta, Lookup).
+- State-Slice `zulassung` fuer Filter, Ergebnisse, Busy/Fehler-Status und letzten Sync-Zeitpunkt.
+- Neues Feature-Modul `assets/js/features/zulassung/index.js` mit Filter-UI, Ergebnisdarstellung und Update-Button.
+- Shell Navigation um Tab "Zulassung" erweitern; Anzeige nur bei verbundener Datenbank.
 
-## 3. Schema & Migration
-1. Definiere SQL-Schema in `assets/js/core/storage/schema.sql` (neue Datei):
-   - `meta (key TEXT PRIMARY KEY, value TEXT)` für Settings wie Version, company JSON, defaults JSON, labels JSON.
-   - `measurement_methods (id TEXT PRIMARY KEY, label TEXT, type TEXT, unit TEXT, requires TEXT, config TEXT)`.
-   - `mediums (id TEXT PRIMARY KEY, name TEXT, unit TEXT, method_id TEXT, value REAL, FOREIGN KEY(method_id) REFERENCES measurement_methods(id))`.
-   - `history (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, header_json TEXT)`.
-   - `history_items (id INTEGER PRIMARY KEY AUTOINCREMENT, history_id INTEGER REFERENCES history(id) ON DELETE CASCADE, medium_id TEXT, payload_json TEXT)`.
-   - Optional: `indices` auf `history(created_at DESC)` und `history_items(history_id)`.
-2. Implementiere Migration-Manager im Worker (z. B. `applyMigrations(db)`):
-   - Nutze `PRAGMA user_version` zur Schema-Versionierung.
-   - Migration 1: Erstelle o. g. Tabellen + Defaultdaten.
-   - Migration 2+: Reserviert für zukünftige Anpassungen.
-3. JSON → SQLite Import:
-   - Parse `defaults.json` beim Erststart (wenn DB leer) und schreibe in Tabellen via Transaktion.
-   - Für User-Import (bestehende JSON-Datei) ähnlicher Pfad.
-4. SQLite → JSON Export:
-   - Baue Funktion, die alle Tabellen in das existierende `getDatabaseSnapshot()`-Format zurückführt.
+## SQLite Datenmodell (Vorschlag)
+```
+Table bvl_meta
+- key TEXT PRIMARY KEY (z. B. lastSyncIso, lastSyncHash)
+- value TEXT
 
-## 4. Worker-Implementierung
-- **Dateien:**
-  - `assets/js/core/storage/sqliteWorker.js` (Worker Script, per ES Module laden).
-  - Optional Hilfsdateien (`dal.js`, `migrations.js`, `queries.js`).
-- **Initialisierung:**
-  - `sqlite3InitModule` laden (`importScripts` oder `await import` in Worker context).
-  - `const sqlite3 = await sqlite3InitModule({ locateFile: file => 'assets/vendor/sqlite/' + file });`
-  - OPFS-Handle öffnen (`navigator.storage.getDirectory()`), DB-Datei `pflanzenschutz.sqlite` erzeugen, `sqlite3.oo1.DB` mit `{ filename: 'file:pflanzenschutz-prod?mode=rw', vfs: 'opfs', create: true }` initialisieren.
-  - Konfiguriere `PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-20000;`.
-- **Message Handling:**
-  - Request-Form: `{ id, action, payload }`.
-  - Response-Form: `{ id, ok, result }` oder `{ id, ok: false, error }`.
-  - Aktionen: `init`, `importSnapshot`, `exportSnapshot`, `upsertMedium`, `deleteMedium`, `listMediums`, `listHistory`, `getHistoryEntry`, `appendHistoryEntry`, `deleteHistoryEntry`, usw.
-- **Prepared Statements & Transaktionen:**
-  - Halte Statement-Pools für häufige Queries (z. B. Medium CRUD, History Paging).
-  - Nutze Transaktionen für Batch-Operationen und Imports.
+Table bvl_mittel
+- kennr TEXT PRIMARY KEY
+- name TEXT
+- formulierung TEXT
+- zul_erstmalig TEXT
+- zul_ende TEXT
+- geringes_risiko INTEGER
+- payload_json TEXT
 
-## 5. Hauptthread-Treiber (`sqlite.js`)
-- API kompatibel zu `fileSystem`/`fallback` Treibern: `isSupported`, `create`, `open`, `save`, `getContext`, `reset`.
-- Aufgaben:
-  1. Worker instanziieren (`new Worker(new URL('./sqliteWorker.js', import.meta.url), { type: 'module' })`).
-  2. Init-Sequenz: `await worker.call('init', { mode: detectMode() })`.
-  3. `create(initialData)`: DB neu erstellen, Schema anwenden, Snapshot importieren, optional FileHandle sichern.
-  4. `open()`: Existierende SQLite-Datei (via File Picker) lesen, Worker-DB aus `ArrayBuffer` initialisieren (`DB.createFrom`) oder OPFS-File mit Hochladen ersetzen.
-  5. `save(data)`: Aktualisierte Snapshots per `importSnapshot` (UPSERT) einspielen.
-  6. `exportFile()`: Worker `exportSnapshot`-Result in eine Datei schreiben (`db.export()` → `Uint8Array`).
-  7. `destroy()`: Worker terminieren, Ressourcen freigeben.
-- Ergänze `storage/index.js`:
-  - `DRIVERS.sqlite = sqliteDriver`.
-  - Passe `detectPreferredDriver` an (`if (sqliteDriver.isSupported()) return 'sqlite';`).
-  - Erweitere State `app.storageDriver` um Wert `'sqlite'`.
+Table bvl_awg
+- awg_id TEXT PRIMARY KEY
+- kennr TEXT REFERENCES bvl_mittel(kennr) ON DELETE CASCADE
+- status_json TEXT
+- zulassungsende TEXT
 
-## 6. UI & State Anpassungen
-- **Startup Feature** (`assets/js/features/startup/index.js`):
-  - Neue Buttons für „SQLite-Datenbank erstellen“ / „SQLite-Datei verbinden“.
-  - Fallback-Hinweise, wenn Browser kein WASM/OPFS kann.
-  - Wizards aktualisieren, um `.sqlite` statt `.json` vorzuschlagen.
-- **Settings Feature** (`assets/js/features/settings/index.js`):
-  - CRUD-Aktionen via Worker-Calls implementieren (nicht mehr nur State-Arrays).
-  - Nach erfolgreicher Operation: UI-State synchronisieren (`services.state.updateSlice` mit Worker-Daten).
-- **History Feature** (`assets/js/features/history/index.js`):
-  - Paging/Lazy Loading bei großen Datenmengen (`loadHistoryPage(pageSize, cursor)` via Worker).
-  - Detail-Ansicht lädt Items on-demand (`getHistoryEntry(id)`).
-- **Calculation Feature** (`assets/js/features/calculation/index.js`):
-  - `save`-Button schreibt History-Eintrag über Worker, erhält ID zurück, aktualisiert UI-State minimal.
-  - Optionale Optimierung: Medium/Method-Lookups direkt aus SQLite (z. B. Worker `listMediums` bei Start).
-- **State Layer (`state.js`)**: State bleibt primär als UI-Cache; achte darauf, keine vollständigen Kopien großer Tabellen mehr zu halten (z. B. History nur aktuelle Seite).
-- **Labels/Config**: Persistiere Label-Änderungen in SQLite (`meta`-Tabelle). Beim Start Snapshot ziehen und State initialisieren.
+Table bvl_awg_kultur
+- awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
+- kultur TEXT
+- ausgenommen INTEGER
+- PRIMARY KEY (awg_id, kultur)
 
-## 7. JSON-Kompatibilität
-- Biete weiterhin Import/Export von JSON-Snapshots als Brücke:
-  - Worker-Funktion `exportJsonSnapshot` generiert JSON aus DB.
-  - `createInitialDatabase` nutzt Worker statt `defaults.json` direkt.
-  - Datei-Uploads (`.json`) importieren via Worker-Transaktion.
+Table bvl_awg_schadorg
+- awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
+- schadorg TEXT
+- ausgenommen INTEGER
+- PRIMARY KEY (awg_id, schadorg)
 
-## 8. Tests & Qualitätssicherung
-- Implementiere automatisierte Browser-Tests (Playwright) oder Integrationstests, die Worker-Funktionalität validieren (z. B. Import, CRUD, Export).
-- Führe Lasttests lokal aus: generiere mehrere tausend History-Einträge, prüfe Ladezeiten & Speicherverbrauch.
-- Prüfe Browser-Kompatibilität: Chrome/Edge (OPFS), Firefox (Fallback, ggf. Behind-Flag Hinweis), Safari (WASM Support, kein OPFS → fallback auf JSON).
-- Validierung nach jedem Schritt (`console`-Warnungen, Fehler-Handling).
-- Dokumentiere alle neuen NPM/Build-Schritte (falls bundler nötig wird, z. B. Rollup/Vite für Worker + WASM). Aktuell ES Module → Worker via `new URL`.
+Table bvl_awg_aufwand
+- awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
+- sortier_nr INTEGER
+- aufwand_bedingung TEXT
+- mittel_menge REAL
+- mittel_einheit TEXT
+- wasser_menge REAL
+- wasser_einheit TEXT
+- payload_json TEXT
+- PRIMARY KEY (awg_id, sortier_nr, aufwand_bedingung)
 
-## 9. Schritt-für-Schritt-Umsetzung (empfohlene Reihenfolge)
-1. **Vorbereitung**
-   - SQLite-WASM Assets hinzufügen.
-   - Worker Grundgerüst + Init-Test (simple Query) erstellen.
-2. **Schema & Migrationen**
-   - `schema.sql`, Migration-Manager, Import `defaults.json`.
-3. **Worker-DAL API**
-   - CRUD-Methoden implementieren (Mediums, MeasurementMethods, History Paging, Meta).
-4. **Hauptthread-Treiber**
-   - `sqlite.js` implementieren, an `storage/index.js` anbinden.
-5. **Startup-Flow**
-   - UI aktualisieren, SQLite-Optionen integrieren, Fallback-Hinweise.
-6. **Settings/Calculation/History anpassen**
-   - UI-Events → Worker Calls, State-Sync.
-   - Paging & Lazy Loading für History.
-7. **Import/Export**
-   - JSON + SQLite Export/Import implementieren.
-   - Download/Upload via File Picker.
-8. **Fallback & Feature Detection**
-   - `isSupported` Checks, fallback to JSON driver, UI informiert Nutzer.
-9. **Optimierung & Tests**
-   - Performance-Tuning (Pragma, Statement-Reuse).
-   - Integrationstests, große Testdatensätze, Regressionen prüfen.
-10. **Dokumentation**
-    - README aktualisieren (neue Features, Browser-Anforderungen, bekannte Einschränkungen).
+Table bvl_awg_wartezeit
+- awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE
+- kultur TEXT
+- tage INTEGER
+- bemerkung_kode TEXT
+- payload_json TEXT
+- PRIMARY KEY (awg_id, kultur)
 
-## 10. Offene Fragen (für Product Owner / Stakeholder)
-- Welche Mindest-Browser sollen unterstützt werden? (OPFS/SharedArrayBuffer).
-- Soll History dauerhaft im UI-State cachen oder nur aktuelle Seite? (Memory-Verbrauch).
-- Benötigt der Export wahlweise JSON und SQLite parallel? (für Datenaustausch mit bestehenden Nutzern).
-- Ist eine Verschlüsselung / Passwortschutz vorgesehen? (SQLite unterstützt, aber zusätzliche Arbeit).
+Table bvl_sync_log
+- id INTEGER PRIMARY KEY AUTOINCREMENT
+- synced_at TEXT
+- ok INTEGER
+- message TEXT
+- payload_hash TEXT
+```
+- Indizes: `CREATE INDEX idx_awg_kennr ON bvl_awg(kennr);`, `idx_awg_kultur_kultur`, `idx_awg_schadorg_schadorg`.
 
-## 11. Erfolgskriterien
-- SQLite-WASM läuft stabil in Chromium-basierten Browsern mit OPFS, inklusive Persistenz über Reloads.
-- App reagiert flüssig bei >10k History-Einträgen (Paging, on-demand Laden).
-- Import/Export (JSON & SQLite) funktioniert ohne Datenverlust.
-- Fallback auf JSON-Storage funktioniert, wenn SQLite-WASM nicht verfügbar.
-- Tests decken neue Persistenzlogik ab; keine Regressionen in bestehender UI.
+## Aufgabenpakete fuer den Coding-Agent
 
----
+### 1. Core Utilities
+- Implementiere `assets/js/core/bvlClient.js`:
+  - `fetchCollection(endpoint, { query, signal })` mit `Accept: application/json`, Redirect-Toleranz, Pagination via `links.next`.
+  - Zeitlimit (z. B. 30 s) per `AbortController` und Fehlerklassifizierung.
+  - `hashData(payload)` Wrapper (SHA-256 -> hex) zur Diff-Erkennung.
+- Implementiere `assets/js/core/bvlSync.js`:
+  - `syncBvlData({ endpoints?, onProgress? })` Ablauf: Meta lesen -> Endpunkte laden -> Gesamt-Hash bilden -> no-change Fruehverlassen -> Transform -> Worker `importBvlDataset` -> Meta aktualisieren -> Sync-Log schreiben.
+  - Liefere strukturiertes Ergebnis `{ status, counts, message }` (status: updated | no-change | failed).
+  - Aufrufbar auch fuer Teilmengen (optional Parameter `endpoints`).
 
-Mit diesem Plan kann ein Coding Agent die Migration schrittweise durchführen und nach jedem Milestone testen. Änderungen sollten in kleinen, reviewbaren Pull Requests umgesetzt werden (z. B. pro Abschnitt aus Kapitel 9).git 
+### 2. SQLite Worker & Treiber
+- `assets/js/core/storage/sqliteWorker.js`:
+  - Migration: Wenn `user_version < 2`, neue Tabellen erzeugen und `PRAGMA user_version = 2` setzen.
+  - Neue Aktionen:
+    - `importBvlDataset` (Payload mit Arrays je Tabelle -> Transaction -> DELETE + INSERT).
+    - `getBvlMeta` / `setBvlMeta` / `appendBvlSyncLog`.
+    - `queryZulassung` (Filter `culture`, `pest`, `text`, `includeExpired`, `limit`, `offset`).
+    - `listBvlCultures`, `listBvlSchadorg` (distinct Werte, optional mit Trefferanzahl).
+  - Query Beispiel (Feintuning durch Agent):
+```
+SELECT m.kennr,
+       m.name AS mittelname,
+       m.formulierung,
+       m.zul_ende,
+       a.awg_id,
+       GROUP_CONCAT(DISTINCT CASE WHEN ak.ausgenommen = 0 THEN ak.kultur END) AS kulturen,
+       GROUP_CONCAT(DISTINCT CASE WHEN ak.ausgenommen = 1 THEN ak.kultur END) AS kulturen_ausgenommen,
+       GROUP_CONCAT(DISTINCT CASE WHEN asg.ausgenommen = 0 THEN asg.schadorg END) AS schadorg,
+       GROUP_CONCAT(DISTINCT CASE WHEN asg.ausgenommen = 1 THEN asg.schadorg END) AS schadorg_ausgenommen,
+       ao.mittel_menge,
+       ao.mittel_einheit,
+       ao.wasser_menge,
+       ao.wasser_einheit,
+       aw.tage,
+       aw.bemerkung_kode
+FROM bvl_awg a
+JOIN bvl_mittel m ON m.kennr = a.kennr
+LEFT JOIN bvl_awg_kultur ak ON ak.awg_id = a.awg_id
+LEFT JOIN bvl_awg_schadorg asg ON asg.awg_id = a.awg_id
+LEFT JOIN bvl_awg_aufwand ao ON ao.awg_id = a.awg_id
+LEFT JOIN bvl_awg_wartezeit aw ON aw.awg_id = a.awg_id AND (aw.kultur = ak.kultur OR aw.kultur IS NULL)
+WHERE (:culture IS NULL OR EXISTS (
+  SELECT 1 FROM bvl_awg_kultur ak2
+  WHERE ak2.awg_id = a.awg_id AND ak2.ausgenommen = 0 AND ak2.kultur = :culture
+))
+  AND (:pest IS NULL OR EXISTS (
+  SELECT 1 FROM bvl_awg_schadorg asg2
+  WHERE asg2.awg_id = a.awg_id AND asg2.ausgenommen = 0 AND asg2.schadorg = :pest
+))
+  AND (:text IS NULL OR (m.name LIKE :text OR m.kennr LIKE :text))
+  AND (:includeExpired = 1 OR m.zul_ende IS NULL OR m.zul_ende >= :currentDate)
+GROUP BY m.kennr, a.awg_id, ao.sortier_nr, aw.kultur
+ORDER BY m.name ASC, a.awg_id ASC, ao.sortier_nr ASC
+LIMIT :limit OFFSET :offset;
+```
+- `assets/js/core/storage/sqlite.js`: Worker-Aufrufe durchreichen (`importBvlDataset`, `getBvlMeta`, `setBvlMeta`, `appendBvlSyncLog`, `queryZulassung`, `listBvlCultures`, `listBvlSchadorg`).
+
+### 3. State Management
+- `assets/js/core/state.js` initial um Slice erweitern:
+```
+zulassung: {
+  filters: { culture: null, pest: null, text: '', includeExpired: false },
+  results: [],
+  lastSync: null,
+  busy: false,
+  error: null,
+  lookups: { cultures: [], pests: [] }
+}
+```
+- `resetState` und `createInitialDatabase` entsprechend anpassen.
+- Optional Hilfsfunktionen fuer Notifications (Toast) ueber `state.ui.notifications`.
+
+### 4. UI Modul "Zulassung"
+- Neues Modul `assets/js/features/zulassung/index.js`:
+  - Baut Feature-Section mit Filterleiste (Dropdowns Kultur/Schadorganismus, Textfeld, Checkbox, Buttons).
+  - Nutzt Services (`state`, `events`) fuer Abhoeren und Aktualisieren.
+  - Initial lädt `lookups` via Worker Listen, zeigt Ladezustand.
+  - Suche triggert `queryZulassung`, Ergebnisse im State speichern, UI rendern (Tabelle oder Karten).
+  - Update-Button triggert `syncBvlData`, zeigt Busy/Status, aktualisiert `lastSync`.
+  - Hinweis bei leeren Daten: "Bitte zuerst Daten aktualisieren".
+  - Markiert Ausnahmen (wenn Kultur/Schadorg in `*_ausgenommen`).
+- Styling in vorhandenen CSS-Dateien erweitern (keine Inline Styles).
+
+### 5. Shell & Bootstrap Anpassungen
+- `assets/js/features/shell/index.js`: `SECTION_MAP` um `{ id: 'zulassung', label: 'Zulassung' }` ergaenzen.
+- `assets/js/core/bootstrap.js`: `initZulassung` importieren und aufrufen (analog zu anderen Features).
+- Sichtbarkeit: Tab bleibt deaktiviert solange `app.hasDatabase` false.
+
+### 6. Startup/Settings Integration
+- Beim Event `database:connected` (siehe `features/startup`) `getBvlMeta('lastSyncIso')` aufrufen und State aktualisieren.
+- Optional in `features/settings` Anzeige "Letzte BVL Aktualisierung".
+
+### 7. Fehler- und Offline-Verhalten
+- Sync-Button deaktivieren, wenn `sqliteDriver.isSupported()` false oder Worker nicht initialisiert.
+- Fehler beim Sync via Toast und State `error` anzeigen.
+- Timeout/Netrwerkfehler klar benennen.
+- Hinweis bei Browser ohne FileSystem/OPFS: z. B. "Automatische Speicherung nicht moeglich".
+
+### 8. Manuelle Testliste
+1. Defaults laden -> Zulassung-Tab zeigt Hinweis "Keine BVL Daten".
+2. Update ausfuehren -> Spinner, Erfolgsmeldung, results > 0.
+3. Filter Kultur "SALAT" + Schadorganismus "LAUS" -> Ergebnisse plausibel, Ausnahmen sichtbar.
+4. Erneuter Update direkt danach -> Meldung "Keine Aktualisierung".
+5. Offline-Modus (DevTools) -> Update -> Fehlerhinweis, Daten unveraendert.
+6. Browser neu laden -> `lastSync` sichtbar, Daten persistent.
+
+## Annahmen (Dokumentation im PR)
+- Kultur- und Schadorganismus-Codes werden initial unveraendert angezeigt; Klartext-Dekodierung via `kode` Endpunkt kann spaeter folgen.
+- Aufwanddaten koennen mehrere Zeilen je Anwendung haben; UI zeigt Liste/Tabelle pro Anwendung.
+- Wartezeiten koennen fehlen; UI zeigt "keine Angabe".
+
+## Definition of Done
+- Zulassung-Tab vorhanden, Filter und Ergebnisanzeige funktionieren.
+- Sync-Button aktualisiert Daten, ersetzt Tabelleninhalte und meldet Status korrekt.
+- SQLite Migration laeuft einmalig, bestehende Funktionalitaet (Berechnung, Historie, Einstellungen) bleibt intakt.
+- README oder Hilfeabschnitt ergaenzt Hinweise zu neuem Tab und Update-Vorgehen.
+- Code entspricht Projektstil (Module, Kommentare nur bei Bedarf, ASCII-only) und fuehrt zu keiner Regression laut manueller Testliste.
