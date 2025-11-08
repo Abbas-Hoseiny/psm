@@ -1,9 +1,10 @@
-# BVL Zulassungsdaten Integration – Auftrag v2
+# BVL Zulassungsdaten Integration – Auftrag v3
 
 ## Zielbild
-- Nutzer koennen im Bereich "Zulassungs-Datenbank" zugelassene Mittel nach Kultur/Schadorganismus filtern und Details wie Aufwand, Wartezeit, Zulassungsstatus sehen.
-- Daten werden aus BVL OpenAPI Endpunkten geladen, lokal in SQLite-WASM persistiert und ersetzen bestehende Datensaetze ohne Primaerschluessel-Konflikte.
-- Ein Update-Button stoesst den Sync an, zeigt Fortschritt, Ergebnisstatus (aktualisiert / unveraendert / Fehler) und aktualisiert den Zeitstempel.
+- Zulassungsdatenbank funktioniert stabil im Browser (OPFS oder Memory) und ersetzt bestehende Daten ohne Constraint-Fehler.
+- Nutzer sehen beim Sync einen Fortschrittsbalken (mehrstufig: Laden, Verarbeiten, Schreiben, Fertig) und erhalten klare Status- sowie Fehlerhinweise.
+- Detaillierte Debug-Informationen (Konsole + optionales Log-Panel) erleichtern das Nachvollziehen von Importproblemen.
+- UI liefert korrekte Filterergebnisse inklusive Mehrfach-Aufwände und Mehrfach-Wartezeiten.
 
 ## Ziel-Endpoints (maximal 6)
 1. `mittel`
@@ -13,16 +14,29 @@
 5. `awg_aufwand`
 6. `awg_wartezeit`
 
-## Architektur-Erweiterungen
-- Neues Core-Modul `assets/js/core/bvlClient.js` fuer API-Zugriffe mit Pagination, Timeout, Fehlerklassifizierung, Hashing.
-- Sync-Orchestrator `assets/js/core/bvlSync.js` fuer orchestrierte Datenerfassung, Diff-Erkennung, Import und Logging.
-- SQLite-WASM Schema-Migration (`user_version = 2`) fuer robuste Tabellen und eindeutige Schluessel.
-- Erweiterte Worker-Actions (Import, Meta, Query, Lookup) in `sqliteWorker.js` plus Wrapper in `sqlite.js`.
-- State-Slice `zulassung` fuer Filter, Ergebnisse, Busy/Error, letzte Aktualisierung und Lookup-Caches.
-- Feature-Modul `assets/js/features/zulassung/index.js` mit Filter-UI, Ergebnisliste, Update-Button, Statusmeldungen.
-- Shell Navigation um Tab "Zulassung" erweitern, sichtbar nur bei verbundener Datenbank.
+## Architektur-Erweiterungen (Pflicht)
+- Core-Modul `assets/js/core/bvlClient.js` (Pagination, Timeout, Error-Klassen, SHA-256 Hashing).
+- Sync-Orchestrator `assets/js/core/bvlSync.js` mit Fortschritts-Callbacks, Diff-Erkennung, strukturierten Ergebnissen und erweitertem Logging.
+- SQLite-WASM Migration auf `user_version = 2`, die ALLE bisherigen `bvl_*` Tabellen konsequent droppt und nach neuem Schema erstellt (siehe unten).
+- Worker-Aktionsset (Import, Meta, Sync-Log, Query, Lookups, Diagnostics) in `assets/js/core/storage/sqliteWorker.js`; Wrapper in `assets/js/core/storage/sqlite.js`.
+- State-Slice `zulassung` mit Progress- und Debug-Infos.
+- Feature-Modul `assets/js/features/zulassung/index.js` inkl. Fortschrittsbalken, Statusbanner, optionaler Debug-Konsole.
+- Shell & Bootstrap Anpassungen (Tab sichtbar bei aktiver DB, Initialisierung mit Lookups und letztem Sync).
 
-## SQLite Schema (Version 2)
+## SQLite Schema (Version 2 – Full Rebuild)
+Migration verlangt, dass beim Sprung `<2 -> 2` zuerst alle BVL-Tabellen und Indizes entfernt werden:
+```
+PRAGMA foreign_keys = OFF;
+DROP TABLE IF EXISTS bvl_awg_wartezeit;
+DROP TABLE IF EXISTS bvl_awg_aufwand;
+DROP TABLE IF EXISTS bvl_awg_schadorg;
+DROP TABLE IF EXISTS bvl_awg_kultur;
+DROP TABLE IF EXISTS bvl_awg;
+DROP TABLE IF EXISTS bvl_mittel;
+DROP TABLE IF EXISTS bvl_meta;
+DROP TABLE IF EXISTS bvl_sync_log;
+```
+Anschließend neu erstellen:
 ```
 Table bvl_meta
 - key TEXT PRIMARY KEY
@@ -87,86 +101,99 @@ Table bvl_sync_log
 - message TEXT
 - payload_hash TEXT
 ```
-- Zusaetzliche Indizes: `idx_awg_kennr` auf `bvl_awg(kennr)`, `idx_awg_kultur_kultur`, `idx_awg_schadorg_schadorg`, `idx_awg_aufwand_awg`, `idx_awg_wartezeit_awg`.
+Indizes (Pflicht):
+```
+idx_awg_kennr ON bvl_awg(kennr)
+idx_awg_kultur_kultur ON bvl_awg_kultur(kultur)
+idx_awg_schadorg_schadorg ON bvl_awg_schadorg(schadorg)
+idx_awg_aufwand_awg ON bvl_awg_aufwand(awg_id)
+idx_awg_wartezeit_awg ON bvl_awg_wartezeit(awg_id)
+```
+Zum Schluss `PRAGMA foreign_keys = ON; PRAGMA user_version = 2;` setzen.
 
-## Aufgabenpakete fuer den Coding-Agent
+## Aufgabenpakete
 
-### 1. Core Utilities
-- `assets/js/core/bvlClient.js`:
-  - `fetchCollection(endpoint, { query, signal })` mit `Accept: application/json`, automatischem Redirect-Handling.
-  - Pagination via `links.next`, Timeout (30 s) ueber `AbortController`, differenzierte Fehler (Network, HTTP >= 400, Parse).
-  - `hashData(payload)` (SHA-256 Hex) fuer deterministische Diff-Erkennung.
-- `assets/js/core/bvlSync.js`:
-  - `syncBvlData({ endpoints?, onProgress? })`: Meta lesen -> Endpunkte laden -> Hash bilden.
-  - Bei gleichem Hash: Sync-Log `no-change`, Rueckgabe `{ status: 'no-change' }`.
-  - Transformierte Datensaetze an Worker `importBvlDataset` uebergeben (Transaction, FULL REPLACE).
-  - Meta (`lastSyncHash`, `lastSyncIso`) aktualisieren, Log schreiben.
-  - Rueckgabe `{ status: 'updated', counts, message }` oder `{ status: 'failed', error }`.
+### 1. Core Utilities & Diagnostics
+- `bvlClient.fetchCollection` mit serverseitiger Pagination, `AbortController` Timeout (30 s), Retries (max. 2 bei 5xx), sauberen Fehlertypen (`NetworkError`, `HttpError`, `ParseError`).
+- `bvlClient.hashData` (SHA-256 Hex); separat `computeDatasetHashes` (per Endpoint und Gesamt).
+- `bvlSync.syncBvlData` akzeptiert `onProgress({ step, percent, message })` und `onLog(entry)` callbacks.
+- Fortschritts-Schritte mindestens: `start`, `fetch:<endpoint>`, `transform`, `write`, `verify`, `done`.
+- Sync nutzt `bvl_meta` (`lastSyncHash`, `lastSyncIso`, `lastSyncCounts`, `lastError`), schreibt Einträge ins `bvl_sync_log` (mit Hash, Counts, Dauer, Fehlermeldung).
+- Bei Fehlern differenzierte Messages inkl. HTTP-Status, Endpoint, Fetch-Versuche, ggf. verkürzter Response-Body.
 
-### 2. SQLite Worker & Treiber
-- `sqliteWorker.js` Migration:
-  - Bei `user_version < 2` alle bisherigen `bvl_*` Tabellen (falls vorhanden) droppen und neues Schema anlegen, `PRAGMA user_version = 2`.
-- Neue Worker-Actions:
-  - `importBvlDataset(payload)` – erwartet Arrays fuer jede Tabelle, setzt alle Primaerschluessel korrekt (inkl. `awg_wartezeit_nr`).
-  - `getBvlMeta`, `setBvlMeta`, `appendBvlSyncLog`.
-  - `queryZulassung(params)` – JOINs liefern mehrere Aufwaende und Wartezeiten je Anwendung; Ausnahmen (`ausgenommen = 1`) gesondert ausweisen.
-  - `listBvlCultures()` & `listBvlSchadorg()` – distinct Werte (nur Ausnahmen = 0), alphabetisch sortiert.
-- `sqlite.js` Wrapper fuer neue Aktionen ergaenzen.
+### 2. SQLite Worker & Wrapper
+- Migration wie oben beschrieben implementieren (Transaktion, Drop&Create, Version setzen).
+- Aktionen erweitern:
+  - `importBvlDataset(payload, meta)` (payload als Objekt mit Arrays pro Tabelle; Worker verifiziert Pflichtfelder, logged counts, nutzt `REPLACE`).
+  - `getBvlMeta`, `setBvlMeta`, `appendBvlSyncLog`, `listBvlSyncLog({ limit })`.
+  - `queryZulassung(params)` mit vollständigen JOINs und strukturierter Antwort (Pro Anwendung: Mittel, Status, Kulturen inkl. Ausnahmen, Schadorganismen, Aufwände sortiert nach `sortier_nr`, Wartezeiten sortiert nach `sortier_nr`).
+  - `listBvlCultures`, `listBvlSchadorg` (distinct, sortiert, optional Trefferanzahl).
+  - `diagnoseBvlSchema()` gibt `PRAGMA table_info`, Indexliste und user_version aus (für Debug-Panel).
+- Wrapper `sqlite.js` erhält Promise-basierte Helfer für alle neuen Aktionen.
 
 ### 3. State Management
-- `state.js`: neues Slice `zulassung` hinzufuegen:
+- Slice `zulassung` Struktur:
 ```
 zulassung: {
   filters: { culture: null, pest: null, text: '', includeExpired: false },
   results: [],
-  busy: false,
-  error: null,
   lastSync: null,
+  lastResultCounts: null,
+  busy: false,
+  progress: { step: null, percent: 0, message: '' },
+  error: null,
+  logs: [],
+  debug: { schema: null, lastSyncLog: [] },
   lookups: { cultures: [], pests: [] }
 }
 ```
-- `resetState` und `createInitialDatabase` anpassen.
+- Actions/Reducers zum Aktualisieren von Fortschritt, Fehlern, Logs.
+- `resetState` berücksichtigt neue Felder; `createInitialDatabase` setzt `zulassung.lastSync` basierend auf `bvl_meta`.
 
 ### 4. UI Modul "Zulassung"
-- `assets/js/features/zulassung/index.js`:
-  - Filterbar (Dropdowns, Textfeld, Checkbox, Suche, Update-Button) rendern.
-  - Lookups beim Init laden; Ladeindikator.
-  - Suche: `queryZulassung` ausfuehren, Ergebnisse anzeigen (Tabelle/Karten) inkl. Mehrfach-Aufwaende und -Wartezeiten; Ausnahmen farblich markieren.
-  - Update-Button: `syncBvlData`, Busy-Zustand, Feedback (Toast/Alert), letztes Sync-Datum setzen.
-  - Hinweis bei leerem Datenbestand.
-- Styles in vorhandenen CSS-Dateien ergaenzen.
+- Fortschrittsbalken (z. B. unter Buttons), der Prozent und Text aus `state.zulassung.progress` anzeigt. Verwendet CSS-Animation, pseudo-balken in `components.css` oder `layout.css`.
+- Debug-Sektion (collapsible) zeigt letzte Sync-Log-Einträge, Schema-Infos (Tabellen, Spalten) und aktuelle Filter-Parameter.
+- Update-Button steuert Sync; zeigt Busy-Zustand (disabled + Spinner). Nach Abschluss Toast/Alert mit Status.
+- Bei Fehlern rotes Alert-Feld mit detaillierter Nachricht + Link „Details einblenden“ (zeigt Debug-Daten).
+- Ergebnisliste unterstützt Mehrzeilen-Aufwände, Wartezeiten; Ausnahmen visuell absetzen (z. B. rotes Tag „ausgenommen“).
+- UX: Filter bleiben verfügbar während Sync, aber Suchen-Button disabled solange Busy.
+- „Keine Daten“ Hinweis inklusive Button zum Sync.
 
 ### 5. Shell & Bootstrap
-- `assets/js/features/shell/index.js`: `SECTION_MAP` um `{ id: 'zulassung', label: 'Zulassung' }` erweitern.
-- `assets/js/core/bootstrap.js`: `initZulassung` einbinden.
-- Buttons bleiben deaktiviert solange `app.hasDatabase` false.
+- `features/shell/index.js`: Tab-Eintrag `{ id: 'zulassung', label: 'Zulassung' }`, Tab sichtbar wenn `app.hasDatabase` true.
+- `core/bootstrap.js`: `initZulassung` importieren, Worker-Aktionsverfügbarkeit prüfen, Debug-Infos initial laden (`diagnoseBvlSchema`).
+- `features/startup/index.js`: Nach `database:connected` -> Meta/Logs laden, Lookups aktualisieren.
 
-### 6. Startup/Settings Integration
-- Nach `database:connected` -> `getBvlMeta('lastSyncIso')` abrufen und `state.zulassung.lastSync` setzen.
-- Optional: Anzeige "Letzte BVL Aktualisierung" im Settings-Feature.
+### 6. Fehler- & Offline-Verhalten
+- Sync bricht bei Timeout ab und zeigt Nutzerfreundliche Meldung. `Retry`-Button im Fehlerbanner.
+- Pro Endpoint werden Fetch-Zeiten gemessen und im Debug-Log gespeichert.
+- Bei Browser ohne FileSystem/OPFS klarer Hinweis (Banner) und Fallback auf Memory.
+- Offline: `fetchCollection` erkennt `navigator.onLine === false` vor Start.
 
-### 7. Fehler- & Offline-Verhalten
-- Update-Button deaktivieren, wenn `sqliteDriver.isSupported()` false oder Worker nicht bereit.
-- Fehler differenziert anzeigen: Netzwerk/Timeout, HTTP-Fehler inkl. Response-Text.
-- Sync-Log-Eintraege optional im UI (z. B. Tooltip oder Verlauf) sichtbar machen.
+### 7. Tests (manuell + Debug)
+1. First-run im frischen Browser -> Tab zeigt Hinweis, Sync läuft durch, keine SQL-Fehler; Progress-Bar wechselt sichtbar durch Schritte.
+2. `diagnoseBvlSchema` im Debug-Panel zeigt Spalte `sortier_nr` in `bvl_awg_kultur` und `bvl_awg_schadorg`.
+3. Filter `Kultur=SALAT`, `Schadorganismus=LAUS` liefert Treffer, Aufwände sortiert, Ausnahmen markiert.
+4. Beispiel `awg_id 050498-63/02-001` zeigt mehrere Wartezeiten.
+5. Zweiter Sync ohne Änderungen -> Status „Keine Aktualisierung“, Progress läuft dennoch durch, Log-Eintrag mit `ok=1` und `status=no-change`.
+6. Simulierter HTTP-Fehler (Endpoint 404 via devtools response override) -> Fehlerbanner, Debug-Panel zeigt Endpoint/Status.
+7. Offline (DevTools) -> Sync bricht sofort mit Offline-Hinweis ab, bestehende Daten bleiben.
+8. Browser-Reload -> `lastSync`, `progress` zurückgesetzt, Daten weiter vorhanden.
 
-### 8. Tests (manuell)
-1. Neue Datenbank -> Hinweis "Keine BVL Daten" im Zulassung-Tab.
-2. Update ausfuehren -> Daten werden geladen, keine Constraint-Fehler.
-3. Filter "SALAT" + "LAUS" -> sinnvolle Treffer, Ausnahmen gekennzeichnet.
-4. Beispiel Wartezeit mit Mehrfacheintraegen (z. B. `awg_id 050498-63/02-001`) erscheint vollstaendig.
-5. Erneuter Update ohne Datenaenderung -> Meldung "Keine Aktualisierung".
-6. Offline simulieren -> Update zeigt Fehler, Daten bleiben bestehen.
-7. Browser Reload -> Daten + Zeitstempel bleiben erhalten.
+## Debug & Logging Anforderungen
+- `bvlSync` ruft `onLog` mit Objekten `{ level, message, data, timestamp }`; UI speichert letzte 50 Einträge.
+- Worker schreibt `console.debug` Meldungen nur bei `payload.debug === true` (optional Toggle im Debug-Panel).
+- Fehler-Objekte enthalten `endpoint`, `attempt`, `status`, `detail`.
 
 ## Annahmen / Hinweise
-- Kultur- und Schadorganismus-Codes bleiben vorerst kodiert; Dekodierung via `kode` Endpunkt ist Folgeaufgabe.
-- Aufwand- und Wartezeitdaten koennen mehrere Varianten besitzen – UI muss Mehrfachzeilen darstellen.
-- Weitere Endpunkte nur nach Abstimmung ergaenzen.
+- BVL-Daten werden immer komplett ersetzt (kein Delta); Drop&Rebuild ist unkritisch.
+- Kultur- und Schadorganismus-Codes bleiben unverändert; Klartext-Mapping ist Folgeaufgabe.
+- Frontend bleibt ASCII-only (keine Emojis), Kommentierung sparsam und nur wo Logik schwer erkennbar.
+- Netlify Preview soll wie gewohnt entstehen; Progress-Bar und Debug-Ausgaben müssen auch in Preview funktionieren.
 
 ## Definition of Done
-- Zulassung-Feature inkl. Sync funktioniert ohne Primaerschluessel-Konflikte.
-- Schema Migration (user_version=2) garantiert eindeutige Schluessel und Indizes.
-- Update-Button liefert klare Statusmeldungen; Meta/Log werden gepflegt.
-- Tests aus Abschnitt 8 dokumentiert; README oder Settings enthalten Hinweis auf neuen Tab/Update-Prozess.
-- Keine Regressionen in Berechnung, Historie oder Einstellungen; Code folgt Projektstil (ASCII, sparsame Kommentare).
+- Migration v2 erstellt Tabellen exakt nach obigem Schema (inkl. `sortier_nr`) und wird bei bestehenden Datenbanken erfolgreich ausgeführt.
+- Sync-Prozess liefert nachvollziehbare Logs, Fortschrittsanzeige, stabile UI; keine `SQLITE_CONSTRAINT` oder „no column named“ Fehler mehr.
+- UX-Elemente (Fortschrittsbalken, Fehlerbanner, Debug-Panel) funktionieren in Desktop & Mobile.
+- Manuelle Tests aus Abschnitt 7 dokumentiert (z. B. im PR-Beschreibung). README oder Settings erklärt kurz neuen Tab und Sync-Prozess.
+- Bestehende Features (Berechnung, Historie, Einstellungen) unverändert funktionsfähig.
