@@ -1570,6 +1570,105 @@ async function queryZulassung(payload) {
         });
       },
     });
+
+    // Get wirkstoffe (if table exists)
+    result.wirkstoffe = [];
+    let wirkstoffeTableExists = false;
+    db.exec({
+      sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='bvl_mittel_wirkstoffe'",
+      callback: () => { wirkstoffeTableExists = true; },
+    });
+    if (wirkstoffeTableExists) {
+      db.exec({
+        sql: "SELECT * FROM bvl_mittel_wirkstoffe WHERE kennr = ?",
+        bind: [result.kennr],
+        callback: (row) => {
+          // Store all columns dynamically
+          const wirkstoff = {};
+          const colNames = db.exec({
+            sql: "PRAGMA table_info(bvl_mittel_wirkstoffe)",
+            returnValue: "resultRows"
+          });
+          colNames.forEach((col, idx) => {
+            wirkstoff[col[1]] = row[idx];
+          });
+          result.wirkstoffe.push(wirkstoff);
+        },
+      });
+    }
+
+    // Get gefahrhinweise (if table exists)
+    result.gefahrhinweise = [];
+    let gefahrTableExists = false;
+    db.exec({
+      sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='bvl_mittel_gefahrhinweise'",
+      callback: () => { gefahrTableExists = true; },
+    });
+    if (gefahrTableExists) {
+      db.exec({
+        sql: "SELECT * FROM bvl_mittel_gefahrhinweise WHERE kennr = ?",
+        bind: [result.kennr],
+        callback: (row) => {
+          const gefahr = {};
+          const colNames = db.exec({
+            sql: "PRAGMA table_info(bvl_mittel_gefahrhinweise)",
+            returnValue: "resultRows"
+          });
+          colNames.forEach((col, idx) => {
+            gefahr[col[1]] = row[idx];
+          });
+          result.gefahrhinweise.push(gefahr);
+        },
+      });
+    }
+
+    // Get vertrieb/hersteller (if table exists)
+    result.vertrieb = [];
+    let vertriebTableExists = false;
+    db.exec({
+      sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='bvl_mittel_vertrieb'",
+      callback: () => { vertriebTableExists = true; },
+    });
+    if (vertriebTableExists) {
+      db.exec({
+        sql: "SELECT * FROM bvl_mittel_vertrieb WHERE kennr = ?",
+        bind: [result.kennr],
+        callback: (row) => {
+          const vert = {};
+          const colNames = db.exec({
+            sql: "PRAGMA table_info(bvl_mittel_vertrieb)",
+            returnValue: "resultRows"
+          });
+          colNames.forEach((col, idx) => {
+            vert[col[1]] = row[idx];
+          });
+          result.vertrieb.push(vert);
+        },
+      });
+    }
+
+    // Check for extras/flags (bio, öko, etc.) if table exists
+    let extrasTableExists = false;
+    db.exec({
+      sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='bvl_mittel_extras'",
+      callback: () => { extrasTableExists = true; },
+    });
+    if (extrasTableExists) {
+      db.exec({
+        sql: "SELECT * FROM bvl_mittel_extras WHERE kennr = ?",
+        bind: [result.kennr],
+        callback: (row) => {
+          result.extras = {};
+          const colNames = db.exec({
+            sql: "PRAGMA table_info(bvl_mittel_extras)",
+            returnValue: "resultRows"
+          });
+          colNames.forEach((col, idx) => {
+            result.extras[col[1]] = row[idx];
+          });
+        },
+      });
+    }
   }
 
   return results;

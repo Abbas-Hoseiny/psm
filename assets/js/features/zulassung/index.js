@@ -530,7 +530,79 @@ function renderResultItem(result) {
         )}</span>`
       : ""
   }
+  ${
+    result.extras && result.extras.is_bio
+      ? '<span class="badge bg-success">Bio/Öko</span>'
+      : ""
+  }
       </p>
+      
+      ${
+        result.wirkstoffe && result.wirkstoffe.length > 0
+          ? `
+        <div class="mt-2">
+          <strong>Wirkstoffe:</strong>
+          <ul class="small mb-0">
+            ${result.wirkstoffe
+              .map(
+                (w) => `
+              <li>
+                ${escapeHtml(w.wirkstoff_name || w.wirkstoff || "-")}
+                ${w.gehalt ? ` - ${escapeHtml(String(w.gehalt))} ${escapeHtml(w.einheit || "")}` : ""}
+              </li>
+            `
+              )
+              .join("")}
+          </ul>
+        </div>
+      `
+          : ""
+      }
+      
+      ${
+        result.vertrieb && result.vertrieb.length > 0
+          ? `
+        <div class="mt-2">
+          <strong>Hersteller/Vertrieb:</strong>
+          ${result.vertrieb
+            .map(
+              (v) => `
+            <div class="small">
+              ${escapeHtml(v.hersteller_name || v.firma || "-")}
+              ${
+                v.website
+                  ? ` - <a href="${escapeHtml(v.website)}" target="_blank" rel="noopener">Website</a>`
+                  : ""
+              }
+            </div>
+          `
+            )
+            .join("")}
+        </div>
+      `
+          : ""
+      }
+      
+      ${
+        result.gefahrhinweise && result.gefahrhinweise.length > 0
+          ? `
+        <div class="mt-2">
+          <strong>Gefahrenhinweise:</strong>
+          <div class="d-flex flex-wrap gap-1">
+            ${result.gefahrhinweise
+              .map(
+                (g) => `
+              <span class="badge bg-danger" title="${escapeHtml(g.hinweis_text || "")}">
+                ${escapeHtml(g.hinweis_kode || g.h_code || "")}
+              </span>
+            `
+              )
+              .join("")}
+          </div>
+        </div>
+      `
+          : ""
+      }
       
       ${
         result.kulturen && result.kulturen.length > 0
