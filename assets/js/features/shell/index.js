@@ -1,6 +1,7 @@
 const SECTION_MAP = [
   { id: 'calc', label: 'Berechnung' },
   { id: 'history', label: 'Historie' },
+  { id: 'zulassung', label: 'Zulassung', requiresDb: true },
   { id: 'settings', label: 'Einstellungen' },
   { id: 'report', label: 'Auswertung' }
 ];
@@ -64,6 +65,7 @@ export function initShell(regions, services) {
     button.type = 'button';
     button.className = 'btn btn-sm btn-outline-light nav-btn';
     button.dataset.section = section.id;
+    button.dataset.requiresDb = section.requiresDb ? 'true' : 'false';
     button.textContent = section.label;
     button.addEventListener('click', evt => {
       evt.preventDefault();
@@ -106,6 +108,8 @@ export function initShell(regions, services) {
 
     const buttons = nav.querySelectorAll('[data-section]');
     buttons.forEach(btn => {
+      const requiresDb = btn.dataset.requiresDb === 'true';
+      
       if (btn.dataset.section === app.activeSection) {
         btn.classList.add('active');
         btn.classList.remove('btn-outline-light');
@@ -115,6 +119,14 @@ export function initShell(regions, services) {
         btn.classList.add('btn-outline-light');
         btn.classList.remove('btn-success');
       }
+      
+      // Hide Zulassung tab if no database, disable all others
+      if (requiresDb && !app.hasDatabase) {
+        btn.style.display = 'none';
+      } else if (requiresDb && app.hasDatabase) {
+        btn.style.display = '';
+      }
+      
       btn.disabled = !app.hasDatabase;
     });
     nav.classList.toggle('d-none', !app.hasDatabase);

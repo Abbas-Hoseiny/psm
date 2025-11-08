@@ -317,3 +317,97 @@ export async function deleteMedium(id) {
   }
   return await callWorker('deleteMedium', id);
 }
+
+/**
+ * BVL Data Functions
+ */
+
+/**
+ * Import BVL dataset
+ */
+export async function importBvlDataset(payload, meta) {
+  if (!worker) {
+    throw new Error('Database not initialized');
+  }
+  return await callWorker('importBvlDataset', { ...payload, ...meta });
+}
+
+/**
+ * Get BVL meta value
+ */
+export async function getBvlMeta(key) {
+  if (!worker) {
+    throw new Error('Database not initialized');
+  }
+  return await callWorker('getBvlMeta', key);
+}
+
+/**
+ * Set BVL meta value
+ */
+export async function setBvlMeta(key, value) {
+  if (!worker) {
+    throw new Error('Database not initialized');
+  }
+  return await callWorker('setBvlMeta', { key, value });
+}
+
+/**
+ * Append BVL sync log entry
+ */
+export async function appendBvlSyncLog(entry) {
+  if (!worker) {
+    throw new Error('Database not initialized');
+  }
+  return await callWorker('appendBvlSyncLog', entry);
+}
+
+/**
+ * List BVL sync log entries
+ */
+export async function listBvlSyncLog(options = {}) {
+  if (!worker) {
+    throw new Error('Database not initialized');
+  }
+  return await callWorker('listBvlSyncLog', options);
+}
+
+/**
+ * Query Zulassung data
+ */
+export async function queryZulassung(params) {
+  if (!worker) {
+    throw new Error('Database not initialized');
+  }
+  return await callWorker('queryZulassung', params);
+}
+
+/**
+ * List BVL cultures
+ */
+export async function listBvlCultures(options = {}) {
+  if (!worker) {
+    throw new Error('Database not initialized');
+  }
+  return await callWorker('listBvlCultures', options);
+}
+
+/**
+ * List BVL Schadorganismen
+ */
+export async function listBvlSchadorg(options = {}) {
+  if (!worker) {
+    throw new Error('Database not initialized');
+  }
+  return await callWorker('listBvlSchadorg', options);
+}
+
+/**
+ * Diagnose BVL schema
+ */
+export async function diagnoseBvlSchema() {
+  if (!worker) {
+    throw new Error('Database not initialized');
+  }
+  return await callWorker('diagnoseBvlSchema', {});
+}
