@@ -1,0 +1,67 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Shell from '../components/Shell.astro';
+import indexScript from '@scripts/pages/indexClient.ts?url';
+---
+
+<BaseLayout title="Pflanzenschutz">
+  <div data-region="startup"></div>
+  <Shell />
+  
+  <main data-region="main" class="main-content d-none">
+    <div class="container py-4" style="margin-bottom: 60px;">
+      <!-- Calculation Section -->
+      <div id="section-calc" class="content-section" style="display: block;">
+        <div class="section-container">
+          <div data-feature="calculation"></div>
+        </div>
+      </div>
+      
+      <!-- History Section -->
+      <div id="section-history" class="content-section" style="display: none;">
+        <div class="section-container">
+          <div data-feature="history"></div>
+        </div>
+      </div>
+      
+      <!-- Zulassung Section -->
+      <div id="section-zulassung" class="content-section" style="display: none;">
+        <div class="section-container">
+          <div data-feature="zulassung"></div>
+        </div>
+      </div>
+      
+      <!-- Settings Section -->
+      <div id="section-settings" class="content-section" style="display: none;">
+        <div class="section-container">
+          <div data-feature="settings"></div>
+        </div>
+      </div>
+      
+      <!-- Report Section -->
+      <div id="section-report" class="content-section" style="display: none;">
+        <div class="section-container">
+          <div data-feature="report"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  
+  <script type="module" src={indexScript}></script>
+  
+  <style>
+    .main-content {
+      min-height: calc(100vh - 120px);
+      padding-bottom: 60px;
+    }
+    
+    .content-section {
+      animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+</BaseLayout>
