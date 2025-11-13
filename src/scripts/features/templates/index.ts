@@ -8,10 +8,17 @@ import {
   loadTemplateRevisionDocument,
   saveDatabase,
 } from "@scripts/core/storage";
-import interact from "interactjs";
 import { createTemplateEditorView } from "./editorView";
 import type { TemplateEditorView } from "./editorView";
-import { createEditorStore, type EditorStore } from "./editorState";
+import {
+  DEFAULT_FIELD_SIZE,
+  DEFAULT_ZOOM,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  clampZoom,
+  createEditorStore,
+  type EditorStore,
+} from "./editorState";
 import type {
   EditorField,
   EditorState,
@@ -28,45 +35,18 @@ import {
   generateTemplateId,
   normalizeRevisionSnapshotFromDocument,
 } from "./persistence";
+
+// eslint-disable-next-line import/extensions
+import { loadEditorPreferences, saveEditorPreferences } from "./preferences.js";
 import {
   GRID_CELL_SIZE,
+  GRID_COLUMNS,
+  GRID_ROWS,
   clampLayout,
   layoutToStyle,
   pixelRectFromElement,
   pixelsToGrid,
 } from "./utils/grid";
-
-type DragMoveEvent = Event & {
-  dx: number;
-  dy: number;
-  target: HTMLElement;
-  clientX: number;
-  clientY: number;
-};
-
-type DragEndEvent = Event & {
-  target: HTMLElement;
-  clientX: number;
-  clientY: number;
-};
-
-type ResizeMoveEvent = Event & {
-  rect: {
-    width: number;
-    height: number;
-    left: number;
-    top: number;
-  };
-  target: HTMLElement;
-  deltaRect?: {
-    left?: number;
-    top?: number;
-    width?: number;
-    height?: number;
-  };
-};
-
-type ResizeEndEvent = ResizeMoveEvent;
 
 interface Services {
   state: {
@@ -106,10 +86,8 @@ type AutoSaveStatus = "idle" | "pending" | "saving" | "error";
 let autoSaveStatus: AutoSaveStatus = "idle";
 let activeStore: EditorStore | null = null;
 let lastRenderedState: EditorState | null = null;
+let lastRenderedFieldsRef: EditorField[] | null = null;
 
-const DEFAULT_ZOOM = 0.85;
-const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.05;
 const ZOOM_EPSILON = 0.0001;
 
@@ -119,17 +97,17 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   number: "Zahl",
 };
 
-function clampZoom(value: number): number {
-  if (!Number.isFinite(value)) {
-    return DEFAULT_ZOOM;
-  }
-  return Math.min(Math.max(value, MIN_ZOOM), MAX_ZOOM);
-}
+const PALETTE_DRAG_MIME = "application/x-template-field";
+const DROP_TARGET_CLASS = "is-drop-target";
 
 function adjustZoomValue(current: number, stepDelta: number): number {
   const raw = current + stepDelta * ZOOM_STEP;
   const stepped = Math.round(raw / ZOOM_STEP) * ZOOM_STEP;
   return clampZoom(Number(stepped.toFixed(2)));
+}
+
+function isValidFieldType(value: unknown): value is FieldType {
+  return value === "label" || value === "text" || value === "number";
 }
 
 function deriveRevisionContext(state: EditorState): {
@@ -500,7 +478,11 @@ export function initTemplateEditor(
   host.dataset.featureReady = "template-editor";
   activeView = view;
 
-  const store = createEditorStore();
+  const storedPreferences = loadEditorPreferences();
+  const store = createEditorStore({
+    initialPreferences: storedPreferences ?? undefined,
+    onPreferencesChange: saveEditorPreferences,
+  });
   activeStore = store;
 
   const unsubscribeStore = store.subscribe((state) => {
@@ -514,6 +496,7 @@ export function initTemplateEditor(
   const syncTemplateList = setupTemplateList(view, store, services);
 
   setupPalette(view, store);
+  setupPaletteDragAndDrop(view, store);
   setupToolbar(view, store, services);
   setupZoomControls(view, store);
   setupCanvasSelection(view, store);
@@ -612,22 +595,41 @@ function renderEditor(
   }
 
   const layer = view.fieldLayer;
-  Array.from(layer.children).forEach((node) => {
-    interact(node as HTMLElement).unset();
-  });
-  layer.innerHTML = "";
+  const fieldsChanged = lastRenderedFieldsRef !== state.fields;
+  if (fieldsChanged) {
+    layer.innerHTML = "";
 
-  const fragment = document.createDocumentFragment();
-  for (const field of state.fields) {
-    fragment.appendChild(createFieldElement(field, store, view, state));
-  }
+    const fragment = document.createDocumentFragment();
+    for (const field of state.fields) {
+      fragment.appendChild(createFieldElement(field, store, view, state));
+    }
   layer.appendChild(fragment);
+  } else {
+    const selection = new Set(state.selectedFieldIds);
+    layer
+      .querySelectorAll<HTMLElement>(".template-editor__field")
+      .forEach((element) => {
+        const fieldId = element.dataset.fieldId;
+        if (!fieldId) {
+          return;
+        }
+        if (selection.has(fieldId)) {
+          element.classList.add("is-selected");
+          element.setAttribute("aria-selected", "true");
+        } else {
+          element.classList.remove("is-selected");
+          element.removeAttribute("aria-selected");
+        }
+      });
+  }
 
   updateSelectionOutline(view, state);
 
   updatePropertyPanel(view, state);
   updateToolbarToggles(view, state);
   updateRevisionPanel(view, state);
+
+  lastRenderedFieldsRef = state.fields;
 }
 
 function createFieldElement(
@@ -653,10 +655,22 @@ function createFieldElement(
   element.dataset.layer = String(field.layout.layer ?? 0);
 
   element.innerHTML = `
-    <span class="template-editor__field-label">${escapeHtml(
-      field.label || field.name
-    )}</span>
-    <span class="template-editor__field-meta">${field.type.toUpperCase()}</span>
+    <div class="template-editor__field-content">
+      <span class="template-editor__field-label">${escapeHtml(
+        field.label || field.name
+      )}</span>
+      <span class="template-editor__field-meta">${field.type.toUpperCase()}</span>
+    </div>
+    <div class="template-editor__field-handles" aria-hidden="true">
+      <span class="template-editor__field-handle template-editor__field-handle--nw" data-handle="nw" data-edges="n w"></span>
+      <span class="template-editor__field-handle template-editor__field-handle--n" data-handle="n" data-edges="n"></span>
+      <span class="template-editor__field-handle template-editor__field-handle--ne" data-handle="ne" data-edges="n e"></span>
+      <span class="template-editor__field-handle template-editor__field-handle--e" data-handle="e" data-edges="e"></span>
+      <span class="template-editor__field-handle template-editor__field-handle--se" data-handle="se" data-edges="s e"></span>
+      <span class="template-editor__field-handle template-editor__field-handle--s" data-handle="s" data-edges="s"></span>
+      <span class="template-editor__field-handle template-editor__field-handle--sw" data-handle="sw" data-edges="s w"></span>
+      <span class="template-editor__field-handle template-editor__field-handle--w" data-handle="w" data-edges="w"></span>
+    </div>
   `;
 
   if (state.selectedFieldIds.includes(field.id)) {
@@ -669,7 +683,6 @@ function createFieldElement(
 
   element.tabIndex = 0;
   element.addEventListener("mousedown", (event) => {
-    event.stopPropagation();
     if ((event as MouseEvent).button !== 0) {
       return;
     }
@@ -703,7 +716,7 @@ function createFieldElement(
     }
   });
 
-  setupFieldInteractions(element, view, store, state);
+  setupFieldInteractions(element, view, store);
 
   return element;
 }
@@ -711,121 +724,301 @@ function createFieldElement(
 function setupFieldInteractions(
   element: HTMLElement,
   view: TemplateEditorView,
-  store: EditorStore,
-  state: EditorState
+  store: EditorStore
 ): void {
   const fieldId = element.dataset.fieldId;
   if (!fieldId) {
     return;
   }
 
-  const dragModifiers = [
-    interact.modifiers.restrictRect({
-      restriction: view.paper,
-      endOnly: true,
-    }),
-  ];
+  const getLayerBounds = () => {
+    const layer = view.fieldLayer;
+    const width =
+      layer?.clientWidth ?? GRID_COLUMNS * GRID_CELL_SIZE;
+    const height =
+      layer?.clientHeight ?? GRID_ROWS * GRID_CELL_SIZE;
+    return { width, height };
+  };
 
-  interact(element).draggable({
-    listeners: {
-      move(event: DragMoveEvent) {
-        const target = event.target as HTMLElement;
-        const zoom = clampZoom(state.zoom ?? DEFAULT_ZOOM);
-        let left = parseFloat(target.dataset.left ?? "0") + event.dx / zoom;
-        let top = parseFloat(target.dataset.top ?? "0") + event.dy / zoom;
-        if (state.snapping) {
-          left = Math.round(left / GRID_CELL_SIZE) * GRID_CELL_SIZE;
-          top = Math.round(top / GRID_CELL_SIZE) * GRID_CELL_SIZE;
+  const getCellDimensions = () => {
+    const meta = store.getState().layoutMeta;
+    return {
+      cellWidth: meta?.cellWidth ?? GRID_CELL_SIZE,
+      cellHeight: meta?.cellHeight ?? GRID_CELL_SIZE,
+    };
+  };
+
+  const updatePosition = (
+    target: HTMLElement,
+    left: number,
+    top: number,
+    width?: number,
+    height?: number
+  ) => {
+    const normalizedLeft = Number(left.toFixed(2));
+    const normalizedTop = Number(top.toFixed(2));
+    target.dataset.left = `${normalizedLeft}`;
+    target.dataset.top = `${normalizedTop}`;
+    target.style.left = `${normalizedLeft}px`;
+    target.style.top = `${normalizedTop}px`;
+    if (typeof width === "number") {
+      const normalizedWidth = Number(width.toFixed(2));
+      target.dataset.width = `${normalizedWidth}`;
+      target.style.width = `${normalizedWidth}px`;
+    }
+    if (typeof height === "number") {
+      const normalizedHeight = Number(height.toFixed(2));
+      target.dataset.height = `${normalizedHeight}`;
+      target.style.height = `${normalizedHeight}px`;
+    }
+  };
+
+  const startDrag = (event: PointerEvent) => {
+    if (event.button !== 0) {
+      return;
+    }
+    if (
+      (event.target as HTMLElement | null)?.closest(
+        ".template-editor__field-handle"
+      )
+    ) {
+      return;
+    }
+    event.preventDefault();
+    const pointerId = event.pointerId;
+    const bounds = getLayerBounds();
+    const { cellWidth, cellHeight } = getCellDimensions();
+    const startLeft = parseFloat(element.dataset.left ?? "0");
+    const startTop = parseFloat(element.dataset.top ?? "0");
+    const width = parseFloat(
+      element.dataset.width ?? `${element.offsetWidth}`
+    );
+    const height = parseFloat(
+      element.dataset.height ?? `${element.offsetHeight}`
+    );
+    let moved = false;
+
+    const handleMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) {
+        return;
+      }
+      moveEvent.preventDefault();
+      const zoom = clampZoom(store.getState().zoom ?? DEFAULT_ZOOM);
+      const dx = (moveEvent.clientX - event.clientX) / zoom;
+      const dy = (moveEvent.clientY - event.clientY) / zoom;
+      let nextLeft = startLeft + dx;
+      let nextTop = startTop + dy;
+      if (store.getState().snapping) {
+        nextLeft = Math.round(nextLeft / cellWidth) * cellWidth;
+        nextTop = Math.round(nextTop / cellHeight) * cellHeight;
+      }
+      const maxLeft = Math.max(0, bounds.width - width);
+      const maxTop = Math.max(0, bounds.height - height);
+      nextLeft = Math.min(Math.max(0, nextLeft), maxLeft);
+      nextTop = Math.min(Math.max(0, nextTop), maxTop);
+      if (
+        Math.abs(nextLeft - startLeft) > 0.01 ||
+        Math.abs(nextTop - startTop) > 0.01
+      ) {
+        moved = true;
+      }
+      updatePosition(element, nextLeft, nextTop);
+    };
+
+    const finishDrag = () => {
+      document.removeEventListener("pointermove", handleMove);
+      document.removeEventListener("pointerup", finishDrag);
+      document.removeEventListener("pointercancel", finishDrag);
+      if (element.hasPointerCapture?.(pointerId)) {
+        try {
+          element.releasePointerCapture(pointerId);
+        } catch {
+          /* noop */
         }
-        const normalizedLeft = Number(left.toFixed(2));
-        const normalizedTop = Number(top.toFixed(2));
-        target.dataset.left = `${normalizedLeft}`;
-        target.dataset.top = `${normalizedTop}`;
-        target.style.left = `${normalizedLeft}px`;
-        target.style.top = `${normalizedTop}px`;
-      },
-      end(event: DragEndEvent) {
-        const target = event.target as HTMLElement;
-        const rect = pixelRectFromElement(target);
+      }
+      if (moved) {
+        const rect = pixelRectFromElement(element);
         const layout = pixelsToGrid(rect);
         store.updateFieldLayout(fieldId, layout);
-      },
-    },
-    inertia: false,
-    modifiers: dragModifiers,
-    cursorChecker: () => "move",
-  });
+      } else {
+        updatePosition(element, startLeft, startTop);
+      }
+    };
 
-  const zoomForConstraints = clampZoom(state.zoom ?? DEFAULT_ZOOM);
-  const resizeModifiers = [
-    interact.modifiers.restrictEdges({
-      outer: view.paper,
-      endOnly: true,
-    }),
-    interact.modifiers.restrictSize({
-      min: {
-        width: GRID_CELL_SIZE * zoomForConstraints,
-        height: GRID_CELL_SIZE * zoomForConstraints,
-      },
-    }),
-  ];
+    element.setPointerCapture(pointerId);
+    document.addEventListener("pointermove", handleMove);
+    document.addEventListener("pointerup", finishDrag);
+    document.addEventListener("pointercancel", finishDrag);
+  };
 
-  interact(element).resizable({
-    edges: { left: true, right: true, top: true, bottom: true },
-    inertia: false,
-    modifiers: resizeModifiers,
-    listeners: {
-      move(event: ResizeMoveEvent) {
-        const target = event.target as HTMLElement;
-        const zoom = clampZoom(state.zoom ?? DEFAULT_ZOOM);
-        const previousLeft = parseFloat(target.dataset.left ?? "0");
-        const previousTop = parseFloat(target.dataset.top ?? "0");
-        const previousWidth = parseFloat(
-          target.dataset.width ?? `${target.offsetWidth}`
+  const startResize = (event: PointerEvent, handle: HTMLElement) => {
+    if (event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    const pointerId = event.pointerId;
+    const edges =
+      handle.dataset.edges?.split(/\s+/).filter(Boolean) ?? [];
+    if (!edges.length) {
+      return;
+    }
+    const bounds = getLayerBounds();
+    const { cellWidth, cellHeight } = getCellDimensions();
+    const minWidth = cellWidth;
+    const minHeight = cellHeight;
+    const startLeft = parseFloat(element.dataset.left ?? "0");
+    const startTop = parseFloat(element.dataset.top ?? "0");
+    const startWidth = parseFloat(
+      element.dataset.width ?? `${element.offsetWidth}`
+    );
+    const startHeight = parseFloat(
+      element.dataset.height ?? `${element.offsetHeight}`
+    );
+    const startRight = startLeft + startWidth;
+    const startBottom = startTop + startHeight;
+    let changed = false;
+
+    const handleMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) {
+        return;
+      }
+      moveEvent.preventDefault();
+      const zoom = clampZoom(store.getState().zoom ?? DEFAULT_ZOOM);
+      const deltaX = (moveEvent.clientX - event.clientX) / zoom;
+      const deltaY = (moveEvent.clientY - event.clientY) / zoom;
+      const movingWest = edges.includes("w");
+      const movingEast = edges.includes("e");
+      const movingNorth = edges.includes("n");
+      const movingSouth = edges.includes("s");
+
+      const layerWidth = Math.max(bounds.width, minWidth);
+      const layerHeight = Math.max(bounds.height, minHeight);
+
+      let leftEdge = movingWest ? startLeft + deltaX : startLeft;
+      let rightEdge = movingEast ? startRight + deltaX : startRight;
+      let topEdge = movingNorth ? startTop + deltaY : startTop;
+      let bottomEdge = movingSouth ? startBottom + deltaY : startBottom;
+
+      if (movingWest) {
+        leftEdge = Math.min(
+          Math.max(0, leftEdge),
+          rightEdge - minWidth
         );
-        const previousHeight = parseFloat(
-          target.dataset.height ?? `${target.offsetHeight}`
+      } else {
+        leftEdge = startLeft;
+      }
+
+      if (movingEast) {
+        rightEdge = Math.max(
+          Math.min(layerWidth, rightEdge),
+          leftEdge + minWidth
         );
-        const delta = event.deltaRect ?? {};
-        let left = previousLeft + (delta.left ?? 0) / zoom;
-        let top = previousTop + (delta.top ?? 0) / zoom;
-        let width = previousWidth + (delta.width ?? 0) / zoom;
-        let height = previousHeight + (delta.height ?? 0) / zoom;
-        width = Math.max(width, GRID_CELL_SIZE);
-        height = Math.max(height, GRID_CELL_SIZE);
-        if (state.snapping) {
-          width = Math.max(
-            GRID_CELL_SIZE,
-            Math.round(width / GRID_CELL_SIZE) * GRID_CELL_SIZE
+      } else {
+        rightEdge = startRight;
+      }
+
+      if (movingNorth) {
+        topEdge = Math.min(
+          Math.max(0, topEdge),
+          bottomEdge - minHeight
+        );
+      } else {
+        topEdge = startTop;
+      }
+
+      if (movingSouth) {
+        bottomEdge = Math.max(
+          Math.min(layerHeight, bottomEdge),
+          topEdge + minHeight
+        );
+      } else {
+        bottomEdge = startBottom;
+      }
+
+      if (store.getState().snapping) {
+        if (movingWest) {
+          leftEdge = Math.round(leftEdge / cellWidth) * cellWidth;
+          leftEdge = Math.min(
+            Math.max(0, leftEdge),
+            rightEdge - minWidth
           );
-          height = Math.max(
-            GRID_CELL_SIZE,
-            Math.round(height / GRID_CELL_SIZE) * GRID_CELL_SIZE
-          );
-          left = Math.round(left / GRID_CELL_SIZE) * GRID_CELL_SIZE;
-          top = Math.round(top / GRID_CELL_SIZE) * GRID_CELL_SIZE;
         }
-        const normalizedLeft = Number(left.toFixed(2));
-        const normalizedTop = Number(top.toFixed(2));
-        const normalizedWidth = Number(width.toFixed(2));
-        const normalizedHeight = Number(height.toFixed(2));
-        target.dataset.width = `${normalizedWidth}`;
-        target.dataset.height = `${normalizedHeight}`;
-        target.dataset.left = `${normalizedLeft}`;
-        target.dataset.top = `${normalizedTop}`;
-        target.style.width = `${normalizedWidth}px`;
-        target.style.height = `${normalizedHeight}px`;
-        target.style.left = `${normalizedLeft}px`;
-        target.style.top = `${normalizedTop}px`;
-      },
-      end(event: ResizeEndEvent) {
-        const target = event.target as HTMLElement;
-        const rect = pixelRectFromElement(target);
+        if (movingEast) {
+          rightEdge = Math.round(rightEdge / cellWidth) * cellWidth;
+          rightEdge = Math.max(
+            Math.min(layerWidth, rightEdge),
+            leftEdge + minWidth
+          );
+        }
+        if (movingNorth) {
+          topEdge = Math.round(topEdge / cellHeight) * cellHeight;
+          topEdge = Math.min(
+            Math.max(0, topEdge),
+            bottomEdge - minHeight
+          );
+        }
+        if (movingSouth) {
+          bottomEdge = Math.round(bottomEdge / cellHeight) * cellHeight;
+          bottomEdge = Math.max(
+            Math.min(layerHeight, bottomEdge),
+            topEdge + minHeight
+          );
+        }
+      }
+
+      const nextWidth = rightEdge - leftEdge;
+      const nextHeight = bottomEdge - topEdge;
+      if (
+        Math.abs(nextWidth - startWidth) > 0.01 ||
+        Math.abs(nextHeight - startHeight) > 0.01 ||
+        Math.abs(leftEdge - startLeft) > 0.01 ||
+        Math.abs(topEdge - startTop) > 0.01
+      ) {
+        changed = true;
+      }
+      updatePosition(element, leftEdge, topEdge, nextWidth, nextHeight);
+    };
+
+    const finishResize = () => {
+      document.removeEventListener("pointermove", handleMove);
+      document.removeEventListener("pointerup", finishResize);
+      document.removeEventListener("pointercancel", finishResize);
+      if (element.hasPointerCapture?.(pointerId)) {
+        try {
+          element.releasePointerCapture(pointerId);
+        } catch {
+          /* noop */
+        }
+      }
+      if (changed) {
+        const rect = pixelRectFromElement(element);
         const layout = pixelsToGrid(rect);
         store.updateFieldLayout(fieldId, layout);
-      },
-    },
-  });
+      } else {
+        updatePosition(
+          element,
+          startLeft,
+          startTop,
+          startWidth,
+          startHeight
+        );
+      }
+    };
+
+    element.setPointerCapture(pointerId);
+    document.addEventListener("pointermove", handleMove);
+    document.addEventListener("pointerup", finishResize);
+    document.addEventListener("pointercancel", finishResize);
+  };
+
+  element.addEventListener("pointerdown", startDrag);
+  element
+    .querySelectorAll<HTMLElement>(".template-editor__field-handle")
+    .forEach((handle) => {
+      handle.addEventListener("pointerdown", (event) =>
+        startResize(event, handle)
+      );
+    });
 }
 
 function setupPalette(view: TemplateEditorView, store: EditorStore): void {
@@ -842,6 +1035,220 @@ function setupPalette(view: TemplateEditorView, store: EditorStore): void {
     }
     store.addField(type);
   });
+}
+
+type PaletteDragPayload = {
+  type: FieldType;
+};
+
+function setupPaletteDragAndDrop(
+  view: TemplateEditorView,
+  store: EditorStore
+): void {
+  const dropIndicator = view.dropIndicator;
+  const paper = view.paper;
+  const fieldLayer = view.fieldLayer;
+  if (!fieldLayer) {
+    return;
+  }
+
+  let activeDragType: FieldType | null = null;
+  let dropPosition: { x: number; y: number } | null = null;
+
+  const enableDropTarget = () => {
+    if (paper) {
+      paper.classList.add(DROP_TARGET_CLASS);
+    }
+  };
+
+  const disableDropTarget = () => {
+    if (paper) {
+      paper.classList.remove(DROP_TARGET_CLASS);
+    }
+  };
+
+  const clearDropIndicator = () => {
+    dropPosition = null;
+    if (dropIndicator) {
+      dropIndicator.classList.add("d-none");
+    }
+  };
+
+  const resetDragState = () => {
+    activeDragType = null;
+    clearDropIndicator();
+    disableDropTarget();
+  };
+
+  const updateDropIndicator = (clientX: number, clientY: number): void => {
+    if (!dropIndicator || !activeDragType) {
+      return;
+    }
+    const layerRect = fieldLayer.getBoundingClientRect();
+    const zoom = clampZoom(store.getState().zoom ?? DEFAULT_ZOOM);
+    const localX = (clientX - layerRect.left) / zoom;
+    const localY = (clientY - layerRect.top) / zoom;
+    if (Number.isNaN(localX) || Number.isNaN(localY)) {
+      clearDropIndicator();
+      return;
+    }
+
+    const layoutMeta = store.getState().layoutMeta;
+    const columns = layoutMeta?.columns ?? GRID_COLUMNS;
+    const rows = layoutMeta?.rows ?? GRID_ROWS;
+    const cellWidth = layoutMeta?.cellWidth ?? GRID_CELL_SIZE;
+    const cellHeight = layoutMeta?.cellHeight ?? GRID_CELL_SIZE;
+    if (localX < 0 || localY < 0) {
+      clearDropIndicator();
+      return;
+    }
+
+    const cellX = Math.floor(localX / cellWidth);
+    const cellY = Math.floor(localY / cellHeight);
+    const maxX = columns - DEFAULT_FIELD_SIZE.w;
+    const maxY = rows - DEFAULT_FIELD_SIZE.h;
+
+    if (cellX < 0 || cellY < 0 || cellX > maxX || cellY > maxY) {
+      clearDropIndicator();
+      return;
+    }
+
+    dropIndicator.style.left = `${cellX * cellWidth}px`;
+    dropIndicator.style.top = `${cellY * cellHeight}px`;
+    dropIndicator.style.width = `${DEFAULT_FIELD_SIZE.w * cellWidth}px`;
+    dropIndicator.style.height = `${DEFAULT_FIELD_SIZE.h * cellHeight}px`;
+    dropIndicator.classList.remove("d-none");
+    dropPosition = { x: cellX, y: cellY };
+  };
+
+  const readDragType = (dataTransfer: DataTransfer): FieldType | null => {
+    const custom = dataTransfer.getData(PALETTE_DRAG_MIME);
+    if (custom) {
+      try {
+        const parsed = JSON.parse(custom) as PaletteDragPayload;
+        if (parsed && isValidFieldType(parsed.type)) {
+          return parsed.type;
+        }
+      } catch (error) {
+        console.warn("Vorlageneditor: Ungültige Drag-Daten", error);
+      }
+    }
+    const fallback = dataTransfer.getData("text/plain");
+    if (isValidFieldType(fallback)) {
+      return fallback;
+    }
+    return null;
+  };
+
+  const handleDragStart = (event: DragEvent) => {
+    const item = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+      "[data-palette-item]"
+    );
+    if (!item) {
+      return;
+    }
+    const type = item.dataset.paletteItem as FieldType | undefined;
+    if (!type) {
+      return;
+    }
+    if (item.classList.contains("disabled")) {
+      event.preventDefault();
+      return;
+    }
+    activeDragType = type;
+    dropPosition = null;
+    clearDropIndicator();
+    enableDropTarget();
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "copy";
+      const payload: PaletteDragPayload = { type };
+      event.dataTransfer.setData(PALETTE_DRAG_MIME, JSON.stringify(payload));
+      event.dataTransfer.setData("text/plain", type);
+    }
+  };
+
+  view.paletteList.addEventListener(
+    "dragstart",
+    handleDragStart as EventListener
+  );
+  view.paletteList.addEventListener("dragend", () => {
+    resetDragState();
+  });
+
+  const handleDragOver = (event: DragEvent) => {
+    if (!activeDragType) {
+      return;
+    }
+    if (!event.dataTransfer) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    updateDropIndicator(event.clientX, event.clientY);
+  };
+
+  const handleDragLeave = (event: DragEvent) => {
+    if (!activeDragType) {
+      return;
+    }
+    const related = event.relatedTarget as Node | null;
+    if (related && paper?.contains(related)) {
+      return;
+    }
+    clearDropIndicator();
+    if (!related) {
+      disableDropTarget();
+    }
+  };
+
+  const handleDrop = (event: DragEvent) => {
+    if (!activeDragType) {
+      return;
+    }
+    event.preventDefault();
+    const transferType = event.dataTransfer
+      ? readDragType(event.dataTransfer)
+      : null;
+    const resolvedType = transferType ?? activeDragType;
+    if (!resolvedType) {
+      resetDragState();
+      return;
+    }
+    if (!dropPosition) {
+      updateDropIndicator(event.clientX, event.clientY);
+    }
+    const position = dropPosition;
+    resetDragState();
+    if (position) {
+      store.addField(resolvedType, {
+        x: position.x,
+        y: position.y,
+      });
+    }
+  };
+
+  const registerDropTarget = (target: HTMLElement | null) => {
+    if (!target) {
+      return;
+    }
+    target.addEventListener("dragenter", (event) => {
+      if (!activeDragType) {
+        return;
+      }
+      event.preventDefault();
+      enableDropTarget();
+    });
+    target.addEventListener("dragover", handleDragOver);
+    target.addEventListener("dragleave", handleDragLeave);
+    target.addEventListener("drop", handleDrop);
+  };
+
+  registerDropTarget(paper);
+  registerDropTarget(fieldLayer);
+  registerDropTarget(view.grid);
+
+  window.addEventListener("dragend", resetDragState, { passive: true });
+  window.addEventListener("drop", resetDragState);
 }
 
 function setupToolbar(

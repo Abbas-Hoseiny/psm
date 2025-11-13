@@ -167,6 +167,26 @@
   z-index: 2;
 }
 
+.template-editor__drop-indicator {
+  position: absolute;
+  border: 2px dashed rgba(47, 158, 68, 0.85);
+  background: rgba(47, 158, 68, 0.15);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity 0.12s ease;
+}
+
+.template-editor__drop-indicator.d-none {
+  display: none;
+}
+
+.template-editor__paper.is-drop-target {
+  box-shadow:
+    inset 0 0 0 3px rgba(47, 158, 68, 0.25),
+    0 25px 45px rgba(0, 0, 0, 0.4);
+}
+
 .template-editor__selection-outline {
   position: absolute;
   border: 2px solid rgba(47, 158, 68, 0.75);
@@ -253,6 +273,7 @@
   letter-spacing: 0.08em;
   pointer-events: auto;
   cursor: move;
+  overflow: visible;
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease,
@@ -274,6 +295,14 @@
   border-color: rgba(47, 158, 68, 0.6);
 }
 
+.template-editor__field-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: none;
+}
+
 .template-editor__field-label {
   font-size: 0.72rem;
   font-weight: 600;
@@ -287,6 +316,80 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: rgba(18, 21, 24, 0.6);
+}
+
+.template-editor__field-handles {
+  position: absolute;
+  inset: 0;
+}
+
+.template-editor__field-handle {
+  display: block;
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(47, 158, 68, 0.9);
+  background: #f8fdf9;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: auto;
+  touch-action: none;
+  z-index: 2;
+}
+
+.template-editor__field:hover .template-editor__field-handle,
+.template-editor__field.is-selected .template-editor__field-handle {
+  opacity: 1;
+}
+
+.template-editor__field-handle--nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.template-editor__field-handle--n {
+  top: 0;
+  left: 50%;
+  cursor: ns-resize;
+}
+
+.template-editor__field-handle--ne {
+  top: 0;
+  left: 100%;
+  cursor: nesw-resize;
+}
+
+.template-editor__field-handle--e {
+  top: 50%;
+  left: 100%;
+  cursor: ew-resize;
+}
+
+.template-editor__field-handle--se {
+  top: 100%;
+  left: 100%;
+  cursor: nwse-resize;
+}
+
+.template-editor__field-handle--s {
+  top: 100%;
+  left: 50%;
+  cursor: ns-resize;
+}
+
+.template-editor__field-handle--sw {
+  top: 100%;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.template-editor__field-handle--w {
+  top: 50%;
+  left: 0;
+  cursor: ew-resize;
 }
 
 .template-editor__palette-item.disabled {

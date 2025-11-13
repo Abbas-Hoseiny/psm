@@ -8,6 +8,7 @@ export interface TemplateEditorView {
   paper: HTMLElement;
   fieldLayer: HTMLElement;
   selectionLayer: HTMLElement;
+  dropIndicator: HTMLElement | null;
   grid: HTMLElement;
   emptyState: HTMLElement | null;
   templateNameLabel: HTMLElement | null;
@@ -152,6 +153,7 @@ function buildPaletteList(): HTMLElement {
     button.className = "template-editor__palette-item text-start";
     button.dataset.paletteItem = item.type;
     button.setAttribute("data-palette-item", item.type);
+    button.draggable = true;
     button.innerHTML = /* html */ `
       <div class="d-flex gap-3 align-items-start">
         <span class="fs-4"><i class="bi ${item.icon}"></i></span>
@@ -327,6 +329,7 @@ export function createTemplateEditorView(): TemplateEditorView {
         <div class="template-editor__grid" data-role="grid"></div>
         <div class="template-editor__field-layer" data-role="field-layer"></div>
         <div class="template-editor__selection-layer" data-role="selection-layer" aria-hidden="true"></div>
+        <div class="template-editor__drop-indicator d-none" data-role="drop-indicator" aria-hidden="true"></div>
         <div class="template-editor__empty-state" data-role="empty-state">
           <i class="bi bi-bounding-box fs-3 mb-2"></i>
           <p class="mb-0">Ziehe Bausteine hierher oder nutze die Palette, um Felder zu platzieren.</p>
@@ -465,6 +468,9 @@ export function createTemplateEditorView(): TemplateEditorView {
     paper,
     fieldLayer,
     selectionLayer,
+    dropIndicator: canvas.querySelector<HTMLElement>(
+      "[data-role='drop-indicator']"
+    ),
     grid,
     emptyState,
     templateNameLabel: canvas.querySelector<HTMLElement>(

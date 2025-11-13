@@ -16,11 +16,28 @@ import type {
   TemplateDocument,
 } from "./types";
 
+export interface EditorPreferenceSnapshot {
+  gridVisible: boolean;
+  snapping: boolean;
+  zoom: number;
+}
+
+export type EditorPreferencePatch = Partial<EditorPreferenceSnapshot>;
+
+export interface EditorStoreOptions {
+  initialPreferences?: EditorPreferencePatch;
+  onPreferencesChange?: (preferences: EditorPreferenceSnapshot) => void;
+}
+
+export const DEFAULT_ZOOM = 0.85;
+export const MIN_ZOOM = 0.25;
+export const MAX_ZOOM = 3;
+
 interface EditorStore {
   getState(): EditorState;
   subscribe(listener: (state: EditorState) => void): () => void;
   reset(): void;
-  addField(type: FieldType): EditorField;
+  addField(type: FieldType, initialLayout?: Partial<FieldLayout>): EditorField;
   updateFieldLayout(id: string, layout: FieldLayout): void;
   updateField(
     id: string,
@@ -53,11 +70,7 @@ interface EditorStore {
   toggleGrid(): void;
   toggleSnapping(): void;
   setZoom(value: number): void;
-  applyPreferences(preferences: {
-    gridVisible?: boolean;
-    snapping?: boolean;
-    zoom?: number;
-  }): void;
+  applyPreferences(preferences: EditorPreferencePatch): void;
   selectRevision(version: number | null): void;
   restoreRevision(revision: TemplateRevision): void;
   setRevisionSnapshot(
@@ -68,13 +81,31 @@ interface EditorStore {
   redo(): void;
 }
 
-const DEFAULT_FIELD_SIZE = { w: 3, h: 2 } as const;
+export const DEFAULT_FIELD_SIZE = { w: 3, h: 2 } as const;
 const UNDO_STACK_LIMIT = 50;
-const DEFAULT_ZOOM = 0.85;
-const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 3;
+function sanitizePreferencePatch(
+  patch: EditorPreferencePatch | null | undefined
+): EditorPreferencePatch | null {
+  if (!patch || typeof patch !== "object") {
+    return null;
+  }
 
-function clampZoom(value: number): number {
+  const sanitized: EditorPreferencePatch = {};
+
+  if (typeof patch.gridVisible === "boolean") {
+    sanitized.gridVisible = patch.gridVisible;
+  }
+  if (typeof patch.snapping === "boolean") {
+    sanitized.snapping = patch.snapping;
+  }
+  if (typeof patch.zoom === "number" && Number.isFinite(patch.zoom)) {
+    sanitized.zoom = clampZoom(patch.zoom);
+  }
+
+  return Object.keys(sanitized).length ? sanitized : null;
+}
+
+export function clampZoom(value: number): number {
   if (!Number.isFinite(value)) {
     return DEFAULT_ZOOM;
   }
@@ -201,7 +232,8 @@ function createEmptySnapshot(): EditorSnapshot {
 
 function createDefaultField(
   type: FieldType,
-  existingFields: EditorField[]
+  existingFields: EditorField[],
+  layoutOverride?: Partial<FieldLayout>
 ): EditorField {
   const id = createId(type);
   const name = `${type}_${id.slice(-4)}`;
@@ -215,6 +247,12 @@ function createDefaultField(
     DEFAULT_FIELD_SIZE.w,
     DEFAULT_FIELD_SIZE.h
   );
+  const mergedLayout = layoutOverride
+    ? clampLayout({
+        ...layout,
+        ...layoutOverride,
+      } as FieldLayout)
+    : layout;
   return {
     id,
     type,
@@ -225,8 +263,9 @@ function createDefaultField(
     validation: {},
     defaultValue: null,
     layout: {
-      ...layout,
+      ...mergedLayout,
       layer: existingFields.length,
+      align: mergedLayout.align ?? "left",
     },
     printStyles: {},
   };
@@ -304,7 +343,14 @@ function getLatestRevisionSummary(
   return summary && summary.trim() ? summary.trim() : null;
 }
 
-export function createEditorStore(): EditorStore {
+export function createEditorStore(
+  options: EditorStoreOptions = {}
+): EditorStore {
+  const preferenceDefaults = sanitizePreferencePatch(
+    options.initialPreferences
+  );
+  const preferenceListener = options.onPreferencesChange ?? null;
+
   let state: EditorState = {
     ...currentSnapshot,
     undoStack: [],
@@ -312,6 +358,17 @@ export function createEditorStore(): EditorStore {
   };
 
   const listeners = new Set<(next: EditorState) => void>();
+
+  function emitPreferenceChange(): void {
+    if (!preferenceListener) {
+      return;
+    }
+    preferenceListener({
+      gridVisible: state.gridVisible,
+      snapping: state.snapping,
+      zoom: state.zoom,
+    });
+  }
 
   function notify(next: EditorState): void {
     listeners.forEach((listener) => listener(next));
@@ -356,11 +413,17 @@ export function createEditorStore(): EditorStore {
       undoStack: [],
       redoStack: [],
     });
+    if (preferenceDefaults) {
+      applyPreferences(preferenceDefaults);
+    }
   }
 
-  function addField(type: FieldType): EditorField {
+  function addField(
+    type: FieldType,
+    initialLayout?: Partial<FieldLayout>
+  ): EditorField {
     const historySnapshot = createSnapshotFromState(state);
-    const field = createDefaultField(type, state.fields);
+    const field = createDefaultField(type, state.fields, initialLayout);
     setState({
       ...state,
       fields: [...state.fields, field],
@@ -711,6 +774,14 @@ export function createEditorStore(): EditorStore {
   }
 
   function selectField(id: string | null): void {
+    const alreadySelected =
+      id !== null &&
+      state.selectedFieldIds.length === 1 &&
+      state.selectedFieldIds[0] === id;
+    const alreadyCleared = id === null && state.selectedFieldIds.length === 0;
+    if (alreadySelected || alreadyCleared) {
+      return;
+    }
     setState({
       ...state,
       selectedFieldIds: id ? [id] : [],
@@ -740,6 +811,7 @@ export function createEditorStore(): EditorStore {
       undoStack: pushSnapshot(state.undoStack, historySnapshot),
       redoStack: [],
     });
+    emitPreferenceChange();
   }
 
   function toggleSnapping(): void {
@@ -751,6 +823,7 @@ export function createEditorStore(): EditorStore {
       undoStack: pushSnapshot(state.undoStack, historySnapshot),
       redoStack: [],
     });
+    emitPreferenceChange();
   }
 
   function setZoom(value: number): void {
@@ -766,13 +839,10 @@ export function createEditorStore(): EditorStore {
       undoStack: pushSnapshot(state.undoStack, historySnapshot),
       redoStack: [],
     });
+    emitPreferenceChange();
   }
 
-  function applyPreferences(preferences: {
-    gridVisible?: boolean;
-    snapping?: boolean;
-    zoom?: number;
-  }): void {
+  function applyPreferences(preferences: EditorPreferencePatch): void {
     let changed = false;
     let nextGrid = state.gridVisible;
     if (typeof preferences.gridVisible === "boolean") {
@@ -925,6 +995,10 @@ export function createEditorStore(): EditorStore {
     setState(
       rehydrateStateFromSnapshot(nextSnapshot, nextUndoStack, nextRedoStack)
     );
+  }
+
+  if (preferenceDefaults) {
+    applyPreferences(preferenceDefaults);
   }
 
   return {
