@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "astro": "^4.16.18",
+    "interactjs": "^1.10.27",
     "fflate": "^0.8.2"
   },
   "devDependencies": {

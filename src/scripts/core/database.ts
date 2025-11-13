@@ -1,23 +1,35 @@
-import { getDefaultsConfig } from './config';
-import { resolveFieldLabels } from './labels';
-import { getState, patchState } from './state';
+import { getDefaultsConfig } from "./config";
+import { resolveFieldLabels } from "./labels";
+import { getState, patchState } from "./state";
+import {
+  cloneTemplateDocument,
+  normalizeTemplateDocument,
+} from "../features/templates/persistence";
+import type { TemplateDocument } from "../features/templates/types";
 
 function clone(obj: any): any {
   return JSON.parse(JSON.stringify(obj));
 }
 
 function deepMerge(target: any, source: any): any {
-  if (!source || typeof source !== 'object') {
+  if (!source || typeof source !== "object") {
     return target;
   }
   const result = Array.isArray(target) ? [...target] : { ...target };
   for (const [key, value] of Object.entries(source)) {
     if (Array.isArray(value)) {
-      result[key] = value.map(item => (item && typeof item === 'object' ? clone(item) : item));
+      result[key] = value.map((item) =>
+        item && typeof item === "object" ? clone(item) : item
+      );
       continue;
     }
-    if (value && typeof value === 'object') {
-      const baseValue = result[key] && typeof result[key] === 'object' && !Array.isArray(result[key]) ? result[key] : {};
+    if (value && typeof value === "object") {
+      const baseValue =
+        result[key] &&
+        typeof result[key] === "object" &&
+        !Array.isArray(result[key])
+          ? result[key]
+          : {};
       result[key] = deepMerge(baseValue, value);
       continue;
     }
@@ -29,29 +41,52 @@ function deepMerge(target: any, source: any): any {
 function mergeDefaults(base: any = {}, incoming: any = {}): any {
   const merged = { ...base, ...incoming };
   merged.form = {
-    ...(base.form || { creator: '', location: '', crop: '', quantity: '' }),
-    ...(incoming.form || {})
+    ...(base.form || { creator: "", location: "", crop: "", quantity: "" }),
+    ...(incoming.form || {}),
   };
   return merged;
 }
 
+function normalizeTemplates(input: unknown): TemplateDocument[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+  const templates: TemplateDocument[] = [];
+  for (const candidate of input) {
+    const normalized = normalizeTemplateDocument(candidate);
+    if (normalized) {
+      templates.push(normalized);
+    }
+  }
+  templates.sort((a, b) => {
+    const aTime = Date.parse(a.updatedAt ?? "") || 0;
+    const bTime = Date.parse(b.updatedAt ?? "") || 0;
+    return bTime - aTime;
+  });
+  return templates;
+}
+
 export function applyDatabase(data: any): void {
   if (!data) {
-    throw new Error('Keine Daten zum Anwenden übergeben');
+    throw new Error("Keine Daten zum Anwenden übergeben");
   }
   const current = getState();
   const fieldLabels = resolveFieldLabels(data.meta?.fieldLabels ?? {});
+  const templates = normalizeTemplates(data.templates ?? []);
   patchState({
     company: { ...current.company, ...(data.meta?.company ?? {}) },
     defaults: mergeDefaults(current.defaults, data.meta?.defaults ?? {}),
-    measurementMethods: [...(data.meta?.measurementMethods ?? current.measurementMethods)],
+    measurementMethods: [
+      ...(data.meta?.measurementMethods ?? current.measurementMethods),
+    ],
     mediums: [...(data.mediums ?? [])],
     history: [...(data.history ?? [])],
+    templates,
     fieldLabels,
     app: {
       ...current.app,
-      hasDatabase: true
-    }
+      hasDatabase: true,
+    },
   });
 }
 
@@ -66,15 +101,18 @@ export function createInitialDatabase(overrides: any = {}): any {
         waterPerKisteL: 5,
         kistenProAr: 300,
         form: {
-          creator: '',
-          location: '',
-          crop: '',
-          quantity: ''
-        }
+          creator: "",
+          location: "",
+          crop: "",
+          quantity: "",
+        },
       },
       base.meta.defaults ?? {}
     );
-    return deepMerge(base, overrides);
+    base.templates = normalizeTemplates(base.templates);
+    const merged = deepMerge(base, overrides);
+    merged.templates = normalizeTemplates((merged as any).templates);
+    return merged;
   }
   const state = getState();
   const base = {
@@ -83,12 +121,15 @@ export function createInitialDatabase(overrides: any = {}): any {
       company: { ...state.company },
       defaults: { ...state.defaults },
       measurementMethods: [...state.measurementMethods],
-      fieldLabels: { ...state.fieldLabels }
+      fieldLabels: { ...state.fieldLabels },
     },
     mediums: [...state.mediums],
-    history: []
+    history: [],
+    templates: state.templates.map(cloneTemplateDocument),
   };
-  return deepMerge(base, overrides);
+  const merged = deepMerge(base, overrides);
+  merged.templates = normalizeTemplates((merged as any).templates);
+  return merged;
 }
 
 export function getDatabaseSnapshot(): any {
@@ -99,9 +140,10 @@ export function getDatabaseSnapshot(): any {
       company: { ...state.company },
       defaults: { ...state.defaults },
       measurementMethods: [...state.measurementMethods],
-      fieldLabels: { ...state.fieldLabels }
+      fieldLabels: { ...state.fieldLabels },
     },
     mediums: [...state.mediums],
-    history: [...state.history]
+    history: [...state.history],
+    templates: state.templates.map(cloneTemplateDocument),
   };
 }

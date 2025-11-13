@@ -391,6 +391,22 @@ export async function listBvlSchadorg(options: any = {}): Promise<any> {
   return await callWorker("listBvlSchadorg", options);
 }
 
+export async function getTemplateRevisionDocument(
+  templateId: string,
+  version: number
+): Promise<any | null> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  if (!templateId || !Number.isFinite(version)) {
+    return null;
+  }
+  return await callWorker("getTemplateRevisionDocument", {
+    templateId,
+    version,
+  });
+}
+
 /**
  * Diagnose BVL schema
  */

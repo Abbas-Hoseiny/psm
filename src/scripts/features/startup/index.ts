@@ -304,29 +304,28 @@ export function initStartup(
 
   function handleUseDefaults(button: HTMLButtonElement | null): void {
     void withButtonBusy(button, async () => {
-      try {
+      const initialData = createInitialDatabase();
+      const driverOrder = ["sqlite", "localstorage", "memory"] as const;
+      for (const preferred of driverOrder) {
         try {
-          setActiveDriver("localstorage");
+          setActiveDriver(preferred);
+          const result = await createDatabase(initialData);
+          applyDatabase(result.data);
+          services.events.emit("database:connected", {
+            driver: getActiveDriverKey() || preferred,
+          });
+          return;
         } catch (err) {
           console.warn(
-            "LocalStorage-Treiber nicht verfügbar, nutze Memory",
+            `Treiber ${preferred} konnte nicht initialisiert werden`,
             err
           );
-          setActiveDriver("memory");
         }
-        const initialData = createInitialDatabase();
-        applyDatabase(initialData);
-        services.events.emit("database:connected", {
-          driver: getActiveDriverKey() || "memory",
-        });
-      } catch (err) {
-        console.error("Fehler beim Laden der Defaults", err);
-        window.alert(
-          err instanceof Error
-            ? err.message
-            : "Defaults konnten nicht geladen werden"
-        );
       }
+      const message =
+        "Keine geeignete Speicheroption verfügbar. Bitte Browserberechtigungen prüfen.";
+      console.error(message);
+      window.alert(message);
     });
   }
 

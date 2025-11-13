@@ -167,6 +167,9 @@ self.onmessage = async function (event) {
       case "diagnoseBvlSchema":
         result = await diagnoseBvlSchema();
         break;
+      case "getTemplateRevisionDocument":
+        result = await getTemplateRevisionDocument(payload);
+        break;
       default:
         throw new Error(`Unknown action: ${action}`);
     }
@@ -451,6 +454,44 @@ async function applySchema() {
       throw error;
     }
   }
+
+  const postMigrationVersion = db.selectValue("PRAGMA user_version") || 0;
+  if (postMigrationVersion < 4) {
+    console.log("Migrating database to version 4...");
+    db.exec("BEGIN TRANSACTION");
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS templates (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT DEFAULT '',
+          version INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          document_json TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS template_revisions (
+          template_id TEXT NOT NULL,
+          version INTEGER NOT NULL,
+          updated_at TEXT NOT NULL,
+          summary TEXT,
+          document_json TEXT,
+          PRIMARY KEY(template_id, version),
+          FOREIGN KEY(template_id) REFERENCES templates(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_templates_updated_at
+          ON templates(updated_at DESC);
+      `);
+      db.exec("PRAGMA user_version = 4");
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      console.error("Migration to version 4 failed:", error);
+      throw error;
+    }
+  }
 }
 
 /**
@@ -464,6 +505,8 @@ async function importSnapshot(snapshot) {
   try {
     // Clear existing data
     db.exec(`
+      DELETE FROM template_revisions;
+      DELETE FROM templates;
       DELETE FROM history_items;
       DELETE FROM history;
       DELETE FROM mediums;
@@ -542,6 +585,173 @@ async function importSnapshot(snapshot) {
       mediumStmt.finalize();
     }
 
+    // Import templates
+    if (snapshot.templates && Array.isArray(snapshot.templates)) {
+      const templateStmt = db.prepare(
+        "INSERT OR REPLACE INTO templates (id, name, description, version, created_at, updated_at, document_json) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      );
+      const revisionStmt = db.prepare(
+        "INSERT OR REPLACE INTO template_revisions (template_id, version, updated_at, summary, document_json) VALUES (?, ?, ?, ?, ?)"
+      );
+
+      for (const rawTemplate of snapshot.templates) {
+        if (!rawTemplate || typeof rawTemplate !== "object") {
+          continue;
+        }
+
+        const template = { ...rawTemplate };
+        let id =
+          typeof template.id === "string" && template.id ? template.id : null;
+        if (!id) {
+          if (typeof self !== "undefined" && self.crypto?.randomUUID) {
+            id = self.crypto.randomUUID();
+          } else {
+            id = `tpl_${Math.random().toString(36).slice(2, 10)}`;
+          }
+        }
+
+        const name =
+          typeof template.name === "string" && template.name.trim()
+            ? template.name.trim()
+            : "Neue Vorlage";
+        const description =
+          typeof template.description === "string" ? template.description : "";
+        const parsedVersion = Number.parseInt(
+          String(template.version || 1),
+          10
+        );
+        const version =
+          Number.isFinite(parsedVersion) && parsedVersion > 0
+            ? parsedVersion
+            : 1;
+        const createdAt =
+          typeof template.createdAt === "string" && template.createdAt
+            ? template.createdAt
+            : new Date().toISOString();
+        const updatedAt =
+          typeof template.updatedAt === "string" && template.updatedAt
+            ? template.updatedAt
+            : createdAt;
+
+        const revisions = [];
+        const seenVersions = new Set();
+        if (Array.isArray(template.revisions)) {
+          for (const entry of template.revisions) {
+            if (!entry || typeof entry !== "object") {
+              continue;
+            }
+            const versionSource =
+              typeof entry.version === "number" ||
+              typeof entry.version === "string"
+                ? entry.version
+                : undefined;
+            const entryVersion = Number.parseInt(
+              String(versionSource ?? ""),
+              10
+            );
+            if (!Number.isFinite(entryVersion) || entryVersion <= 0) {
+              continue;
+            }
+            if (seenVersions.has(entryVersion)) {
+              continue;
+            }
+            const entryUpdatedAt =
+              typeof entry.updatedAt === "string" && entry.updatedAt
+                ? entry.updatedAt
+                : updatedAt;
+            const summary =
+              typeof entry.summary === "string" && entry.summary.trim()
+                ? entry.summary.trim()
+                : undefined;
+            const snapshotPayload =
+              entry.snapshot && typeof entry.snapshot === "object"
+                ? JSON.parse(JSON.stringify(entry.snapshot))
+                : undefined;
+            const documentJsonPayload =
+              typeof entry.documentJson === "string" && entry.documentJson
+                ? entry.documentJson
+                : undefined;
+            revisions.push({
+              version: entryVersion,
+              updatedAt: entryUpdatedAt,
+              summary,
+              snapshot: snapshotPayload,
+              documentJson: documentJsonPayload,
+            });
+            seenVersions.add(entryVersion);
+          }
+        }
+        if (!seenVersions.has(version)) {
+          revisions.push({ version, updatedAt, summary: undefined });
+          seenVersions.add(version);
+        }
+        revisions.sort((a, b) => a.version - b.version);
+        template.revisions = revisions;
+
+        const documentJson = JSON.stringify({
+          ...template,
+          id,
+          name,
+          description,
+          version,
+          createdAt,
+          updatedAt,
+          revisions,
+        });
+
+        templateStmt
+          .bind([
+            id,
+            name,
+            description,
+            version,
+            createdAt,
+            updatedAt,
+            documentJson,
+          ])
+          .step();
+        templateStmt.reset();
+
+        for (const revision of revisions) {
+          const revisionSummary = revision.summary ?? null;
+          let revisionDoc = null;
+          if (revision.snapshot && typeof revision.snapshot === "object") {
+            const snapshotDoc = {
+              id,
+              version: revision.version,
+              updatedAt: revision.updatedAt,
+              name: revision.snapshot.name ?? name,
+              description:
+                typeof revision.snapshot.description === "string"
+                  ? revision.snapshot.description
+                  : description,
+              layoutMeta: revision.snapshot.layoutMeta,
+              fields: revision.snapshot.fields,
+              settings: revision.snapshot.settings,
+            };
+            revisionDoc = JSON.stringify(snapshotDoc);
+          } else if (revision.documentJson) {
+            revisionDoc = String(revision.documentJson);
+          } else if (revision.version === version) {
+            revisionDoc = documentJson;
+          }
+          revisionStmt
+            .bind([
+              id,
+              revision.version,
+              revision.updatedAt,
+              revisionSummary,
+              revisionDoc,
+            ])
+            .step();
+          revisionStmt.reset();
+        }
+      }
+
+      revisionStmt.finalize();
+      templateStmt.finalize();
+    }
+
     // Import history
     if (snapshot.history && Array.isArray(snapshot.history)) {
       const historyStmt = db.prepare(
@@ -609,6 +819,7 @@ async function exportSnapshot() {
     },
     mediums: [],
     history: [],
+    templates: [],
   };
 
   // Export meta
@@ -686,7 +897,168 @@ async function exportSnapshot() {
     items: entry.items,
   }));
 
+  // Export templates and revisions
+  const revisionMap = new Map();
+  db.exec({
+    sql: "SELECT template_id, version, updated_at, summary, document_json FROM template_revisions ORDER BY version ASC",
+    callback: (row) => {
+      const templateId = row[0];
+      if (!revisionMap.has(templateId)) {
+        revisionMap.set(templateId, []);
+      }
+      revisionMap.get(templateId).push({
+        version: Number(row[1]) || 1,
+        updatedAt: row[2] || new Date().toISOString(),
+        summary: row[3] || undefined,
+        documentJson: row[4] || null,
+      });
+    },
+  });
+
+  db.exec({
+    sql: "SELECT id, name, description, version, created_at, updated_at, document_json FROM templates ORDER BY updated_at DESC",
+    callback: (row) => {
+      const id = row[0];
+      const name = row[1];
+      const description = row[2] || "";
+      const version = Number(row[3]) || 1;
+      const createdAt = row[4] || new Date().toISOString();
+      const updatedAt = row[5] || createdAt;
+      const rawDocument = row[6];
+      let document;
+      if (rawDocument) {
+        try {
+          document = JSON.parse(rawDocument);
+        } catch (error) {
+          console.warn("Failed to parse template document", id, error);
+        }
+      }
+
+      if (!document || typeof document !== "object") {
+        document = {};
+      }
+
+      document.id = id;
+      document.name = name;
+      document.description = description;
+      document.version = version;
+      document.createdAt = document.createdAt || createdAt;
+      document.updatedAt = document.updatedAt || updatedAt;
+
+      const revisions = Array.isArray(document.revisions)
+        ? document.revisions
+        : revisionMap.get(id) || [];
+      const seenVersions = new Set();
+      const normalizedRevisions = [];
+      for (const revision of revisions) {
+        if (!revision || typeof revision !== "object") {
+          continue;
+        }
+        const revisionVersion = Number.parseInt(
+          String(revision.version ?? ""),
+          10
+        );
+        if (!Number.isFinite(revisionVersion) || revisionVersion <= 0) {
+          continue;
+        }
+        if (seenVersions.has(revisionVersion)) {
+          continue;
+        }
+        const revisionUpdatedAt =
+          typeof revision.updatedAt === "string" && revision.updatedAt
+            ? revision.updatedAt
+            : document.updatedAt;
+        const summary =
+          typeof revision.summary === "string" && revision.summary.trim()
+            ? revision.summary.trim()
+            : undefined;
+        const documentJson =
+          typeof revision.documentJson === "string" && revision.documentJson
+            ? revision.documentJson
+            : undefined;
+        normalizedRevisions.push({
+          version: revisionVersion,
+          updatedAt: revisionUpdatedAt,
+          summary,
+          documentJson,
+        });
+        seenVersions.add(revisionVersion);
+      }
+      if (!seenVersions.has(version)) {
+        normalizedRevisions.push({
+          version,
+          updatedAt: document.updatedAt,
+          summary: undefined,
+        });
+      }
+      normalizedRevisions.sort((a, b) => a.version - b.version);
+      document.revisions = normalizedRevisions;
+
+      snapshot.templates.push(document);
+    },
+  });
+
   return snapshot;
+}
+
+async function getTemplateRevisionDocument({ templateId, version }) {
+  if (!db) throw new Error("Database not initialized");
+
+  if (!templateId || typeof templateId !== "string") {
+    return null;
+  }
+
+  const parsedVersion = Number.parseInt(String(version ?? ""), 10);
+  if (!Number.isFinite(parsedVersion)) {
+    return null;
+  }
+
+  let documentJson = null;
+
+  db.exec({
+    sql: "SELECT document_json FROM template_revisions WHERE template_id = ? AND version = ? LIMIT 1",
+    bind: [templateId, parsedVersion],
+    callback: (row) => {
+      documentJson = row[0] || null;
+    },
+  });
+
+  if (!documentJson) {
+    db.exec({
+      sql: "SELECT document_json FROM templates WHERE id = ? LIMIT 1",
+      bind: [templateId],
+      callback: (row) => {
+        documentJson = row[0] || null;
+      },
+    });
+    if (documentJson) {
+      try {
+        const parsed = JSON.parse(documentJson);
+        if (parsed && parsed.version !== parsedVersion) {
+          documentJson = null;
+        }
+      } catch (error) {
+        console.warn("Konnte Dokument aus templates nicht parsen", error);
+        documentJson = null;
+      }
+    }
+  }
+
+  if (!documentJson) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(documentJson);
+  } catch (error) {
+    console.warn(
+      "Konnte Revisions-Dokument nicht parsen",
+      templateId,
+      version,
+      error
+    );
+    return null;
+  }
 }
 
 /**

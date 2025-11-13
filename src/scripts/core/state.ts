@@ -1,4 +1,5 @@
 import { getDefaultFieldLabels } from "./labels";
+import type { TemplateDocument } from "@scripts/features/templates/types";
 
 export interface AppState {
   app: {
@@ -32,6 +33,7 @@ export interface AppState {
   history: any[];
   fieldLabels: any;
   calcContext: any | null;
+  templates: TemplateDocument[];
   zulassung: {
     filters: {
       culture: string | null;
@@ -108,6 +110,7 @@ let state: AppState = {
   history: [],
   fieldLabels: getDefaultFieldLabels(),
   calcContext: null,
+  templates: [],
   zulassung: {
     filters: {
       culture: null,
@@ -224,6 +227,7 @@ export function resetState(newState?: AppState): AppState {
     history: [],
     fieldLabels: getDefaultFieldLabels(),
     calcContext: null,
+    templates: [],
     zulassung: {
       filters: {
         culture: null,
