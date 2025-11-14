@@ -5,6 +5,7 @@ export interface ValidationConfig {
   max?: number | null;
   maxLength?: number | null;
   pattern?: string | null;
+  step?: number | null;
 }
 
 export interface LayoutMeta {
@@ -35,6 +36,9 @@ export interface EditorField {
   defaultValue: string | number | null;
   layout: FieldLayout;
   printStyles: Record<string, unknown>;
+  unit?: string;
+  multiline?: boolean;
+  style?: "body" | "heading" | "muted";
 }
 
 export interface TemplateSettings {

@@ -27,6 +27,13 @@ export interface TemplateEditorView {
     height: HTMLInputElement | null;
     x: HTMLInputElement | null;
     y: HTMLInputElement | null;
+    unit: HTMLInputElement | null;
+    min: HTMLInputElement | null;
+    max: HTMLInputElement | null;
+    step: HTMLInputElement | null;
+    maxLength: HTMLInputElement | null;
+    multiline: HTMLInputElement | null;
+    labelStyle: HTMLSelectElement | null;
   };
   propertyMultiPanel: HTMLElement | null;
   propertyMultiSummary: HTMLElement | null;
@@ -191,9 +198,45 @@ function buildPropertyPanel(): HTMLElement {
           </div>
         </div>
       </section>
-      <section class="template-editor__property-group" data-property-advanced="text">
-        <label for="property-placeholder" class="form-label">Platzhalter (nur Text)</label>
+      <section class="template-editor__property-group" data-property-advanced="text,number">
+        <label for="property-placeholder" class="form-label">Platzhalter</label>
         <input type="text" class="form-control form-control-sm" id="property-placeholder" placeholder="Platzhalter" data-default-placeholder="Platzhalter" />
+      </section>
+      <section class="template-editor__property-group" data-property-advanced="text">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" value="1" id="property-multiline" />
+          <label class="form-check-label" for="property-multiline">Mehrzeilige Eingabe</label>
+        </div>
+        <label for="property-max-length" class="form-label">Zeichenlimit</label>
+        <input type="number" min="1" class="form-control form-control-sm" id="property-max-length" placeholder="Kein Limit" data-default-placeholder="Kein Limit" />
+      </section>
+      <section class="template-editor__property-group" data-property-advanced="number">
+        <div class="row g-2">
+          <div class="col-12">
+            <label for="property-unit" class="form-label">Einheit</label>
+            <input type="text" class="form-control form-control-sm" id="property-unit" placeholder="z. B. kg" />
+          </div>
+          <div class="col-4">
+            <label for="property-min" class="form-label">Minimum</label>
+            <input type="number" class="form-control form-control-sm" id="property-min" placeholder="-" />
+          </div>
+          <div class="col-4">
+            <label for="property-max" class="form-label">Maximum</label>
+            <input type="number" class="form-control form-control-sm" id="property-max" placeholder="-" />
+          </div>
+          <div class="col-4">
+            <label for="property-step" class="form-label">Schrittweite</label>
+            <input type="number" class="form-control form-control-sm" id="property-step" placeholder="z. B. 0.5" step="any" />
+          </div>
+        </div>
+      </section>
+      <section class="template-editor__property-group" data-property-advanced="label">
+        <label for="property-label-style" class="form-label">Darstellung</label>
+        <select class="form-select form-select-sm" id="property-label-style">
+          <option value="body">Standard</option>
+          <option value="heading">Überschrift</option>
+          <option value="muted">Hinweis</option>
+        </select>
       </section>
       <section class="template-editor__property-group">
         <div class="row g-2">
@@ -225,8 +268,8 @@ function buildPropertyPanel(): HTMLElement {
           <label class="form-label" for="property-multi-label">Bezeichnung</label>
           <input type="text" class="form-control form-control-sm" data-role="property-multi-label" id="property-multi-label" placeholder="Beschriftung" data-default-placeholder="Beschriftung" data-mixed-placeholder="-" />
         </div>
-        <div class="col-12" data-property-multi-advanced="text">
-          <label class="form-label" for="property-multi-placeholder">Platzhalter (Textfelder)</label>
+        <div class="col-12" data-property-multi-advanced="text,number">
+          <label class="form-label" for="property-multi-placeholder">Platzhalter (Text/Zahl)</label>
           <input type="text" class="form-control form-control-sm" data-role="property-multi-placeholder" id="property-multi-placeholder" placeholder="Platzhalter" data-default-placeholder="Platzhalter" data-mixed-placeholder="-" />
         </div>
         <div class="col-12">
@@ -254,7 +297,7 @@ function buildPropertyPanel(): HTMLElement {
         </div>
       </div>
     </section>
-    <section class="template-editor__property-group" data-role="revision-panel">
+    <section class="template-editor__property-group template-editor__property-group--versions" data-role="revision-panel">
       <header class="d-flex justify-content-between align-items-center mb-2">
         <h4 class="h6 mb-0">Versionen</h4>
         <button class="btn btn-outline-light btn-sm" data-action="revision-revert" disabled aria-disabled="true">
@@ -366,22 +409,42 @@ export function createTemplateEditorView(): TemplateEditorView {
   contextMenu.className = "template-editor__context-menu d-none";
   contextMenu.setAttribute("role", "menu");
   contextMenu.innerHTML = /* html */ `
+    <button type="button" class="template-editor__context-menu-item" data-menu-action="focus-properties" role="menuitem">
+      <span class="template-editor__context-menu-content">
+        <i class="bi bi-sliders"></i>
+        <span>Eigenschaften anzeigen</span>
+      </span>
+      <span class="template-editor__context-menu-shortcut">Enter</span>
+    </button>
+    <hr class="template-editor__context-menu-separator" />
     <button type="button" class="template-editor__context-menu-item" data-menu-action="duplicate" role="menuitem">
-      <i class="bi bi-files"></i>
-      <span>Duplizieren</span>
+      <span class="template-editor__context-menu-content">
+        <i class="bi bi-files"></i>
+        <span>Duplizieren</span>
+      </span>
+      <span class="template-editor__context-menu-shortcut">cmd+D</span>
     </button>
     <button type="button" class="template-editor__context-menu-item" data-menu-action="delete" role="menuitem">
-      <i class="bi bi-trash"></i>
-      <span>Löschen</span>
+      <span class="template-editor__context-menu-content">
+        <i class="bi bi-trash"></i>
+        <span>Löschen</span>
+      </span>
+      <span class="template-editor__context-menu-shortcut">Entf</span>
     </button>
     <hr class="template-editor__context-menu-separator" />
     <button type="button" class="template-editor__context-menu-item" data-menu-action="bring-front" role="menuitem">
-      <i class="bi bi-bring-front"></i>
-      <span>Nach vorne</span>
+      <span class="template-editor__context-menu-content">
+        <i class="bi bi-bring-front"></i>
+        <span>Nach vorne</span>
+      </span>
+      <span class="template-editor__context-menu-shortcut">cmd+]</span>
     </button>
     <button type="button" class="template-editor__context-menu-item" data-menu-action="send-back" role="menuitem">
-      <i class="bi bi-send-back"></i>
-      <span>Nach hinten</span>
+      <span class="template-editor__context-menu-content">
+        <i class="bi bi-send-back"></i>
+        <span>Nach hinten</span>
+      </span>
+      <span class="template-editor__context-menu-shortcut">cmd+[</span>
     </button>
   `;
 
@@ -507,6 +570,19 @@ export function createTemplateEditorView(): TemplateEditorView {
       ),
       y: propertyPanel.querySelector<HTMLInputElement>(
         "input[name='property-y']"
+      ),
+      unit: propertyPanel.querySelector<HTMLInputElement>("#property-unit"),
+      min: propertyPanel.querySelector<HTMLInputElement>("#property-min"),
+      max: propertyPanel.querySelector<HTMLInputElement>("#property-max"),
+      step: propertyPanel.querySelector<HTMLInputElement>("#property-step"),
+      maxLength: propertyPanel.querySelector<HTMLInputElement>(
+        "#property-max-length"
+      ),
+      multiline: propertyPanel.querySelector<HTMLInputElement>(
+        "#property-multiline"
+      ),
+      labelStyle: propertyPanel.querySelector<HTMLSelectElement>(
+        "#property-label-style"
       ),
     },
     propertyMultiPanel,

@@ -8,17 +8,6 @@ import {
   loadTemplateRevisionDocument,
   saveDatabase,
 } from "@scripts/core/storage";
-import { createTemplateEditorView } from "./editorView";
-import type { TemplateEditorView } from "./editorView";
-import {
-  DEFAULT_FIELD_SIZE,
-  DEFAULT_ZOOM,
-  MAX_ZOOM,
-  MIN_ZOOM,
-  clampZoom,
-  createEditorStore,
-  type EditorStore,
-} from "./editorState";
 import type {
   EditorField,
   EditorState,
@@ -29,13 +18,25 @@ import type {
 } from "./types";
 import {
   cloneTemplateDocument,
-  createRevisionSnapshotFromState,
   createTemplateDocumentFromState,
   ensureUniqueTemplateName,
-  generateTemplateId,
   normalizeRevisionSnapshotFromDocument,
+  createRevisionSnapshotFromState,
+  generateTemplateId,
 } from "./persistence";
-
+import {
+  createTemplateEditorView,
+  type TemplateEditorView,
+} from "./editorView";
+import {
+  DEFAULT_FIELD_SIZE,
+  DEFAULT_ZOOM,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  clampZoom,
+  createEditorStore,
+  type EditorStore,
+} from "./editorState";
 // eslint-disable-next-line import/extensions
 import { loadEditorPreferences, saveEditorPreferences } from "./preferences.js";
 import {
@@ -49,65 +50,73 @@ import {
   pixelsToGrid,
 } from "./utils/grid";
 
-interface Services {
+type Services = {
   state: {
     getState: typeof getState;
     subscribe: typeof subscribeState;
+    updateSlice: typeof updateSlice;
   };
   events: {
     emit: typeof emitEvent;
+    subscribe?: <Payload = unknown>(
+      eventName: string,
+      handler: (payload: Payload) => void
+    ) => () => void;
   };
-}
-
-let initialized = false;
-let host: HTMLElement | null = null;
-const pendingRevisionSnapshotLoads = new Map<string, Promise<void>>();
-let activeView: TemplateEditorView | null = null;
+};
 
 type NotificationKind = "info" | "success" | "warning" | "error";
 
 interface NotificationOptions {
-  kind?: NotificationKind;
-  duration?: number;
   id?: string;
+  duration?: number;
+  kind?: NotificationKind;
 }
 
 interface TemplateSaveOptions {
+  notify?: boolean;
+  skipAutoReset?: boolean;
   silent?: boolean;
-  summary?: string;
+  summary?: string | null;
 }
+
+type AutoSaveStatus = "idle" | "pending" | "saving" | "error";
+
+const AUTO_SAVE_DELAY_MS = 5000;
+const ZOOM_STEP = 0.05;
+const ZOOM_EPSILON = 0.001;
+const PALETTE_DRAG_MIME = "application/x-template-field";
+const DROP_TARGET_CLASS = "is-drop-target";
+const FIELD_TYPE_LABELS: Record<FieldType, string> = {
+  label: "Beschriftung",
+  text: "Textfeld",
+  number: "Zahlenfeld",
+};
+
+let initialized = false;
+let host: HTMLElement | null = null;
+let activeView: TemplateEditorView | null = null;
+let activeStore: EditorStore | null = null;
+let lastRenderedState: EditorState | null = null;
+let lastRenderedFieldsRef: readonly EditorField[] | null = null;
+let autoSaveTimer: number | null = null;
+let autoSaveInFlight: Promise<void> | null = null;
+let autoSaveStatus: AutoSaveStatus = "idle";
+let lastSelectionSignature = "";
+let lastSelectionCount = 0;
+let propertyPanelFocusTimer: number | null = null;
 
 const notificationTimers = new WeakMap<HTMLElement, number>();
 const notificationRegistry = new Map<string, HTMLElement>();
+const pendingRevisionSnapshotLoads = new Map<string, Promise<void>>();
 
-const AUTO_SAVE_DELAY_MS = 5000;
-let autoSaveTimer: number | null = null;
-let autoSaveInFlight: Promise<void> | null = null;
-type AutoSaveStatus = "idle" | "pending" | "saving" | "error";
-let autoSaveStatus: AutoSaveStatus = "idle";
-let activeStore: EditorStore | null = null;
-let lastRenderedState: EditorState | null = null;
-let lastRenderedFieldsRef: EditorField[] | null = null;
-
-const ZOOM_STEP = 0.05;
-const ZOOM_EPSILON = 0.0001;
-
-const FIELD_TYPE_LABELS: Record<FieldType, string> = {
-  label: "Label",
-  text: "Text",
-  number: "Zahl",
-};
-
-const PALETTE_DRAG_MIME = "application/x-template-field";
-const DROP_TARGET_CLASS = "is-drop-target";
-
-function adjustZoomValue(current: number, stepDelta: number): number {
-  const raw = current + stepDelta * ZOOM_STEP;
-  const stepped = Math.round(raw / ZOOM_STEP) * ZOOM_STEP;
-  return clampZoom(Number(stepped.toFixed(2)));
+function adjustZoomValue(current: number, steps: number): number {
+  const raw = current + steps * ZOOM_STEP;
+  const rounded = Math.round(raw / ZOOM_EPSILON) * ZOOM_EPSILON;
+  return clampZoom(Number(rounded.toFixed(3)));
 }
 
-function isValidFieldType(value: unknown): value is FieldType {
+function isValidFieldType(value: string): value is FieldType {
   return value === "label" || value === "text" || value === "number";
 }
 
@@ -630,6 +639,21 @@ function renderEditor(
   updateToolbarToggles(view, state);
   updateRevisionPanel(view, state);
 
+  const selectionSignature = state.selectedFieldIds.join("|");
+  if (
+    state.selectedFieldIds.length > 0 &&
+    (selectionSignature !== lastSelectionSignature ||
+      state.selectedFieldIds.length !== lastSelectionCount)
+  ) {
+    requestPropertyPanelReveal(view, state.selectedFieldIds.length);
+  }
+  if (state.selectedFieldIds.length === 0 && propertyPanelFocusTimer !== null) {
+    window.clearTimeout(propertyPanelFocusTimer);
+    propertyPanelFocusTimer = null;
+  }
+  lastSelectionSignature = selectionSignature;
+  lastSelectionCount = state.selectedFieldIds.length;
+
   lastRenderedFieldsRef = state.fields;
 }
 
@@ -655,12 +679,22 @@ function createFieldElement(
   element.dataset.height = style.height.replace("px", "");
   element.dataset.layer = String(field.layout.layer ?? 0);
 
+  const labelStyleClass =
+    field.type === "label"
+      ? ` template-editor__field-label--${field.style ?? "body"}`
+      : "";
+  const metaParts = [field.type.toUpperCase()];
+  if (field.type === "number" && field.unit && field.unit.trim()) {
+    metaParts.push(field.unit.trim());
+  }
+  const metaContent = escapeHtml(metaParts.join(" · "));
+
   element.innerHTML = `
     <div class="template-editor__field-content">
-      <span class="template-editor__field-label">${escapeHtml(
+      <span class="template-editor__field-label${labelStyleClass}">${escapeHtml(
         field.label || field.name
       )}</span>
-      <span class="template-editor__field-meta">${field.type.toUpperCase()}</span>
+      <span class="template-editor__field-meta">${metaContent}</span>
     </div>
     <div class="template-editor__field-handles" aria-hidden="true">
       <span class="template-editor__field-handle template-editor__field-handle--nw" data-handle="nw" data-edges="n w"></span>
@@ -715,6 +749,38 @@ function createFieldElement(
         store.selectField(field.id);
       }
     }
+  });
+
+  element.addEventListener("click", (event) => {
+    const mouseEvent = event as MouseEvent;
+    if (mouseEvent.button !== 0 || mouseEvent.defaultPrevented) {
+      return;
+    }
+
+    const supportsMulti =
+      mouseEvent.shiftKey || mouseEvent.metaKey || mouseEvent.ctrlKey;
+    if (!supportsMulti) {
+      const selection = store.getState().selectedFieldIds;
+      if (!selection.includes(field.id)) {
+        store.selectField(field.id);
+      }
+    }
+
+    const latestState = store.getState();
+    updatePropertyPanel(view, latestState);
+    updateSelectionOutline(view, latestState);
+
+    window.requestAnimationFrame(() => {
+      const selectionSize = store.getState().selectedFieldIds.length || 1;
+      requestPropertyPanelReveal(view, selectionSize);
+    });
+  });
+
+  element.addEventListener("focus", () => {
+    requestPropertyPanelReveal(
+      view,
+      store.getState().selectedFieldIds.length || 1
+    );
   });
 
   setupFieldInteractions(element, view, store);
@@ -1011,7 +1077,14 @@ function setupPalette(view: TemplateEditorView, store: EditorStore): void {
     if (!type) {
       return;
     }
-    store.addField(type);
+    const field = store.addField(type);
+    window.requestAnimationFrame(() => {
+      const labelInput = view.propertyInputs.label;
+      if (labelInput && document.contains(labelInput)) {
+        labelInput.focus();
+        labelInput.select();
+      }
+    });
   });
 }
 
@@ -1092,6 +1165,11 @@ function setupPaletteDragAndDrop(
     }
 
     dropIndicator.style.left = `${cellX * cellWidth}px`;
+    dropIndicator.style.top = `${cellY * cellHeight}px`;
+    dropIndicator.style.width = `${DEFAULT_FIELD_SIZE.w * cellWidth}px`;
+    dropIndicator.style.height = `${DEFAULT_FIELD_SIZE.h * cellHeight}px`;
+    dropIndicator.classList.remove("d-none");
+    dropPosition = { x: cellX, y: cellY };
   };
 
   const readDragType = (dataTransfer: DataTransfer): FieldType | null => {
@@ -1363,6 +1441,9 @@ function buildTemplateOutput(state: EditorState): TemplateOutputPayload {
       display: flex;
       align-items: flex-end;
     }
+    .template-print__field--multiline .template-print__field-body {
+      align-items: stretch;
+    }
     .template-print__field-input {
       flex: 1 1 auto;
       display: block;
@@ -1373,8 +1454,20 @@ function buildTemplateOutput(state: EditorState): TemplateOutputPayload {
       color: rgba(18, 21, 24, 0.72);
       padding: 6px 0;
     }
+    .template-print__field--multiline .template-print__field-input {
+      display: flex;
+      align-items: flex-start;
+      border: 1px solid rgba(18, 21, 24, 0.18);
+      border-radius: 8px;
+      padding: 12px 14px;
+      min-height: 100%;
+      width: 100%;
+    }
     .template-print__field-input span {
       opacity: 0.6;
+    }
+    .template-print__field--multiline .template-print__field-input span {
+      opacity: 0.55;
     }
     .template-print__field-input[data-type="number"] {
       font-variant-numeric: tabular-nums;
@@ -1399,6 +1492,16 @@ function buildTemplateOutput(state: EditorState): TemplateOutputPayload {
     .template-print__label-text {
       display: block;
       width: 100%;
+    }
+    .template-print__label-text--heading {
+      font-size: 1.2rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .template-print__label-text--muted {
+      font-weight: 600;
+      color: rgba(16, 18, 22, 0.6);
+      font-style: italic;
     }
     .template-print__field.is-required .template-print__field-label::after {
       content: "*";
@@ -1482,26 +1585,43 @@ function renderTemplatePrintField(field: EditorField): string {
   const width = field.layout.w * cellWidth;
   const height = field.layout.h * cellHeight;
   const style = `left: ${left}px; top: ${top}px; width: ${width}px; height: ${height}px;`;
-  const alignClass = field.layout.align
-    ? ` template-print__field--align-${field.layout.align}`
-    : "";
+  const classList = [
+    "template-print__field",
+    `template-print__field--${field.type}`,
+  ];
+  if (field.layout.align) {
+    classList.push(`template-print__field--align-${field.layout.align}`);
+  }
+  if (field.required) {
+    classList.push("is-required");
+  }
   const label = escapeHtml(field.label || field.name);
   if (field.type === "label") {
-    return `<div class="template-print__field template-print__field--label${alignClass}" style="${style}"><span class="template-print__label-text">${label}</span></div>`;
+    const labelStyleClass = field.style
+      ? ` template-print__label-text--${field.style}`
+      : "";
+    return `<div class="${classList.join(" ")}" style="${style}"><span class="template-print__label-text${labelStyleClass}">${label}</span></div>`;
   }
 
   const placeholder = field.placeholder?.trim()
     ? escapeHtml(field.placeholder.trim())
     : "";
   const typeLabel = FIELD_TYPE_LABELS[field.type] ?? field.type;
+  const unitLabel =
+    field.type === "number" && field.unit && field.unit.trim()
+      ? `${typeLabel} · ${field.unit.trim()}`
+      : typeLabel;
+  if (field.type === "text" && field.multiline) {
+    classList.push("template-print__field--multiline");
+  }
 
-  return `<div class="template-print__field template-print__field--${field.type}${alignClass}${field.required ? " is-required" : ""}" style="${style}">
+  return `<div class="${classList.join(" ")}" style="${style}">
     <div class="template-print__field-header">
       <span class="template-print__field-label">${label}</span>
-      <span class="template-print__field-meta">${escapeHtml(typeLabel)}</span>
+      <span class="template-print__field-meta">${escapeHtml(unitLabel)}</span>
     </div>
     <div class="template-print__field-body">
-      <div class="template-print__field-input" data-type="${field.type}">
+      <div class="template-print__field-input" data-type="${field.type}"${field.type === "text" && field.multiline ? " data-multiline='true'" : ""}>
         <span class="template-print__input-placeholder">${placeholder}</span>
       </div>
     </div>
@@ -1888,6 +2008,107 @@ function computeMarqueeSelection(
   return Array.from(selected);
 }
 
+function pickPropertyPanelFocusTarget(
+  view: TemplateEditorView,
+  selectionCount: number
+): HTMLElement | null {
+  const prefer = <T extends HTMLElement>(
+    candidate: T | null | undefined
+  ): T | null => {
+    if (!candidate) {
+      return null;
+    }
+    if (
+      candidate instanceof HTMLInputElement ||
+      candidate instanceof HTMLSelectElement ||
+      candidate instanceof HTMLTextAreaElement
+    ) {
+      if (candidate.disabled) {
+        return null;
+      }
+    }
+    if (candidate.closest(".d-none")) {
+      return null;
+    }
+    return candidate;
+  };
+
+  if (selectionCount > 1) {
+    const multiTargets = [
+      view.propertyMultiInputs.label,
+      view.propertyMultiInputs.placeholder,
+      view.propertyMultiInputs.width,
+      view.propertyMultiInputs.height,
+      view.propertyMultiInputs.x,
+      view.propertyMultiInputs.y,
+    ];
+    for (const candidate of multiTargets) {
+      const target = prefer(candidate ?? null);
+      if (target) {
+        return target;
+      }
+    }
+  } else {
+    const singleTargets = [
+      view.propertyInputs.label,
+      view.propertyInputs.name,
+      view.propertyInputs.placeholder,
+      view.propertyInputs.width,
+      view.propertyInputs.height,
+      view.propertyInputs.x,
+      view.propertyInputs.y,
+    ];
+    for (const candidate of singleTargets) {
+      const target = prefer(candidate ?? null);
+      if (target) {
+        return target;
+      }
+    }
+  }
+
+  if (view.propertyPanel) {
+    const fallback = view.propertyPanel.querySelector<HTMLElement>(
+      "input:not(:disabled):not([aria-disabled='true']), select:not(:disabled), textarea:not(:disabled)"
+    );
+    if (fallback && !fallback.closest(".d-none")) {
+      return fallback;
+    }
+  }
+
+  return null;
+}
+
+function requestPropertyPanelReveal(
+  view: TemplateEditorView,
+  selectionCount: number
+): void {
+  if (propertyPanelFocusTimer !== null) {
+    window.clearTimeout(propertyPanelFocusTimer);
+    propertyPanelFocusTimer = null;
+  }
+
+  if (!view.propertyPanel || selectionCount === 0) {
+    return;
+  }
+
+  const activeElement = document.activeElement as HTMLElement | null;
+  if (activeElement && view.propertyPanel.contains(activeElement)) {
+    return;
+  }
+
+  propertyPanelFocusTimer = window.setTimeout(() => {
+    propertyPanelFocusTimer = null;
+    if (!view.propertyPanel) {
+      return;
+    }
+    view.propertyPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const target = pickPropertyPanelFocusTarget(view, selectionCount);
+    if (target) {
+      target.focus({ preventScroll: true });
+    }
+  }, 120);
+}
+
 function setupContextMenu(view: TemplateEditorView, store: EditorStore): void {
   const menu = view.contextMenu;
 
@@ -1902,7 +2123,19 @@ function setupContextMenu(view: TemplateEditorView, store: EditorStore): void {
     menu.style.top = "-9999px";
   };
 
-  const updateMenuState = (selectionCount: number) => {
+  const setButtonState = (action: string, enabled: boolean) => {
+    const button = menu.querySelector<HTMLButtonElement>(
+      `[data-menu-action='${action}']`
+    );
+    if (!button) {
+      return;
+    }
+    button.disabled = !enabled;
+    button.setAttribute("aria-disabled", enabled ? "false" : "true");
+  };
+
+  const updateMenuState = (selectedIds: string[]) => {
+    const selectionCount = selectedIds.length;
     menu
       .querySelectorAll<HTMLButtonElement>("[data-menu-action]")
       .forEach((button) => {
@@ -1910,16 +2143,44 @@ function setupContextMenu(view: TemplateEditorView, store: EditorStore): void {
         button.disabled = disabled;
         button.setAttribute("aria-disabled", disabled ? "true" : "false");
       });
+
+    if (!selectionCount) {
+      return;
+    }
+
+    const fields = store.getState().fields;
+    const selection = new Set(selectedIds);
+    let firstSelectedIndex = -1;
+    let lastSelectedIndex = -1;
+
+    fields.forEach((field, index) => {
+      if (selection.has(field.id)) {
+        if (firstSelectedIndex === -1) {
+          firstSelectedIndex = index;
+        }
+        lastSelectedIndex = index;
+      }
+    });
+
+    const canBringFront =
+      lastSelectedIndex !== -1 && lastSelectedIndex < fields.length - 1;
+    const canSendBack = firstSelectedIndex > 0;
+
+    setButtonState("focus-properties", true);
+    setButtonState("duplicate", true);
+    setButtonState("delete", true);
+    setButtonState("bring-front", canBringFront);
+    setButtonState("send-back", canSendBack);
   };
 
   const openMenu = (clientX: number, clientY: number) => {
-    const selectionCount = store.getState().selectedFieldIds.length;
-    if (!selectionCount) {
+    const selectedIds = store.getState().selectedFieldIds;
+    if (!selectedIds.length) {
       hideMenu();
       return;
     }
 
-    updateMenuState(selectionCount);
+    updateMenuState(selectedIds);
 
     const rootRect = view.root.getBoundingClientRect();
     let left = clientX - rootRect.left;
@@ -1949,6 +2210,15 @@ function setupContextMenu(view: TemplateEditorView, store: EditorStore): void {
   };
 
   view.fieldLayer.addEventListener("contextmenu", (event) => {
+    const mouseEvent = event as MouseEvent;
+    const invokedByKeyboard = mouseEvent.detail === 0;
+    const isRightClick =
+      mouseEvent.button === 2 || mouseEvent.ctrlKey || mouseEvent.metaKey;
+    if (!invokedByKeyboard && !isRightClick) {
+      event.preventDefault();
+      hideMenu();
+      return;
+    }
     event.preventDefault();
     const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
       ".template-editor__field"
@@ -1998,6 +2268,10 @@ function setupContextMenu(view: TemplateEditorView, store: EditorStore): void {
     }
 
     switch (action) {
+      case "focus-properties": {
+        requestPropertyPanelReveal(view, selectedIds.length);
+        break;
+      }
       case "duplicate":
         store.duplicateFields(selectedIds);
         break;
@@ -2762,8 +3036,61 @@ function setupPropertyPanel(
     return;
   }
 
-  const { name, label, placeholder, required, width, height, x, y } =
-    view.propertyInputs;
+  const {
+    name,
+    label,
+    placeholder,
+    required,
+    width,
+    height,
+    x,
+    y,
+    unit,
+    min,
+    max,
+    step,
+    maxLength,
+    multiline,
+    labelStyle,
+  } = view.propertyInputs;
+
+  const parseNullableNumberInput = (
+    rawValue: string
+  ): number | null | undefined => {
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const parsePositiveNumberInput = (
+    rawValue: string
+  ): number | null | undefined => {
+    const parsed = parseNullableNumberInput(rawValue);
+    if (parsed === null) {
+      return null;
+    }
+    if (parsed === undefined || parsed <= 0) {
+      return undefined;
+    }
+    return parsed;
+  };
+
+  const parsePositiveIntegerInput = (
+    rawValue: string
+  ): number | null | undefined => {
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return undefined;
+    }
+    return Math.trunc(parsed);
+  };
 
   name?.addEventListener("input", () => {
     withSelectedField(view, store, (field) => {
@@ -2804,6 +3131,101 @@ function setupPropertyPanel(
       const nextRequired = Boolean(required.checked);
       if (nextRequired !== field.required) {
         store.updateField(field.id, { required: nextRequired });
+      }
+    });
+  });
+
+  unit?.addEventListener("input", () => {
+    if (unit.disabled) {
+      return;
+    }
+    withSelectedField(view, store, (field) => {
+      if (field.type !== "number") {
+        return;
+      }
+      const nextValue = unit.value;
+      if (nextValue !== (field.unit ?? "")) {
+        store.updateField(field.id, { unit: nextValue });
+      }
+    });
+  });
+
+  const syncNumericValidation = (
+    input: HTMLInputElement | null,
+    extractor: (value: string) => number | null | undefined,
+    key: "min" | "max" | "step" | "maxLength"
+  ) => {
+    input?.addEventListener("change", () => {
+      if (input.disabled) {
+        return;
+      }
+      withSelectedField(view, store, (field) => {
+        if (field.type !== "number" && key !== "maxLength") {
+          return;
+        }
+        if (field.type !== "text" && key === "maxLength") {
+          return;
+        }
+        const parsed = extractor(input.value ?? "");
+        const currentValue = field.validation?.[key] ?? null;
+        if (parsed === undefined) {
+          setInputValue(
+            input,
+            currentValue === null ? "" : String(currentValue)
+          );
+          return;
+        }
+        if (Object.is(currentValue, parsed)) {
+          setInputValue(
+            input,
+            currentValue === null ? "" : String(currentValue)
+          );
+          return;
+        }
+        const nextValidation = {
+          ...field.validation,
+          [key]: parsed,
+        } as typeof field.validation;
+        store.updateField(field.id, { validation: nextValidation });
+      });
+    });
+  };
+
+  syncNumericValidation(min, parseNullableNumberInput, "min");
+  syncNumericValidation(max, parseNullableNumberInput, "max");
+  syncNumericValidation(step, parsePositiveNumberInput, "step");
+  syncNumericValidation(maxLength, parsePositiveIntegerInput, "maxLength");
+
+  multiline?.addEventListener("change", () => {
+    if (multiline.disabled) {
+      return;
+    }
+    withSelectedField(view, store, (field) => {
+      if (field.type !== "text") {
+        return;
+      }
+      const nextValue = Boolean(multiline.checked);
+      if (nextValue !== Boolean(field.multiline)) {
+        store.updateField(field.id, { multiline: nextValue });
+      }
+    });
+  });
+
+  labelStyle?.addEventListener("change", () => {
+    withSelectedField(view, store, (field) => {
+      if (field.type !== "label") {
+        return;
+      }
+      const value = (labelStyle.value ?? "body") as
+        | "body"
+        | "heading"
+        | "muted";
+      if (!value || !["body", "heading", "muted"].includes(value)) {
+        labelStyle.value = field.style ?? "body";
+        return;
+      }
+      if ((field.style ?? "body") !== value) {
+        store.updateField(field.id, { style: value });
       }
     });
   });
@@ -2869,7 +3291,7 @@ function setupPropertyPanel(
     }
     const placeholderIds = state.selectedFieldIds.filter((id) => {
       const target = state.fields.find((field) => field.id === id);
-      return target?.type === "text";
+      return target?.type === "text" || target?.type === "number";
     });
     if (!placeholderIds.length) {
       return;
@@ -3108,7 +3530,7 @@ function updatePropertyPanel(
     );
 
     const placeholderFields = selectedFields.filter(
-      (field) => field.type === "text"
+      (field) => field.type === "text" || field.type === "number"
     );
     if (
       view.propertyMultiInputs.placeholder &&
@@ -3193,13 +3615,60 @@ function updatePropertyPanel(
   }
   setPropertyInputsDisabled(view, false);
 
-  const { name, label, placeholder, required, width, height, x, y } =
-    view.propertyInputs;
+  const {
+    name,
+    label,
+    placeholder,
+    required,
+    width,
+    height,
+    x,
+    y,
+    unit,
+    min,
+    max,
+    step,
+    maxLength,
+    multiline,
+    labelStyle,
+  } = view.propertyInputs;
   setInputValue(name, field.name);
   setInputValue(label, field.label);
   setInputValue(placeholder, field.placeholder ?? "");
   if (required) {
     required.checked = Boolean(field.required);
+  }
+  setInputValue(unit, field.unit ?? "");
+  const minValue = field.validation?.min ?? null;
+  setInputValue(
+    min,
+    minValue === null || minValue === undefined ? "" : String(minValue)
+  );
+  const maxValue = field.validation?.max ?? null;
+  setInputValue(
+    max,
+    maxValue === null || maxValue === undefined ? "" : String(maxValue)
+  );
+  const stepValue = field.validation?.step ?? null;
+  setInputValue(
+    step,
+    stepValue === null || stepValue === undefined ? "" : String(stepValue)
+  );
+  const maxLengthValue = field.validation?.maxLength ?? null;
+  setInputValue(
+    maxLength,
+    maxLengthValue === null || maxLengthValue === undefined
+      ? ""
+      : String(maxLengthValue)
+  );
+  if (multiline) {
+    multiline.checked = Boolean(field.multiline);
+  }
+  if (labelStyle) {
+    const styleValue = field.style ?? "body";
+    labelStyle.value = ["body", "heading", "muted"].includes(styleValue)
+      ? styleValue
+      : "body";
   }
   setInputValue(width, String(field.layout.w));
   setInputValue(height, String(field.layout.h));

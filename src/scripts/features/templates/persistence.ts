@@ -9,6 +9,7 @@ import type {
   TemplateRevision,
   TemplateRevisionSnapshot,
   TemplateSettings,
+  ValidationConfig,
 } from "./types";
 
 const VALID_FIELD_TYPES: FieldType[] = ["label", "text", "number"];
@@ -541,7 +542,7 @@ function normalizeField(
   const placeholder =
     typeof raw.placeholder === "string" ? raw.placeholder : "";
   const required = Boolean(raw.required);
-  const validation =
+  const validationSource =
     typeof raw.validation === "object" && raw.validation
       ? { ...(raw.validation as Record<string, unknown>) }
       : {};
@@ -567,6 +568,38 @@ function normalizeField(
   layout.x = Math.min(layout.x, layoutMeta.columns - layout.w);
   layout.y = Math.min(layout.y, layoutMeta.rows - layout.h);
 
+  const validation: ValidationConfig = {};
+  if (type === "number") {
+    validation.min = normalizeNullableNumber(validationSource.min);
+    validation.max = normalizeNullableNumber(validationSource.max);
+    validation.step = normalizePositiveNumberNullable(validationSource.step);
+  } else {
+    validation.min = null;
+    validation.max = null;
+    validation.step = null;
+  }
+  if (type === "text") {
+    validation.maxLength = normalizePositiveIntegerNullable(
+      validationSource.maxLength
+    );
+  } else {
+    validation.maxLength = null;
+  }
+  const pattern =
+    typeof validationSource.pattern === "string" &&
+    validationSource.pattern.trim()
+      ? validationSource.pattern
+      : null;
+  if (pattern) {
+    validation.pattern = pattern;
+  }
+
+  const unit =
+    type === "number" && typeof raw.unit === "string" ? raw.unit : "";
+  const multiline = type === "text" ? Boolean(raw.multiline) : false;
+  const style =
+    type === "label" ? normalizeLabelStyle(raw.style) : ("body" as const);
+
   return {
     id,
     type,
@@ -578,7 +611,62 @@ function normalizeField(
     defaultValue,
     layout,
     printStyles,
+    unit,
+    multiline,
+    style,
   };
+}
+
+function normalizeNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizePositiveNumberNullable(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function normalizePositiveIntegerNullable(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return Math.trunc(parsed);
+}
+
+function normalizeLabelStyle(value: unknown): "body" | "heading" | "muted" {
+  if (value === "heading" || value === "muted") {
+    return value;
+  }
+  return "body";
 }
 
 function normalizeAlign(value: unknown): FieldLayout["align"] {

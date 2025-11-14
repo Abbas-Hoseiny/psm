@@ -253,7 +253,7 @@ function createDefaultField(
         ...layoutOverride,
       } as FieldLayout)
     : layout;
-  return {
+  const baseField: EditorField = {
     id,
     type,
     name,
@@ -269,6 +269,18 @@ function createDefaultField(
     },
     printStyles: {},
   };
+
+  if (type === "number") {
+    baseField.validation = { min: null, max: null, step: null };
+    baseField.unit = "";
+  } else if (type === "text") {
+    baseField.validation = { maxLength: null };
+    baseField.multiline = false;
+  } else if (type === "label") {
+    baseField.style = "body";
+  }
+
+  return baseField;
 }
 
 function createId(type: FieldType): string {
