@@ -29,6 +29,11 @@ interface HistoryEntry {
   standort?: string;
   kultur?: string;
   kisten?: number;
+  eppoCode?: string;
+  bbch?: string;
+  gps?: string;
+  invekos?: string;
+  uhrzeit?: string;
   items: CalculationItem[];
   savedAt?: string;
   [key: string]: unknown;
@@ -223,7 +228,12 @@ function renderDetail(
         entry.kisten !== undefined && entry.kisten !== null
           ? String(entry.kisten)
           : ""
-      )}
+      )}<br />
+      <strong>${escapeHtml(detailLabels.eppoCode || "EPPO-Code")}:</strong> ${escapeHtml(entry.eppoCode || "")}<br />
+      <strong>${escapeHtml(detailLabels.bbch || "BBCH-Stadium")}:</strong> ${escapeHtml(entry.bbch || "")}<br />
+      <strong>${escapeHtml(detailLabels.invekos || "InVeKoS-Schlag")}:</strong> ${escapeHtml(entry.invekos || "")}<br />
+      <strong>${escapeHtml(detailLabels.gps || "GPS-Koordinaten")}:</strong> ${escapeHtml(entry.gps || "")}<br />
+      <strong>${escapeHtml(detailLabels.time || "Uhrzeit")}:</strong> ${escapeHtml(entry.uhrzeit || "")}
     </p>
     <div class="table-responsive">
       ${snapshotTable}
@@ -360,6 +370,21 @@ function printDetail(
           entry.kisten !== undefined && entry.kisten !== null
             ? String(entry.kisten)
             : ""
+        )}<br />
+        <strong>${escapeHtml(detailLabels.eppoCode || "EPPO-Code")}:</strong> ${escapeHtml(
+          entry.eppoCode || ""
+        )}<br />
+        <strong>${escapeHtml(detailLabels.bbch || "BBCH-Stadium")}:</strong> ${escapeHtml(
+          entry.bbch || ""
+        )}<br />
+        <strong>${escapeHtml(detailLabels.invekos || "InVeKoS-Schlag")}:</strong> ${escapeHtml(
+          entry.invekos || ""
+        )}<br />
+        <strong>${escapeHtml(detailLabels.gps || "GPS-Koordinaten")}:</strong> ${escapeHtml(
+          entry.gps || ""
+        )}<br />
+        <strong>${escapeHtml(detailLabels.time || "Uhrzeit")}:</strong> ${escapeHtml(
+          entry.uhrzeit || ""
         )}
       </p>
       ${snapshotTable}

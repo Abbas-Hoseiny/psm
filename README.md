@@ -78,7 +78,7 @@ Nach dem Ändern der URL einmal die Seite neu laden und dann "Daten aktualisiere
     "measurementMethods": [ { "id": "perKiste", "label": "pro Kiste" } ],
     "fieldLabels": { }
   },
-  "mediums": [ { "id": "water", "name": "Wasser", "methodId": "perKiste", "value": 0.0166 } ],
+  "mediums": [ { "id": "water", "name": "Wasser", "methodId": "perKiste", "value": 0.0166, "zulassungsnummer": "" } ],
   "history": [ { "ersteller": "…", "datum": "…", "items": [ … ] } ]
 }
 ```
@@ -91,7 +91,7 @@ Nach dem Ändern der URL einmal die Seite neu laden und dann "Daten aktualisiere
 | --------------------- | ------------------------------------------------------ |
 | `meta`                | Schlüssel/Werte für Company, Defaults, Labels, Version |
 | `measurement_methods` | Messmethoden inkl. Konfiguration (JSON in Spalten)     |
-| `mediums`             | Mittel mit Referenz auf Messmethode                    |
+| `mediums`             | Mittel mit Messmethode, Faktor und Zulassungsnummer    |
 | `history`             | Header eines Historien-Eintrags (JSON)                 |
 | `history_items`       | Detailwerte pro Mittel                                 |
 

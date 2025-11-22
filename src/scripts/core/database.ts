@@ -1,11 +1,6 @@
 import { getDefaultsConfig } from "./config";
 import { resolveFieldLabels } from "./labels";
 import { getState, patchState } from "./state";
-import {
-  cloneTemplateDocument,
-  normalizeTemplateDocument,
-} from "../features/templates/persistence";
-import type { TemplateDocument } from "../features/templates/types";
 
 function clone(obj: any): any {
   return JSON.parse(JSON.stringify(obj));
@@ -47,32 +42,12 @@ function mergeDefaults(base: any = {}, incoming: any = {}): any {
   return merged;
 }
 
-function normalizeTemplates(input: unknown): TemplateDocument[] {
-  if (!Array.isArray(input)) {
-    return [];
-  }
-  const templates: TemplateDocument[] = [];
-  for (const candidate of input) {
-    const normalized = normalizeTemplateDocument(candidate);
-    if (normalized) {
-      templates.push(normalized);
-    }
-  }
-  templates.sort((a, b) => {
-    const aTime = Date.parse(a.updatedAt ?? "") || 0;
-    const bTime = Date.parse(b.updatedAt ?? "") || 0;
-    return bTime - aTime;
-  });
-  return templates;
-}
-
 export function applyDatabase(data: any): void {
   if (!data) {
     throw new Error("Keine Daten zum Anwenden übergeben");
   }
   const current = getState();
   const fieldLabels = resolveFieldLabels(data.meta?.fieldLabels ?? {});
-  const templates = normalizeTemplates(data.templates ?? []);
   patchState({
     company: { ...current.company, ...(data.meta?.company ?? {}) },
     defaults: mergeDefaults(current.defaults, data.meta?.defaults ?? {}),
@@ -81,7 +56,6 @@ export function applyDatabase(data: any): void {
     ],
     mediums: [...(data.mediums ?? [])],
     history: [...(data.history ?? [])],
-    templates,
     fieldLabels,
     app: {
       ...current.app,
@@ -109,9 +83,13 @@ export function createInitialDatabase(overrides: any = {}): any {
       },
       base.meta.defaults ?? {}
     );
-    base.templates = normalizeTemplates(base.templates);
+    if ("templates" in base) {
+      delete base.templates;
+    }
     const merged = deepMerge(base, overrides);
-    merged.templates = normalizeTemplates((merged as any).templates);
+    if ("templates" in merged) {
+      delete (merged as any).templates;
+    }
     return merged;
   }
   const state = getState();
@@ -125,10 +103,11 @@ export function createInitialDatabase(overrides: any = {}): any {
     },
     mediums: [...state.mediums],
     history: [],
-    templates: state.templates.map(cloneTemplateDocument),
   };
   const merged = deepMerge(base, overrides);
-  merged.templates = normalizeTemplates((merged as any).templates);
+  if ("templates" in merged) {
+    delete (merged as any).templates;
+  }
   return merged;
 }
 
@@ -144,6 +123,5 @@ export function getDatabaseSnapshot(): any {
     },
     mediums: [...state.mediums],
     history: [...state.history],
-    templates: state.templates.map(cloneTemplateDocument),
   };
 }

@@ -1,4 +1,4 @@
-import { escapeHtml } from "@scripts/core/utils";
+import { escapeHtml, debounce } from "@scripts/core/utils";
 import { getState } from "@scripts/core/state";
 import { setFieldLabelByPath } from "@scripts/core/labels";
 import { getDatabaseSnapshot } from "@scripts/core/database";
@@ -7,6 +7,10 @@ import {
   buildMediumTableHead,
   buildMediumTableRows,
 } from "../shared/mediumTable";
+import {
+  searchEppoSuggestions,
+  searchBbchSuggestions,
+} from "@scripts/core/lookups";
 
 interface Services {
   state: {
@@ -32,6 +36,7 @@ export type CalculationItem = {
   value: number;
   total: number;
   inputs: Record<string, number>;
+  zulassungsnummer?: string | null;
 };
 
 export type CalculationResult = {
@@ -54,6 +59,11 @@ function createSection(
     location: "",
     crop: "",
     quantity: "",
+    eppoCode: "",
+    bbch: "",
+    gps: "",
+    invekos: "",
+    time: "",
   };
   const section = document.createElement("section");
   section.className = "section-inner";
@@ -76,6 +86,28 @@ function createSection(
           <div class="col-md-3">
             <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.quantity.label" data-default-label="${escapeAttr(labels.calculation.fields.quantity.label)}" value="${escapeAttr(labels.calculation.fields.quantity.label)}" placeholder="${escapeAttr(labels.calculation.fields.quantity.label)}" aria-label="Bezeichnung für Feld" />
             <input type="number" min="0" step="any" class="form-control" id="calc-kisten" name="calc-kisten" required data-placeholder-id="calc-form-quantity" placeholder="${escapeAttr(labels.calculation.fields.quantity.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.quantity.label)}" value="${escapeAttr(formDefaults.quantity || "")}" />
+          </div>
+          <div class="col-md-3">
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.eppoCode.label" data-default-label="${escapeAttr(labels.calculation.fields.eppoCode.label)}" value="${escapeAttr(labels.calculation.fields.eppoCode.label)}" placeholder="${escapeAttr(labels.calculation.fields.eppoCode.label)}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-eppo" name="calc-eppo" list="calc-eppo-options" autocomplete="off" data-placeholder-id="calc-form-eppo" placeholder="${escapeAttr(labels.calculation.fields.eppoCode.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.eppoCode.label)}" value="${escapeAttr(formDefaults.eppoCode || "")}" />
+            <datalist id="calc-eppo-options"></datalist>
+          </div>
+          <div class="col-md-3">
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.bbch.label" data-default-label="${escapeAttr(labels.calculation.fields.bbch.label)}" value="${escapeAttr(labels.calculation.fields.bbch.label)}" placeholder="${escapeAttr(labels.calculation.fields.bbch.label)}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-bbch" name="calc-bbch" list="calc-bbch-options" autocomplete="off" data-placeholder-id="calc-form-bbch" placeholder="${escapeAttr(labels.calculation.fields.bbch.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.bbch.label)}" value="${escapeAttr(formDefaults.bbch || "")}" />
+            <datalist id="calc-bbch-options"></datalist>
+          </div>
+          <div class="col-md-3">
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.invekos.label" data-default-label="${escapeAttr(labels.calculation.fields.invekos.label)}" value="${escapeAttr(labels.calculation.fields.invekos.label)}" placeholder="${escapeAttr(labels.calculation.fields.invekos.label)}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-invekos" name="calc-invekos" data-placeholder-id="calc-form-invekos" placeholder="${escapeAttr(labels.calculation.fields.invekos.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.invekos.label)}" value="${escapeAttr(formDefaults.invekos || "")}" />
+          </div>
+          <div class="col-md-3">
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.gps.label" data-default-label="${escapeAttr(labels.calculation.fields.gps.label)}" value="${escapeAttr(labels.calculation.fields.gps.label)}" placeholder="${escapeAttr(labels.calculation.fields.gps.label)}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-gps" name="calc-gps" data-placeholder-id="calc-form-gps" placeholder="${escapeAttr(labels.calculation.fields.gps.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.gps.label)}" value="${escapeAttr(formDefaults.gps || "")}" />
+          </div>
+          <div class="col-md-3">
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.time.label" data-default-label="${escapeAttr(labels.calculation.fields.time.label)}" value="${escapeAttr(labels.calculation.fields.time.label)}" placeholder="${escapeAttr(labels.calculation.fields.time.label)}" aria-label="Bezeichnung für Feld" />
+            <input type="time" class="form-control" id="calc-uhrzeit" name="calc-uhrzeit" data-placeholder-id="calc-form-time" placeholder="${escapeAttr(labels.calculation.fields.time.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.time.label)}" value="${escapeAttr(formDefaults.time || "")}" />
           </div>
           <div class="col-12 text-center">
             <button type="submit" class="btn btn-success px-4">Berechnen</button>
@@ -103,6 +135,28 @@ function createSection(
               <div class="calc-summary-row">
                 <span class="calc-summary-label" data-label-id="calc-summary-date">${escapeHtml(labels.calculation.summary.dateLabel || "Datum")}</span>
                 <span class="calc-summary-value" data-field="datum"></span>
+              </div>
+            </div>
+            <div class="calc-summary-column calc-summary-meta">
+              <div class="calc-summary-row">
+                <span class="calc-summary-label" data-label-id="calc-summary-eppo">${escapeHtml(labels.calculation.fields.eppoCode.label)}</span>
+                <span class="calc-summary-value" data-field="eppoCode"></span>
+              </div>
+              <div class="calc-summary-row">
+                <span class="calc-summary-label" data-label-id="calc-summary-bbch">${escapeHtml(labels.calculation.fields.bbch.label)}</span>
+                <span class="calc-summary-value" data-field="bbch"></span>
+              </div>
+              <div class="calc-summary-row">
+                <span class="calc-summary-label" data-label-id="calc-summary-invekos">${escapeHtml(labels.calculation.fields.invekos.label)}</span>
+                <span class="calc-summary-value" data-field="invekos"></span>
+              </div>
+              <div class="calc-summary-row">
+                <span class="calc-summary-label" data-label-id="calc-summary-gps">${escapeHtml(labels.calculation.fields.gps.label)}</span>
+                <span class="calc-summary-value" data-field="gps"></span>
+              </div>
+              <div class="calc-summary-row">
+                <span class="calc-summary-label" data-label-id="calc-summary-time">${escapeHtml(labels.calculation.fields.time.label)}</span>
+                <span class="calc-summary-value" data-field="uhrzeit"></span>
               </div>
             </div>
             <div class="calc-summary-column calc-summary-company">
@@ -137,16 +191,162 @@ function createSection(
   return section;
 }
 
+type LookupOptionItem = {
+  value: string;
+  label: string;
+  hint?: string;
+};
+
+interface LookupAutocompleteConfig<T> {
+  minChars?: number;
+  emptyLabel?: string;
+  search: (term: string) => Promise<T[]>;
+  format: (item: T, term: string) => LookupOptionItem | null;
+}
+
+function attachLookupAutocomplete<T>(
+  input: HTMLInputElement,
+  datalist: HTMLDataListElement,
+  config: LookupAutocompleteConfig<T>
+): void {
+  let requestId = 0;
+  const minChars = config.minChars ?? 1;
+
+  const renderOptions = (options: LookupOptionItem[]): void => {
+    if (!options.length) {
+      datalist.innerHTML = "";
+      return;
+    }
+    datalist.innerHTML = options
+      .map((option) => {
+        const value = escapeHtml(option.value);
+        const label = escapeHtml(option.label);
+        const hint = option.hint ? escapeHtml(option.hint) : "";
+        return `<option value="${value}" label="${label}">${hint}</option>`;
+      })
+      .join("");
+  };
+
+  const renderEmptyHint = (text?: string): void => {
+    datalist.innerHTML = text
+      ? `<option value="" disabled>${escapeHtml(text)}</option>`
+      : "";
+  };
+
+  const updateOptions = async () => {
+    const term = input.value.trim();
+    if (term.length < minChars) {
+      datalist.innerHTML = "";
+      return;
+    }
+    const currentId = ++requestId;
+    renderEmptyHint("Lade Vorschläge ...");
+    try {
+      const results = await config.search(term);
+      if (currentId !== requestId) {
+        return;
+      }
+      const formatted = (results || [])
+        .map((item) => config.format(item, term))
+        .filter((item): item is LookupOptionItem => Boolean(item));
+      if (!formatted.length) {
+        renderEmptyHint(config.emptyLabel || "Keine Treffer");
+        return;
+      }
+      renderOptions(formatted);
+    } catch (error) {
+      console.error("Lookup-Autocomplete fehlgeschlagen", error);
+      if (currentId === requestId) {
+        renderEmptyHint("Fehler bei der Suche");
+      }
+    }
+  };
+
+  const debouncedUpdate = debounce(() => {
+    void updateOptions();
+  }, 250);
+
+  input.addEventListener("input", () => {
+    debouncedUpdate();
+  });
+  input.addEventListener("focus", () => {
+    void updateOptions();
+  });
+}
+
+function setupLookupAutocompletes(section: HTMLElement): void {
+  const eppoInput = section.querySelector<HTMLInputElement>("#calc-eppo");
+  const eppoDatalist =
+    section.querySelector<HTMLDataListElement>("#calc-eppo-options");
+  if (eppoInput && eppoDatalist) {
+    attachLookupAutocomplete(eppoInput, eppoDatalist, {
+      minChars: 2,
+      emptyLabel: "Keine EPPO-Treffer",
+      search: (term) => searchEppoSuggestions(term, 15),
+      format: (item) => {
+        if (!item.code) {
+          return null;
+        }
+        const summary = item.dtcode ? `DT-Code ${item.dtcode}` : item.name;
+        return {
+          value: item.code,
+          label: `${item.code} · ${item.name}`.trim(),
+          hint: summary,
+        };
+      },
+    });
+  }
+
+  const bbchInput = section.querySelector<HTMLInputElement>("#calc-bbch");
+  const bbchDatalist =
+    section.querySelector<HTMLDataListElement>("#calc-bbch-options");
+  if (bbchInput && bbchDatalist) {
+    attachLookupAutocomplete(bbchInput, bbchDatalist, {
+      minChars: 1,
+      emptyLabel: "Keine BBCH-Treffer",
+      search: (term) => searchBbchSuggestions(term, 15),
+      format: (item) => {
+        if (!item.code) {
+          return null;
+        }
+        const stageParts: string[] = [];
+        if (item.principalStage != null) {
+          let stageLabel = `${item.principalStage}`;
+          if (item.secondaryStage != null) {
+            stageLabel += `.${item.secondaryStage}`;
+          }
+          stageParts.push(`Stadium ${stageLabel}`);
+        }
+        return {
+          value: item.code,
+          label: `${item.code} · ${item.label}`.trim(),
+          hint: stageParts.join(" ") || item.label,
+        };
+      },
+    });
+  }
+}
+
 function applyFieldLabels(section: HTMLElement, labels: Labels): void {
   const labelMap: Record<string, string> = {
     "calc-form-creator": labels.calculation.fields.creator.label,
     "calc-form-location": labels.calculation.fields.location.label,
     "calc-form-crop": labels.calculation.fields.crop.label,
     "calc-form-quantity": labels.calculation.fields.quantity.label,
+    "calc-form-eppo": labels.calculation.fields.eppoCode.label,
+    "calc-form-bbch": labels.calculation.fields.bbch.label,
+    "calc-form-invekos": labels.calculation.fields.invekos.label,
+    "calc-form-gps": labels.calculation.fields.gps.label,
+    "calc-form-time": labels.calculation.fields.time.label,
     "calc-summary-creator": labels.calculation.fields.creator.label,
     "calc-summary-location": labels.calculation.fields.location.label,
     "calc-summary-crop": labels.calculation.fields.crop.label,
     "calc-summary-date": labels.calculation.summary.dateLabel || "Datum",
+    "calc-summary-eppo": labels.calculation.fields.eppoCode.label,
+    "calc-summary-bbch": labels.calculation.fields.bbch.label,
+    "calc-summary-invekos": labels.calculation.fields.invekos.label,
+    "calc-summary-gps": labels.calculation.fields.gps.label,
+    "calc-summary-time": labels.calculation.fields.time.label,
   };
 
   Object.entries(labelMap).forEach(([key, text]) => {
@@ -184,6 +384,11 @@ function applyFieldLabels(section: HTMLElement, labels: Labels): void {
     "calc-form-location": labels.calculation.fields.location.placeholder,
     "calc-form-crop": labels.calculation.fields.crop.placeholder,
     "calc-form-quantity": labels.calculation.fields.quantity.placeholder,
+    "calc-form-eppo": labels.calculation.fields.eppoCode.placeholder,
+    "calc-form-bbch": labels.calculation.fields.bbch.placeholder,
+    "calc-form-invekos": labels.calculation.fields.invekos.placeholder,
+    "calc-form-gps": labels.calculation.fields.gps.placeholder,
+    "calc-form-time": labels.calculation.fields.time.placeholder,
   };
 
   Object.entries(placeholderMap).forEach(([key, text]) => {
@@ -291,6 +496,11 @@ function renderResults(
   setFieldText("standort", header.standort);
   setFieldText("kultur", header.kultur);
   setFieldText("datum", header.datum);
+  setFieldText("eppoCode", header.eppoCode || "");
+  setFieldText("bbch", header.bbch || "");
+  setFieldText("gps", header.gps || "");
+  setFieldText("invekos", header.invekos || "");
+  setFieldText("uhrzeit", header.uhrzeit || "");
 
   const updateCompanyRowVisibility = (rowKey: string, visible: boolean) => {
     const row = resultCard.querySelector<HTMLElement>(
@@ -368,6 +578,7 @@ export function initCalculation(
   host.appendChild(section);
 
   applyFieldLabels(section, initialState.fieldLabels);
+  setupLookupAutocompletes(section);
 
   const form = section.querySelector<HTMLFormElement>("#calculationForm");
   const resultCard = section.querySelector<HTMLDivElement>("#calc-result");
@@ -424,9 +635,24 @@ export function initCalculation(
     const rawStandort = (formData.get("calc-standort") || "").toString().trim();
     const rawKultur = (formData.get("calc-kultur") || "").toString().trim();
     const rawKisten = (formData.get("calc-kisten") || "").toString().trim();
+    const rawEppo = (formData.get("calc-eppo") || "").toString().trim();
+    const rawBbch = (formData.get("calc-bbch") || "").toString().trim();
+    const rawInvekos = (formData.get("calc-invekos") || "").toString().trim();
+    const rawGps = (formData.get("calc-gps") || "").toString().trim();
+    const rawTime = (formData.get("calc-uhrzeit") || "").toString().trim();
     const ersteller = rawErsteller;
     const standort = rawStandort || "-";
     const kultur = rawKultur || "-";
+    const eppoCode = rawEppo;
+    const bbch = rawBbch;
+    const invekos = rawInvekos;
+    const gps = rawGps;
+    const uhrzeit = rawTime
+      ? rawTime
+      : new Date().toLocaleTimeString("de-DE", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
     const kisten = Number(rawKisten);
     if (!ersteller || Number.isNaN(kisten)) {
       window.alert("Bitte Felder korrekt ausfüllen!");
@@ -461,6 +687,7 @@ export function initCalculation(
         value: medium.value,
         total,
         inputs,
+        zulassungsnummer: medium.zulassungsnummer ?? null,
       };
     });
 
@@ -468,6 +695,11 @@ export function initCalculation(
       ersteller,
       standort,
       kultur,
+      eppoCode,
+      bbch,
+      gps,
+      invekos,
+      uhrzeit,
       kisten,
       datum: new Date().toLocaleDateString("de-DE", {
         year: "numeric",
@@ -492,11 +724,21 @@ export function initCalculation(
           location: "",
           crop: "",
           quantity: "",
+          eppoCode: "",
+          bbch: "",
+          gps: "",
+          invekos: "",
+          time: "",
         }),
         creator: rawErsteller,
         location: rawStandort,
         crop: rawKultur,
         quantity: rawKisten,
+        eppoCode: rawEppo,
+        bbch: rawBbch,
+        gps: rawGps,
+        invekos: rawInvekos,
+        time: rawTime,
       },
     }));
 

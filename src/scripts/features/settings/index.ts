@@ -31,8 +31,8 @@ function createSection(): HTMLElement {
       <div class="card-body">
         <p class="mb-2"><strong>Was kann ich hier tun?</strong></p>
         <p class="text-muted mb-0">
-          Erfasse, bearbeite oder lösche deine Mittel. Trage Name, Einheit, Methode und den Faktor ein und speichere
-          die Änderungen anschließend in der Datenbank. Tippe bei der Methode einfach einen bestehenden Namen oder
+          Erfasse, bearbeite oder lösche deine Mittel. Trage Name, Einheit, Methode, Zulassungsnummer und den Faktor ein
+          und speichere die Änderungen anschließend in der Datenbank. Tippe bei der Methode einfach einen bestehenden Namen oder
           vergib einen neuen – neu erfasste Methoden stehen beim nächsten Mal automatisch zur Auswahl.
         </p>
       </div>
@@ -47,6 +47,7 @@ function createSection(): HTMLElement {
                 <th>Einheit</th>
                 <th>Methode</th>
                 <th>Wert</th>
+                <th>Zulassungsnr.</th>
                 <th>Aktion</th>
               </tr>
             </thead>
@@ -58,7 +59,7 @@ function createSection(): HTMLElement {
     <div class="card card-dark">
       <div class="card-body">
         <h3 class="h5 text-success mb-3">Neues Mittel hinzufügen</h3>
-        <p class="text-muted">Trage alle Felder aus. Der Wert beschreibt den Faktor, der bei der Berechnung angewendet wird.</p>
+        <p class="text-muted">Trage alle Pflichtfelder aus. Die Zulassungsnummer ist optional, der Wert beschreibt den Faktor, der bei der Berechnung angewendet wird.</p>
         <form id="settings-medium-form" class="row g-3">
           <div class="col-md-3">
             <input class="form-control" name="medium-name" placeholder="Name (z. B. Elot-Vis)" required />
@@ -72,6 +73,9 @@ function createSection(): HTMLElement {
           </div>
           <div class="col-md-2">
             <input type="number" step="any" class="form-control" name="medium-value" placeholder="Wert" required />
+          </div>
+          <div class="col-md-2">
+            <input class="form-control" name="medium-approval" placeholder="Zulassungsnr. (optional)" />
           </div>
           <div class="col-md-2 d-grid">
             <button class="btn btn-success" type="submit">Hinzufügen</button>
@@ -110,11 +114,17 @@ function renderMediumRows(state: AppState): void {
   state.mediums.forEach((medium: any, index: number) => {
     const row = document.createElement("tr");
     const method = methodsById.get(medium.methodId);
+    const approvalText =
+      typeof medium.zulassungsnummer === "string" &&
+      medium.zulassungsnummer.trim().length
+        ? escapeHtml(medium.zulassungsnummer)
+        : "-";
     row.innerHTML = `
       <td>${escapeHtml(medium.name)}</td>
       <td>${escapeHtml(medium.unit)}</td>
       <td>${escapeHtml(method ? method.label : medium.methodId)}</td>
       <td>${escapeHtml(medium.value != null ? String(medium.value) : "")}</td>
+      <td>${approvalText}</td>
       <td>
         <button class="btn btn-sm btn-danger" data-action="delete" data-index="${index}">Löschen</button>
       </td>
@@ -249,6 +259,9 @@ export function initSettings(
     const unit = (formData.get("medium-unit") || "").toString().trim();
     const valueRaw = formData.get("medium-value");
     const value = Number(valueRaw);
+    const approvalNumber = (formData.get("medium-approval") || "")
+      .toString()
+      .trim();
     if (!name || !unit || Number.isNaN(value)) {
       window.alert("Bitte alle Felder korrekt ausfüllen.");
       return;
@@ -267,6 +280,7 @@ export function initSettings(
       unit,
       methodId,
       value,
+      zulassungsnummer: approvalNumber || null,
     };
     services.state.updateSlice("mediums", (mediums: any[]) => [
       ...mediums,

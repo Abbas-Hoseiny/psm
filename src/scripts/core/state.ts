@@ -1,5 +1,4 @@
 import { getDefaultFieldLabels } from "./labels";
-import type { TemplateDocument } from "@scripts/features/templates/types";
 
 export interface AppState {
   app: {
@@ -7,7 +6,13 @@ export interface AppState {
     version: string | null;
     hasFileAccess: boolean;
     hasDatabase: boolean;
-    activeSection: "calc" | "history" | "zulassung" | "settings" | "report";
+    activeSection:
+      | "calc"
+      | "history"
+      | "zulassung"
+      | "settings"
+      | "report"
+      | "lookup";
     storageDriver: "memory" | "sqlite" | "filesystem" | "localstorage";
   };
   company: {
@@ -26,6 +31,11 @@ export interface AppState {
       location: string;
       crop: string;
       quantity: string;
+      eppoCode: string;
+      bbch: string;
+      gps: string;
+      invekos: string;
+      time: string;
     };
   };
   measurementMethods: any[];
@@ -33,7 +43,6 @@ export interface AppState {
   history: any[];
   fieldLabels: any;
   calcContext: any | null;
-  templates: TemplateDocument[];
   zulassung: {
     filters: {
       culture: string | null;
@@ -103,6 +112,11 @@ let state: AppState = {
       location: "",
       crop: "",
       quantity: "",
+      eppoCode: "",
+      bbch: "",
+      gps: "",
+      invekos: "",
+      time: "",
     },
   },
   measurementMethods: [],
@@ -110,7 +124,6 @@ let state: AppState = {
   history: [],
   fieldLabels: getDefaultFieldLabels(),
   calcContext: null,
-  templates: [],
   zulassung: {
     filters: {
       culture: null,
@@ -220,6 +233,11 @@ export function resetState(newState?: AppState): AppState {
         location: "",
         crop: "",
         quantity: "",
+        eppoCode: "",
+        bbch: "",
+        gps: "",
+        invekos: "",
+        time: "",
       },
     },
     measurementMethods: [],
@@ -227,7 +245,6 @@ export function resetState(newState?: AppState): AppState {
     history: [],
     fieldLabels: getDefaultFieldLabels(),
     calcContext: null,
-    templates: [],
     zulassung: {
       filters: {
         culture: null,

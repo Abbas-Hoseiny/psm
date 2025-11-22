@@ -27,7 +27,21 @@
           "required": ["waterPerKisteL", "kistenProAr"],
           "properties": {
             "waterPerKisteL": { "type": "number", "minimum": 0 },
-            "kistenProAr": { "type": "number", "minimum": 0 }
+            "kistenProAr": { "type": "number", "minimum": 0 },
+            "form": {
+              "type": "object",
+              "properties": {
+                "creator": { "type": "string" },
+                "location": { "type": "string" },
+                "crop": { "type": "string" },
+                "quantity": { "type": "string" },
+                "eppoCode": { "type": "string" },
+                "bbch": { "type": "string" },
+                "gps": { "type": "string" },
+                "invekos": { "type": "string" },
+                "time": { "type": "string" }
+              }
+            }
           }
         },
         "fieldLabels": {
@@ -63,7 +77,8 @@
           "name": { "type": "string" },
           "unit": { "type": "string" },
           "methodId": { "type": "string" },
-          "value": { "type": "number" }
+          "value": { "type": "number" },
+          "zulassungsnummer": { "type": "string" }
         }
       }
     },

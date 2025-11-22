@@ -15,6 +15,11 @@ export interface CalculationSnapshotEntry {
   standort?: string;
   kultur?: string;
   kisten?: number;
+  eppoCode?: string;
+  bbch?: string;
+  gps?: string;
+  invekos?: string;
+  uhrzeit?: string;
   items?: any[];
   [key: string]: unknown;
 }
@@ -107,12 +112,32 @@ export function renderCalculationSnapshot(
             ${escapeHtml(entry?.kultur || "–")}
           </div>
           <div class="calc-snapshot-card__info-item">
+            <strong>${escapeHtml(detailLabels.eppoCode || tableLabels.eppoCode || "EPPO")}:</strong>
+            ${escapeHtml(entry?.eppoCode || "–")}
+          </div>
+          <div class="calc-snapshot-card__info-item">
+            <strong>${escapeHtml(detailLabels.bbch || tableLabels.bbch || "BBCH")}:</strong>
+            ${escapeHtml(entry?.bbch || "–")}
+          </div>
+          <div class="calc-snapshot-card__info-item">
+            <strong>${escapeHtml(detailLabels.invekos || tableLabels.invekos || "InVeKoS")}:</strong>
+            ${escapeHtml(entry?.invekos || "–")}
+          </div>
+          <div class="calc-snapshot-card__info-item">
+            <strong>${escapeHtml(detailLabels.gps || tableLabels.gps || "GPS")}:</strong>
+            ${escapeHtml(entry?.gps || "–")}
+          </div>
+          <div class="calc-snapshot-card__info-item">
             <strong>${escapeHtml(detailLabels.quantity || tableLabels.quantity || "Kisten")}:</strong>
             ${escapeHtml(
               entry?.kisten !== undefined && entry?.kisten !== null
                 ? String(entry.kisten)
                 : "–"
             )}
+          </div>
+          <div class="calc-snapshot-card__info-item">
+            <strong>${escapeHtml(detailLabels.time || tableLabels.time || "Uhrzeit")}:</strong>
+            ${escapeHtml(entry?.uhrzeit || "–")}
           </div>
         </div>
         <div class="calc-snapshot-card__mediums">
@@ -142,7 +167,9 @@ export function renderCalculationSnapshotForPrint(
   return `
     <div class="calc-snapshot-print">
       <div class="calc-snapshot-print__header">
-        <h3>${escapeHtml(detailLabels.title || "Details")} – ${escapeHtml(entry?.datum || entry?.date || "")}</h3>
+        <h3>${escapeHtml(detailLabels.title || "Details")} – ${escapeHtml(
+          entry?.datum || entry?.date || ""
+        )}</h3>
       </div>
       <div class="calc-snapshot-print__meta">
         <p>
@@ -152,12 +179,22 @@ export function renderCalculationSnapshotForPrint(
           ${escapeHtml(entry?.standort || "–")}<br />
           <strong>${escapeHtml(detailLabels.crop || "Kultur")}:</strong>
           ${escapeHtml(entry?.kultur || "–")}<br />
+          <strong>${escapeHtml(detailLabels.eppoCode || "EPPO-Code")}:</strong>
+          ${escapeHtml(entry?.eppoCode || "–")}<br />
+          <strong>${escapeHtml(detailLabels.bbch || "BBCH")}:</strong>
+          ${escapeHtml(entry?.bbch || "–")}<br />
+          <strong>${escapeHtml(detailLabels.invekos || "InVeKoS")}:</strong>
+          ${escapeHtml(entry?.invekos || "–")}<br />
+          <strong>${escapeHtml(detailLabels.gps || "GPS")}:</strong>
+          ${escapeHtml(entry?.gps || "–")}<br />
           <strong>${escapeHtml(detailLabels.quantity || "Kisten")}:</strong>
           ${escapeHtml(
             entry?.kisten !== undefined && entry?.kisten !== null
               ? String(entry.kisten)
               : "–"
-          )}
+          )}<br />
+          <strong>${escapeHtml(detailLabels.time || "Uhrzeit")}:</strong>
+          ${escapeHtml(entry?.uhrzeit || "–")}
         </p>
       </div>
       <div class="calc-snapshot-print__mediums">

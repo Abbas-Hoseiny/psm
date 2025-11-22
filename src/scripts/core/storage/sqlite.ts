@@ -52,7 +52,6 @@ function callWorker(action: string, payload?: any): Promise<any> {
     }, 30000);
   });
 }
-
 /**
  * Initialize worker
  */
@@ -391,20 +390,61 @@ export async function listBvlSchadorg(options: any = {}): Promise<any> {
   return await callWorker("listBvlSchadorg", options);
 }
 
-export async function getTemplateRevisionDocument(
-  templateId: string,
-  version: number
-): Promise<any | null> {
+/**
+ * Lookup helpers (EPPO / BBCH)
+ */
+export async function importLookupEppo(
+  data: ArrayBuffer | Uint8Array
+): Promise<any> {
   if (!worker) {
     throw new Error("Database not initialized");
   }
-  if (!templateId || !Number.isFinite(version)) {
-    return null;
+  const payload = data instanceof Uint8Array ? data : new Uint8Array(data);
+  return await callWorker("importLookupEppo", { data: payload });
+}
+
+export async function importLookupBbch(
+  data: ArrayBuffer | Uint8Array
+): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
   }
-  return await callWorker("getTemplateRevisionDocument", {
-    templateId,
-    version,
-  });
+  const payload = data instanceof Uint8Array ? data : new Uint8Array(data);
+  return await callWorker("importLookupBbch", { data: payload });
+}
+
+export async function searchEppoCodes(
+  params: {
+    query?: string;
+    limit?: number;
+    offset?: number;
+    language?: string;
+  } = {}
+): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("searchEppoCodes", params);
+}
+
+export async function searchBbchStages(
+  params: {
+    query?: string;
+    limit?: number;
+    offset?: number;
+  } = {}
+): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("searchBbchStages", params);
+}
+
+export async function getLookupStats(): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("getLookupStats", {});
 }
 
 /**

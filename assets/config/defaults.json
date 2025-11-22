@@ -15,7 +15,12 @@
         "creator": "",
         "location": "",
         "crop": "",
-        "quantity": ""
+        "quantity": "",
+        "eppoCode": "",
+        "bbch": "",
+        "gps": "",
+        "invekos": "",
+        "time": ""
       }
     },
     "measurementMethods": [
@@ -47,21 +52,24 @@
       "name": "Wasser",
       "unit": "L",
       "methodId": "perKiste",
-      "value": 0.0166
+      "value": 0.0166,
+      "zulassungsnummer": ""
     },
     {
       "id": "elotVis",
       "name": "Elot-Vis",
       "unit": "ml",
       "methodId": "perKiste",
-      "value": 0.83
+      "value": 0.83,
+      "zulassungsnummer": ""
     },
     {
       "id": "schachtelhalm",
       "name": "Schachtelhalm",
       "unit": "ml",
       "methodId": "perKiste",
-      "value": 0.83
+      "value": 0.83,
+      "zulassungsnummer": ""
     }
   ],
   "history": []

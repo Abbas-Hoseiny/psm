@@ -2,6 +2,7 @@ import { escapeHtml, formatNumber } from "@scripts/core/utils";
 
 const COLUMN_FALLBACK_LABELS = {
   medium: "Mittel",
+  approval: "Zulassungsnr.",
   unit: "Einheit",
   method: "Methode",
   value: "Wert",
@@ -23,6 +24,7 @@ const VARIANT_CONFIG: Record<VariantKey, VariantConfig> = {
   calculation: {
     columns: [
       "medium",
+      "approval",
       "unit",
       "method",
       "value",
@@ -35,12 +37,12 @@ const VARIANT_CONFIG: Record<VariantKey, VariantConfig> = {
     missingValue: "-",
   },
   detail: {
-    columns: ["medium", "unit", "method", "value", "total"],
+    columns: ["medium", "approval", "unit", "method", "value", "total"],
     numberFallback: "-",
     missingValue: "-",
   },
   summary: {
-    columns: ["medium", "total"],
+    columns: ["medium", "approval", "total"],
     numberFallback: "-",
     missingValue: "-",
   },
@@ -74,6 +76,13 @@ const COLUMN_DEFS: Record<keyof typeof COLUMN_FALLBACK_LABELS, ColumnRenderer> =
     unit: {
       cell: (item, config) => {
         const value = item?.unit;
+        return value ? escapeHtml(value) : config.missingValue;
+      },
+      className: "nowrap",
+    },
+    approval: {
+      cell: (item, config) => {
+        const value = item?.zulassungsnummer;
         return value ? escapeHtml(value) : config.missingValue;
       },
       className: "nowrap",

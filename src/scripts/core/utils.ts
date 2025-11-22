@@ -10,12 +10,12 @@
  * @returns HTML-safe string
  */
 export function escapeHtml(value: any): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /**
@@ -26,7 +26,11 @@ export function escapeHtml(value: any): string {
  * @param fallback - Fallback value for invalid numbers (default: '–')
  * @returns Formatted number string
  */
-export function formatNumber(value: any, fractionDigits: number = 2, fallback: string = '–'): string {
+export function formatNumber(
+  value: any,
+  fractionDigits: number = 2,
+  fallback: string = "–"
+): string {
   const num = Number.parseFloat(value);
   if (Number.isNaN(num)) {
     return fallback;
@@ -40,5 +44,27 @@ export function formatNumber(value: any, fractionDigits: number = 2, fallback: s
  * @returns Promise that resolves with the frame timestamp
  */
 export function nextFrame(): Promise<number> {
-  return new Promise(resolve => requestAnimationFrame(resolve));
+  return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+/**
+ * Simple debounce helper to limit how often a function runs.
+ * Useful for input-driven handlers like autocomplete.
+ * @param fn - callback function
+ * @param delay - debounce interval in ms
+ */
+export function debounce<T extends (...args: any[]) => void>(
+  fn: T,
+  delay: number = 200
+): (...args: Parameters<T>) => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
+    if (timer !== null) {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(() => {
+      timer = null;
+      fn(...args);
+    }, delay);
+  };
 }

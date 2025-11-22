@@ -77,20 +77,144 @@ function ensurePayloadStorageSchema(targetDb = db) {
       payload_json TEXT NOT NULL
     );
 
-    CREATE INDEX IF NOT EXISTS idx_bvl_api_payloads_endpoint
-      ON bvl_api_payloads(endpoint);
-    CREATE INDEX IF NOT EXISTS idx_bvl_api_payloads_key_primary
-      ON bvl_api_payloads(key, primary_ref);
-    CREATE INDEX IF NOT EXISTS idx_bvl_api_payloads_secondary
-      ON bvl_api_payloads(key, secondary_ref);
-    CREATE INDEX IF NOT EXISTS idx_bvl_api_payloads_primary
-      ON bvl_api_payloads(primary_ref);
+    CREATE INDEX IF NOT EXISTS idx_bvl_api_payloads_endpoint ON bvl_api_payloads(endpoint);
+    CREATE INDEX IF NOT EXISTS idx_bvl_api_payloads_key_primary ON bvl_api_payloads(key, primary_ref);
+    CREATE INDEX IF NOT EXISTS idx_bvl_api_payloads_secondary ON bvl_api_payloads(key, secondary_ref);
+    CREATE INDEX IF NOT EXISTS idx_bvl_api_payloads_primary ON bvl_api_payloads(primary_ref);
   `);
 
   const version = targetDb.selectValue("PRAGMA user_version") || 0;
   if (version < 3) {
     targetDb.exec("PRAGMA user_version = 3");
   }
+}
+
+function hasColumn(targetDb, tableName, columnName) {
+  if (!targetDb) {
+    return false;
+  }
+  const sql = `SELECT 1 FROM pragma_table_info('${tableName}') WHERE name = '${columnName}' LIMIT 1`;
+  return Boolean(targetDb.selectValue(sql));
+}
+
+function ensureMediumApprovalColumn(targetDb = db) {
+  if (!targetDb) {
+    return;
+  }
+  if (hasColumn(targetDb, "mediums", "zulassungsnummer")) {
+    return;
+  }
+  targetDb.exec("ALTER TABLE mediums ADD COLUMN zulassungsnummer TEXT");
+}
+
+function ensureLookupTables(targetDb = db) {
+  if (!targetDb) {
+    return;
+  }
+  targetDb.exec(`
+    CREATE TABLE IF NOT EXISTS lookup_eppo_codes (
+      code TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      language TEXT,
+      dtcode TEXT,
+      preferred INTEGER DEFAULT 1,
+      dt_label TEXT,
+      language_label TEXT,
+      authority TEXT,
+      name_de TEXT,
+      name_en TEXT,
+      name_la TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_lookup_eppo_name ON lookup_eppo_codes(name COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_lookup_eppo_dtcode ON lookup_eppo_codes(dtcode);
+    CREATE INDEX IF NOT EXISTS idx_lookup_eppo_language ON lookup_eppo_codes(language);
+
+    CREATE TABLE IF NOT EXISTS lookup_bbch_stages (
+      code TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      principal_stage INTEGER,
+      secondary_stage INTEGER,
+      definition TEXT,
+      kind TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_lookup_bbch_label ON lookup_bbch_stages(label COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_lookup_bbch_principal ON lookup_bbch_stages(principal_stage);
+  `);
+
+  const enrichedColumns = [
+    { name: "dt_label", type: "TEXT" },
+    { name: "language_label", type: "TEXT" },
+    { name: "authority", type: "TEXT" },
+    { name: "name_de", type: "TEXT" },
+    { name: "name_en", type: "TEXT" },
+    { name: "name_la", type: "TEXT" },
+  ];
+  for (const column of enrichedColumns) {
+    if (!hasColumn(targetDb, "lookup_eppo_codes", column.name)) {
+      targetDb.exec(
+        `ALTER TABLE lookup_eppo_codes ADD COLUMN ${column.name} ${column.type}`
+      );
+    }
+  }
+}
+
+function setMetaValue(key, value, targetDb = db) {
+  if (!targetDb || !key) {
+    return;
+  }
+  const stmt = targetDb.prepare(
+    "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)"
+  );
+  stmt
+    .bind([key, typeof value === "string" ? value : JSON.stringify(value)])
+    .step();
+  stmt.finalize();
+}
+
+function getMetaValue(key, targetDb = db) {
+  if (!targetDb || !key) {
+    return null;
+  }
+  const value = targetDb.selectValue("SELECT value FROM meta WHERE key = ?", [
+    key,
+  ]);
+  return value ?? null;
+}
+
+function openDatabaseFromBytes(bytes) {
+  if (!sqlite3) {
+    throw new Error("SQLite not initialized");
+  }
+  const remoteDb = new sqlite3.oo1.DB();
+  const scope = sqlite3.wasm.scopedAllocPush();
+  try {
+    const pData = sqlite3.wasm.allocFromTypedArray(bytes);
+    const pSchema = sqlite3.wasm.allocCString("main");
+    const flags =
+      (sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE || 0) |
+      (sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE || 0);
+    const rc = sqlite3.capi.sqlite3_deserialize(
+      remoteDb.pointer,
+      pSchema,
+      pData,
+      bytes.byteLength,
+      bytes.byteLength,
+      flags
+    );
+    if (rc !== sqlite3.capi.SQLITE_OK) {
+      remoteDb.close();
+      throw new Error(
+        `sqlite3_deserialize failed: ${
+          sqlite3.capi.sqlite3_js_rc_str(rc) || rc
+        }`
+      );
+    }
+  } finally {
+    sqlite3.wasm.scopedAllocPop(scope);
+  }
+  return remoteDb;
 }
 
 // Message handler
@@ -164,11 +288,23 @@ self.onmessage = async function (event) {
       case "listBvlSchadorg":
         result = await listBvlSchadorg(payload);
         break;
+      case "importLookupEppo":
+        result = await importLookupEppo(payload);
+        break;
+      case "importLookupBbch":
+        result = await importLookupBbch(payload);
+        break;
+      case "searchEppoCodes":
+        result = await searchEppoCodes(payload);
+        break;
+      case "searchBbchStages":
+        result = await searchBbchStages(payload);
+        break;
+      case "getLookupStats":
+        result = await getLookupStats();
+        break;
       case "diagnoseBvlSchema":
         result = await diagnoseBvlSchema();
-        break;
-      case "getTemplateRevisionDocument":
-        result = await getTemplateRevisionDocument(payload);
         break;
       default:
         throw new Error(`Unknown action: ${action}`);
@@ -289,9 +425,39 @@ async function applySchema() {
         unit TEXT NOT NULL,
         method_id TEXT NOT NULL,
         value REAL NOT NULL,
+        zulassungsnummer TEXT,
         FOREIGN KEY(method_id) REFERENCES measurement_methods(id)
       );
       
+      CREATE TABLE IF NOT EXISTS lookup_eppo_codes (
+        code TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        language TEXT,
+        dtcode TEXT,
+        preferred INTEGER DEFAULT 1,
+        dt_label TEXT,
+        language_label TEXT,
+        authority TEXT,
+        name_de TEXT,
+        name_en TEXT,
+        name_la TEXT
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_lookup_eppo_name ON lookup_eppo_codes(name COLLATE NOCASE);
+      CREATE INDEX IF NOT EXISTS idx_lookup_eppo_dtcode ON lookup_eppo_codes(dtcode);
+      
+      CREATE TABLE IF NOT EXISTS lookup_bbch_stages (
+        code TEXT PRIMARY KEY,
+        label TEXT NOT NULL,
+        principal_stage INTEGER,
+        secondary_stage INTEGER,
+        definition TEXT,
+        kind TEXT
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_lookup_bbch_label ON lookup_bbch_stages(label COLLATE NOCASE);
+      CREATE INDEX IF NOT EXISTS idx_lookup_bbch_principal ON lookup_bbch_stages(principal_stage);
+
       CREATE TABLE IF NOT EXISTS history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         created_at TEXT NOT NULL,
@@ -455,40 +621,35 @@ async function applySchema() {
     }
   }
 
-  const postMigrationVersion = db.selectValue("PRAGMA user_version") || 0;
-  if (postMigrationVersion < 4) {
+  let postMigrationVersion = db.selectValue("PRAGMA user_version") || 0;
+  const needsApprovalColumn = !hasColumn(db, "mediums", "zulassungsnummer");
+  if (needsApprovalColumn || postMigrationVersion < 4) {
     console.log("Migrating database to version 4...");
     db.exec("BEGIN TRANSACTION");
     try {
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS templates (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          description TEXT DEFAULT '',
-          version INTEGER NOT NULL DEFAULT 1,
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL,
-          document_json TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS template_revisions (
-          template_id TEXT NOT NULL,
-          version INTEGER NOT NULL,
-          updated_at TEXT NOT NULL,
-          summary TEXT,
-          document_json TEXT,
-          PRIMARY KEY(template_id, version),
-          FOREIGN KEY(template_id) REFERENCES templates(id) ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_templates_updated_at
-          ON templates(updated_at DESC);
-      `);
+      if (needsApprovalColumn) {
+        ensureMediumApprovalColumn(db);
+      }
       db.exec("PRAGMA user_version = 4");
       db.exec("COMMIT");
     } catch (error) {
       db.exec("ROLLBACK");
       console.error("Migration to version 4 failed:", error);
+      throw error;
+    }
+  }
+
+  postMigrationVersion = db.selectValue("PRAGMA user_version") || 0;
+  if (postMigrationVersion < 5) {
+    console.log("Migrating database to version 5...");
+    db.exec("BEGIN TRANSACTION");
+    try {
+      ensureLookupTables(db);
+      db.exec("PRAGMA user_version = 5");
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      console.error("Migration to version 5 failed:", error);
       throw error;
     }
   }
@@ -505,13 +666,11 @@ async function importSnapshot(snapshot) {
   try {
     // Clear existing data
     db.exec(`
-      DELETE FROM template_revisions;
-      DELETE FROM templates;
       DELETE FROM history_items;
       DELETE FROM history;
       DELETE FROM mediums;
       DELETE FROM measurement_methods;
-      DELETE FROM meta;
+      DELETE FROM meta WHERE key IN ('version','company','defaults','fieldLabels','measurementMethods');
     `);
 
     // Import meta data
@@ -568,9 +727,15 @@ async function importSnapshot(snapshot) {
     // Import mediums
     if (snapshot.mediums && Array.isArray(snapshot.mediums)) {
       const mediumStmt = db.prepare(
-        "INSERT OR REPLACE INTO mediums (id, name, unit, method_id, value) VALUES (?, ?, ?, ?, ?)"
+        "INSERT OR REPLACE INTO mediums (id, name, unit, method_id, value, zulassungsnummer) VALUES (?, ?, ?, ?, ?, ?)"
       );
       for (const medium of snapshot.mediums) {
+        const approvalNumber =
+          medium.zulassungsnummer ??
+          medium.approvalNumber ??
+          medium.zulassung ??
+          null;
+
         mediumStmt
           .bind([
             medium.id,
@@ -578,178 +743,12 @@ async function importSnapshot(snapshot) {
             medium.unit,
             medium.methodId || medium.method_id,
             medium.value,
+            approvalNumber,
           ])
           .step();
         mediumStmt.reset();
       }
       mediumStmt.finalize();
-    }
-
-    // Import templates
-    if (snapshot.templates && Array.isArray(snapshot.templates)) {
-      const templateStmt = db.prepare(
-        "INSERT OR REPLACE INTO templates (id, name, description, version, created_at, updated_at, document_json) VALUES (?, ?, ?, ?, ?, ?, ?)"
-      );
-      const revisionStmt = db.prepare(
-        "INSERT OR REPLACE INTO template_revisions (template_id, version, updated_at, summary, document_json) VALUES (?, ?, ?, ?, ?)"
-      );
-
-      for (const rawTemplate of snapshot.templates) {
-        if (!rawTemplate || typeof rawTemplate !== "object") {
-          continue;
-        }
-
-        const template = { ...rawTemplate };
-        let id =
-          typeof template.id === "string" && template.id ? template.id : null;
-        if (!id) {
-          if (typeof self !== "undefined" && self.crypto?.randomUUID) {
-            id = self.crypto.randomUUID();
-          } else {
-            id = `tpl_${Math.random().toString(36).slice(2, 10)}`;
-          }
-        }
-
-        const name =
-          typeof template.name === "string" && template.name.trim()
-            ? template.name.trim()
-            : "Neue Vorlage";
-        const description =
-          typeof template.description === "string" ? template.description : "";
-        const parsedVersion = Number.parseInt(
-          String(template.version || 1),
-          10
-        );
-        const version =
-          Number.isFinite(parsedVersion) && parsedVersion > 0
-            ? parsedVersion
-            : 1;
-        const createdAt =
-          typeof template.createdAt === "string" && template.createdAt
-            ? template.createdAt
-            : new Date().toISOString();
-        const updatedAt =
-          typeof template.updatedAt === "string" && template.updatedAt
-            ? template.updatedAt
-            : createdAt;
-
-        const revisions = [];
-        const seenVersions = new Set();
-        if (Array.isArray(template.revisions)) {
-          for (const entry of template.revisions) {
-            if (!entry || typeof entry !== "object") {
-              continue;
-            }
-            const versionSource =
-              typeof entry.version === "number" ||
-              typeof entry.version === "string"
-                ? entry.version
-                : undefined;
-            const entryVersion = Number.parseInt(
-              String(versionSource ?? ""),
-              10
-            );
-            if (!Number.isFinite(entryVersion) || entryVersion <= 0) {
-              continue;
-            }
-            if (seenVersions.has(entryVersion)) {
-              continue;
-            }
-            const entryUpdatedAt =
-              typeof entry.updatedAt === "string" && entry.updatedAt
-                ? entry.updatedAt
-                : updatedAt;
-            const summary =
-              typeof entry.summary === "string" && entry.summary.trim()
-                ? entry.summary.trim()
-                : undefined;
-            const snapshotPayload =
-              entry.snapshot && typeof entry.snapshot === "object"
-                ? JSON.parse(JSON.stringify(entry.snapshot))
-                : undefined;
-            const documentJsonPayload =
-              typeof entry.documentJson === "string" && entry.documentJson
-                ? entry.documentJson
-                : undefined;
-            revisions.push({
-              version: entryVersion,
-              updatedAt: entryUpdatedAt,
-              summary,
-              snapshot: snapshotPayload,
-              documentJson: documentJsonPayload,
-            });
-            seenVersions.add(entryVersion);
-          }
-        }
-        if (!seenVersions.has(version)) {
-          revisions.push({ version, updatedAt, summary: undefined });
-          seenVersions.add(version);
-        }
-        revisions.sort((a, b) => a.version - b.version);
-        template.revisions = revisions;
-
-        const documentJson = JSON.stringify({
-          ...template,
-          id,
-          name,
-          description,
-          version,
-          createdAt,
-          updatedAt,
-          revisions,
-        });
-
-        templateStmt
-          .bind([
-            id,
-            name,
-            description,
-            version,
-            createdAt,
-            updatedAt,
-            documentJson,
-          ])
-          .step();
-        templateStmt.reset();
-
-        for (const revision of revisions) {
-          const revisionSummary = revision.summary ?? null;
-          let revisionDoc = null;
-          if (revision.snapshot && typeof revision.snapshot === "object") {
-            const snapshotDoc = {
-              id,
-              version: revision.version,
-              updatedAt: revision.updatedAt,
-              name: revision.snapshot.name ?? name,
-              description:
-                typeof revision.snapshot.description === "string"
-                  ? revision.snapshot.description
-                  : description,
-              layoutMeta: revision.snapshot.layoutMeta,
-              fields: revision.snapshot.fields,
-              settings: revision.snapshot.settings,
-            };
-            revisionDoc = JSON.stringify(snapshotDoc);
-          } else if (revision.documentJson) {
-            revisionDoc = String(revision.documentJson);
-          } else if (revision.version === version) {
-            revisionDoc = documentJson;
-          }
-          revisionStmt
-            .bind([
-              id,
-              revision.version,
-              revision.updatedAt,
-              revisionSummary,
-              revisionDoc,
-            ])
-            .step();
-          revisionStmt.reset();
-        }
-      }
-
-      revisionStmt.finalize();
-      templateStmt.finalize();
     }
 
     // Import history
@@ -819,7 +818,6 @@ async function exportSnapshot() {
     },
     mediums: [],
     history: [],
-    templates: [],
   };
 
   // Export meta
@@ -857,7 +855,7 @@ async function exportSnapshot() {
 
   // Export mediums
   db.exec({
-    sql: "SELECT id, name, unit, method_id, value FROM mediums",
+    sql: "SELECT id, name, unit, method_id, value, zulassungsnummer FROM mediums",
     callback: (row) => {
       snapshot.mediums.push({
         id: row[0],
@@ -865,6 +863,7 @@ async function exportSnapshot() {
         unit: row[2],
         methodId: row[3],
         value: row[4],
+        zulassungsnummer: row[5] || null,
       });
     },
   });
@@ -896,169 +895,7 @@ async function exportSnapshot() {
     ...entry.header,
     items: entry.items,
   }));
-
-  // Export templates and revisions
-  const revisionMap = new Map();
-  db.exec({
-    sql: "SELECT template_id, version, updated_at, summary, document_json FROM template_revisions ORDER BY version ASC",
-    callback: (row) => {
-      const templateId = row[0];
-      if (!revisionMap.has(templateId)) {
-        revisionMap.set(templateId, []);
-      }
-      revisionMap.get(templateId).push({
-        version: Number(row[1]) || 1,
-        updatedAt: row[2] || new Date().toISOString(),
-        summary: row[3] || undefined,
-        documentJson: row[4] || null,
-      });
-    },
-  });
-
-  db.exec({
-    sql: "SELECT id, name, description, version, created_at, updated_at, document_json FROM templates ORDER BY updated_at DESC",
-    callback: (row) => {
-      const id = row[0];
-      const name = row[1];
-      const description = row[2] || "";
-      const version = Number(row[3]) || 1;
-      const createdAt = row[4] || new Date().toISOString();
-      const updatedAt = row[5] || createdAt;
-      const rawDocument = row[6];
-      let document;
-      if (rawDocument) {
-        try {
-          document = JSON.parse(rawDocument);
-        } catch (error) {
-          console.warn("Failed to parse template document", id, error);
-        }
-      }
-
-      if (!document || typeof document !== "object") {
-        document = {};
-      }
-
-      document.id = id;
-      document.name = name;
-      document.description = description;
-      document.version = version;
-      document.createdAt = document.createdAt || createdAt;
-      document.updatedAt = document.updatedAt || updatedAt;
-
-      const revisions = Array.isArray(document.revisions)
-        ? document.revisions
-        : revisionMap.get(id) || [];
-      const seenVersions = new Set();
-      const normalizedRevisions = [];
-      for (const revision of revisions) {
-        if (!revision || typeof revision !== "object") {
-          continue;
-        }
-        const revisionVersion = Number.parseInt(
-          String(revision.version ?? ""),
-          10
-        );
-        if (!Number.isFinite(revisionVersion) || revisionVersion <= 0) {
-          continue;
-        }
-        if (seenVersions.has(revisionVersion)) {
-          continue;
-        }
-        const revisionUpdatedAt =
-          typeof revision.updatedAt === "string" && revision.updatedAt
-            ? revision.updatedAt
-            : document.updatedAt;
-        const summary =
-          typeof revision.summary === "string" && revision.summary.trim()
-            ? revision.summary.trim()
-            : undefined;
-        const documentJson =
-          typeof revision.documentJson === "string" && revision.documentJson
-            ? revision.documentJson
-            : undefined;
-        normalizedRevisions.push({
-          version: revisionVersion,
-          updatedAt: revisionUpdatedAt,
-          summary,
-          documentJson,
-        });
-        seenVersions.add(revisionVersion);
-      }
-      if (!seenVersions.has(version)) {
-        normalizedRevisions.push({
-          version,
-          updatedAt: document.updatedAt,
-          summary: undefined,
-        });
-      }
-      normalizedRevisions.sort((a, b) => a.version - b.version);
-      document.revisions = normalizedRevisions;
-
-      snapshot.templates.push(document);
-    },
-  });
-
   return snapshot;
-}
-
-async function getTemplateRevisionDocument({ templateId, version }) {
-  if (!db) throw new Error("Database not initialized");
-
-  if (!templateId || typeof templateId !== "string") {
-    return null;
-  }
-
-  const parsedVersion = Number.parseInt(String(version ?? ""), 10);
-  if (!Number.isFinite(parsedVersion)) {
-    return null;
-  }
-
-  let documentJson = null;
-
-  db.exec({
-    sql: "SELECT document_json FROM template_revisions WHERE template_id = ? AND version = ? LIMIT 1",
-    bind: [templateId, parsedVersion],
-    callback: (row) => {
-      documentJson = row[0] || null;
-    },
-  });
-
-  if (!documentJson) {
-    db.exec({
-      sql: "SELECT document_json FROM templates WHERE id = ? LIMIT 1",
-      bind: [templateId],
-      callback: (row) => {
-        documentJson = row[0] || null;
-      },
-    });
-    if (documentJson) {
-      try {
-        const parsed = JSON.parse(documentJson);
-        if (parsed && parsed.version !== parsedVersion) {
-          documentJson = null;
-        }
-      } catch (error) {
-        console.warn("Konnte Dokument aus templates nicht parsen", error);
-        documentJson = null;
-      }
-    }
-  }
-
-  if (!documentJson) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(documentJson);
-  } catch (error) {
-    console.warn(
-      "Konnte Revisions-Dokument nicht parsen",
-      templateId,
-      version,
-      error
-    );
-    return null;
-  }
 }
 
 /**
@@ -1068,7 +905,7 @@ async function upsertMedium(medium) {
   if (!db) throw new Error("Database not initialized");
 
   const stmt = db.prepare(
-    "INSERT OR REPLACE INTO mediums (id, name, unit, method_id, value) VALUES (?, ?, ?, ?, ?)"
+    "INSERT OR REPLACE INTO mediums (id, name, unit, method_id, value, zulassungsnummer) VALUES (?, ?, ?, ?, ?, ?)"
   );
   stmt
     .bind([
@@ -1077,6 +914,10 @@ async function upsertMedium(medium) {
       medium.unit,
       medium.methodId || medium.method_id,
       medium.value,
+      medium.zulassungsnummer ??
+        medium.approvalNumber ??
+        medium.zulassung ??
+        null,
     ])
     .step();
   stmt.finalize();
@@ -1099,7 +940,7 @@ async function listMediums() {
 
   const mediums = [];
   db.exec({
-    sql: "SELECT id, name, unit, method_id, value FROM mediums",
+    sql: "SELECT id, name, unit, method_id, value, zulassungsnummer FROM mediums",
     callback: (row) => {
       mediums.push({
         id: row[0],
@@ -1107,6 +948,7 @@ async function listMediums() {
         unit: row[2],
         methodId: row[3],
         value: row[4],
+        zulassungsnummer: row[5] || null,
       });
     },
   });
@@ -2360,6 +2202,446 @@ async function listBvlSchadorg(payload) {
   });
 
   return schadorg;
+}
+
+async function importLookupEppo(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  if (!sqlite3) throw new Error("SQLite not initialized");
+
+  const { data } = payload;
+  if (!data) {
+    throw new Error("Keine Daten zum Importieren übergeben");
+  }
+
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const remoteDb = openDatabaseFromBytes(bytes);
+
+  const rows = [];
+  try {
+    remoteDb.exec({
+      sql: `
+        WITH ranked AS (
+          SELECT
+            c.codeid,
+            UPPER(TRIM(c.eppocode)) AS code,
+            TRIM(COALESCE(n.fullname, c.eppocode)) AS fullname,
+            UPPER(IFNULL(n.codelang, '')) AS language,
+            UPPER(IFNULL(c.dtcode, '')) AS dtcode,
+            n.idauth AS authority_id,
+            ROW_NUMBER() OVER (
+              PARTITION BY c.eppocode
+              ORDER BY
+                CASE UPPER(IFNULL(n.codelang, ''))
+                  WHEN 'DE' THEN 0
+                  WHEN 'EN' THEN 1
+                  ELSE 2
+                END,
+                CASE WHEN IFNULL(n.preferred, 0) = 1 THEN 0 ELSE 1 END
+            ) AS lang_rank
+          FROM t_codes c
+          LEFT JOIN t_names n ON n.codeid = c.codeid
+          WHERE c.eppocode IS NOT NULL
+            AND LENGTH(TRIM(c.eppocode)) > 0
+            AND (n.status IS NULL OR n.status != 'R')
+        ),
+        localized AS (
+          SELECT
+            codeid,
+            MAX(CASE WHEN UPPER(codelang) = 'DE' THEN TRIM(fullname) END) AS name_de,
+            MAX(CASE WHEN UPPER(codelang) = 'EN' THEN TRIM(fullname) END) AS name_en,
+            MAX(CASE WHEN UPPER(codelang) = 'LA' THEN TRIM(fullname) END) AS name_la
+          FROM t_names
+          WHERE fullname IS NOT NULL AND LENGTH(TRIM(fullname)) > 0
+          GROUP BY codeid
+        )
+        SELECT
+          r.code,
+          r.fullname,
+          r.language,
+          r.dtcode,
+          dt.libtype AS dt_label,
+          lang.language AS language_label,
+          auth.authdesc AS authority,
+          loc.name_de,
+          loc.name_en,
+          loc.name_la
+        FROM ranked r
+        LEFT JOIN t_datatypes dt ON UPPER(IFNULL(dt.dtcode, '')) = r.dtcode
+        LEFT JOIN t_langs lang ON UPPER(IFNULL(lang.codelang, '')) = r.language
+        LEFT JOIN t_authorities auth ON auth.idauth = r.authority_id
+        LEFT JOIN localized loc ON loc.codeid = r.codeid
+        WHERE r.lang_rank = 1;
+      `,
+      callback: (row) => {
+        if (!row || !row[0]) {
+          return;
+        }
+        rows.push({
+          code: row[0],
+          name: row[1] || row[0],
+          language: row[2] || null,
+          dtcode: row[3] || null,
+          dtLabel: row[4] || null,
+          languageLabel: row[5] || null,
+          authority: row[6] || null,
+          nameDe: row[7] || null,
+          nameEn: row[8] || null,
+          nameLa: row[9] || null,
+        });
+      },
+    });
+  } finally {
+    remoteDb.close();
+  }
+
+  db.exec("BEGIN TRANSACTION");
+  try {
+    ensureLookupTables(db);
+    db.exec("DELETE FROM lookup_eppo_codes");
+    if (rows.length) {
+      const stmt = db.prepare(
+        `INSERT OR REPLACE INTO lookup_eppo_codes (
+          code,
+          name,
+          language,
+          dtcode,
+          preferred,
+          dt_label,
+          language_label,
+          authority,
+          name_de,
+          name_en,
+          name_la
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      );
+      for (const row of rows) {
+        stmt
+          .bind([
+            row.code,
+            row.name,
+            row.language,
+            row.dtcode,
+            1,
+            row.dtLabel,
+            row.languageLabel,
+            row.authority,
+            row.nameDe,
+            row.nameEn,
+            row.nameLa,
+          ])
+          .step();
+        stmt.reset();
+      }
+      stmt.finalize();
+    }
+    setMetaValue("lookup:eppo:lastImport", new Date().toISOString());
+    setMetaValue("lookup:eppo:count", String(rows.length));
+    db.exec("COMMIT");
+    return { success: true, count: rows.length };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    console.error("EPPO-Lookup-Import fehlgeschlagen", error);
+    throw error;
+  }
+}
+
+async function importLookupBbch(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  if (!sqlite3) throw new Error("SQLite not initialized");
+
+  const { data } = payload;
+  if (!data) {
+    throw new Error("Keine Daten zum Importieren übergeben");
+  }
+
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const remoteDb = openDatabaseFromBytes(bytes);
+  const rows = [];
+
+  try {
+    remoteDb.exec({
+      sql: `
+        SELECT * FROM (
+          SELECT
+            COALESCE(
+              NULLIF(TRIM(bbch_code), ''),
+              CASE
+                WHEN principal_stage IS NOT NULL THEN printf('%02d%02d', principal_stage, IFNULL(secondary_stage, 0))
+                ELSE NULL
+              END
+            ) AS code,
+            TRIM(COALESCE(label_de, uri)) AS label,
+            principal_stage,
+            secondary_stage,
+            definition_1,
+            definition_2,
+            kind
+          FROM bbch_stage
+        ) WHERE code IS NOT NULL
+      `,
+      callback: (row) => {
+        if (!row || !row[0]) {
+          return;
+        }
+        const definitionParts = [row[4], row[5]]
+          .filter((part) => part && String(part).trim().length)
+          .map((part) => String(part).trim());
+        rows.push({
+          code: row[0],
+          label: row[1] || row[0],
+          principal: row[2] != null ? Number(row[2]) : null,
+          secondary: row[3] != null ? Number(row[3]) : null,
+          definition: definitionParts.join("\n"),
+          kind: row[6] || null,
+        });
+      },
+    });
+  } finally {
+    remoteDb.close();
+  }
+
+  db.exec("BEGIN TRANSACTION");
+  try {
+    ensureLookupTables(db);
+    db.exec("DELETE FROM lookup_bbch_stages");
+    if (rows.length) {
+      const stmt = db.prepare(
+        `INSERT OR REPLACE INTO lookup_bbch_stages
+        (code, label, principal_stage, secondary_stage, definition, kind)
+        VALUES (?, ?, ?, ?, ?, ?)`
+      );
+      for (const row of rows) {
+        stmt
+          .bind([
+            row.code,
+            row.label,
+            row.principal,
+            row.secondary,
+            row.definition || null,
+            row.kind,
+          ])
+          .step();
+        stmt.reset();
+      }
+      stmt.finalize();
+    }
+    setMetaValue("lookup:bbch:lastImport", new Date().toISOString());
+    setMetaValue("lookup:bbch:count", String(rows.length));
+    db.exec("COMMIT");
+    return { success: true, count: rows.length };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    console.error("BBCH-Lookup-Import fehlgeschlagen", error);
+    throw error;
+  }
+}
+
+function searchEppoCodes(params = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureLookupTables(db);
+
+  const query = (params.query || "").trim();
+  const limit = Math.min(Math.max(Number(params.limit) || 10, 1), 50);
+  const offset = Math.max(Number(params.offset) || 0, 0);
+  const languageParam = (params.language || "").trim().toUpperCase();
+  const hasLanguageFilter = languageParam.length > 0;
+  const results = [];
+
+  const selectClause = `
+    SELECT
+      code,
+      name,
+      dtcode,
+      language,
+      dt_label,
+      language_label,
+      authority,
+      name_de,
+      name_en,
+      name_la
+    FROM lookup_eppo_codes
+  `;
+
+  const languageCondition = "UPPER(IFNULL(language, '')) = ?";
+  const appendLanguageFilter = (binds) => {
+    if (hasLanguageFilter) {
+      binds.push(languageParam);
+    }
+  };
+
+  if (!query) {
+    const whereClause = hasLanguageFilter ? `WHERE ${languageCondition}` : "";
+    const rowBinds = [];
+    appendLanguageFilter(rowBinds);
+    rowBinds.push(limit, offset);
+
+    db.exec({
+      sql: `${selectClause}
+        ${whereClause}
+        ORDER BY name
+        LIMIT ? OFFSET ?
+      `,
+      bind: rowBinds,
+      callback: (row) => {
+        results.push({
+          code: row[0],
+          name: row[1],
+          dtcode: row[2] || null,
+          language: row[3] || null,
+          dtLabel: row[4] || null,
+          languageLabel: row[5] || null,
+          authority: row[6] || null,
+          nameDe: row[7] || null,
+          nameEn: row[8] || null,
+          nameLa: row[9] || null,
+        });
+      },
+    });
+
+    const totalQuery = hasLanguageFilter
+      ? `SELECT COUNT(*) FROM lookup_eppo_codes WHERE ${languageCondition}`
+      : "SELECT COUNT(*) FROM lookup_eppo_codes";
+    const totalBinds = [];
+    appendLanguageFilter(totalBinds);
+    const total = Number(db.selectValue(totalQuery, totalBinds)) || 0;
+    return { rows: results, total };
+  }
+
+  const upper = query.toUpperCase();
+  const likeTerm = `%${upper}%`;
+
+  const whereParts = ["(code LIKE ? OR UPPER(name) LIKE ?)"];
+  if (hasLanguageFilter) {
+    whereParts.push(languageCondition);
+  }
+  const whereClause = `WHERE ${whereParts.join(" AND ")}`;
+
+  const totalBinds = [likeTerm, likeTerm];
+  appendLanguageFilter(totalBinds);
+  const total =
+    Number(
+      db.selectValue(
+        `SELECT COUNT(*) FROM lookup_eppo_codes ${whereClause}`,
+        totalBinds
+      )
+    ) || 0;
+
+  const rowBinds = [likeTerm, likeTerm];
+  appendLanguageFilter(rowBinds);
+  rowBinds.push(`${upper}%`, limit, offset);
+
+  db.exec({
+    sql: `${selectClause}
+      ${whereClause}
+      ORDER BY CASE WHEN code LIKE ? THEN 0 ELSE 1 END, name
+      LIMIT ? OFFSET ?
+    `,
+    bind: rowBinds,
+    callback: (row) => {
+      results.push({
+        code: row[0],
+        name: row[1],
+        dtcode: row[2] || null,
+        language: row[3] || null,
+        dtLabel: row[4] || null,
+        languageLabel: row[5] || null,
+        authority: row[6] || null,
+        nameDe: row[7] || null,
+        nameEn: row[8] || null,
+        nameLa: row[9] || null,
+      });
+    },
+  });
+
+  return { rows: results, total };
+}
+
+function searchBbchStages(params = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureLookupTables(db);
+
+  const query = (params.query || "").trim();
+  const limit = Math.min(Math.max(Number(params.limit) || 10, 1), 50);
+  const offset = Math.max(Number(params.offset) || 0, 0);
+  const results = [];
+  const orderClause = "ORDER BY label";
+
+  if (!query) {
+    db.exec({
+      sql: `
+        SELECT code, label, principal_stage, secondary_stage, definition, kind
+        FROM lookup_bbch_stages
+        ${orderClause}
+        LIMIT ? OFFSET ?
+      `,
+      bind: [limit, offset],
+      callback: (row) => {
+        results.push({
+          code: row[0],
+          label: row[1],
+          principalStage: row[2] != null ? Number(row[2]) : null,
+          secondaryStage: row[3] != null ? Number(row[3]) : null,
+          definition: row[4] || null,
+          kind: row[5] || null,
+        });
+      },
+    });
+    const total =
+      Number(db.selectValue("SELECT COUNT(*) FROM lookup_bbch_stages")) || 0;
+    return { rows: results, total };
+  }
+
+  const likeTerm = `%${query.toUpperCase()}%`;
+  const total =
+    Number(
+      db.selectValue(
+        `SELECT COUNT(*) FROM lookup_bbch_stages WHERE code LIKE ? OR UPPER(label) LIKE ?`,
+        [likeTerm, likeTerm]
+      )
+    ) || 0;
+  db.exec({
+    sql: `
+      SELECT code, label, principal_stage, secondary_stage, definition, kind
+      FROM lookup_bbch_stages
+      WHERE code LIKE ? OR UPPER(label) LIKE ?
+      ${orderClause}
+      LIMIT ? OFFSET ?
+    `,
+    bind: [likeTerm, likeTerm, limit, offset],
+    callback: (row) => {
+      results.push({
+        code: row[0],
+        label: row[1],
+        principalStage: row[2] != null ? Number(row[2]) : null,
+        secondaryStage: row[3] != null ? Number(row[3]) : null,
+        definition: row[4] || null,
+        kind: row[5] || null,
+      });
+    },
+  });
+
+  return { rows: results, total };
+}
+
+function getLookupStats() {
+  if (!db) throw new Error("Database not initialized");
+  ensureLookupTables(db);
+
+  const eppoCount =
+    Number(db.selectValue("SELECT COUNT(*) FROM lookup_eppo_codes")) || 0;
+  const bbchCount =
+    Number(db.selectValue("SELECT COUNT(*) FROM lookup_bbch_stages")) || 0;
+
+  return {
+    eppo: {
+      count: eppoCount,
+      lastImport: getMetaValue("lookup:eppo:lastImport"),
+    },
+    bbch: {
+      count: bbchCount,
+      lastImport: getMetaValue("lookup:bbch:lastImport"),
+    },
+  };
 }
 
 async function diagnoseBvlSchema() {
