@@ -1,9 +1,10 @@
-import { nextFrame } from "@scripts/core/utils";
+import { nextFrame, escapeHtml } from "@scripts/core/utils";
 import {
   renderCalculationSnapshotForPrint,
   type CalculationSnapshotEntry,
   type CalculationSnapshotLabels,
 } from "./calculationSnapshot";
+import type { AppState } from "@scripts/core/state";
 
 const BASE_FONT_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 
@@ -17,18 +18,23 @@ const PRINT_BASE_STYLES = `
     padding: 0;
   }
   h1, h2, h3 { margin: 0 0 0.75rem; }
-  table {
+  .calc-snapshot-table,
+  .history-detail-table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 1rem;
   }
-  th, td {
+  .calc-snapshot-table th,
+  .calc-snapshot-table td,
+  .history-detail-table th,
+  .history-detail-table td {
     border: 1px solid #555;
     padding: 6px 8px;
     text-align: left;
     vertical-align: top;
   }
-  th {
+  .calc-snapshot-table th,
+  .history-detail-table th {
     background: #f2f2f2;
     font-weight: 600;
   }
@@ -52,15 +58,39 @@ const PRINT_BASE_STYLES = `
   .calc-snapshot-print__meta {
     margin-bottom: 1rem;
   }
-  .calc-snapshot-print__meta p {
-    margin: 0;
-    font-size: 0.9rem;
-  }
   .calc-snapshot-table,
   .history-detail-table {
     font-size: 0.9rem;
   }
 `;
+
+export function buildCompanyPrintHeader(
+  company: AppState["company"] | null | undefined
+): string {
+  const hasContent = Boolean(
+    company?.name ||
+      company?.headline ||
+      company?.address ||
+      company?.contactEmail
+  );
+  if (!hasContent) {
+    return "";
+  }
+  const address = company?.address
+    ? escapeHtml(company.address).replace(/\n/g, "<br />")
+    : "";
+  const email = company?.contactEmail
+    ? `<p>${escapeHtml(company.contactEmail)}</p>`
+    : "";
+  return `
+    <div class="print-meta">
+      ${company?.name ? `<h1>${escapeHtml(company.name)}</h1>` : ""}
+      ${company?.headline ? `<p>${escapeHtml(company.headline)}</p>` : ""}
+      ${address ? `<p>${address}</p>` : ""}
+      ${email}
+    </div>
+  `;
+}
 
 function createPrintFrame(): HTMLIFrameElement {
   const iframe = document.createElement("iframe");

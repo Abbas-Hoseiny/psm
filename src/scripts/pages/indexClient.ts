@@ -11,6 +11,7 @@ import { initSettings } from "@scripts/features/settings";
 import { initReporting } from "@scripts/features/reporting";
 import { initZulassung } from "@scripts/features/zulassung";
 import { initLookup } from "@scripts/features/lookup";
+import { initGps } from "@scripts/features/gps";
 import type { AppState } from "@scripts/core/state";
 
 function initIndex(): void {
@@ -46,6 +47,8 @@ function initIndex(): void {
   initZulassung(zulassungContainer, services);
   const lookupContainer = document.querySelector('[data-feature="lookup"]');
   initLookup(lookupContainer, services);
+  const gpsContainer = document.querySelector('[data-feature="gps"]');
+  initGps(gpsContainer, services);
 
   const toggleRegions = (state: AppState) => {
     const hasDatabase = Boolean(state.app?.hasDatabase);

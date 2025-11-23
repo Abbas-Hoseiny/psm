@@ -28,11 +28,10 @@ CREATE TABLE IF NOT EXISTS mediums (
   FOREIGN KEY(method_id) REFERENCES measurement_methods(id)
 );
 
--- Lookup tables for EPPO codes
 CREATE TABLE IF NOT EXISTS lookup_eppo_codes (
-  code TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  language TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL,
-  language TEXT,
   dtcode TEXT,
   preferred INTEGER DEFAULT 1,
   dt_label TEXT,
@@ -40,7 +39,8 @@ CREATE TABLE IF NOT EXISTS lookup_eppo_codes (
   authority TEXT,
   name_de TEXT,
   name_en TEXT,
-  name_la TEXT
+  name_la TEXT,
+  PRIMARY KEY (code, language)
 );
 
 CREATE INDEX IF NOT EXISTS idx_lookup_eppo_name ON lookup_eppo_codes(name COLLATE NOCASE);
@@ -80,3 +80,17 @@ CREATE TABLE IF NOT EXISTS history_items (
 CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_history_items_history_id ON history_items(history_id);
 CREATE INDEX IF NOT EXISTS idx_mediums_method_id ON mediums(method_id);
+
+CREATE TABLE IF NOT EXISTS gps_points (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  latitude REAL NOT NULL,
+  longitude REAL NOT NULL,
+  source TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_gps_points_created ON gps_points(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_gps_points_name ON gps_points(name COLLATE NOCASE);

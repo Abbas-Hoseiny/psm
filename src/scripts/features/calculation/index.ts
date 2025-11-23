@@ -1,5 +1,9 @@
-import { escapeHtml, debounce } from "@scripts/core/utils";
-import { getState } from "@scripts/core/state";
+import {
+  escapeHtml,
+  debounce,
+  formatGpsCoordinates,
+} from "@scripts/core/utils";
+import { getState, type GpsPoint, type AppState } from "@scripts/core/state";
 import { setFieldLabelByPath } from "@scripts/core/labels";
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { saveDatabase, getActiveDriverKey } from "@scripts/core/storage";
@@ -7,6 +11,11 @@ import {
   buildMediumTableHead,
   buildMediumTableRows,
 } from "../shared/mediumTable";
+import type { CalculationSnapshotEntry } from "../shared/calculationSnapshot";
+import {
+  printEntriesChunked,
+  buildCompanyPrintHeader,
+} from "../shared/printing";
 import {
   searchEppoSuggestions,
   searchBbchSuggestions,
@@ -20,6 +29,7 @@ interface Services {
   };
   events: {
     emit: typeof import("@scripts/core/eventBus").emit;
+    subscribe: typeof import("@scripts/core/eventBus").subscribe;
   };
 }
 
@@ -43,6 +53,30 @@ export type CalculationResult = {
   header: Record<string, any>;
   items: CalculationItem[];
 };
+
+type LookupApplyEppoPayload = {
+  code?: string;
+  name?: string;
+  language?: string;
+  dtcode?: string;
+};
+
+type LookupApplyBbchPayload = {
+  code?: string;
+  label?: string;
+};
+
+function resolveGpsDisplay(
+  source: { gps?: string; gpsCoordinates?: unknown } | null | undefined
+): string {
+  if (source && source.gpsCoordinates) {
+    const formatted = formatGpsCoordinates(source.gpsCoordinates as any);
+    if (formatted) {
+      return formatted;
+    }
+  }
+  return source?.gps?.trim() || "";
+}
 
 let initialized = false;
 
@@ -103,7 +137,17 @@ function createSection(
           </div>
           <div class="col-md-3">
             <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.gps.label" data-default-label="${escapeAttr(labels.calculation.fields.gps.label)}" value="${escapeAttr(labels.calculation.fields.gps.label)}" placeholder="${escapeAttr(labels.calculation.fields.gps.label)}" aria-label="Bezeichnung für Feld" />
-            <input type="text" class="form-control" id="calc-gps" name="calc-gps" data-placeholder-id="calc-form-gps" placeholder="${escapeAttr(labels.calculation.fields.gps.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.gps.label)}" value="${escapeAttr(formDefaults.gps || "")}" />
+            <div class="input-group mb-2">
+              <input type="text" class="form-control" id="calc-gps" name="calc-gps" data-placeholder-id="calc-form-gps" placeholder="${escapeAttr(labels.calculation.fields.gps.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.gps.label)}" value="${escapeAttr(formDefaults.gps || "")}" />
+              <button type="button" class="btn btn-outline-light" data-action="gps-use-active">Aktiver Punkt</button>
+            </div>
+            <select class="form-select form-select-sm mb-2" data-role="gps-point-select">
+              <option value="">Gespeicherten Punkt verknüpfen ...</option>
+            </select>
+            <div class="d-flex gap-2 flex-wrap align-items-center small text-muted">
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-action="gps-clear-selection">Keine Verknüpfung</button>
+              <span data-role="gps-selection-hint" class="flex-grow-1">Keine Koordinaten verknüpft.</span>
+            </div>
           </div>
           <div class="col-md-3">
             <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.time.label" data-default-label="${escapeAttr(labels.calculation.fields.time.label)}" value="${escapeAttr(labels.calculation.fields.time.label)}" placeholder="${escapeAttr(labels.calculation.fields.time.label)}" aria-label="Bezeichnung für Feld" />
@@ -498,7 +542,7 @@ function renderResults(
   setFieldText("datum", header.datum);
   setFieldText("eppoCode", header.eppoCode || "");
   setFieldText("bbch", header.bbch || "");
-  setFieldText("gps", header.gps || "");
+  setFieldText("gps", resolveGpsDisplay(header));
   setFieldText("invekos", header.invekos || "");
   setFieldText("uhrzeit", header.uhrzeit || "");
 
@@ -587,11 +631,101 @@ export function initCalculation(
   );
   const resultsHead = resultsTable?.querySelector("thead");
   const resultsBody = resultsTable?.querySelector("tbody");
+  const eppoInput = section.querySelector<HTMLInputElement>("#calc-eppo");
+  const bbchInput = section.querySelector<HTMLInputElement>("#calc-bbch");
+  const cropInput = section.querySelector<HTMLInputElement>("#calc-kultur");
+  const gpsInput = section.querySelector<HTMLInputElement>("#calc-gps");
+  const gpsSelect = section.querySelector<HTMLSelectElement>(
+    '[data-role="gps-point-select"]'
+  );
+  const gpsHint = section.querySelector<HTMLElement>(
+    '[data-role="gps-selection-hint"]'
+  );
+  const gpsUseActiveBtn = section.querySelector<HTMLButtonElement>(
+    '[data-action="gps-use-active"]'
+  );
+  const gpsClearBtn = section.querySelector<HTMLButtonElement>(
+    '[data-action="gps-clear-selection"]'
+  );
 
   if (!form || !resultCard || !resultsTable || !resultsHead || !resultsBody) {
     console.warn("Berechnungsbereich konnte nicht initialisiert werden");
     return;
   }
+
+  let selectedGpsPointId: string | null = null;
+
+  const getGpsPointById = (
+    state: AppState,
+    id: string | null
+  ): GpsPoint | null => {
+    if (!id) {
+      return null;
+    }
+    return state.gps.points.find((point) => point.id === id) ?? null;
+  };
+
+  const updateGpsHint = (state: AppState): void => {
+    if (!gpsHint) {
+      return;
+    }
+    const activePoint = getGpsPointById(state, selectedGpsPointId);
+    if (activePoint) {
+      gpsHint.textContent = `Koordinaten: ${formatGpsCoordinates(activePoint)}`;
+    } else {
+      gpsHint.textContent =
+        "Keine Koordinaten verknüpft. Freitext wird verwendet.";
+    }
+  };
+
+  const clearGpsSelection = (state: AppState): void => {
+    selectedGpsPointId = null;
+    if (gpsSelect) {
+      gpsSelect.value = "";
+    }
+    updateGpsHint(state);
+  };
+
+  const setGpsSelection = (state: AppState, point: GpsPoint | null): void => {
+    selectedGpsPointId = point?.id ?? null;
+    if (gpsSelect) {
+      gpsSelect.value = selectedGpsPointId || "";
+    }
+    updateGpsHint(state);
+  };
+
+  const updateGpsSelectOptions = (state: AppState): void => {
+    if (!gpsSelect) {
+      updateGpsHint(state);
+      return;
+    }
+    const preservedId = selectedGpsPointId;
+    gpsSelect.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Gespeicherten Punkt verknüpfen ...";
+    gpsSelect.appendChild(placeholder);
+    state.gps.points.forEach((point) => {
+      const option = document.createElement("option");
+      option.value = point.id;
+      const coordsLabel = formatGpsCoordinates(point, "");
+      const suffix = point.id === state.gps.activePointId ? " (aktiv)" : "";
+      const baseName = point.name?.trim() || "Ohne Namen";
+      option.textContent = coordsLabel
+        ? `${baseName}${suffix} | ${coordsLabel}`
+        : `${baseName}${suffix}`;
+      gpsSelect.appendChild(option);
+    });
+    if (
+      preservedId &&
+      state.gps.points.some((point) => point.id === preservedId)
+    ) {
+      gpsSelect.value = preservedId;
+      updateGpsHint(state);
+    } else {
+      clearGpsSelection(state);
+    }
+  };
 
   const setCalcContext = (calculation: CalculationResult | null) => {
     renderResults(section, calculation, services.state.getState().fieldLabels);
@@ -600,7 +734,76 @@ export function initCalculation(
   services.state.subscribe((nextState) => {
     applyFieldLabels(section, nextState.fieldLabels);
     setCalcContext(nextState.calcContext as CalculationResult | null);
+    updateGpsSelectOptions(nextState);
   });
+
+  updateGpsSelectOptions(initialState);
+
+  gpsSelect?.addEventListener("change", () => {
+    const currentState = services.state.getState();
+    const choice = gpsSelect.value || null;
+    const point = getGpsPointById(currentState, choice);
+    if (point) {
+      setGpsSelection(currentState, point);
+      if (gpsInput && !gpsInput.value.trim()) {
+        gpsInput.value = point.name || "";
+        gpsInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    } else {
+      clearGpsSelection(currentState);
+    }
+  });
+
+  gpsUseActiveBtn?.addEventListener("click", () => {
+    const currentState = services.state.getState();
+    const point = getGpsPointById(currentState, currentState.gps.activePointId);
+    if (!point) {
+      window.alert("Es ist kein aktiver GPS-Punkt festgelegt.");
+      return;
+    }
+    setGpsSelection(currentState, point);
+    if (gpsInput && !gpsInput.value.trim()) {
+      gpsInput.value = point.name || "";
+      gpsInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+
+  gpsClearBtn?.addEventListener("click", () => {
+    const currentState = services.state.getState();
+    clearGpsSelection(currentState);
+  });
+
+  services.events.subscribe<LookupApplyEppoPayload>(
+    "lookup:apply-eppo",
+    (payload) => {
+      if (!payload || typeof payload !== "object") {
+        return;
+      }
+      if (payload.code && eppoInput) {
+        eppoInput.value = payload.code;
+        eppoInput.dispatchEvent(new Event("input", { bubbles: true }));
+        eppoInput.focus();
+      }
+      if (payload.name && cropInput && !cropInput.value.trim()) {
+        cropInput.value = payload.name;
+        cropInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
+  );
+
+  services.events.subscribe<LookupApplyBbchPayload>(
+    "lookup:apply-bbch",
+    (payload) => {
+      if (!payload || typeof payload !== "object") {
+        return;
+      }
+      if (payload.code && bbchInput) {
+        bbchInput.value = payload.code;
+        bbchInput.dispatchEvent(new Event("input", { bubbles: true }));
+        bbchInput.focus();
+      }
+    }
+  );
 
   section
     .querySelectorAll<HTMLInputElement>(".label-editor")
@@ -661,6 +864,13 @@ export function initCalculation(
 
     const state = services.state.getState();
     const defaults = state.defaults;
+    const selectedGpsPoint = getGpsPointById(state, selectedGpsPointId);
+    const gpsCoordinates = selectedGpsPoint
+      ? {
+          latitude: selectedGpsPoint.latitude,
+          longitude: selectedGpsPoint.longitude,
+        }
+      : null;
     const measurementMethods = state.measurementMethods;
     const waterVolume = getWaterVolume(kisten, defaults);
     const areaAr = defaults.kistenProAr ? kisten / defaults.kistenProAr : 0;
@@ -698,6 +908,8 @@ export function initCalculation(
       eppoCode,
       bbch,
       gps,
+      gpsCoordinates,
+      gpsPointId: selectedGpsPoint?.id ?? null,
       invekos,
       uhrzeit,
       kisten,
@@ -745,6 +957,33 @@ export function initCalculation(
     services.state.updateSlice("calcContext", () => calculation);
   });
 
+  function mapCalculationToSnapshotEntry(
+    calculation: CalculationResult
+  ): CalculationSnapshotEntry {
+    return {
+      ...(calculation.header || {}),
+      items: calculation.items || [],
+    } as CalculationSnapshotEntry;
+  }
+
+  async function printCurrentCalculationSnapshot(): Promise<void> {
+    const state = services.state.getState();
+    const calculation = state.calcContext as CalculationResult | null;
+    if (!calculation) {
+      window.alert("Keine Berechnung vorhanden.");
+      return;
+    }
+    const entry = mapCalculationToSnapshotEntry(calculation);
+    const headerHtml = buildCompanyPrintHeader(state.company || null);
+    const titleDate =
+      entry?.datum || entry?.date || new Date().toLocaleDateString("de-DE");
+    await printEntriesChunked([entry], state.fieldLabels, {
+      title: `Berechnung – ${titleDate}`,
+      headerHtml,
+      chunkSize: 1,
+    });
+  }
+
   resultCard.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
     const action = target?.dataset?.action;
@@ -752,7 +991,13 @@ export function initCalculation(
       return;
     }
     if (action === "print") {
-      window.print();
+      void printCurrentCalculationSnapshot().catch((error) => {
+        console.error("Drucken fehlgeschlagen", error);
+        window.alert(
+          "Druck konnte nicht gestartet werden. Bitte erneut versuchen."
+        );
+      });
+      return;
     } else if (action === "save") {
       const calc = services.state.getState()
         .calcContext as CalculationResult | null;

@@ -2,11 +2,13 @@ import { escapeHtml } from "@scripts/core/utils";
 import {
   ensureLookupData,
   getLookupStats,
+  listLookupLanguages,
   reloadLookup,
   searchBbchLookup,
   searchEppoLookup,
   type BbchLookupResult,
   type EppoLookupResult,
+  type LookupLanguageInfo,
   type LookupStats,
   type LookupSearchResult,
   type LookupSearchOptions,
@@ -18,6 +20,9 @@ interface Services {
     getState: typeof getState;
     subscribe: typeof subscribeState;
   };
+  events: {
+    emit: (eventName: string, payload?: unknown) => void;
+  };
 }
 
 type LookupTab = "eppo" | "bbch";
@@ -27,13 +32,104 @@ type SearchState = {
   limit: number;
   language: string;
   executed: boolean;
-  page: number;
   total: number;
+  page: number;
+  currentCount: number;
+  loading: boolean;
 };
 
 const numberFormatter = new Intl.NumberFormat("de-DE");
 const EPPO_COLUMN_COUNT = 6;
 const BBCH_COLUMN_COUNT = 5;
+const EPPO_LANGUAGE_PREF_KEY = "lookup:eppoLanguage";
+
+const LANGUAGE_LABEL_OVERRIDES: Record<string, string> = {
+  DE: "Deutsch",
+  EN: "Englisch",
+  LA: "Latein",
+  SCIENTIFIC: "Wissenschaftlich",
+  ES: "Spanisch",
+  FR: "Französisch",
+  IT: "Italienisch",
+  NL: "Niederländisch",
+  PL: "Polnisch",
+  PT: "Portugiesisch",
+  RU: "Russisch",
+  SV: "Schwedisch",
+  TR: "Türkisch",
+  NO: "Norwegisch",
+  ZH: "Chinesisch",
+  JA: "Japanisch",
+};
+
+const LANGUAGE_NAME_OVERRIDES: Record<string, string> = {
+  german: "Deutsch",
+  english: "Englisch",
+  latin: "Latein",
+  spanish: "Spanisch",
+  french: "Französisch",
+  italian: "Italienisch",
+  dutch: "Niederländisch",
+  polish: "Polnisch",
+  portuguese: "Portugiesisch",
+  russian: "Russisch",
+  swedish: "Schwedisch",
+  turkish: "Türkisch",
+  norwegian: "Norwegisch",
+  chinese: "Chinesisch",
+  japanese: "Japanisch",
+  scientific: "Wissenschaftlich",
+};
+
+function resolveLanguageLabel(code: string, fallback?: string | null): string {
+  const normalizedCode = code?.trim().toUpperCase() || "";
+  if (normalizedCode && LANGUAGE_LABEL_OVERRIDES[normalizedCode]) {
+    return LANGUAGE_LABEL_OVERRIDES[normalizedCode];
+  }
+  if (fallback) {
+    const normalizedLabel = fallback.trim().toLowerCase();
+    if (LANGUAGE_NAME_OVERRIDES[normalizedLabel]) {
+      return LANGUAGE_NAME_OVERRIDES[normalizedLabel];
+    }
+    return fallback;
+  }
+  if (normalizedCode) {
+    return normalizedCode;
+  }
+  return "Ohne Sprachcode";
+}
+
+function readLanguagePreference(): string {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return "";
+  }
+  try {
+    const value = window.localStorage.getItem(EPPO_LANGUAGE_PREF_KEY) || "";
+    return value.trim().toUpperCase();
+  } catch (error) {
+    console.warn("Lookup-Sprachpräferenz konnte nicht gelesen werden", error);
+    return "";
+  }
+}
+
+function writeLanguagePreference(value: string): void {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return;
+  }
+  try {
+    const normalized = value.trim().toUpperCase();
+    if (normalized) {
+      window.localStorage.setItem(EPPO_LANGUAGE_PREF_KEY, normalized);
+    } else {
+      window.localStorage.removeItem(EPPO_LANGUAGE_PREF_KEY);
+    }
+  } catch (error) {
+    console.warn(
+      "Lookup-Sprachpräferenz konnte nicht gespeichert werden",
+      error
+    );
+  }
+}
 
 let initialized = false;
 
@@ -76,6 +172,9 @@ export function initLookup(
     ),
     eppoForm: section.querySelector<HTMLFormElement>('[data-role="eppo-form"]'),
     bbchForm: section.querySelector<HTMLFormElement>('[data-role="bbch-form"]'),
+    eppoLanguageSelect: section.querySelector<HTMLSelectElement>(
+      "#lookup-eppo-language"
+    ),
     eppoResults: section.querySelector<HTMLTableSectionElement>(
       '[data-role="eppo-results-body"]'
     ),
@@ -85,14 +184,14 @@ export function initLookup(
     eppoPageInfo: section.querySelector<HTMLElement>(
       '[data-role="eppo-page-info"]'
     ),
-    bbchPageInfo: section.querySelector<HTMLElement>(
-      '[data-role="bbch-page-info"]'
-    ),
     eppoPrevPage: section.querySelector<HTMLButtonElement>(
       '[data-action="eppo-page-prev"]'
     ),
     eppoNextPage: section.querySelector<HTMLButtonElement>(
       '[data-action="eppo-page-next"]'
+    ),
+    bbchPageInfo: section.querySelector<HTMLElement>(
+      '[data-role="bbch-page-info"]'
     ),
     bbchPrevPage: section.querySelector<HTMLButtonElement>(
       '[data-action="bbch-page-prev"]'
@@ -113,6 +212,9 @@ export function initLookup(
   );
 
   let databaseReady = services.state.getState().app.hasDatabase;
+  let storageDriver = services.state.getState().app.storageDriver;
+  const canApplyToCalculation = typeof services.events?.emit === "function";
+  const savedLanguagePreference = readLanguagePreference();
   let activeTab: LookupTab = "eppo";
   let messageTimeout: number | null = null;
 
@@ -120,18 +222,22 @@ export function initLookup(
     eppo: {
       query: "",
       limit: 25,
-      language: "",
+      language: savedLanguagePreference,
       executed: false,
-      page: 0,
       total: 0,
+      page: 0,
+      currentCount: 0,
+      loading: false,
     },
     bbch: {
       query: "",
       limit: 25,
       language: "",
       executed: false,
-      page: 0,
       total: 0,
+      page: 0,
+      currentCount: 0,
+      loading: false,
     },
   };
 
@@ -182,7 +288,10 @@ export function initLookup(
     }
   };
 
-  const setUiEnabled = (enabled: boolean) => {
+  const setUiEnabled = (
+    enabled: boolean,
+    reason: "no-db" | "wrong-driver" | null = null
+  ) => {
     disableTargets.forEach((element) => {
       if (
         element instanceof HTMLButtonElement ||
@@ -193,97 +302,212 @@ export function initLookup(
       }
     });
     if (!enabled) {
-      setMessage(
-        "Bitte zuerst eine Datenbank verbinden, um Lookup-Daten zu laden.",
-        "info",
-        0
-      );
-      renderPlaceholder(
-        refs.eppoResults,
-        "Keine aktive Datenbank",
-        EPPO_COLUMN_COUNT
-      );
-      renderPlaceholder(
-        refs.bbchResults,
-        "Keine aktive Datenbank",
-        BBCH_COLUMN_COUNT
-      );
+      if (reason === "no-db") {
+        setMessage(
+          "Bitte zuerst eine Datenbank verbinden, um Lookup-Daten zu laden.",
+          "info",
+          0
+        );
+      } else if (reason === "wrong-driver") {
+        setMessage(
+          "Lookup-Funktionen benötigen eine SQLite-Datenbank. Bitte in den Einstellungen den SQLite-Treiber aktivieren.",
+          "warning",
+          0
+        );
+      } else {
+        setMessage("Lookup-Funktion vorübergehend deaktiviert.", "warning", 0);
+      }
+      showPlaceholder("eppo", "Lookup derzeit nicht verfügbar");
+      showPlaceholder("bbch", "Lookup derzeit nicht verfügbar");
     } else {
       setMessage();
       if (!searchState.eppo.executed) {
-        renderPlaceholder(
-          refs.eppoResults,
-          "Noch keine Suche ausgeführt.",
-          EPPO_COLUMN_COUNT
-        );
+        showPlaceholder("eppo", "Noch keine Suche ausgeführt.");
       }
       if (!searchState.bbch.executed) {
-        renderPlaceholder(
-          refs.bbchResults,
-          "Noch keine Suche ausgeführt.",
-          BBCH_COLUMN_COUNT
-        );
+        showPlaceholder("bbch", "Noch keine Suche ausgeführt.");
       }
     }
     updatePaginationUi("eppo");
     updatePaginationUi("bbch");
   };
 
+  const isLookupAvailable = (): boolean =>
+    Boolean(databaseReady && storageDriver === "sqlite");
+
+  const updateUiAvailability = () => {
+    if (!databaseReady) {
+      setUiEnabled(false, "no-db");
+      return;
+    }
+    if (storageDriver !== "sqlite") {
+      setUiEnabled(false, "wrong-driver");
+      return;
+    }
+    setUiEnabled(true);
+  };
+
   const prepareNewSearch = (tab: LookupTab) => {
-    searchState[tab].page = 0;
-    searchState[tab].total = 0;
-    searchState[tab].executed = false;
+    const state = searchState[tab];
+    state.total = 0;
+    state.executed = false;
+    state.loading = false;
+    state.page = 0;
+    state.currentCount = 0;
     updatePaginationUi(tab);
   };
 
   const updatePaginationUi = (tab: LookupTab) => {
     const state = searchState[tab];
     const { info, prev, next } = paginationRefs[tab];
-    const hasResults = state.executed && state.total > 0;
     if (info) {
-      if (!state.executed) {
-        info.textContent = "Noch keine Suche.";
-      } else if (!hasResults) {
+      if (!databaseReady) {
+        info.textContent = "Keine aktive Datenbank.";
+      } else if (!state.executed) {
+        info.textContent = state.loading
+          ? "Suche läuft..."
+          : "Noch keine Suche.";
+      } else if (!state.total) {
         info.textContent = "Keine Treffer.";
       } else {
-        const firstItem = state.page * state.limit + 1;
-        const lastItem = Math.min((state.page + 1) * state.limit, state.total);
+        const firstIndex = state.page * state.limit + 1;
+        const lastIndex = Math.min(
+          state.total,
+          firstIndex + (state.currentCount || state.limit) - 1
+        );
         info.textContent = `Einträge ${numberFormatter.format(
-          firstItem
-        )}–${numberFormatter.format(lastItem)} von ${numberFormatter.format(
+          firstIndex
+        )}–${numberFormatter.format(lastIndex)} von ${numberFormatter.format(
           state.total
         )}`;
       }
     }
-    const prevDisabled =
-      !databaseReady || !state.executed || state.page === 0 || !hasResults;
-    const nextDisabled =
+    const maxPage = state.total
+      ? Math.max(Math.ceil(state.total / state.limit) - 1, 0)
+      : 0;
+    const disablePrev =
+      !databaseReady || !state.executed || state.page <= 0 || !state.total;
+    const disableNext =
       !databaseReady ||
       !state.executed ||
-      !hasResults ||
-      (state.page + 1) * state.limit >= state.total;
+      !state.total ||
+      state.page >= maxPage;
     if (prev) {
-      prev.disabled = prevDisabled;
+      prev.disabled = disablePrev;
     }
     if (next) {
-      next.disabled = nextDisabled;
+      next.disabled = disableNext;
     }
   };
 
   const changePage = (tab: LookupTab, delta: number) => {
+    if (!databaseReady) {
+      return;
+    }
     const state = searchState[tab];
-    if (!state.executed) {
+    if (!state.executed || state.loading || !state.total) {
       return;
     }
-    const nextPage = state.page + delta;
-    if (nextPage < 0) {
+    const maxPage = Math.max(Math.ceil(state.total / state.limit) - 1, 0);
+    const nextPage = Math.min(Math.max(state.page + delta, 0), maxPage);
+    if (nextPage === state.page) {
       return;
     }
-    if (delta > 0 && nextPage * state.limit >= state.total) {
-      return;
-    }
-    searchState[tab].page = nextPage;
+    state.page = nextPage;
     void runSearch(tab);
+  };
+
+  const getResultBody = (tab: LookupTab): HTMLTableSectionElement | null =>
+    tab === "eppo" ? refs.eppoResults : refs.bbchResults;
+
+  const getColumnCount = (tab: LookupTab): number =>
+    tab === "eppo" ? EPPO_COLUMN_COUNT : BBCH_COLUMN_COUNT;
+
+  function showPlaceholder(tab: LookupTab, text: string): void {
+    const body = getResultBody(tab);
+    renderPlaceholder(body, text, getColumnCount(tab));
+  }
+
+  let languageOptionsPromise: Promise<boolean> | null = null;
+
+  const refreshLanguageOptions = (): Promise<boolean> => {
+    if (!refs.eppoLanguageSelect) {
+      return Promise.resolve(false);
+    }
+    if (!isLookupAvailable()) {
+      refs.eppoLanguageSelect.innerHTML =
+        '<option value="">Alle Sprachen</option>';
+      refs.eppoLanguageSelect.value = "";
+      return Promise.resolve(false);
+    }
+    if (languageOptionsPromise) {
+      return languageOptionsPromise;
+    }
+    languageOptionsPromise = (async () => {
+      const select = refs.eppoLanguageSelect!;
+      select.dataset.loading = "true";
+      try {
+        const languages = await listLookupLanguages();
+        const totalEntries = languages.reduce(
+          (sum, entry) => sum + (entry.count || 0),
+          0
+        );
+        const optionRows: string[] = [
+          `<option value="">${escapeHtml(
+            totalEntries
+              ? `Alle Sprachen (${numberFormatter.format(totalEntries)})`
+              : "Alle Sprachen"
+          )}</option>`,
+        ];
+        const availableCodes = new Set<string>();
+        for (const entry of languages) {
+          const code = (entry.code || "").trim().toUpperCase();
+          const label = resolveLanguageLabel(code, entry.label);
+          const countSuffix = entry.count
+            ? ` · ${numberFormatter.format(entry.count)}`
+            : "";
+          optionRows.push(
+            `<option value="${escapeHtml(code)}">${escapeHtml(
+              `${label}${countSuffix}`
+            )}</option>`
+          );
+          availableCodes.add(code);
+        }
+        select.innerHTML = optionRows.join("");
+        const previousSelection =
+          searchState.eppo.language?.trim().toUpperCase() || "";
+        let nextSelection = previousSelection;
+        if (nextSelection && !availableCodes.has(nextSelection)) {
+          nextSelection = "";
+        }
+        select.value = nextSelection;
+        if (nextSelection) {
+          writeLanguagePreference(nextSelection);
+        } else {
+          writeLanguagePreference("");
+        }
+        const selectionChanged = previousSelection !== nextSelection;
+        if (selectionChanged) {
+          searchState.eppo.language = nextSelection;
+        }
+        return selectionChanged;
+      } catch (error) {
+        console.error(
+          "Lookup-Sprachen konnten nicht aktualisiert werden",
+          error
+        );
+        setMessage("Sprachenliste konnte nicht geladen werden.", "danger");
+        return false;
+      } finally {
+        const select = refs.eppoLanguageSelect;
+        if (select) {
+          delete select.dataset.loading;
+        }
+      }
+    })().finally(() => {
+      languageOptionsPromise = null;
+    });
+    return languageOptionsPromise;
   };
 
   const formatTimestamp = (value?: string | null): string => {
@@ -350,76 +574,91 @@ export function initLookup(
     tab: LookupTab,
     override?: Partial<Pick<SearchState, "query" | "limit" | "language">>
   ) => {
-    if (!databaseReady) {
+    if (!isLookupAvailable()) {
       return;
-    }
-    if (override?.query !== undefined) {
-      searchState[tab].query = override.query.trim();
-    }
-    if (override?.limit !== undefined) {
-      const normalized = Math.min(Math.max(override.limit, 1), 100);
-      searchState[tab].limit = normalized;
-    }
-    if (override?.language !== undefined) {
-      searchState[tab].language = override.language;
     }
 
     const state = searchState[tab];
-    const query = state.query;
-    const limit = state.limit;
-    const offset = state.page * limit;
-    const payload: LookupSearchOptions = { query, limit, offset };
+    if (state.loading) {
+      return;
+    }
+
+    if (override?.query !== undefined) {
+      state.query = override.query.trim();
+      state.page = 0;
+    }
+    if (override?.limit !== undefined) {
+      const normalized = Math.min(Math.max(override.limit, 1), 50);
+      state.limit = normalized;
+      state.page = 0;
+    }
+    if (override?.language !== undefined) {
+      state.language = override.language.trim().toUpperCase();
+      state.page = 0;
+    }
+
+    showPlaceholder(tab, "Suche läuft...");
+    state.loading = true;
+    updatePaginationUi(tab);
+    const payload: LookupSearchOptions = {
+      query: state.query,
+      limit: state.limit,
+      offset: state.page * state.limit,
+    };
     if (tab === "eppo") {
       const language = state.language?.trim().toUpperCase();
       if (language) {
         payload.language = language;
       }
     }
-    const targetBody = tab === "eppo" ? refs.eppoResults : refs.bbchResults;
-    const columnCount = tab === "eppo" ? EPPO_COLUMN_COUNT : BBCH_COLUMN_COUNT;
-    renderPlaceholder(targetBody, "Suche läuft...", columnCount);
 
     try {
-      let result:
-        | LookupSearchResult<EppoLookupResult>
-        | LookupSearchResult<BbchLookupResult>;
-      if (tab === "eppo") {
-        result = await searchEppoLookup(payload);
-      } else {
-        result = await searchBbchLookup(payload);
-      }
+      const result =
+        tab === "eppo"
+          ? await searchEppoLookup(payload)
+          : await searchBbchLookup(payload);
+      const rows = Array.isArray(result?.rows) ? result.rows : [];
+      const totalValue = Number(result?.total);
+      state.total =
+        Number.isFinite(totalValue) && totalValue >= 0
+          ? totalValue
+          : rows.length;
 
-      const total = Number(result.total) || 0;
-      const rows = Array.isArray(result.rows) ? result.rows : [];
-
-      if (total > 0) {
-        const maxPage = Math.max(0, Math.ceil(total / limit) - 1);
+      if (!rows.length && state.total && state.page > 0) {
+        const maxPage = Math.max(Math.ceil(state.total / state.limit) - 1, 0);
         if (state.page > maxPage) {
           state.page = maxPage;
-          updatePaginationUi(tab);
+          state.loading = false;
           await runSearch(tab);
           return;
         }
-      } else if (state.page !== 0) {
-        state.page = 0;
       }
 
-      state.total = total;
-      state.executed = true;
-
-      if (tab === "eppo") {
-        renderEppoResults(rows as EppoLookupResult[], targetBody);
+      const targetBody = getResultBody(tab);
+      if (!rows.length) {
+        showPlaceholder(tab, "Keine Treffer gefunden.");
+      } else if (tab === "eppo") {
+        renderEppoResults(rows as EppoLookupResult[], targetBody, false, {
+          enableApply: canApplyToCalculation,
+        });
       } else {
-        renderBbchResults(rows as BbchLookupResult[], targetBody);
+        renderBbchResults(rows as BbchLookupResult[], targetBody, false, {
+          enableApply: canApplyToCalculation,
+        });
       }
 
+      state.executed = true;
+      state.currentCount = rows.length;
+      state.loading = false;
       updatePaginationUi(tab);
     } catch (error) {
+      state.loading = false;
       console.error("Lookup-Suche fehlgeschlagen", error);
       setMessage("Suche fehlgeschlagen.", "danger");
-      renderPlaceholder(targetBody, "Fehler bei der Suche", columnCount);
+      showPlaceholder(tab, "Fehler bei der Suche");
       state.executed = false;
       state.total = 0;
+      state.currentCount = 0;
       updatePaginationUi(tab);
     }
   };
@@ -455,6 +694,20 @@ export function initLookup(
     void runSearch("eppo", { query, limit, language });
   });
 
+  refs.eppoLanguageSelect?.addEventListener("change", () => {
+    if (!isLookupAvailable()) {
+      if (refs.eppoLanguageSelect) {
+        refs.eppoLanguageSelect.value = "";
+      }
+      return;
+    }
+    const selection = refs.eppoLanguageSelect?.value.trim().toUpperCase() || "";
+    searchState.eppo.language = selection;
+    writeLanguagePreference(selection);
+    prepareNewSearch("eppo");
+    void runSearch("eppo");
+  });
+
   refs.bbchForm?.addEventListener("submit", (event) => {
     event.preventDefault();
     if (!databaseReady) {
@@ -476,19 +729,84 @@ export function initLookup(
         return;
       }
       setActiveTab(target);
-      if (databaseReady && !searchState[target].executed) {
+      if (isLookupAvailable() && !searchState[target].executed) {
         void runSearch(target);
       }
     });
   });
 
   section.addEventListener("click", (event) => {
-    const copyBtn = (event.target as HTMLElement).closest<HTMLButtonElement>(
+    const targetElement = event.target as HTMLElement;
+    const copyBtn = targetElement.closest<HTMLButtonElement>(
       '[data-action="copy-code"]'
     );
     if (copyBtn && copyBtn.dataset.code) {
       event.preventDefault();
       void copyToClipboard(copyBtn.dataset.code, setMessage);
+      return;
+    }
+
+    const applyEppoBtn = targetElement.closest<HTMLButtonElement>(
+      '[data-action="apply-eppo"]'
+    );
+    if (applyEppoBtn) {
+      event.preventDefault();
+      if (!canApplyToCalculation) {
+        setMessage(
+          "Berechnungsformular nicht verfügbar – bitte SQLite-Treiber aktivieren.",
+          "warning"
+        );
+        return;
+      }
+      const payload = {
+        code: applyEppoBtn.dataset.code || "",
+        name: applyEppoBtn.dataset.name || "",
+        language: applyEppoBtn.dataset.language || "",
+        dtcode: applyEppoBtn.dataset.dtcode || "",
+      };
+      try {
+        services.events.emit("lookup:apply-eppo", payload);
+        const label = payload.code ? `EPPO-Code ${payload.code}` : "EPPO-Code";
+        setMessage(`${label} wurde ins Formular übernommen.`, "success");
+      } catch (error) {
+        console.error("EPPO-Code konnte nicht übergeben werden", error);
+        setMessage(
+          "Auswahl konnte nicht ins Formular übernommen werden.",
+          "danger"
+        );
+      }
+      return;
+    }
+
+    const applyBbchBtn = targetElement.closest<HTMLButtonElement>(
+      '[data-action="apply-bbch"]'
+    );
+    if (applyBbchBtn) {
+      event.preventDefault();
+      if (!canApplyToCalculation) {
+        setMessage(
+          "Berechnungsformular nicht verfügbar – bitte SQLite-Treiber aktivieren.",
+          "warning"
+        );
+        return;
+      }
+      const payload = {
+        code: applyBbchBtn.dataset.code || "",
+        label: applyBbchBtn.dataset.name || "",
+      };
+      try {
+        services.events.emit("lookup:apply-bbch", payload);
+        const label = payload.code
+          ? `BBCH-Stadium ${payload.code}`
+          : "BBCH-Stadium";
+        setMessage(`${label} wurde ins Formular übernommen.`, "success");
+      } catch (error) {
+        console.error("BBCH-Eintrag konnte nicht übergeben werden", error);
+        setMessage(
+          "Stadium konnte nicht ins Formular übernommen werden.",
+          "danger"
+        );
+      }
     }
   });
 
@@ -504,6 +822,7 @@ export function initLookup(
         setMessage("EPPO-Datenbank aktualisiert.", "success");
         await refreshStats();
         if (activeTab === "eppo") {
+          prepareNewSearch("eppo");
           await runSearch("eppo");
         }
       } catch (error) {
@@ -520,6 +839,7 @@ export function initLookup(
         setMessage("BBCH-Datenbank aktualisiert.", "success");
         await refreshStats();
         if (activeTab === "bbch") {
+          prepareNewSearch("bbch");
           await runSearch("bbch");
         }
       } catch (error) {
@@ -551,24 +871,30 @@ export function initLookup(
   });
 
   const handleStateChange = () => {
-    const nextReady = services.state.getState().app.hasDatabase;
-    if (nextReady === databaseReady) {
-      return;
-    }
-    databaseReady = nextReady;
-    setUiEnabled(databaseReady);
-    if (databaseReady) {
-      void refreshStats();
-      if (!searchState[activeTab].executed) {
-        void runSearch(activeTab);
-      }
+    const nextAppState = services.state.getState().app;
+    const wasAvailable = isLookupAvailable();
+    databaseReady = nextAppState.hasDatabase;
+    storageDriver = nextAppState.storageDriver;
+    updateUiAvailability();
+    const nowAvailable = isLookupAvailable();
+    if (!wasAvailable && nowAvailable) {
+      void (async () => {
+        await refreshStats();
+        await refreshLanguageOptions();
+        if (!searchState[activeTab].executed) {
+          await runSearch(activeTab);
+        }
+      })();
+    } else if (nowAvailable) {
+      updatePaginationUi(activeTab);
     }
   };
 
   services.state.subscribe(handleStateChange);
   setActiveTab("eppo");
-  setUiEnabled(databaseReady);
-  if (databaseReady) {
+  updateUiAvailability();
+  void refreshLanguageOptions();
+  if (isLookupAvailable()) {
     void refreshStats();
     void runSearch("eppo");
   }
@@ -696,9 +1022,9 @@ function createSection(): HTMLElement {
               </tbody>
             </table>
           </div>
-          <div class="d-flex justify-content-between align-items-center mt-2">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2">
             <small class="text-muted" data-role="eppo-page-info">Noch keine Suche.</small>
-            <div class="btn-group">
+            <div class="btn-group" role="group">
               <button type="button" class="btn btn-outline-light btn-sm" data-action="eppo-page-prev" data-lookup-disable>
                 <i class="bi bi-chevron-left"></i>
               </button>
@@ -747,9 +1073,9 @@ function createSection(): HTMLElement {
               </tbody>
             </table>
           </div>
-          <div class="d-flex justify-content-between align-items-center mt-2">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2">
             <small class="text-muted" data-role="bbch-page-info">Noch keine Suche.</small>
-            <div class="btn-group">
+            <div class="btn-group" role="group">
               <button type="button" class="btn btn-outline-light btn-sm" data-action="bbch-page-prev" data-lookup-disable>
                 <i class="bi bi-chevron-left"></i>
               </button>
@@ -764,6 +1090,10 @@ function createSection(): HTMLElement {
   `;
   return section;
 }
+
+type LookupRenderOptions = {
+  enableApply?: boolean;
+};
 
 async function withButtonBusy(
   button: HTMLButtonElement | null,
@@ -789,16 +1119,21 @@ async function withButtonBusy(
 
 function renderEppoResults(
   rows: EppoLookupResult[],
-  target?: HTMLTableSectionElement | null
+  target?: HTMLTableSectionElement | null,
+  append = false,
+  options: LookupRenderOptions = {}
 ): void {
   if (!target) {
     return;
   }
   if (!rows.length) {
-    renderPlaceholder(target, "Keine Treffer gefunden", EPPO_COLUMN_COUNT);
+    if (!append && !target.children.length) {
+      renderPlaceholder(target, "Keine Treffer gefunden", EPPO_COLUMN_COUNT);
+    }
     return;
   }
-  target.innerHTML = rows
+  const enableApply = Boolean(options.enableApply);
+  const html = rows
     .map((row) => {
       const dtLabel = row.dtLabel?.trim() || null;
       const dtCode = row.dtcode?.trim() || null;
@@ -847,16 +1182,32 @@ function renderEppoResults(
           </td>
           <td>${hintsHtml}</td>
           <td class="text-end">
-            <button class="btn btn-sm btn-outline-light" data-action="copy-code" data-code="${escapeHtml(
-              row.code
-            )}">
-              Kopieren
-            </button>
+            <div class="btn-group btn-group-sm" role="group">
+              <button type="button" class="btn btn-outline-light" data-action="copy-code" data-code="${escapeHtml(
+                row.code
+              )}">
+                Kopieren
+              </button>
+              <button type="button" class="btn btn-success" data-action="apply-eppo" data-code="${escapeHtml(
+                row.code
+              )}" data-name="${escapeHtml(row.name)}" data-language="${escapeHtml(
+                row.language || ""
+              )}" data-dtcode="${escapeHtml(row.dtcode || "")}"${
+                enableApply ? "" : " disabled"
+              }>
+                Übernehmen
+              </button>
+            </div>
           </td>
         </tr>
       `;
     })
     .join("");
+  if (append) {
+    target.insertAdjacentHTML("beforeend", html);
+  } else {
+    target.innerHTML = html;
+  }
 }
 
 function formatLanguageLabel(
@@ -899,16 +1250,21 @@ function collectSynonymEntries(row: EppoLookupResult): SynonymEntry[] {
 
 function renderBbchResults(
   rows: BbchLookupResult[],
-  target?: HTMLTableSectionElement | null
+  target?: HTMLTableSectionElement | null,
+  append = false,
+  options: LookupRenderOptions = {}
 ): void {
   if (!target) {
     return;
   }
   if (!rows.length) {
-    renderPlaceholder(target, "Keine Treffer gefunden", BBCH_COLUMN_COUNT);
+    if (!append && !target.children.length) {
+      renderPlaceholder(target, "Keine Treffer gefunden", BBCH_COLUMN_COUNT);
+    }
     return;
   }
-  target.innerHTML = rows
+  const enableApply = Boolean(options.enableApply);
+  const html = rows
     .map((row) => {
       const stageParts: string[] = [];
       if (row.principalStage != null) {
@@ -935,16 +1291,30 @@ function renderBbchResults(
           </td>
           <td>${definitionHtml}${kindBadge}</td>
           <td class="text-end">
-            <button class="btn btn-sm btn-outline-light" data-action="copy-code" data-code="${escapeHtml(
-              row.code
-            )}">
-              Kopieren
-            </button>
+            <div class="btn-group btn-group-sm" role="group">
+              <button type="button" class="btn btn-outline-light" data-action="copy-code" data-code="${escapeHtml(
+                row.code
+              )}">
+                Kopieren
+              </button>
+              <button type="button" class="btn btn-success" data-action="apply-bbch" data-code="${escapeHtml(
+                row.code
+              )}" data-name="${escapeHtml(row.label)}"${
+                enableApply ? "" : " disabled"
+              }>
+                Übernehmen
+              </button>
+            </div>
           </td>
         </tr>
       `;
     })
     .join("");
+  if (append) {
+    target.insertAdjacentHTML("beforeend", html);
+  } else {
+    target.innerHTML = html;
+  }
 }
 
 function renderBbchDefinition(text?: string | null): string {

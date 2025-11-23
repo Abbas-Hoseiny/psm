@@ -11,6 +11,7 @@ let currentMode = "memory";
 // SQLite-WASM CDN URL
 const SQLITE_WASM_CDN =
   "https://cdn.jsdelivr.net/npm/@sqlite.org/sqlite-wasm@3.46.1-build1/sqlite-wasm/jswasm/";
+const GPS_ACTIVE_POINT_META_KEY = "gps_active_point";
 
 function getFieldValue(record, fieldName) {
   if (!record || !fieldName) {
@@ -97,6 +98,14 @@ function hasColumn(targetDb, tableName, columnName) {
   return Boolean(targetDb.selectValue(sql));
 }
 
+function hasTable(targetDb, tableName) {
+  if (!targetDb || !tableName) {
+    return false;
+  }
+  const sql = `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '${tableName}' LIMIT 1`;
+  return Boolean(targetDb.selectValue(sql));
+}
+
 function ensureMediumApprovalColumn(targetDb = db) {
   if (!targetDb) {
     return;
@@ -111,21 +120,49 @@ function ensureLookupTables(targetDb = db) {
   if (!targetDb) {
     return;
   }
-  targetDb.exec(`
-    CREATE TABLE IF NOT EXISTS lookup_eppo_codes (
-      code TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      language TEXT,
-      dtcode TEXT,
-      preferred INTEGER DEFAULT 1,
-      dt_label TEXT,
-      language_label TEXT,
-      authority TEXT,
-      name_de TEXT,
-      name_en TEXT,
-      name_la TEXT
-    );
 
+  const ensureEppoTable = () => {
+    targetDb.exec("DROP TABLE IF EXISTS lookup_eppo_codes");
+    targetDb.exec(`
+      CREATE TABLE IF NOT EXISTS lookup_eppo_codes (
+        code TEXT NOT NULL,
+        language TEXT NOT NULL DEFAULT '',
+        name TEXT NOT NULL,
+        dtcode TEXT,
+        preferred INTEGER DEFAULT 1,
+        dt_label TEXT,
+        language_label TEXT,
+        authority TEXT,
+        name_de TEXT,
+        name_en TEXT,
+        name_la TEXT,
+        PRIMARY KEY (code, language)
+      );
+    `);
+  };
+
+  if (!hasColumn(targetDb, "lookup_eppo_codes", "language")) {
+    ensureEppoTable();
+  } else {
+    targetDb.exec(`
+      CREATE TABLE IF NOT EXISTS lookup_eppo_codes (
+        code TEXT NOT NULL,
+        language TEXT NOT NULL DEFAULT '',
+        name TEXT NOT NULL,
+        dtcode TEXT,
+        preferred INTEGER DEFAULT 1,
+        dt_label TEXT,
+        language_label TEXT,
+        authority TEXT,
+        name_de TEXT,
+        name_en TEXT,
+        name_la TEXT,
+        PRIMARY KEY (code, language)
+      );
+    `);
+  }
+
+  targetDb.exec(`
     CREATE INDEX IF NOT EXISTS idx_lookup_eppo_name ON lookup_eppo_codes(name COLLATE NOCASE);
     CREATE INDEX IF NOT EXISTS idx_lookup_eppo_dtcode ON lookup_eppo_codes(dtcode);
     CREATE INDEX IF NOT EXISTS idx_lookup_eppo_language ON lookup_eppo_codes(language);
@@ -160,6 +197,194 @@ function ensureLookupTables(targetDb = db) {
   }
 }
 
+function ensureGpsPointTable(targetDb = db) {
+  if (!targetDb) {
+    return;
+  }
+  targetDb.exec(`
+    CREATE TABLE IF NOT EXISTS gps_points (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      latitude REAL NOT NULL,
+      longitude REAL NOT NULL,
+      source TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_gps_points_created ON gps_points(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_gps_points_name ON gps_points(name COLLATE NOCASE);
+  `);
+}
+
+function generateGpsPointId() {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return `gps_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function mapGpsPointRow(row) {
+  if (!row) {
+    return null;
+  }
+  return {
+    id: String(row.id),
+    name: row.name != null ? String(row.name) : "",
+    description: row.description ?? null,
+    latitude: Number(row.latitude),
+    longitude: Number(row.longitude),
+    source: row.source ?? null,
+    created_at: row.created_at || new Date().toISOString(),
+    updated_at: row.updated_at || new Date().toISOString(),
+  };
+}
+
+function readGpsPointById(id) {
+  if (!db || !id) {
+    return null;
+  }
+  let record = null;
+  db.exec({
+    sql: `SELECT id, name, description, latitude, longitude, source, created_at, updated_at
+           FROM gps_points
+           WHERE id = ?
+           LIMIT 1`,
+    bind: [id],
+    rowMode: "object",
+    callback: (row) => {
+      if (!record) {
+        record = mapGpsPointRow(row);
+      }
+    },
+  });
+  return record;
+}
+
+async function listGpsPoints() {
+  if (!db) {
+    throw new Error("Database not initialized");
+  }
+  ensureGpsPointTable();
+  const rows = [];
+  db.exec({
+    sql: `SELECT id, name, description, latitude, longitude, source, created_at, updated_at
+          FROM gps_points
+          ORDER BY datetime(updated_at) DESC`,
+    rowMode: "object",
+    callback: (row) => {
+      rows.push(mapGpsPointRow(row));
+    },
+  });
+  const activePointId = getMetaValue(GPS_ACTIVE_POINT_META_KEY);
+  return { rows, activePointId: activePointId || null };
+}
+
+async function upsertGpsPoint(payload = {}) {
+  if (!db) {
+    throw new Error("Database not initialized");
+  }
+  ensureGpsPointTable();
+
+  const id = String(payload.id || generateGpsPointId());
+  const name = String(payload.name ?? "").trim();
+  if (!name) {
+    throw new Error("GPS-Punkt benötigt einen Namen.");
+  }
+  const latitude = Number(payload.latitude);
+  const longitude = Number(payload.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error("GPS-Punkt hat ungültige Koordinaten.");
+  }
+  const description =
+    payload.description != null ? String(payload.description) : null;
+  const source = payload.source != null ? String(payload.source) : null;
+  const now = new Date().toISOString();
+
+  const exists = db.selectValue(
+    "SELECT 1 FROM gps_points WHERE id = ? LIMIT 1",
+    [id]
+  );
+  if (exists) {
+    const stmt = db.prepare(
+      `UPDATE gps_points
+       SET name = ?, description = ?, latitude = ?, longitude = ?, source = ?, updated_at = ?
+       WHERE id = ?`
+    );
+    stmt.bind([name, description, latitude, longitude, source, now, id]);
+    stmt.step();
+    stmt.finalize();
+  } else {
+    const stmt = db.prepare(
+      `INSERT INTO gps_points (id, name, description, latitude, longitude, source, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    stmt.bind([id, name, description, latitude, longitude, source, now, now]);
+    stmt.step();
+    stmt.finalize();
+  }
+
+  const row = readGpsPointById(id);
+  if (!row) {
+    throw new Error("GPS-Punkt konnte nicht gelesen werden.");
+  }
+  return row;
+}
+
+async function deleteGpsPoint(payload = {}) {
+  if (!db) {
+    throw new Error("Database not initialized");
+  }
+  ensureGpsPointTable();
+  const id = String(payload.id ?? "").trim();
+  if (!id) {
+    throw new Error("ID für GPS-Punkt fehlt.");
+  }
+  const stmt = db.prepare("DELETE FROM gps_points WHERE id = ?");
+  stmt.bind([id]);
+  stmt.step();
+  stmt.finalize();
+  const activePointId = getMetaValue(GPS_ACTIVE_POINT_META_KEY);
+  if (activePointId === id) {
+    deleteMetaValue(GPS_ACTIVE_POINT_META_KEY);
+  }
+  return { success: true };
+}
+
+async function setActiveGpsPointId(payload = {}) {
+  if (!db) {
+    throw new Error("Database not initialized");
+  }
+  ensureGpsPointTable();
+  const id =
+    payload && typeof payload.id === "string" ? payload.id.trim() : null;
+  if (id) {
+    const exists = db.selectValue(
+      "SELECT 1 FROM gps_points WHERE id = ? LIMIT 1",
+      [id]
+    );
+    if (!exists) {
+      throw new Error("GPS-Punkt wurde nicht gefunden.");
+    }
+    setMetaValue(GPS_ACTIVE_POINT_META_KEY, id);
+    return { activePointId: id };
+  }
+  deleteMetaValue(GPS_ACTIVE_POINT_META_KEY);
+  return { activePointId: null };
+}
+
+async function getActiveGpsPointId() {
+  if (!db) {
+    throw new Error("Database not initialized");
+  }
+  const activePointId = getMetaValue(GPS_ACTIVE_POINT_META_KEY);
+  return { activePointId: activePointId || null };
+}
+
 function setMetaValue(key, value, targetDb = db) {
   if (!targetDb || !key) {
     return;
@@ -170,6 +395,15 @@ function setMetaValue(key, value, targetDb = db) {
   stmt
     .bind([key, typeof value === "string" ? value : JSON.stringify(value)])
     .step();
+  stmt.finalize();
+}
+
+function deleteMetaValue(key, targetDb = db) {
+  if (!targetDb || !key) {
+    return;
+  }
+  const stmt = targetDb.prepare("DELETE FROM meta WHERE key = ?");
+  stmt.bind([key]).step();
   stmt.finalize();
 }
 
@@ -300,8 +534,26 @@ self.onmessage = async function (event) {
       case "searchBbchStages":
         result = await searchBbchStages(payload);
         break;
+      case "listLookupLanguages":
+        result = listLookupLanguages();
+        break;
       case "getLookupStats":
         result = await getLookupStats();
+        break;
+      case "listGpsPoints":
+        result = await listGpsPoints();
+        break;
+      case "upsertGpsPoint":
+        result = await upsertGpsPoint(payload);
+        break;
+      case "deleteGpsPoint":
+        result = await deleteGpsPoint(payload);
+        break;
+      case "setActiveGpsPointId":
+        result = await setActiveGpsPointId(payload);
+        break;
+      case "getActiveGpsPointId":
+        result = await getActiveGpsPointId();
         break;
       case "diagnoseBvlSchema":
         result = await diagnoseBvlSchema();
@@ -475,6 +727,20 @@ async function applySchema() {
       CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_history_items_history_id ON history_items(history_id);
       CREATE INDEX IF NOT EXISTS idx_mediums_method_id ON mediums(method_id);
+
+      CREATE TABLE IF NOT EXISTS gps_points (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        source TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_gps_points_created ON gps_points(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_gps_points_name ON gps_points(name COLLATE NOCASE);
       
       PRAGMA user_version = 1;
     `;
@@ -650,6 +916,22 @@ async function applySchema() {
     } catch (error) {
       db.exec("ROLLBACK");
       console.error("Migration to version 5 failed:", error);
+      throw error;
+    }
+  }
+
+  postMigrationVersion = db.selectValue("PRAGMA user_version") || 0;
+  const gpsTableMissing = !hasTable(db, "gps_points");
+  if (gpsTableMissing || postMigrationVersion < 6) {
+    console.log("Migrating database to version 6...");
+    db.exec("BEGIN TRANSACTION");
+    try {
+      ensureGpsPointTable(db);
+      db.exec("PRAGMA user_version = 6");
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      console.error("Migration to version 6 failed:", error);
       throw error;
     }
   }
@@ -2217,34 +2499,12 @@ async function importLookupEppo(payload = {}) {
   const remoteDb = openDatabaseFromBytes(bytes);
 
   const rows = [];
+  const metadataById = new Map();
+  let uniqueCodeCount = 0;
   try {
     remoteDb.exec({
       sql: `
-        WITH ranked AS (
-          SELECT
-            c.codeid,
-            UPPER(TRIM(c.eppocode)) AS code,
-            TRIM(COALESCE(n.fullname, c.eppocode)) AS fullname,
-            UPPER(IFNULL(n.codelang, '')) AS language,
-            UPPER(IFNULL(c.dtcode, '')) AS dtcode,
-            n.idauth AS authority_id,
-            ROW_NUMBER() OVER (
-              PARTITION BY c.eppocode
-              ORDER BY
-                CASE UPPER(IFNULL(n.codelang, ''))
-                  WHEN 'DE' THEN 0
-                  WHEN 'EN' THEN 1
-                  ELSE 2
-                END,
-                CASE WHEN IFNULL(n.preferred, 0) = 1 THEN 0 ELSE 1 END
-            ) AS lang_rank
-          FROM t_codes c
-          LEFT JOIN t_names n ON n.codeid = c.codeid
-          WHERE c.eppocode IS NOT NULL
-            AND LENGTH(TRIM(c.eppocode)) > 0
-            AND (n.status IS NULL OR n.status != 'R')
-        ),
-        localized AS (
+        WITH localized AS (
           SELECT
             codeid,
             MAX(CASE WHEN UPPER(codelang) = 'DE' THEN TRIM(fullname) END) AS name_de,
@@ -2255,41 +2515,147 @@ async function importLookupEppo(payload = {}) {
           GROUP BY codeid
         )
         SELECT
-          r.code,
-          r.fullname,
-          r.language,
-          r.dtcode,
+          c.codeid,
+          UPPER(TRIM(c.eppocode)) AS code,
+          CASE
+            WHEN c.dtcode IS NOT NULL AND LENGTH(TRIM(c.dtcode)) > 0
+              THEN UPPER(TRIM(c.dtcode))
+            ELSE NULL
+          END AS dtcode,
           dt.libtype AS dt_label,
-          lang.language AS language_label,
-          auth.authdesc AS authority,
           loc.name_de,
           loc.name_en,
-          loc.name_la
-        FROM ranked r
-        LEFT JOIN t_datatypes dt ON UPPER(IFNULL(dt.dtcode, '')) = r.dtcode
-        LEFT JOIN t_langs lang ON UPPER(IFNULL(lang.codelang, '')) = r.language
-        LEFT JOIN t_authorities auth ON auth.idauth = r.authority_id
-        LEFT JOIN localized loc ON loc.codeid = r.codeid
-        WHERE r.lang_rank = 1;
+          loc.name_la,
+          TRIM(
+            COALESCE(
+              loc.name_de,
+              loc.name_en,
+              loc.name_la,
+              c.eppocode
+            )
+          ) AS fallback_name
+        FROM t_codes c
+        LEFT JOIN t_datatypes dt ON UPPER(TRIM(dt.dtcode)) = UPPER(TRIM(c.dtcode))
+        LEFT JOIN localized loc ON loc.codeid = c.codeid
+        WHERE c.eppocode IS NOT NULL
+          AND LENGTH(TRIM(c.eppocode)) > 0;
       `,
       callback: (row) => {
-        if (!row || !row[0]) {
+        const codeId = row && row[0] != null ? Number(row[0]) : null;
+        const code = row && row[1] ? String(row[1]).trim().toUpperCase() : "";
+        if (!codeId || !code) {
           return;
         }
-        rows.push({
-          code: row[0],
-          name: row[1] || row[0],
-          language: row[2] || null,
-          dtcode: row[3] || null,
-          dtLabel: row[4] || null,
-          languageLabel: row[5] || null,
-          authority: row[6] || null,
-          nameDe: row[7] || null,
-          nameEn: row[8] || null,
-          nameLa: row[9] || null,
+        const normalizeName = (value) => {
+          if (!value) {
+            return null;
+          }
+          const trimmed = String(value).trim();
+          return trimmed.length ? trimmed : null;
+        };
+        const fallbackName = normalizeName(row[7]) || code;
+        metadataById.set(codeId, {
+          codeId,
+          code,
+          dtcode: normalizeName(row[2]) || null,
+          dtLabel: normalizeName(row[3]),
+          nameDe: normalizeName(row[4]),
+          nameEn: normalizeName(row[5]),
+          nameLa: normalizeName(row[6]),
+          fallbackName,
         });
       },
     });
+
+    const codesWithEntries = new Set();
+    remoteDb.exec({
+      sql: `
+        WITH ranked AS (
+          SELECT
+            n.codeid,
+            CASE
+              WHEN n.codelang IS NULL OR LENGTH(TRIM(n.codelang)) = 0
+                THEN ''
+              ELSE UPPER(TRIM(n.codelang))
+            END AS language,
+            TRIM(n.fullname) AS fullname,
+            n.idauth AS authority_id,
+            ROW_NUMBER() OVER (
+              PARTITION BY n.codeid,
+                CASE
+                  WHEN n.codelang IS NULL OR LENGTH(TRIM(n.codelang)) = 0
+                    THEN ''
+                  ELSE UPPER(TRIM(n.codelang))
+                END
+              ORDER BY
+                CASE WHEN IFNULL(n.preferred, 0) = 1 THEN 0 ELSE 1 END,
+                LENGTH(TRIM(n.fullname)),
+                TRIM(n.fullname)
+            ) AS lang_rank
+          FROM t_names n
+          JOIN t_codes c ON c.codeid = n.codeid
+          WHERE c.eppocode IS NOT NULL
+            AND LENGTH(TRIM(c.eppocode)) > 0
+            AND n.fullname IS NOT NULL
+            AND LENGTH(TRIM(n.fullname)) > 0
+            AND (n.status IS NULL OR n.status != 'R')
+        )
+        SELECT
+          r.codeid,
+          r.language,
+          r.fullname,
+          lang.language AS language_label,
+          auth.authdesc AS authority
+        FROM ranked r
+        LEFT JOIN t_langs lang ON UPPER(IFNULL(lang.codelang, '')) = r.language
+        LEFT JOIN t_authorities auth ON auth.idauth = r.authority_id
+        WHERE r.lang_rank = 1;
+      `,
+      callback: (row) => {
+        if (!row || row[0] == null) {
+          return;
+        }
+        const codeId = Number(row[0]);
+        const meta = metadataById.get(codeId);
+        if (!meta) {
+          return;
+        }
+        const language = row[1] ? String(row[1]).trim().toUpperCase() : "";
+        const nameValue = row[2] ? String(row[2]).trim() : "";
+        rows.push({
+          code: meta.code,
+          name: nameValue || meta.fallbackName || meta.code,
+          language,
+          dtcode: meta.dtcode,
+          dtLabel: meta.dtLabel,
+          languageLabel: row[3] ? String(row[3]).trim() : null,
+          authority: row[4] ? String(row[4]).trim() : null,
+          nameDe: meta.nameDe,
+          nameEn: meta.nameEn,
+          nameLa: meta.nameLa,
+        });
+        codesWithEntries.add(codeId);
+      },
+    });
+
+    for (const meta of metadataById.values()) {
+      if (codesWithEntries.has(meta.codeId)) {
+        continue;
+      }
+      rows.push({
+        code: meta.code,
+        name: meta.fallbackName || meta.code,
+        language: "",
+        dtcode: meta.dtcode,
+        dtLabel: meta.dtLabel,
+        languageLabel: null,
+        authority: null,
+        nameDe: meta.nameDe,
+        nameEn: meta.nameEn,
+        nameLa: meta.nameLa,
+      });
+    }
+    uniqueCodeCount = metadataById.size;
   } finally {
     remoteDb.close();
   }
@@ -2319,7 +2685,7 @@ async function importLookupEppo(payload = {}) {
           .bind([
             row.code,
             row.name,
-            row.language,
+            row.language || "",
             row.dtcode,
             1,
             row.dtLabel,
@@ -2335,7 +2701,7 @@ async function importLookupEppo(payload = {}) {
       stmt.finalize();
     }
     setMetaValue("lookup:eppo:lastImport", new Date().toISOString());
-    setMetaValue("lookup:eppo:count", String(rows.length));
+    setMetaValue("lookup:eppo:count", String(uniqueCodeCount || rows.length));
     db.exec("COMMIT");
     return { success: true, count: rows.length };
   } catch (error) {
@@ -2447,6 +2813,10 @@ function searchEppoCodes(params = {}) {
   const hasLanguageFilter = languageParam.length > 0;
   const results = [];
 
+  if (hasLanguageFilter && languageParam === "DE") {
+    return searchGermanEppoCodes({ query, limit, offset });
+  }
+
   const selectClause = `
     SELECT
       code,
@@ -2554,6 +2924,196 @@ function searchEppoCodes(params = {}) {
   });
 
   return { rows: results, total };
+}
+
+function searchGermanEppoCodes(params = {}) {
+  const query = (params.query || "").trim();
+  const limit = Math.min(Math.max(Number(params.limit) || 10, 1), 50);
+  const offset = Math.max(Number(params.offset) || 0, 0);
+  const results = [];
+  const germanSourceSql = getGermanLookupSelectSql();
+  const germanTable = `(${germanSourceSql}) AS german_lookup`;
+
+  if (!query) {
+    db.exec({
+      sql: `
+        SELECT code, name, dtcode, language, dt_label, language_label, authority, name_de, name_en, name_la
+        FROM ${germanTable}
+        ORDER BY name
+        LIMIT ? OFFSET ?
+      `,
+      bind: [limit, offset],
+      callback: (row) => {
+        if (!row) {
+          return;
+        }
+        results.push({
+          code: row[0],
+          name: row[1],
+          dtcode: row[2] || null,
+          language: row[3] || "DE",
+          dtLabel: row[4] || null,
+          languageLabel: row[5] || "Deutsch",
+          authority: row[6] || null,
+          nameDe: row[7] || null,
+          nameEn: row[8] || null,
+          nameLa: row[9] || null,
+        });
+      },
+    });
+    const total =
+      Number(
+        db.selectValue(
+          `SELECT COUNT(*) FROM (${germanSourceSql}) AS german_lookup`
+        )
+      ) || 0;
+    return { rows: results, total };
+  }
+
+  const upper = query.toUpperCase();
+  const likeTerm = `%${upper}%`;
+  const total =
+    Number(
+      db.selectValue(
+        `SELECT COUNT(*) FROM ${germanTable} WHERE code LIKE ? OR UPPER(name) LIKE ?`,
+        [likeTerm, likeTerm]
+      )
+    ) || 0;
+
+  const rowBinds = [likeTerm, likeTerm, `${upper}%`, limit, offset];
+
+  db.exec({
+    sql: `
+      SELECT code, name, dtcode, language, dt_label, language_label, authority, name_de, name_en, name_la
+      FROM ${germanTable}
+      WHERE code LIKE ? OR UPPER(name) LIKE ?
+      ORDER BY CASE WHEN code LIKE ? THEN 0 ELSE 1 END, name
+      LIMIT ? OFFSET ?
+    `,
+    bind: rowBinds,
+    callback: (row) => {
+      if (!row) {
+        return;
+      }
+      results.push({
+        code: row[0],
+        name: row[1],
+        dtcode: row[2] || null,
+        language: row[3] || "DE",
+        dtLabel: row[4] || null,
+        languageLabel: row[5] || "Deutsch",
+        authority: row[6] || null,
+        nameDe: row[7] || null,
+        nameEn: row[8] || null,
+        nameLa: row[9] || null,
+      });
+    },
+  });
+
+  return { rows: results, total };
+}
+
+function listLookupLanguages() {
+  if (!db) throw new Error("Database not initialized");
+  ensureLookupTables(db);
+
+  const languages = [];
+  db.exec({
+    sql: `
+      SELECT
+        UPPER(IFNULL(language, '')) AS language_code,
+        MAX(language_label) AS language_label,
+        COUNT(*) AS entry_count
+      FROM lookup_eppo_codes
+      GROUP BY UPPER(IFNULL(language, ''))
+      ORDER BY CASE WHEN language_code = '' THEN 0 ELSE 1 END, language_code;
+    `,
+    callback: (row) => {
+      if (!row) {
+        return;
+      }
+      const language = row[0] ? String(row[0]).trim().toUpperCase() : "";
+      const label = row[1] ? String(row[1]).trim() : null;
+      const count = row[2] != null ? Number(row[2]) : 0;
+      languages.push({ language, label, count });
+    },
+  });
+
+  const germanCount =
+    Number(
+      db.selectValue(
+        `SELECT COUNT(*) FROM (${getGermanLookupSelectSql()}) AS german_lookup`
+      )
+    ) || 0;
+  if (germanCount > 0) {
+    const existingGerman = languages.find(
+      (entry) => (entry.language || "").toUpperCase() === "DE"
+    );
+    if (existingGerman) {
+      const normalizedLabel = existingGerman.label
+        ? existingGerman.label.trim()
+        : "";
+      existingGerman.label = normalizedLabel || "Deutsch";
+      existingGerman.count = germanCount;
+    } else {
+      languages.push({ language: "DE", label: "Deutsch", count: germanCount });
+    }
+  }
+
+  languages.sort((a, b) => {
+    const score = (code) => (code === "" ? 0 : 1);
+    const delta = score(a.language || "") - score(b.language || "");
+    if (delta !== 0) {
+      return delta;
+    }
+    return (a.language || "").localeCompare(b.language || "");
+  });
+
+  return languages.map((entry) => {
+    const language = entry.language || "";
+    const label =
+      entry.label && entry.label.length
+        ? entry.label
+        : language || "Ohne Sprachcode";
+    return {
+      language,
+      label,
+      count: entry.count,
+    };
+  });
+}
+
+function getGermanLookupSelectSql() {
+  return `
+    SELECT
+      code,
+      name,
+      dtcode,
+      language,
+      dt_label,
+      language_label,
+      authority,
+      name_de,
+      name_en,
+      name_la
+    FROM lookup_eppo_codes
+    WHERE UPPER(IFNULL(language, '')) = 'DE'
+    UNION ALL
+    SELECT
+      code,
+      name_de AS name,
+      dtcode,
+      'DE' AS language,
+      dt_label,
+      'Deutsch' AS language_label,
+      authority,
+      name_de,
+      name_en,
+      name_la
+    FROM lookup_eppo_codes
+    WHERE TRIM(IFNULL(name_de, '')) <> ''
+      AND UPPER(IFNULL(language, '')) <> 'DE'
+  `;
 }
 
 function searchBbchStages(params = {}) {
