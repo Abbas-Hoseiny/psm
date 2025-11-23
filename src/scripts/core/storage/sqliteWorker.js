@@ -1399,16 +1399,28 @@ async function listHistory({
     : 1;
   const offset = (normalizedPage - 1) * normalizedPageSize;
 
+  const historyDateExpr = `COALESCE(
+    NULLIF(json_extract(header_json, '$.dateIso'), ''),
+    CASE
+      WHEN json_extract(header_json, '$.datum') GLOB '__.__.____'
+      THEN substr(json_extract(header_json, '$.datum'), 7, 4) || '-' ||
+           substr(json_extract(header_json, '$.datum'), 4, 2) || '-' ||
+           substr(json_extract(header_json, '$.datum'), 1, 2)
+      ELSE NULL
+    END,
+    created_at
+  )`;
+
   const whereParts = [];
   const whereParams = [];
 
   if (filters.startDate) {
-    whereParts.push("datetime(created_at) >= datetime(?)");
+    whereParts.push(`datetime(${historyDateExpr}) >= datetime(?)`);
     whereParams.push(filters.startDate);
   }
 
   if (filters.endDate) {
-    whereParts.push("datetime(created_at) <= datetime(?)");
+    whereParts.push(`datetime(${historyDateExpr}) <= datetime(?)`);
     whereParams.push(filters.endDate);
   }
 
@@ -1461,7 +1473,7 @@ async function listHistory({
       SELECT id, created_at, header_json
       FROM history
       ${whereSql}
-      ORDER BY datetime(created_at) ${sanitizedDirection}, rowid ${sanitizedDirection}
+      ORDER BY datetime(${historyDateExpr}) ${sanitizedDirection}, rowid ${sanitizedDirection}
       LIMIT ${normalizedPageSize} OFFSET ${offset}
     `,
     callback: (row) => {

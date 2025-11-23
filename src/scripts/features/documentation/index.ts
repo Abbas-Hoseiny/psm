@@ -69,20 +69,65 @@ interface DocumentationFilters {
   startDate?: string;
   endDate?: string;
   creator?: string;
-  location?: string;
   crop?: string;
-  usageType?: string;
-  eppoCode?: string;
-  invekos?: string;
-  search?: string;
 }
 
 type EntryDetailPayload = { entry: DocumentationEntry; detail: HistoryEntry };
 
+function formatDateInputValue(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function toDateBoundaryIso(
+  value: string | undefined,
+  boundary: "start" | "end"
+): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+  if (boundary === "start") {
+    date.setHours(0, 0, 0, 0);
+  } else {
+    date.setHours(23, 59, 59, 999);
+  }
+  return date.toISOString();
+}
+
+function getDefaultFilters(): DocumentationFilters {
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(start.getDate() - 30);
+  return {
+    startDate: formatDateInputValue(start),
+    endDate: formatDateInputValue(end),
+  };
+}
+
+function applyDateFiltersToForm(
+  form: HTMLFormElement | null,
+  filters: DocumentationFilters
+): void {
+  if (!form) {
+    return;
+  }
+  const startInput = form.querySelector<HTMLInputElement>("#doc-start");
+  const endInput = form.querySelector<HTMLInputElement>("#doc-end");
+  if (startInput && filters.startDate) {
+    startInput.value = filters.startDate;
+  }
+  if (endInput && filters.endDate) {
+    endInput.value = filters.endDate;
+  }
+}
+
 const PAGE_SIZE = 50;
 let initialized = false;
 let dataMode: DataMode = "memory";
-let currentFilters: DocumentationFilters = {};
+let currentFilters: DocumentationFilters = getDefaultFilters();
 let currentPage = 1;
 let totalEntries = 0;
 let allEntries: DocumentationEntry[] = [];
@@ -105,32 +150,19 @@ function toHistoryQueryFilters(
   filters: DocumentationFilters
 ): HistoryQueryFilters {
   const query: HistoryQueryFilters = {};
-  if (filters.startDate) {
-    query.startDate = filters.startDate;
+  const startBoundary = toDateBoundaryIso(filters.startDate, "start");
+  const endBoundary = toDateBoundaryIso(filters.endDate, "end");
+  if (startBoundary) {
+    query.startDate = startBoundary;
   }
-  if (filters.endDate) {
-    query.endDate = filters.endDate;
+  if (endBoundary) {
+    query.endDate = endBoundary;
   }
   if (filters.creator) {
     query.creator = filters.creator;
   }
-  if (filters.location) {
-    query.location = filters.location;
-  }
   if (filters.crop) {
     query.crop = filters.crop;
-  }
-  if (filters.usageType) {
-    query.usageType = filters.usageType;
-  }
-  if (filters.eppoCode) {
-    query.eppoCode = filters.eppoCode;
-  }
-  if (filters.invekos) {
-    query.invekos = filters.invekos;
-  }
-  if (filters.search) {
-    query.text = filters.search;
   }
   return query;
 }
@@ -269,11 +301,7 @@ function matchesFilter(
 
   const textChecks: Array<[keyof DocumentationFilters, string | undefined]> = [
     ["creator", entry.ersteller],
-    ["location", entry.standort],
     ["crop", entry.kultur],
-    ["usageType", entry.usageType],
-    ["eppoCode", entry.eppoCode],
-    ["invekos", entry.invekos],
   ];
 
   for (const [filterKey, value] of textChecks) {
@@ -283,25 +311,6 @@ function matchesFilter(
       normalizedNeedle &&
       !`${value || ""}`.toLowerCase().includes(normalizedNeedle)
     ) {
-      return false;
-    }
-  }
-
-  const normalizedSearch = filters.search?.trim().toLowerCase();
-  if (normalizedSearch) {
-    const haystack = [
-      entry.ersteller,
-      entry.standort,
-      entry.kultur,
-      entry.usageType,
-      entry.eppoCode,
-      entry.invekos,
-      entry.bbch,
-      entry.gps,
-    ]
-      .map((value) => (value ? value.toLowerCase() : ""))
-      .join(" ");
-    if (!haystack.includes(normalizedSearch)) {
       return false;
     }
   }
@@ -581,27 +590,29 @@ function renderList(
 
 function updateInfo(
   section: HTMLElement,
-  labels: AppState["fieldLabels"]
+  _labels: AppState["fieldLabels"]
 ): void {
   const info = section.querySelector<HTMLElement>('[data-role="doc-info"]');
   if (!info) {
     return;
   }
   const total = totalEntries;
-  const hasFilter = Object.values(currentFilters).some((value) => value);
+  const hasOptionalFilters = Boolean(
+    currentFilters.crop || currentFilters.creator
+  );
   if (!total && !isLoadingEntries) {
-    info.textContent = hasFilter
-      ? "Keine Einträge für diese Filter"
-      : "Keine Einträge";
+    info.textContent = hasOptionalFilters
+      ? "Keine Einträge für diese Filter im Zeitraum"
+      : "Keine Einträge im ausgewählten Zeitraum";
     return;
   }
   if (!total && isLoadingEntries) {
     info.textContent = "Lade Einträge ...";
     return;
   }
-  const dateLabel = labels?.reporting?.infoPrefix || "Auswahl";
-  if (hasFilter && currentFilters.startDate && currentFilters.endDate) {
-    info.textContent = `${dateLabel} ${currentFilters.startDate} - ${currentFilters.endDate} (${total})`;
+  if (currentFilters.startDate && currentFilters.endDate) {
+    const base = `Zeitraum ${currentFilters.startDate} - ${currentFilters.endDate} (${total})`;
+    info.textContent = hasOptionalFilters ? `${base} – Filter aktiv` : base;
     return;
   }
   info.textContent = `Alle Einträge (${total})`;
@@ -700,6 +711,14 @@ async function applyFilters(
   section: HTMLElement,
   state: AppState
 ): Promise<void> {
+  if (!currentFilters.startDate || !currentFilters.endDate) {
+    currentFilters = {
+      ...currentFilters,
+      ...getDefaultFilters(),
+    };
+    const form = section.querySelector<HTMLFormElement>("#doc-filter");
+    applyDateFiltersToForm(form, currentFilters);
+  }
   const driverKey = resolveStorageDriver(state);
   const hasDatabase = Boolean(state.app?.hasDatabase);
   const useSqlite = driverKey === "sqlite" && hasDatabase;
@@ -862,6 +881,14 @@ function exportEntries(entries: HistoryEntry[]): void {
 
 function createSection(): HTMLElement {
   const wrapper = document.createElement("div");
+  const defaultFilters = getDefaultFilters();
+  const startValue = currentFilters.startDate || defaultFilters.startDate || "";
+  const endValue = currentFilters.endDate || defaultFilters.endDate || "";
+  currentFilters = {
+    ...currentFilters,
+    startDate: startValue,
+    endDate: endValue,
+  };
   wrapper.className = "section-inner";
   wrapper.innerHTML = `
     <h2 class="text-center mb-4">Dokumentation</h2>
@@ -869,38 +896,23 @@ function createSection(): HTMLElement {
       <div class="card-body">
         <form id="doc-filter" class="row g-3">
           <div class="col-md-3">
-            <label class="form-label" for="doc-start">Startdatum</label>
-            <input type="date" class="form-control" id="doc-start" name="doc-start" />
+            <label class="form-label" for="doc-start">Startdatum*</label>
+            <input type="date" class="form-control" id="doc-start" name="doc-start" required value="${startValue}" />
           </div>
           <div class="col-md-3">
-            <label class="form-label" for="doc-end">Enddatum</label>
-            <input type="date" class="form-control" id="doc-end" name="doc-end" />
+            <label class="form-label" for="doc-end">Enddatum*</label>
+            <input type="date" class="form-control" id="doc-end" name="doc-end" required value="${endValue}" />
           </div>
           <div class="col-md-3">
-            <label class="form-label" for="doc-crop">Kultur</label>
-            <input type="text" class="form-control" id="doc-crop" name="doc-crop" placeholder="z. B. Äpfel" />
+            <label class="form-label" for="doc-crop">Kultur (optional)</label>
+            <input type="text" class="form-control" id="doc-crop" name="doc-crop" placeholder="z. B. Äpfel" value="${currentFilters.crop || ""}" />
           </div>
           <div class="col-md-3">
-            <label class="form-label" for="doc-creator">Anwender</label>
-            <input type="text" class="form-control" id="doc-creator" name="doc-creator" placeholder="Name" />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label" for="doc-usage">Art der Verwendung</label>
-            <input type="text" class="form-control" id="doc-usage" name="doc-usage" placeholder="z. B. SUR" />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label" for="doc-eppo">EPPO-Code</label>
-            <input type="text" class="form-control" id="doc-eppo" name="doc-eppo" placeholder="EPPO" />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label" for="doc-invekos">InVeKoS-Schlag</label>
-            <input type="text" class="form-control" id="doc-invekos" name="doc-invekos" placeholder="Schlag" />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label" for="doc-search">Volltext</label>
-            <input type="text" class="form-control" id="doc-search" name="doc-search" placeholder="Freitext" />
+            <label class="form-label" for="doc-creator">Anwender (optional)</label>
+            <input type="text" class="form-control" id="doc-creator" name="doc-creator" placeholder="Name" value="${currentFilters.creator || ""}" />
           </div>
           <div class="col-12 d-flex gap-2 justify-content-end">
+            <span class="text-muted small me-auto">* Pflichtfelder</span>
             <button class="btn btn-outline-secondary" type="reset" data-action="reset-filters">Zurücksetzen</button>
             <button class="btn btn-success" type="submit">Filter anwenden</button>
           </div>
@@ -955,15 +967,23 @@ function parseFilters(form: HTMLFormElement | null): DocumentationFilters {
     return {};
   }
   const data = new FormData(form);
+  const readDate = (name: string): string | undefined => {
+    const value = data.get(name);
+    return typeof value === "string" && value ? value : undefined;
+  };
+  const readText = (name: string): string | undefined => {
+    const value = data.get(name);
+    if (typeof value !== "string") {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  };
   return {
-    startDate: (data.get("doc-start") as string) || undefined,
-    endDate: (data.get("doc-end") as string) || undefined,
-    crop: (data.get("doc-crop") as string) || undefined,
-    creator: (data.get("doc-creator") as string) || undefined,
-    usageType: (data.get("doc-usage") as string) || undefined,
-    eppoCode: (data.get("doc-eppo") as string) || undefined,
-    invekos: (data.get("doc-invekos") as string) || undefined,
-    search: (data.get("doc-search") as string) || undefined,
+    startDate: readDate("doc-start"),
+    endDate: readDate("doc-end"),
+    crop: readText("doc-crop"),
+    creator: readText("doc-creator"),
   };
 }
 
@@ -976,7 +996,12 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
       return;
     }
     event.preventDefault();
-    currentFilters = parseFilters(event.target);
+    const nextFilters = parseFilters(event.target);
+    if (!nextFilters.startDate || !nextFilters.endDate) {
+      window.alert("Bitte Start- und Enddatum auswählen.");
+      return;
+    }
+    currentFilters = nextFilters;
     resetSelection(section);
     void applyFilters(section, services.state.getState());
   });
@@ -998,7 +1023,8 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
     if (action === "reset-filters") {
       const form = section.querySelector<HTMLFormElement>("#doc-filter");
       form?.reset();
-      currentFilters = {};
+      currentFilters = getDefaultFilters();
+      applyDateFiltersToForm(form ?? null, currentFilters);
       resetSelection(section);
       void applyFilters(section, services.state.getState());
       return;
