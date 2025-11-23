@@ -20,7 +20,8 @@
         "bbch": "",
         "gps": "",
         "invekos": "",
-        "time": ""
+        "time": "",
+        "date": ""
       }
     },
     "measurementMethods": [
@@ -72,5 +73,6 @@
       "zulassungsnummer": ""
     }
   ],
+  "mediumProfiles": [],
   "history": []
 }

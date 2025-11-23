@@ -9,6 +9,7 @@ import {
   escapeHtml,
   formatGpsCoordinates,
   buildGoogleMapsUrl,
+  formatDateFromIso,
 } from "@scripts/core/utils";
 import { renderCalculationSnapshot } from "@scripts/features/shared/calculationSnapshot";
 import { initVirtualList } from "@scripts/core/virtualList";
@@ -39,6 +40,7 @@ interface Services {
 interface HistoryEntry {
   datum?: string;
   date?: string;
+  dateIso?: string | null;
   ersteller?: string;
   standort?: string;
   kultur?: string;
@@ -53,6 +55,18 @@ interface HistoryEntry {
   items: CalculationItem[];
   savedAt?: string;
   [key: string]: unknown;
+}
+
+function resolveHistoryDate(entry: HistoryEntry | null): string {
+  if (!entry) {
+    return "";
+  }
+  return (
+    entry.datum ||
+    formatDateFromIso(entry.dateIso) ||
+    (typeof entry.date === "string" ? entry.date : "") ||
+    ""
+  );
 }
 
 function resolveHistoryGps(entry: HistoryEntry): string {
@@ -232,7 +246,9 @@ function renderCardsList(
     if (entries.length > limit) {
       const loadMoreBtn = document.createElement("button");
       loadMoreBtn.className = "btn btn-secondary w-100 mt-3";
-      loadMoreBtn.textContent = `Mehr laden (${entries.length - limit} weitere)`;
+      loadMoreBtn.textContent = `Mehr laden (${
+        entries.length - limit
+      } weitere)`;
       loadMoreBtn.dataset.action = "load-more";
       loadMoreBtn.dataset.currentLimit = String(limit);
       listContainer.appendChild(loadMoreBtn);
@@ -336,21 +352,39 @@ function renderDetail(
 
   detailBody.innerHTML = `
     <p>
-      <strong>${escapeHtml(tableLabels.date || "Datum")}:</strong> ${escapeHtml(entry.datum || entry.date || "")}<br />
-      <strong>${escapeHtml(detailLabels.creator || "Erstellt von")}:</strong> ${escapeHtml(entry.ersteller || "")}<br />
-      <strong>${escapeHtml(detailLabels.location || "Standort")}:</strong> ${escapeHtml(entry.standort || "")}<br />
-      <strong>${escapeHtml(detailLabels.crop || "Kultur")}:</strong> ${escapeHtml(entry.kultur || "")}<br />
-      <strong>${escapeHtml(detailLabels.quantity || "Kisten")}:</strong> ${escapeHtml(
+      <strong>${escapeHtml(tableLabels.date || "Datum")}:</strong> ${escapeHtml(
+        resolveHistoryDate(entry)
+      )}<br />
+      <strong>${escapeHtml(
+        detailLabels.creator || "Erstellt von"
+      )}:</strong> ${escapeHtml(entry.ersteller || "")}<br />
+      <strong>${escapeHtml(
+        detailLabels.location || "Standort"
+      )}:</strong> ${escapeHtml(entry.standort || "")}<br />
+      <strong>${escapeHtml(
+        detailLabels.crop || "Kultur"
+      )}:</strong> ${escapeHtml(entry.kultur || "")}<br />
+      <strong>${escapeHtml(
+        detailLabels.quantity || "Kisten"
+      )}:</strong> ${escapeHtml(
         entry.kisten !== undefined && entry.kisten !== null
           ? String(entry.kisten)
           : ""
       )}<br />
-      <strong>${escapeHtml(detailLabels.eppoCode || "EPPO-Code")}:</strong> ${escapeHtml(entry.eppoCode || "")}<br />
-      <strong>${escapeHtml(detailLabels.bbch || "BBCH-Stadium")}:</strong> ${escapeHtml(entry.bbch || "")}<br />
-      <strong>${escapeHtml(detailLabels.invekos || "InVeKoS-Schlag")}:</strong> ${escapeHtml(entry.invekos || "")}<br />
+      <strong>${escapeHtml(
+        detailLabels.eppoCode || "EPPO-Code"
+      )}:</strong> ${escapeHtml(entry.eppoCode || "")}<br />
+      <strong>${escapeHtml(
+        detailLabels.bbch || "BBCH-Stadium"
+      )}:</strong> ${escapeHtml(entry.bbch || "")}<br />
+      <strong>${escapeHtml(
+        detailLabels.invekos || "InVeKoS-Schlag"
+      )}:</strong> ${escapeHtml(entry.invekos || "")}<br />
       <strong>${escapeHtml(gpsNoteLabel)}:</strong> ${gpsNoteHtml}<br />
       <strong>${escapeHtml(gpsCoordsLabel)}:</strong> ${gpsCoordsHtml}<br />
-      <strong>${escapeHtml(detailLabels.time || "Uhrzeit")}:</strong> ${escapeHtml(entry.uhrzeit || "")}
+      <strong>${escapeHtml(
+        detailLabels.time || "Uhrzeit"
+      )}:</strong> ${escapeHtml(entry.uhrzeit || "")}
     </p>
     <div class="table-responsive">
       ${snapshotTable}
@@ -368,7 +402,9 @@ function renderDetail(
       }
       ${
         mapUrl
-          ? `<a class="btn btn-outline-info no-print" href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">
+          ? `<a class="btn btn-outline-info no-print" href="${escapeHtml(
+              mapUrl
+            )}" target="_blank" rel="noopener noreferrer">
                Google Maps öffnen
              </a>`
           : ""
@@ -472,49 +508,52 @@ function printDetail(
       : escapeHtml(gpsCoordsValue)
     : "";
 
+  const entryDate = resolveHistoryDate(entry);
+  const headingHtml = entryDate ? `<h2>${escapeHtml(entryDate)}</h2>` : "";
+
   const content = `${buildCompanyPrintHeader(company)}
     <section class="history-detail">
-      <h2>${escapeHtml(detailLabels.title || "Historieneintrag")} – ${escapeHtml(
-        entry.datum || entry.date || ""
-      )}</h2>
+      ${headingHtml}
       <p>
-        <strong>${escapeHtml(detailLabels.creator || "Erstellt von")}:</strong> ${escapeHtml(
-          entry.ersteller || ""
-        )}<br />
-        <strong>${escapeHtml(detailLabels.location || "Standort")}:</strong> ${escapeHtml(
-          entry.standort || ""
-        )}<br />
-        <strong>${escapeHtml(detailLabels.crop || "Kultur")}:</strong> ${escapeHtml(
-          entry.kultur || ""
-        )}<br />
-        <strong>${escapeHtml(detailLabels.quantity || "Kisten")}:</strong> ${escapeHtml(
+        <strong>${escapeHtml(
+          detailLabels.creator || "Erstellt von"
+        )}:</strong> ${escapeHtml(entry.ersteller || "")}<br />
+        <strong>${escapeHtml(
+          detailLabels.location || "Standort"
+        )}:</strong> ${escapeHtml(entry.standort || "")}<br />
+        <strong>${escapeHtml(
+          detailLabels.crop || "Kultur"
+        )}:</strong> ${escapeHtml(entry.kultur || "")}<br />
+        <strong>${escapeHtml(
+          detailLabels.quantity || "Kisten"
+        )}:</strong> ${escapeHtml(
           entry.kisten !== undefined && entry.kisten !== null
             ? String(entry.kisten)
             : ""
         )}<br />
-        <strong>${escapeHtml(detailLabels.eppoCode || "EPPO-Code")}:</strong> ${escapeHtml(
-          entry.eppoCode || ""
-        )}<br />
-        <strong>${escapeHtml(detailLabels.bbch || "BBCH-Stadium")}:</strong> ${escapeHtml(
-          entry.bbch || ""
-        )}<br />
-        <strong>${escapeHtml(detailLabels.invekos || "InVeKoS-Schlag")}:</strong> ${escapeHtml(
-          entry.invekos || ""
-        )}<br />
+        <strong>${escapeHtml(
+          detailLabels.eppoCode || "EPPO-Code"
+        )}:</strong> ${escapeHtml(entry.eppoCode || "")}<br />
+        <strong>${escapeHtml(
+          detailLabels.bbch || "BBCH-Stadium"
+        )}:</strong> ${escapeHtml(entry.bbch || "")}<br />
+        <strong>${escapeHtml(
+          detailLabels.invekos || "InVeKoS-Schlag"
+        )}:</strong> ${escapeHtml(entry.invekos || "")}<br />
         <strong>${escapeHtml(gpsNoteLabel)}:</strong> ${escapeHtml(
           gpsNoteValue || ""
         )}<br />
         <strong>${escapeHtml(gpsCoordsLabel)}:</strong> ${gpsCoordsHtml}<br />
-        <strong>${escapeHtml(detailLabels.time || "Uhrzeit")}:</strong> ${escapeHtml(
-          entry.uhrzeit || ""
-        )}
+        <strong>${escapeHtml(
+          detailLabels.time || "Uhrzeit"
+        )}:</strong> ${escapeHtml(entry.uhrzeit || "")}
       </p>
       ${snapshotTable}
     </section>
   `;
 
   printHtml({
-    title: `Historie – ${entry.datum || entry.date || ""}`,
+    title: entryDate || "Historie",
     styles: HISTORY_SUMMARY_STYLES,
     content,
   });
@@ -712,7 +751,9 @@ export function initHistory(
       if (newLimit < state.history.length) {
         const newBtn = document.createElement("button");
         newBtn.className = "btn btn-secondary w-100 mt-3";
-        newBtn.textContent = `Mehr laden (${state.history.length - newLimit} weitere)`;
+        newBtn.textContent = `Mehr laden (${
+          state.history.length - newLimit
+        } weitere)`;
         newBtn.dataset.action = "load-more";
         newBtn.dataset.currentLimit = String(newLimit);
         listContainer.appendChild(newBtn);

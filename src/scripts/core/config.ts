@@ -34,6 +34,7 @@ export async function loadDefaultsConfig(): Promise<any> {
     defaults: mergeDefaults(current.defaults, defaults.meta?.defaults ?? {}),
     measurementMethods: [...(defaults.meta?.measurementMethods ?? [])],
     mediums: [...(defaults.mediums ?? [])],
+    mediumProfiles: [...(defaults.mediumProfiles ?? [])],
     history: [...(defaults.history ?? [])],
     fieldLabels: resolveFieldLabels(defaults.meta?.fieldLabels ?? {}),
   });

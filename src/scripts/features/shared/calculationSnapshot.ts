@@ -2,6 +2,7 @@ import {
   escapeHtml,
   formatGpsCoordinates,
   buildGoogleMapsUrl,
+  formatDateFromIso,
 } from "@scripts/core/utils";
 import { buildMediumTableHTML } from "./mediumTable";
 
@@ -16,6 +17,7 @@ interface SnapshotOptions {
 export interface CalculationSnapshotEntry {
   datum?: string;
   date?: string;
+  dateIso?: string | null;
   ersteller?: string;
   standort?: string;
   kultur?: string;
@@ -29,6 +31,20 @@ export interface CalculationSnapshotEntry {
   uhrzeit?: string;
   items?: any[];
   [key: string]: unknown;
+}
+
+function resolveSnapshotDate(
+  entry: CalculationSnapshotEntry | null | undefined
+): string {
+  if (!entry) {
+    return "";
+  }
+  return (
+    entry.datum ||
+    formatDateFromIso(entry.dateIso) ||
+    (typeof entry.date === "string" ? entry.date : "") ||
+    ""
+  );
 }
 
 export interface CalculationSnapshotLabels {
@@ -52,6 +68,18 @@ function resolveSnapshotGpsNote(entry: CalculationSnapshotEntry): string {
   return entry?.gps || "";
 }
 
+function shouldDisplayGpsNote(note: string, coordinates: string): boolean {
+  const normalizedNote = (note || "").trim();
+  if (!normalizedNote) {
+    return false;
+  }
+  const normalizedCoords = (coordinates || "").trim();
+  if (!normalizedCoords) {
+    return true;
+  }
+  return normalizedNote !== normalizedCoords;
+}
+
 export function renderCalculationSnapshot(
   entry: CalculationSnapshotEntry,
   labels: CalculationSnapshotLabels,
@@ -68,8 +96,9 @@ export function renderCalculationSnapshot(
   const tableLabels = labels?.history?.tableColumns ?? {};
   const detailLabels = labels?.history?.detail ?? {};
   const gpsNoteValue = resolveSnapshotGpsNote(entry);
-  const gpsNoteHtml = gpsNoteValue ? escapeHtml(gpsNoteValue) : "–";
   const gpsCoordinateValue = resolveSnapshotGps(entry);
+  const showGpsNote = shouldDisplayGpsNote(gpsNoteValue, gpsCoordinateValue);
+  const gpsNoteHtml = showGpsNote ? escapeHtml(gpsNoteValue) : "–";
   const gpsMapUrl = entry?.gpsCoordinates
     ? buildGoogleMapsUrl(entry.gpsCoordinates)
     : null;
@@ -156,10 +185,12 @@ export function renderCalculationSnapshot(
         <div class="calc-snapshot-card__meta">
           <div class="calc-snapshot-card__date">
             <strong>${escapeHtml(tableLabels.date || "Datum")}:</strong>
-            ${escapeHtml(entry?.datum || entry?.date || "–")}
+            ${escapeHtml(resolveSnapshotDate(entry) || "–")}
           </div>
           <div class="calc-snapshot-card__creator">
-            <strong>${escapeHtml(detailLabels.creator || tableLabels.creator || "Erstellt von")}:</strong>
+            <strong>${escapeHtml(
+              detailLabels.creator || tableLabels.creator || "Erstellt von"
+            )}:</strong>
             ${escapeHtml(entry?.ersteller || "–")}
           </div>
         </div>
@@ -167,35 +198,51 @@ export function renderCalculationSnapshot(
       <div class="calc-snapshot-card__body">
         <div class="calc-snapshot-card__info">
           <div class="calc-snapshot-card__info-item">
-            <strong>${escapeHtml(detailLabels.location || tableLabels.location || "Standort")}:</strong>
+            <strong>${escapeHtml(
+              detailLabels.location || tableLabels.location || "Standort"
+            )}:</strong>
             ${escapeHtml(entry?.standort || "–")}
           </div>
           <div class="calc-snapshot-card__info-item">
-            <strong>${escapeHtml(detailLabels.crop || tableLabels.crop || "Kultur")}:</strong>
+            <strong>${escapeHtml(
+              detailLabels.crop || tableLabels.crop || "Kultur"
+            )}:</strong>
             ${escapeHtml(entry?.kultur || "–")}
           </div>
           <div class="calc-snapshot-card__info-item">
-            <strong>${escapeHtml(detailLabels.eppoCode || tableLabels.eppoCode || "EPPO")}:</strong>
+            <strong>${escapeHtml(
+              detailLabels.eppoCode || tableLabels.eppoCode || "EPPO"
+            )}:</strong>
             ${escapeHtml(entry?.eppoCode || "–")}
           </div>
           <div class="calc-snapshot-card__info-item">
-            <strong>${escapeHtml(detailLabels.bbch || tableLabels.bbch || "BBCH")}:</strong>
+            <strong>${escapeHtml(
+              detailLabels.bbch || tableLabels.bbch || "BBCH"
+            )}:</strong>
             ${escapeHtml(entry?.bbch || "–")}
           </div>
           <div class="calc-snapshot-card__info-item">
-            <strong>${escapeHtml(detailLabels.invekos || tableLabels.invekos || "InVeKoS")}:</strong>
+            <strong>${escapeHtml(
+              detailLabels.invekos || tableLabels.invekos || "InVeKoS"
+            )}:</strong>
             ${escapeHtml(entry?.invekos || "–")}
           </div>
-          <div class="calc-snapshot-card__info-item">
+          ${
+            showGpsNote
+              ? `<div class="calc-snapshot-card__info-item">
             <strong>${escapeHtml(gpsNoteLabel)}:</strong>
             ${gpsNoteHtml}
-          </div>
+          </div>`
+              : ""
+          }
           <div class="calc-snapshot-card__info-item">
             <strong>${escapeHtml(gpsCoordinatesLabel)}:</strong>
             ${gpsCoordinatesHtml}
           </div>
           <div class="calc-snapshot-card__info-item">
-            <strong>${escapeHtml(detailLabels.quantity || tableLabels.quantity || "Kisten")}:</strong>
+            <strong>${escapeHtml(
+              detailLabels.quantity || tableLabels.quantity || "Kisten"
+            )}:</strong>
             ${escapeHtml(
               entry?.kisten !== undefined && entry?.kisten !== null
                 ? String(entry.kisten)
@@ -203,7 +250,9 @@ export function renderCalculationSnapshot(
             )}
           </div>
           <div class="calc-snapshot-card__info-item">
-            <strong>${escapeHtml(detailLabels.time || tableLabels.time || "Uhrzeit")}:</strong>
+            <strong>${escapeHtml(
+              detailLabels.time || tableLabels.time || "Uhrzeit"
+            )}:</strong>
             ${escapeHtml(entry?.uhrzeit || "–")}
           </div>
         </div>
@@ -232,6 +281,7 @@ export function renderCalculationSnapshotForPrint(
   );
   const gpsNoteValue = resolveSnapshotGpsNote(entry);
   const gpsCoordinateValue = resolveSnapshotGps(entry);
+  const showGpsNote = shouldDisplayGpsNote(gpsNoteValue, gpsCoordinateValue);
   const gpsMapUrl = entry?.gpsCoordinates
     ? buildGoogleMapsUrl(entry.gpsCoordinates)
     : null;
@@ -239,7 +289,9 @@ export function renderCalculationSnapshotForPrint(
   const gpsCoordinatesLabel = detailLabels.gpsCoordinates || "GPS-Koordinaten";
   const gpsCoordinateHtml = gpsCoordinateValue
     ? gpsMapUrl
-      ? `<a href="${escapeHtml(gpsMapUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
+      ? `<a href="${escapeHtml(
+          gpsMapUrl
+        )}" target="_blank" rel="noopener noreferrer">${escapeHtml(
           gpsCoordinateValue
         )}</a>`
       : escapeHtml(gpsCoordinateValue)
@@ -274,10 +326,14 @@ export function renderCalculationSnapshotForPrint(
       label: detailLabels.invekos || "InVeKoS",
       value: entry?.invekos || null,
     },
-    {
-      label: gpsNoteLabel,
-      value: gpsNoteValue || null,
-    },
+    ...(showGpsNote
+      ? [
+          {
+            label: gpsNoteLabel,
+            value: gpsNoteValue || null,
+          },
+        ]
+      : []),
     {
       label: gpsCoordinatesLabel,
       value: gpsCoordinateHtml,
@@ -316,13 +372,16 @@ export function renderCalculationSnapshotForPrint(
     })
     .join("<br />");
 
+  const entryDate = resolveSnapshotDate(entry);
+  const headingHtml = entryDate
+    ? `<div class="calc-snapshot-print__header"><h3>${escapeHtml(
+        entryDate
+      )}</h3></div>`
+    : "";
+
   return `
     <div class="calc-snapshot-print">
-      <div class="calc-snapshot-print__header">
-        <h3>${escapeHtml(detailLabels.title || "Details")} – ${escapeHtml(
-          entry?.datum || entry?.date || ""
-        )}</h3>
-      </div>
+      ${headingHtml}
       <div class="calc-snapshot-print__meta">
         <p>${metaBlockHtml}</p>
       </div>

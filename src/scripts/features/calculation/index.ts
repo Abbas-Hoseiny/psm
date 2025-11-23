@@ -2,8 +2,15 @@ import {
   escapeHtml,
   debounce,
   formatGpsCoordinates,
+  normalizeDateInput,
+  formatDateFromIso,
 } from "@scripts/core/utils";
-import { getState, type GpsPoint, type AppState } from "@scripts/core/state";
+import {
+  getState,
+  type GpsPoint,
+  type AppState,
+  type MediumProfile,
+} from "@scripts/core/state";
 import { setFieldLabelByPath } from "@scripts/core/labels";
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { saveDatabase, getActiveDriverKey } from "@scripts/core/storage";
@@ -98,6 +105,7 @@ function createSection(
     gps: "",
     invekos: "",
     time: "",
+    date: "",
   };
   const section = document.createElement("section");
   section.className = "section-inner";
@@ -106,39 +114,126 @@ function createSection(
       <div class="card-body">
         <form id="calculationForm" class="row g-3 no-print">
           <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.creator.label" data-default-label="${escapeAttr(labels.calculation.fields.creator.label)}" value="${escapeAttr(labels.calculation.fields.creator.label)}" placeholder="${escapeAttr(labels.calculation.fields.creator.label)}" aria-label="Bezeichnung für Feld" />
-            <input type="text" class="form-control" id="calc-ersteller" name="calc-ersteller" required data-placeholder-id="calc-form-creator" placeholder="${escapeAttr(labels.calculation.fields.creator.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.creator.label)}" value="${escapeAttr(formDefaults.creator || "")}" />
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.creator.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.creator.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.creator.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.creator.label
+            )}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-ersteller" name="calc-ersteller" required data-placeholder-id="calc-form-creator" placeholder="${escapeAttr(
+              labels.calculation.fields.creator.placeholder
+            )}" aria-label="${escapeAttr(
+              labels.calculation.fields.creator.label
+            )}" value="${escapeAttr(formDefaults.creator || "")}" />
           </div>
           <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.location.label" data-default-label="${escapeAttr(labels.calculation.fields.location.label)}" value="${escapeAttr(labels.calculation.fields.location.label)}" placeholder="${escapeAttr(labels.calculation.fields.location.label)}" aria-label="Bezeichnung für Feld" />
-            <input type="text" class="form-control" id="calc-standort" name="calc-standort" data-placeholder-id="calc-form-location" placeholder="${escapeAttr(labels.calculation.fields.location.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.location.label)}" value="${escapeAttr(formDefaults.location || "")}" />
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.location.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.location.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.location.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.location.label
+            )}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-standort" name="calc-standort" data-placeholder-id="calc-form-location" placeholder="${escapeAttr(
+              labels.calculation.fields.location.placeholder
+            )}" aria-label="${escapeAttr(
+              labels.calculation.fields.location.label
+            )}" value="${escapeAttr(formDefaults.location || "")}" />
           </div>
           <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.crop.label" data-default-label="${escapeAttr(labels.calculation.fields.crop.label)}" value="${escapeAttr(labels.calculation.fields.crop.label)}" placeholder="${escapeAttr(labels.calculation.fields.crop.label)}" aria-label="Bezeichnung für Feld" />
-            <input type="text" class="form-control" id="calc-kultur" name="calc-kultur" data-placeholder-id="calc-form-crop" placeholder="${escapeAttr(labels.calculation.fields.crop.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.crop.label)}" value="${escapeAttr(formDefaults.crop || "")}" />
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.crop.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.crop.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.crop.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.crop.label
+            )}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-kultur" name="calc-kultur" data-placeholder-id="calc-form-crop" placeholder="${escapeAttr(
+              labels.calculation.fields.crop.placeholder
+            )}" aria-label="${escapeAttr(
+              labels.calculation.fields.crop.label
+            )}" value="${escapeAttr(formDefaults.crop || "")}" />
           </div>
           <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.quantity.label" data-default-label="${escapeAttr(labels.calculation.fields.quantity.label)}" value="${escapeAttr(labels.calculation.fields.quantity.label)}" placeholder="${escapeAttr(labels.calculation.fields.quantity.label)}" aria-label="Bezeichnung für Feld" />
-            <input type="number" min="0" step="any" class="form-control" id="calc-kisten" name="calc-kisten" required data-placeholder-id="calc-form-quantity" placeholder="${escapeAttr(labels.calculation.fields.quantity.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.quantity.label)}" value="${escapeAttr(formDefaults.quantity || "")}" />
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.quantity.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.quantity.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.quantity.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.quantity.label
+            )}" aria-label="Bezeichnung für Feld" />
+            <input type="number" min="0" step="any" class="form-control" id="calc-kisten" name="calc-kisten" required data-placeholder-id="calc-form-quantity" placeholder="${escapeAttr(
+              labels.calculation.fields.quantity.placeholder
+            )}" aria-label="${escapeAttr(
+              labels.calculation.fields.quantity.label
+            )}" value="${escapeAttr(formDefaults.quantity || "")}" />
           </div>
           <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.eppoCode.label" data-default-label="${escapeAttr(labels.calculation.fields.eppoCode.label)}" value="${escapeAttr(labels.calculation.fields.eppoCode.label)}" placeholder="${escapeAttr(labels.calculation.fields.eppoCode.label)}" aria-label="Bezeichnung für Feld" />
-            <input type="text" class="form-control" id="calc-eppo" name="calc-eppo" list="calc-eppo-options" autocomplete="off" data-placeholder-id="calc-form-eppo" placeholder="${escapeAttr(labels.calculation.fields.eppoCode.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.eppoCode.label)}" value="${escapeAttr(formDefaults.eppoCode || "")}" />
+            <label class="form-label mb-1">Mittelprofil</label>
+            <select class="form-select" data-role="calc-profile-select">
+              <option value="">Alle Mittel</option>
+            </select>
+            <div class="form-text text-muted" data-role="calc-profile-hint">Alle Mittel aktiv.</div>
+          </div>
+          <div class="col-md-3">
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.eppoCode.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.eppoCode.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.eppoCode.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.eppoCode.label
+            )}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-eppo" name="calc-eppo" list="calc-eppo-options" autocomplete="off" data-placeholder-id="calc-form-eppo" placeholder="${escapeAttr(
+              labels.calculation.fields.eppoCode.placeholder
+            )}" aria-label="${escapeAttr(
+              labels.calculation.fields.eppoCode.label
+            )}" value="${escapeAttr(formDefaults.eppoCode || "")}" />
             <datalist id="calc-eppo-options"></datalist>
           </div>
           <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.bbch.label" data-default-label="${escapeAttr(labels.calculation.fields.bbch.label)}" value="${escapeAttr(labels.calculation.fields.bbch.label)}" placeholder="${escapeAttr(labels.calculation.fields.bbch.label)}" aria-label="Bezeichnung für Feld" />
-            <input type="text" class="form-control" id="calc-bbch" name="calc-bbch" list="calc-bbch-options" autocomplete="off" data-placeholder-id="calc-form-bbch" placeholder="${escapeAttr(labels.calculation.fields.bbch.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.bbch.label)}" value="${escapeAttr(formDefaults.bbch || "")}" />
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.bbch.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.bbch.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.bbch.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.bbch.label
+            )}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-bbch" name="calc-bbch" list="calc-bbch-options" autocomplete="off" data-placeholder-id="calc-form-bbch" placeholder="${escapeAttr(
+              labels.calculation.fields.bbch.placeholder
+            )}" aria-label="${escapeAttr(
+              labels.calculation.fields.bbch.label
+            )}" value="${escapeAttr(formDefaults.bbch || "")}" />
             <datalist id="calc-bbch-options"></datalist>
           </div>
           <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.invekos.label" data-default-label="${escapeAttr(labels.calculation.fields.invekos.label)}" value="${escapeAttr(labels.calculation.fields.invekos.label)}" placeholder="${escapeAttr(labels.calculation.fields.invekos.label)}" aria-label="Bezeichnung für Feld" />
-            <input type="text" class="form-control" id="calc-invekos" name="calc-invekos" data-placeholder-id="calc-form-invekos" placeholder="${escapeAttr(labels.calculation.fields.invekos.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.invekos.label)}" value="${escapeAttr(formDefaults.invekos || "")}" />
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.invekos.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.invekos.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.invekos.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.invekos.label
+            )}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-invekos" name="calc-invekos" data-placeholder-id="calc-form-invekos" placeholder="${escapeAttr(
+              labels.calculation.fields.invekos.placeholder
+            )}" aria-label="${escapeAttr(
+              labels.calculation.fields.invekos.label
+            )}" value="${escapeAttr(formDefaults.invekos || "")}" />
           </div>
           <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.gps.label" data-default-label="${escapeAttr(labels.calculation.fields.gps.label)}" value="${escapeAttr(labels.calculation.fields.gps.label)}" placeholder="${escapeAttr(labels.calculation.fields.gps.label)}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.gps.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.gps.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.gps.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.gps.label
+            )}" aria-label="Bezeichnung für Feld" />
             <div class="input-group mb-2">
-              <input type="text" class="form-control" id="calc-gps" name="calc-gps" data-placeholder-id="calc-form-gps" placeholder="${escapeAttr(labels.calculation.fields.gps.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.gps.label)}" value="${escapeAttr(formDefaults.gps || "")}" />
+              <input type="text" class="form-control" id="calc-gps" name="calc-gps" data-placeholder-id="calc-form-gps" placeholder="${escapeAttr(
+                labels.calculation.fields.gps.placeholder
+              )}" aria-label="${escapeAttr(
+                labels.calculation.fields.gps.label
+              )}" value="${escapeAttr(formDefaults.gps || "")}" />
               <button type="button" class="btn btn-outline-light" data-action="gps-use-active">Aktiver Punkt</button>
             </div>
             <select class="form-select form-select-sm mb-2" data-role="gps-point-select">
@@ -150,8 +245,32 @@ function createSection(
             </div>
           </div>
           <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.time.label" data-default-label="${escapeAttr(labels.calculation.fields.time.label)}" value="${escapeAttr(labels.calculation.fields.time.label)}" placeholder="${escapeAttr(labels.calculation.fields.time.label)}" aria-label="Bezeichnung für Feld" />
-            <input type="time" class="form-control" id="calc-uhrzeit" name="calc-uhrzeit" data-placeholder-id="calc-form-time" placeholder="${escapeAttr(labels.calculation.fields.time.placeholder)}" aria-label="${escapeAttr(labels.calculation.fields.time.label)}" value="${escapeAttr(formDefaults.time || "")}" />
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.date.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.date.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.date.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.date.label
+            )}" aria-label="Bezeichnung für Feld" />
+            <input type="date" class="form-control" id="calc-datum" name="calc-datum" data-placeholder-id="calc-form-date" placeholder="${escapeAttr(
+              labels.calculation.fields.date.placeholder
+            )}" aria-label="${escapeAttr(
+              labels.calculation.fields.date.label
+            )}" value="${escapeAttr(formDefaults.date || "")}" />
+          </div>
+          <div class="col-md-3">
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.time.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.time.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.time.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.time.label
+            )}" aria-label="Bezeichnung für Feld" />
+            <input type="time" class="form-control" id="calc-uhrzeit" name="calc-uhrzeit" data-placeholder-id="calc-form-time" placeholder="${escapeAttr(
+              labels.calculation.fields.time.placeholder
+            )}" aria-label="${escapeAttr(
+              labels.calculation.fields.time.label
+            )}" value="${escapeAttr(formDefaults.time || "")}" />
           </div>
           <div class="col-12 text-center">
             <button type="submit" class="btn btn-success px-4">Berechnen</button>
@@ -165,41 +284,59 @@ function createSection(
           <div class="calc-summary-columns">
             <div class="calc-summary-column calc-summary-main">
               <div class="calc-summary-row">
-                <span class="calc-summary-label" data-label-id="calc-summary-creator">${escapeHtml(labels.calculation.fields.creator.label)}</span>
+                <span class="calc-summary-label" data-label-id="calc-summary-creator">${escapeHtml(
+                  labels.calculation.fields.creator.label
+                )}</span>
                 <span class="calc-summary-value" data-field="ersteller"></span>
               </div>
               <div class="calc-summary-row">
-                <span class="calc-summary-label" data-label-id="calc-summary-location">${escapeHtml(labels.calculation.fields.location.label)}</span>
+                <span class="calc-summary-label" data-label-id="calc-summary-location">${escapeHtml(
+                  labels.calculation.fields.location.label
+                )}</span>
                 <span class="calc-summary-value" data-field="standort"></span>
               </div>
               <div class="calc-summary-row">
-                <span class="calc-summary-label" data-label-id="calc-summary-crop">${escapeHtml(labels.calculation.fields.crop.label)}</span>
+                <span class="calc-summary-label" data-label-id="calc-summary-crop">${escapeHtml(
+                  labels.calculation.fields.crop.label
+                )}</span>
                 <span class="calc-summary-value" data-field="kultur"></span>
               </div>
               <div class="calc-summary-row">
-                <span class="calc-summary-label" data-label-id="calc-summary-date">${escapeHtml(labels.calculation.summary.dateLabel || "Datum")}</span>
+                <span class="calc-summary-label" data-label-id="calc-summary-date">${escapeHtml(
+                  labels.calculation.summary.dateLabel || "Datum"
+                )}</span>
                 <span class="calc-summary-value" data-field="datum"></span>
               </div>
             </div>
             <div class="calc-summary-column calc-summary-meta">
               <div class="calc-summary-row">
-                <span class="calc-summary-label" data-label-id="calc-summary-eppo">${escapeHtml(labels.calculation.fields.eppoCode.label)}</span>
+                <span class="calc-summary-label" data-label-id="calc-summary-eppo">${escapeHtml(
+                  labels.calculation.fields.eppoCode.label
+                )}</span>
                 <span class="calc-summary-value" data-field="eppoCode"></span>
               </div>
               <div class="calc-summary-row">
-                <span class="calc-summary-label" data-label-id="calc-summary-bbch">${escapeHtml(labels.calculation.fields.bbch.label)}</span>
+                <span class="calc-summary-label" data-label-id="calc-summary-bbch">${escapeHtml(
+                  labels.calculation.fields.bbch.label
+                )}</span>
                 <span class="calc-summary-value" data-field="bbch"></span>
               </div>
               <div class="calc-summary-row">
-                <span class="calc-summary-label" data-label-id="calc-summary-invekos">${escapeHtml(labels.calculation.fields.invekos.label)}</span>
+                <span class="calc-summary-label" data-label-id="calc-summary-invekos">${escapeHtml(
+                  labels.calculation.fields.invekos.label
+                )}</span>
                 <span class="calc-summary-value" data-field="invekos"></span>
               </div>
               <div class="calc-summary-row">
-                <span class="calc-summary-label" data-label-id="calc-summary-gps">${escapeHtml(labels.calculation.fields.gps.label)}</span>
+                <span class="calc-summary-label" data-label-id="calc-summary-gps">${escapeHtml(
+                  labels.calculation.fields.gps.label
+                )}</span>
                 <span class="calc-summary-value" data-field="gps"></span>
               </div>
               <div class="calc-summary-row">
-                <span class="calc-summary-label" data-label-id="calc-summary-time">${escapeHtml(labels.calculation.fields.time.label)}</span>
+                <span class="calc-summary-label" data-label-id="calc-summary-time">${escapeHtml(
+                  labels.calculation.fields.time.label
+                )}</span>
                 <span class="calc-summary-value" data-field="uhrzeit"></span>
               </div>
             </div>
@@ -377,6 +514,7 @@ function applyFieldLabels(section: HTMLElement, labels: Labels): void {
     "calc-form-location": labels.calculation.fields.location.label,
     "calc-form-crop": labels.calculation.fields.crop.label,
     "calc-form-quantity": labels.calculation.fields.quantity.label,
+    "calc-form-date": labels.calculation.fields.date?.label || "Datum",
     "calc-form-eppo": labels.calculation.fields.eppoCode.label,
     "calc-form-bbch": labels.calculation.fields.bbch.label,
     "calc-form-invekos": labels.calculation.fields.invekos.label,
@@ -385,7 +523,10 @@ function applyFieldLabels(section: HTMLElement, labels: Labels): void {
     "calc-summary-creator": labels.calculation.fields.creator.label,
     "calc-summary-location": labels.calculation.fields.location.label,
     "calc-summary-crop": labels.calculation.fields.crop.label,
-    "calc-summary-date": labels.calculation.summary.dateLabel || "Datum",
+    "calc-summary-date":
+      labels.calculation.summary.dateLabel ||
+      labels.calculation.fields.date?.label ||
+      "Datum",
     "calc-summary-eppo": labels.calculation.fields.eppoCode.label,
     "calc-summary-bbch": labels.calculation.fields.bbch.label,
     "calc-summary-invekos": labels.calculation.fields.invekos.label,
@@ -432,6 +573,7 @@ function applyFieldLabels(section: HTMLElement, labels: Labels): void {
     "calc-form-bbch": labels.calculation.fields.bbch.placeholder,
     "calc-form-invekos": labels.calculation.fields.invekos.placeholder,
     "calc-form-gps": labels.calculation.fields.gps.placeholder,
+    "calc-form-date": labels.calculation.fields.date.placeholder,
     "calc-form-time": labels.calculation.fields.time.placeholder,
   };
 
@@ -539,7 +681,8 @@ function renderResults(
   setFieldText("ersteller", header.ersteller);
   setFieldText("standort", header.standort);
   setFieldText("kultur", header.kultur);
-  setFieldText("datum", header.datum);
+  const dateDisplay = header?.datum || formatDateFromIso(header?.dateIso) || "";
+  setFieldText("datum", dateDisplay);
   setFieldText("eppoCode", header.eppoCode || "");
   setFieldText("bbch", header.bbch || "");
   setFieldText("gps", resolveGpsDisplay(header));
@@ -647,6 +790,12 @@ export function initCalculation(
   const gpsClearBtn = section.querySelector<HTMLButtonElement>(
     '[data-action="gps-clear-selection"]'
   );
+  const profileSelect = section.querySelector<HTMLSelectElement>(
+    '[data-role="calc-profile-select"]'
+  );
+  const profileHint = section.querySelector<HTMLElement>(
+    '[data-role="calc-profile-hint"]'
+  );
 
   if (!form || !resultCard || !resultsTable || !resultsHead || !resultsBody) {
     console.warn("Berechnungsbereich konnte nicht initialisiert werden");
@@ -654,6 +803,69 @@ export function initCalculation(
   }
 
   let selectedGpsPointId: string | null = null;
+  let activeProfileId: string | null = null;
+
+  const getProfileById = (
+    state: AppState,
+    id: string | null
+  ): MediumProfile | null => {
+    if (!id) {
+      return null;
+    }
+    return state.mediumProfiles?.find((profile) => profile.id === id) ?? null;
+  };
+
+  const updateProfileHint = (state: AppState): void => {
+    if (!profileHint) {
+      return;
+    }
+    const profile = getProfileById(state, activeProfileId);
+    if (!profile) {
+      const total = state.mediums.length;
+      profileHint.textContent = total
+        ? `${total} Mittel aktiv.`
+        : "Keine Mittel verfügbar.";
+      return;
+    }
+    const mediumMap = new Map(
+      state.mediums.map((medium: any) => [medium.id, medium])
+    );
+    const validCount = profile.mediumIds.filter((id) =>
+      mediumMap.has(id)
+    ).length;
+    if (!validCount) {
+      profileHint.textContent = `${profile.name} enthält keine vorhandenen Mittel.`;
+    } else if (validCount === 1) {
+      profileHint.textContent = `${profile.name} · 1 Mittel.`;
+    } else {
+      profileHint.textContent = `${profile.name} · ${validCount} Mittel.`;
+    }
+  };
+
+  const updateProfileSelectOptions = (state: AppState): void => {
+    if (!profileSelect) {
+      return;
+    }
+    const profiles = state.mediumProfiles || [];
+    const previousId = activeProfileId;
+    const optionsHtml =
+      '<option value="">Alle Mittel</option>' +
+      profiles
+        .map(
+          (profile) =>
+            `<option value="${escapeHtml(profile.id)}">${escapeHtml(
+              profile.name
+            )}</option>`
+        )
+        .join("");
+    profileSelect.innerHTML = optionsHtml;
+    const stillAvailable = Boolean(
+      previousId && profiles.some((profile) => profile.id === previousId)
+    );
+    activeProfileId = stillAvailable ? previousId : null;
+    profileSelect.value = activeProfileId || "";
+    updateProfileHint(state);
+  };
 
   const getGpsPointById = (
     state: AppState,
@@ -735,9 +947,11 @@ export function initCalculation(
     applyFieldLabels(section, nextState.fieldLabels);
     setCalcContext(nextState.calcContext as CalculationResult | null);
     updateGpsSelectOptions(nextState);
+    updateProfileSelectOptions(nextState);
   });
 
   updateGpsSelectOptions(initialState);
+  updateProfileSelectOptions(initialState);
 
   gpsSelect?.addEventListener("change", () => {
     const currentState = services.state.getState();
@@ -746,7 +960,8 @@ export function initCalculation(
     if (point) {
       setGpsSelection(currentState, point);
       if (gpsInput && !gpsInput.value.trim()) {
-        gpsInput.value = point.name || "";
+        const coords = formatGpsCoordinates(point) || point.name || "";
+        gpsInput.value = coords;
         gpsInput.dispatchEvent(new Event("input", { bubbles: true }));
       }
     } else {
@@ -763,7 +978,8 @@ export function initCalculation(
     }
     setGpsSelection(currentState, point);
     if (gpsInput && !gpsInput.value.trim()) {
-      gpsInput.value = point.name || "";
+      const coords = formatGpsCoordinates(point) || point.name || "";
+      gpsInput.value = coords;
       gpsInput.dispatchEvent(new Event("input", { bubbles: true }));
     }
   });
@@ -771,6 +987,14 @@ export function initCalculation(
   gpsClearBtn?.addEventListener("click", () => {
     const currentState = services.state.getState();
     clearGpsSelection(currentState);
+  });
+
+  profileSelect?.addEventListener("change", () => {
+    const state = services.state.getState();
+    const selectedId = profileSelect.value || null;
+    const profile = getProfileById(state, selectedId);
+    activeProfileId = profile ? profile.id : null;
+    updateProfileHint(state);
   });
 
   services.events.subscribe<LookupApplyEppoPayload>(
@@ -843,6 +1067,7 @@ export function initCalculation(
     const rawInvekos = (formData.get("calc-invekos") || "").toString().trim();
     const rawGps = (formData.get("calc-gps") || "").toString().trim();
     const rawTime = (formData.get("calc-uhrzeit") || "").toString().trim();
+    const rawDate = (formData.get("calc-datum") || "").toString().trim();
     const ersteller = rawErsteller;
     const standort = rawStandort || "-";
     const kultur = rawKultur || "-";
@@ -850,6 +1075,7 @@ export function initCalculation(
     const bbch = rawBbch;
     const invekos = rawInvekos;
     const gps = rawGps;
+    const normalizedDate = normalizeDateInput(rawDate);
     const uhrzeit = rawTime
       ? rawTime
       : new Date().toLocaleTimeString("de-DE", {
@@ -871,6 +1097,29 @@ export function initCalculation(
           longitude: selectedGpsPoint.longitude,
         }
       : null;
+    const formattedGps = selectedGpsPoint
+      ? formatGpsCoordinates(selectedGpsPoint)
+      : "";
+    const gpsDisplayValue = formattedGps || rawGps;
+    const mediumMap = new Map(
+      state.mediums.map((medium: any) => [medium.id, medium])
+    );
+    const activeProfile = getProfileById(state, activeProfileId);
+    let mediumsForCalculation: any[];
+    if (activeProfile && activeProfile.mediumIds.length) {
+      mediumsForCalculation = activeProfile.mediumIds
+        .map((id) => mediumMap.get(id))
+        .filter(Boolean) as any[];
+      if (!mediumsForCalculation.length) {
+        window.alert("Dieses Profil enthält keine vorhandenen Mittel.");
+        return;
+      }
+    } else if (activeProfile) {
+      window.alert("Dieses Profil enthält keine Mittel.");
+      return;
+    } else {
+      mediumsForCalculation = state.mediums.slice();
+    }
     const measurementMethods = state.measurementMethods;
     const waterVolume = getWaterVolume(kisten, defaults);
     const areaAr = defaults.kistenProAr ? kisten / defaults.kistenProAr : 0;
@@ -883,7 +1132,7 @@ export function initCalculation(
       areaSqm,
     };
 
-    const items = state.mediums.map((medium: any) => {
+    const items = mediumsForCalculation.map((medium: any) => {
       const method = measurementMethods.find(
         (m: any) => m.id === medium.methodId
       );
@@ -907,17 +1156,14 @@ export function initCalculation(
       kultur,
       eppoCode,
       bbch,
-      gps,
+      gps: gpsDisplayValue,
       gpsCoordinates,
       gpsPointId: selectedGpsPoint?.id ?? null,
       invekos,
       uhrzeit,
       kisten,
-      datum: new Date().toLocaleDateString("de-DE", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }),
+      datum: normalizedDate.display || "",
+      dateIso: normalizedDate.iso,
       waterVolume,
       areaAr,
       areaSqm,
@@ -941,6 +1187,7 @@ export function initCalculation(
           gps: "",
           invekos: "",
           time: "",
+          date: "",
         }),
         creator: rawErsteller,
         location: rawStandort,
@@ -951,6 +1198,7 @@ export function initCalculation(
         gps: rawGps,
         invekos: rawInvekos,
         time: rawTime,
+        date: rawDate,
       },
     }));
 
@@ -976,7 +1224,10 @@ export function initCalculation(
     const entry = mapCalculationToSnapshotEntry(calculation);
     const headerHtml = buildCompanyPrintHeader(state.company || null);
     const titleDate =
-      entry?.datum || entry?.date || new Date().toLocaleDateString("de-DE");
+      entry?.datum ||
+      formatDateFromIso(entry?.dateIso) ||
+      entry?.date ||
+      new Date().toLocaleDateString("de-DE");
     await printEntriesChunked([entry], state.fieldLabels, {
       title: `Berechnung – ${titleDate}`,
       headerHtml,

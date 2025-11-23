@@ -48,9 +48,22 @@ function deepMerge(target: any, source: any): any {
 }
 
 function mergeDefaults(base: any = {}, incoming: any = {}): any {
+  const defaultForm = {
+    creator: "",
+    location: "",
+    crop: "",
+    quantity: "",
+    eppoCode: "",
+    bbch: "",
+    gps: "",
+    invekos: "",
+    time: "",
+    date: "",
+  };
   const merged = { ...base, ...incoming };
   merged.form = {
-    ...(base.form || { creator: "", location: "", crop: "", quantity: "" }),
+    ...defaultForm,
+    ...(base.form || {}),
     ...(incoming.form || {}),
   };
   return merged;
@@ -69,6 +82,7 @@ export function applyDatabase(data: any): void {
       ...(data.meta?.measurementMethods ?? current.measurementMethods),
     ],
     mediums: [...(data.mediums ?? [])],
+    mediumProfiles: [...(data.mediumProfiles ?? [])],
     history: [...(data.history ?? [])],
     fieldLabels,
     app: {
@@ -93,6 +107,12 @@ export function createInitialDatabase(overrides: any = {}): any {
           location: "",
           crop: "",
           quantity: "",
+          eppoCode: "",
+          bbch: "",
+          gps: "",
+          invekos: "",
+          time: "",
+          date: "",
         },
       },
       base.meta.defaults ?? {}
@@ -116,6 +136,7 @@ export function createInitialDatabase(overrides: any = {}): any {
       fieldLabels: { ...state.fieldLabels },
     },
     mediums: [...state.mediums],
+    mediumProfiles: [...state.mediumProfiles],
     history: [],
   };
   const merged = deepMerge(base, overrides);
@@ -136,6 +157,7 @@ export function getDatabaseSnapshot(): any {
       fieldLabels: { ...state.fieldLabels },
     },
     mediums: [...state.mediums],
+    mediumProfiles: [...state.mediumProfiles],
     history: [...state.history],
   };
 }

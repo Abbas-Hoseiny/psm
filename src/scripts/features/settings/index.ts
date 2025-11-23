@@ -3,6 +3,7 @@ import {
   subscribeState,
   updateSlice,
   type AppState,
+  type MediumProfile,
 } from "@scripts/core/state";
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { saveDatabase } from "@scripts/core/storage";
@@ -21,6 +22,16 @@ let mediumsTableBody: HTMLTableSectionElement | null = null;
 let methodInput: HTMLInputElement | null = null;
 let methodDatalist: HTMLDataListElement | null = null;
 let addForm: HTMLFormElement | null = null;
+let profileForm: HTMLFormElement | null = null;
+let profileNameInput: HTMLInputElement | null = null;
+let profileIdInput: HTMLInputElement | null = null;
+let profileTableBody: HTMLTableSectionElement | null = null;
+let profileSubmitButton: HTMLButtonElement | null = null;
+let profileSelectionSummary: HTMLElement | null = null;
+let profileSelectAllInput: HTMLInputElement | null = null;
+let profileDraftSelection = new Set<string>();
+let editingProfileId: string | null = null;
+let sanitizingProfiles = false;
 
 function createSection(): HTMLElement {
   const section = document.createElement("div");
@@ -43,6 +54,10 @@ function createSection(): HTMLElement {
           <table class="table table-dark table-bordered" id="settings-mediums-table">
             <thead>
               <tr>
+                <th class="text-center" style="width:3.5rem">
+                  <span class="visually-hidden">Auswahl</span>
+                  <input type="checkbox" class="form-check-input" data-role="profile-select-all" aria-label="Alle Mittel auswählen" />
+                </th>
                 <th>Name</th>
                 <th>Einheit</th>
                 <th>Methode</th>
@@ -53,6 +68,29 @@ function createSection(): HTMLElement {
             </thead>
             <tbody></tbody>
           </table>
+        </div>
+        <div class="mt-4">
+          <h3 class="h5 text-info mb-2">Ausgewählte Mittel als Profil speichern</h3>
+          <p class="text-muted mb-3">
+            Setze links Häkchen bei den Mitteln, die gemeinsam verwendet werden sollen. Profilnamen erscheinen nur hier –
+            Berechnung, Historie und Ausdruck enthalten ausschließlich die ausgewählten Mittel.
+          </p>
+          <form id="settings-profile-form" class="row g-3 align-items-end">
+            <input type="hidden" name="profile-id" />
+            <div class="col-lg-5">
+              <label class="form-label" for="profile-name">Profilname</label>
+              <input id="profile-name" class="form-control" name="profile-name" placeholder="z. B. Salat-Gewächshaus" required />
+            </div>
+            <div class="col-lg-4">
+              <div class="small text-muted" data-role="profile-selection-summary">
+                Noch keine Mittel ausgewählt.
+              </div>
+            </div>
+            <div class="col-lg-3 d-flex flex-wrap gap-2 justify-content-lg-end">
+              <button class="btn btn-success" type="submit" data-role="profile-submit">Profil speichern</button>
+              <button class="btn btn-outline-secondary" type="button" data-action="profile-reset">Auswahl löschen</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -86,6 +124,23 @@ function createSection(): HTMLElement {
         </div>
       </div>
     </div>
+    <div class="card card-dark">
+      <div class="card-body">
+        <h3 class="h5 text-info mb-3">Gespeicherte Profile</h3>
+        <div class="table-responsive">
+          <table class="table table-dark table-bordered" id="settings-profile-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Ausgewählte Mittel</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
     <div class="mt-4 no-print">
       <button class="btn btn-success" data-action="persist">Änderungen speichern</button>
     </div>
@@ -93,10 +148,193 @@ function createSection(): HTMLElement {
   return section;
 }
 
+function generateProfileId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return `profile-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function sanitizeDraftSelection(state: AppState): void {
+  if (!profileDraftSelection.size) {
+    return;
+  }
+  const validMediumIds = new Set<string>(
+    state.mediums.map((medium: any) => medium.id)
+  );
+  let changed = false;
+  profileDraftSelection.forEach((id) => {
+    if (!validMediumIds.has(id)) {
+      profileDraftSelection.delete(id);
+      changed = true;
+    }
+  });
+  if (changed) {
+    profileDraftSelection = new Set(profileDraftSelection);
+  }
+}
+
+function syncProfileCheckboxes(): void {
+  if (!mediumsTableBody) {
+    return;
+  }
+  mediumsTableBody
+    .querySelectorAll<HTMLInputElement>('[data-role="profile-select"]')
+    .forEach((checkbox) => {
+      const mediumId = checkbox.dataset.mediumId;
+      checkbox.checked = Boolean(
+        mediumId && profileDraftSelection.has(mediumId)
+      );
+    });
+}
+
+function updateProfileSelectionSummary(state: AppState): void {
+  const total = state.mediums.length;
+  const selected = profileDraftSelection.size;
+  let text = "Noch keine Mittel ausgewählt.";
+  if (!total) {
+    text = "Keine Mittel vorhanden.";
+  } else if (selected === total && total > 0) {
+    text = `${selected} Mittel ausgewählt (alle).`;
+  } else if (selected > 0) {
+    text = `${selected} Mittel ausgewählt.`;
+  }
+  if (profileSelectionSummary) {
+    profileSelectionSummary.textContent = text;
+  }
+  if (profileSelectAllInput) {
+    profileSelectAllInput.disabled = total === 0;
+    profileSelectAllInput.indeterminate = selected > 0 && selected < total;
+    profileSelectAllInput.checked = total > 0 && selected === total;
+  }
+}
+
+function resetProfileForm(state: AppState): void {
+  editingProfileId = null;
+  if (profileForm) {
+    profileForm.reset();
+  }
+  if (profileIdInput) {
+    profileIdInput.value = "";
+  }
+  if (profileNameInput) {
+    profileNameInput.value = "";
+  }
+  if (profileSubmitButton) {
+    profileSubmitButton.textContent = "Profil speichern";
+  }
+  profileDraftSelection = new Set<string>();
+  syncProfileCheckboxes();
+  updateProfileSelectionSummary(state);
+}
+
+function loadProfileIntoForm(profile: MediumProfile, state: AppState): void {
+  editingProfileId = profile.id;
+  if (profileIdInput) {
+    profileIdInput.value = profile.id;
+  }
+  if (profileNameInput) {
+    profileNameInput.value = profile.name;
+    profileNameInput.focus();
+  }
+  if (profileSubmitButton) {
+    profileSubmitButton.textContent = "Profil aktualisieren";
+  }
+  profileDraftSelection = new Set(profile.mediumIds);
+  syncProfileCheckboxes();
+  updateProfileSelectionSummary(state);
+}
+
+function renderProfileList(state: AppState): void {
+  if (!profileTableBody) {
+    return;
+  }
+  const profiles = state.mediumProfiles || [];
+  if (!profiles.length) {
+    profileTableBody.innerHTML = `
+      <tr>
+        <td colspan="3" class="text-center text-muted">Noch keine Profile erstellt.</td>
+      </tr>
+    `;
+    return;
+  }
+  const mediumMap = new Map<string, any>(
+    state.mediums.map((medium: any) => [medium.id, medium])
+  );
+  profileTableBody.innerHTML = "";
+  profiles.forEach((profile) => {
+    const row = document.createElement("tr");
+    const labels = profile.mediumIds
+      .map((id) => mediumMap.get(id))
+      .filter(Boolean)
+      .map((medium: any) => escapeHtml(medium.name));
+    const mediumHtml = labels.length
+      ? labels.join(", ")
+      : '<span class="text-muted">Keine gültigen Mittel</span>';
+    row.innerHTML = `
+      <td>${escapeHtml(profile.name)}</td>
+      <td>${mediumHtml}</td>
+      <td>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-sm btn-outline-info" data-action="profile-edit" data-id="${escapeHtml(
+            profile.id
+          )}">Bearbeiten</button>
+          <button class="btn btn-sm btn-outline-danger" data-action="profile-delete" data-id="${escapeHtml(
+            profile.id
+          )}">Löschen</button>
+        </div>
+      </td>
+    `;
+    profileTableBody.appendChild(row);
+  });
+}
+
+function sanitizeMediumProfiles(state: AppState, services: Services): void {
+  if (sanitizingProfiles || !state.mediumProfiles?.length) {
+    return;
+  }
+  const validMediumIds = new Set<string>(
+    state.mediums.map((medium: any) => medium.id)
+  );
+  let changed = false;
+  const sanitizedProfiles = state.mediumProfiles
+    .map((profile) => {
+      const filteredIds = profile.mediumIds.filter((id) =>
+        validMediumIds.has(id)
+      );
+      if (filteredIds.length !== profile.mediumIds.length) {
+        changed = true;
+        return {
+          ...profile,
+          mediumIds: filteredIds,
+          updatedAt: new Date().toISOString(),
+        } as MediumProfile;
+      }
+      return profile;
+    })
+    .filter((profile) => {
+      if (!profile.mediumIds.length) {
+        changed = true;
+        return false;
+      }
+      return true;
+    });
+  if (!changed) {
+    return;
+  }
+  sanitizingProfiles = true;
+  services.state.updateSlice("mediumProfiles", () => sanitizedProfiles);
+  sanitizingProfiles = false;
+}
+
 function renderMediumRows(state: AppState): void {
   if (!mediumsTableBody) {
     return;
   }
+  sanitizeDraftSelection(state);
   const methodsById = new Map<string, any>(
     state.measurementMethods.map((method: any) => [method.id, method])
   );
@@ -104,9 +342,10 @@ function renderMediumRows(state: AppState): void {
   if (!state.mediums.length) {
     mediumsTableBody.innerHTML = `
       <tr>
-        <td colspan="5" class="text-center text-muted">Noch keine Mittel gespeichert.</td>
+        <td colspan="7" class="text-center text-muted">Noch keine Mittel gespeichert.</td>
       </tr>
     `;
+    updateProfileSelectionSummary(state);
     return;
   }
 
@@ -120,6 +359,11 @@ function renderMediumRows(state: AppState): void {
         ? escapeHtml(medium.zulassungsnummer)
         : "-";
     row.innerHTML = `
+      <td class="text-center">
+        <input type="checkbox" class="form-check-input" data-role="profile-select" data-medium-id="${escapeHtml(
+          medium.id
+        )}" ${profileDraftSelection.has(medium.id) ? "checked" : ""} />
+      </td>
       <td>${escapeHtml(medium.name)}</td>
       <td>${escapeHtml(medium.unit)}</td>
       <td>${escapeHtml(method ? method.label : medium.methodId)}</td>
@@ -131,6 +375,7 @@ function renderMediumRows(state: AppState): void {
     `;
     mediumsTableBody?.appendChild(row);
   });
+  updateProfileSelectionSummary(state);
 }
 
 function renderMethodSuggestions(state: AppState): void {
@@ -250,6 +495,25 @@ export function initSettings(
     "#settings-method-options"
   );
   addForm = section.querySelector<HTMLFormElement>("#settings-medium-form");
+  profileForm = section.querySelector<HTMLFormElement>(
+    "#settings-profile-form"
+  );
+  profileNameInput = section.querySelector<HTMLInputElement>("#profile-name");
+  profileIdInput = section.querySelector<HTMLInputElement>(
+    'input[name="profile-id"]'
+  );
+  profileTableBody = section.querySelector<HTMLTableSectionElement>(
+    "#settings-profile-table tbody"
+  );
+  profileSubmitButton = section.querySelector<HTMLButtonElement>(
+    '[data-role="profile-submit"]'
+  );
+  profileSelectionSummary = section.querySelector<HTMLElement>(
+    '[data-role="profile-selection-summary"]'
+  );
+  profileSelectAllInput = section.querySelector<HTMLInputElement>(
+    '[data-role="profile-select-all"]'
+  );
 
   addForm?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -308,17 +572,156 @@ export function initSettings(
     });
   });
 
+  mediumsTableBody?.addEventListener("change", (event) => {
+    const input = event.target as HTMLInputElement | null;
+    if (!input || input.dataset.role !== "profile-select") {
+      return;
+    }
+    const mediumId = input.dataset.mediumId;
+    if (!mediumId) {
+      return;
+    }
+    if (input.checked) {
+      profileDraftSelection.add(mediumId);
+    } else {
+      profileDraftSelection.delete(mediumId);
+    }
+    const state = services.state.getState();
+    updateProfileSelectionSummary(state);
+  });
+
   section
     .querySelector<HTMLButtonElement>('[data-action="persist"]')
     ?.addEventListener("click", () => {
       void persistChanges();
     });
 
+  profileSelectAllInput?.addEventListener("change", () => {
+    const state = services.state.getState();
+    if (!profileSelectAllInput) {
+      return;
+    }
+    profileSelectAllInput.indeterminate = false;
+    if (profileSelectAllInput.checked) {
+      profileDraftSelection = new Set(
+        state.mediums.map((medium: any) => medium.id)
+      );
+    } else {
+      profileDraftSelection = new Set<string>();
+    }
+    syncProfileCheckboxes();
+    updateProfileSelectionSummary(state);
+  });
+
+  profileForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!profileNameInput) {
+      return;
+    }
+    const name = profileNameInput.value.trim();
+    if (!name) {
+      window.alert("Bitte einen Profilnamen eingeben.");
+      profileNameInput.focus();
+      return;
+    }
+    if (!profileDraftSelection.size) {
+      window.alert("Bitte mindestens ein Mittel auswählen.");
+      return;
+    }
+    const state = services.state.getState();
+    const duplicate = state.mediumProfiles?.some(
+      (profile) =>
+        profile.name.toLowerCase() === name.toLowerCase() &&
+        profile.id !== editingProfileId
+    );
+    if (duplicate) {
+      window.alert("Ein Profil mit diesem Namen existiert bereits.");
+      return;
+    }
+    const timestamp = new Date().toISOString();
+    const mediumIds = state.mediums
+      .filter((medium: any) => profileDraftSelection.has(medium.id))
+      .map((medium: any) => medium.id);
+    if (editingProfileId) {
+      services.state.updateSlice(
+        "mediumProfiles",
+        (profiles: MediumProfile[] = []) =>
+          profiles.map((profile) =>
+            profile.id === editingProfileId
+              ? { ...profile, name, mediumIds, updatedAt: timestamp }
+              : profile
+          )
+      );
+    } else {
+      const newProfile: MediumProfile = {
+        id: generateProfileId(),
+        name,
+        mediumIds,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      services.state.updateSlice(
+        "mediumProfiles",
+        (profiles: MediumProfile[] = []) => [...profiles, newProfile]
+      );
+    }
+    resetProfileForm(services.state.getState());
+  });
+
+  profileTableBody?.addEventListener("click", (event) => {
+    const target = (
+      event.target as HTMLElement | null
+    )?.closest<HTMLButtonElement>('[data-action^="profile-"]');
+    if (!target) {
+      return;
+    }
+    const id = target.dataset.id;
+    if (!id) {
+      return;
+    }
+    const state = services.state.getState();
+    if (target.dataset.action === "profile-edit") {
+      const profile = state.mediumProfiles?.find((item) => item.id === id);
+      if (profile) {
+        loadProfileIntoForm(profile, state);
+      }
+      return;
+    }
+    if (target.dataset.action === "profile-delete") {
+      const profile = state.mediumProfiles?.find((item) => item.id === id);
+      if (!profile) {
+        return;
+      }
+      if (!window.confirm(`Profil "${profile.name}" wirklich löschen?`)) {
+        return;
+      }
+      services.state.updateSlice(
+        "mediumProfiles",
+        (profiles: MediumProfile[] = []) =>
+          profiles.filter((item) => item.id !== id)
+      );
+      if (editingProfileId === id) {
+        resetProfileForm(services.state.getState());
+      }
+    }
+  });
+
+  section
+    .querySelector<HTMLButtonElement>('[data-action="profile-reset"]')
+    ?.addEventListener("click", () => {
+      resetProfileForm(services.state.getState());
+    });
+
+  resetProfileForm(services.state.getState());
+
   const handleStateChange = (nextState: AppState) => {
+    sanitizeMediumProfiles(nextState, services);
     toggleSectionVisibility(section, nextState);
     if (nextState.app.activeSection === "settings") {
       renderMediumRows(nextState);
       renderMethodSuggestions(nextState);
+      renderProfileList(nextState);
+      updateProfileSelectionSummary(nextState);
     }
   };
 

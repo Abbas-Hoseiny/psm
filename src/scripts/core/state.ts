@@ -19,6 +19,14 @@ export interface GpsState {
   initialized: boolean;
 }
 
+export interface MediumProfile {
+  id: string;
+  name: string;
+  mediumIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AppState {
   app: {
     ready: boolean;
@@ -56,10 +64,12 @@ export interface AppState {
       gps: string;
       invekos: string;
       time: string;
+      date: string;
     };
   };
   measurementMethods: any[];
   mediums: any[];
+  mediumProfiles: MediumProfile[];
   history: any[];
   fieldLabels: any;
   calcContext: any | null;
@@ -138,10 +148,12 @@ let state: AppState = {
       gps: "",
       invekos: "",
       time: "",
+      date: "",
     },
   },
   measurementMethods: [],
   mediums: [],
+  mediumProfiles: [],
   history: [],
   fieldLabels: getDefaultFieldLabels(),
   calcContext: null,
@@ -266,10 +278,12 @@ export function resetState(newState?: AppState): AppState {
         gps: "",
         invekos: "",
         time: "",
+        date: "",
       },
     },
     measurementMethods: [],
     mediums: [],
+    mediumProfiles: [],
     history: [],
     fieldLabels: getDefaultFieldLabels(),
     calcContext: null,

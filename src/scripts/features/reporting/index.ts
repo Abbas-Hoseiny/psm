@@ -1,7 +1,7 @@
 import { getState, subscribeState, type AppState } from "@scripts/core/state";
 import { renderCalculationSnapshot } from "@scripts/features/shared/calculationSnapshot";
 import { initVirtualList } from "@scripts/core/virtualList";
-import { escapeHtml } from "@scripts/core/utils";
+import { escapeHtml, parseIsoDate } from "@scripts/core/utils";
 import { printEntriesChunked } from "@scripts/features/shared/printing";
 import type { CalculationItem } from "@scripts/features/calculation";
 
@@ -22,6 +22,7 @@ type DateFilter = {
 type ReportingEntry = {
   datum?: string;
   date?: string;
+  dateIso?: string | null;
   ersteller?: string;
   standort?: string;
   kultur?: string;
@@ -101,6 +102,27 @@ function germanDateToIso(value: string | null | undefined): Date | null {
     return null;
   }
   return new Date(year, month - 1, day);
+}
+
+function normalizeEntryDate(entry: ReportingEntry | null): Date | null {
+  if (!entry) {
+    return null;
+  }
+  if (entry.dateIso) {
+    const parsed = parseIsoDate(entry.dateIso);
+    if (parsed) {
+      return new Date(
+        parsed.getFullYear(),
+        parsed.getMonth(),
+        parsed.getDate()
+      );
+    }
+  }
+  const fallbackSource =
+    (typeof entry.datum === "string" && entry.datum) ||
+    (typeof entry.date === "string" && entry.date) ||
+    null;
+  return germanDateToIso(fallbackSource);
 }
 
 function resolveReportingLabels(labels: AppState["fieldLabels"]): any {
@@ -234,13 +256,11 @@ function applyFilter(
   }
 
   const filtered = source.filter((entry) => {
-    const isoDate = germanDateToIso(
-      (entry.datum as string) || (entry.date as string)
-    );
-    if (!isoDate) {
+    const normalizedDate = normalizeEntryDate(entry);
+    if (!normalizedDate) {
       return false;
     }
-    return isoDate >= filter.start && isoDate <= filter.end;
+    return normalizedDate >= filter.start && normalizedDate <= filter.end;
   });
 
   renderTable(section, filtered, state.fieldLabels);
@@ -291,7 +311,9 @@ function buildFilterInfo(
     const infoAll = escapeHtml(reportingLabels.infoAll || "Alle Einträge");
     return `<p>${prefix}: ${infoAll}</p>`;
   }
-  return `<p>${prefix}: ${escapeHtml(filter.startLabel)} – ${escapeHtml(filter.endLabel)}</p>`;
+  return `<p>${prefix}: ${escapeHtml(filter.startLabel)} – ${escapeHtml(
+    filter.endLabel
+  )}</p>`;
 }
 
 async function printReport(
@@ -403,7 +425,9 @@ export function initReporting(
       if (newLimit < currentEntries.length) {
         const newBtn = document.createElement("button");
         newBtn.className = "btn btn-secondary w-100 mt-3";
-        newBtn.textContent = `Mehr laden (${currentEntries.length - newLimit} weitere)`;
+        newBtn.textContent = `Mehr laden (${
+          currentEntries.length - newLimit
+        } weitere)`;
         newBtn.dataset.action = "load-more";
         newBtn.dataset.currentLimit = String(newLimit);
         listContainer.appendChild(newBtn);

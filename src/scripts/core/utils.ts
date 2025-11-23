@@ -131,3 +131,84 @@ export function buildGoogleMapsUrl(
   const query = encodeURIComponent(`${latitude},${longitude}`);
   return `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
+
+const GERMAN_DATE_FORMATTER = new Intl.DateTimeFormat("de-DE", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+export function formatDateGerman(date: Date): string {
+  return GERMAN_DATE_FORMATTER.format(date);
+}
+
+export function parseGermanDate(value: string | null | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parts = trimmed.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+  const [day, month, year] = parts.map(Number);
+  if (
+    Number.isNaN(day) ||
+    Number.isNaN(month) ||
+    Number.isNaN(year) ||
+    day < 1 ||
+    month < 1 ||
+    month > 12
+  ) {
+    return null;
+  }
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function parseIsoDate(value: string | null | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+    ? `${trimmed}T00:00:00`
+    : trimmed;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function formatDateFromIso(iso: string | null | undefined): string {
+  const date = parseIsoDate(iso);
+  if (!date) {
+    return "";
+  }
+  return formatDateGerman(date);
+}
+
+export function normalizeDateInput(value: string | null | undefined): {
+  display: string;
+  iso: string | null;
+} {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) {
+    return { display: "", iso: null };
+  }
+  let parsed = parseIsoDate(trimmed);
+  if (!parsed) {
+    parsed = parseGermanDate(trimmed);
+  }
+  if (!parsed) {
+    return { display: trimmed, iso: null };
+  }
+  return {
+    display: formatDateGerman(parsed),
+    iso: parsed.toISOString(),
+  };
+}

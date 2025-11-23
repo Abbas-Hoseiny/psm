@@ -76,17 +76,31 @@ export function buildCompanyPrintHeader(
   if (!hasContent) {
     return "";
   }
-  const address = company?.address
-    ? escapeHtml(company.address).replace(/\n/g, "<br />")
+
+  const headline = company?.headline?.trim();
+  const companyName = company?.name?.trim();
+  const headingText = headline || companyName || "";
+  const headingHtml = headingText ? `<h1>${escapeHtml(headingText)}</h1>` : "";
+
+  const addressParts: string[] = [];
+  if (headline && companyName) {
+    addressParts.push(escapeHtml(companyName));
+  }
+  if (company?.address) {
+    addressParts.push(escapeHtml(company.address).replace(/\n/g, "<br />"));
+  }
+  const addressHtml = addressParts.length
+    ? `<p>${addressParts.join("<br />")}</p>`
     : "";
+
   const email = company?.contactEmail
     ? `<p>${escapeHtml(company.contactEmail)}</p>`
     : "";
+
   return `
     <div class="print-meta">
-      ${company?.name ? `<h1>${escapeHtml(company.name)}</h1>` : ""}
-      ${company?.headline ? `<p>${escapeHtml(company.headline)}</p>` : ""}
-      ${address ? `<p>${address}</p>` : ""}
+      ${headingHtml}
+      ${addressHtml}
       ${email}
     </div>
   `;

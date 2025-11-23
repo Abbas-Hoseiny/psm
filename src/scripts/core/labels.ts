@@ -38,6 +38,10 @@ const DEFAULT_FIELD_LABELS = {
         label: "Uhrzeit",
         placeholder: "z. B. 08:30",
       },
+      date: {
+        label: "Datum",
+        placeholder: "z. B. 12.03.2025",
+      },
     },
     summary: {
       water: "Gesamtwasser (L)",
@@ -71,7 +75,7 @@ const DEFAULT_FIELD_LABELS = {
       time: "Uhrzeit",
     },
     detail: {
-      title: "Historieneintrag",
+      title: "",
       creator: "Erstellt von",
       location: "Standort / Abteil",
       crop: "Kultur",
