@@ -447,6 +447,50 @@ export async function getLookupStats(): Promise<any> {
   return await callWorker("getLookupStats", {});
 }
 
+export async function listLookupLanguages(): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("listLookupLanguages", {});
+}
+
+export async function listGpsPoints(): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("listGpsPoints");
+}
+
+export async function upsertGpsPoint(payload: any): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("upsertGpsPoint", payload);
+}
+
+export async function deleteGpsPoint(payload: any): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("deleteGpsPoint", payload);
+}
+
+export async function setActiveGpsPointId(payload: {
+  id: string | null;
+}): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("setActiveGpsPointId", payload);
+}
+
+export async function getActiveGpsPointId(): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("getActiveGpsPointId");
+}
+
 /**
  * Diagnose BVL schema
  */

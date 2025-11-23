@@ -5,11 +5,18 @@ import {
   type AppState,
 } from "@scripts/core/state";
 import { buildMediumTableHTML } from "@scripts/features/shared/mediumTable";
-import { escapeHtml } from "@scripts/core/utils";
+import {
+  escapeHtml,
+  formatGpsCoordinates,
+  buildGoogleMapsUrl,
+} from "@scripts/core/utils";
 import { renderCalculationSnapshot } from "@scripts/features/shared/calculationSnapshot";
 import { initVirtualList } from "@scripts/core/virtualList";
 import { printHtml } from "@scripts/core/print";
-import { printEntriesChunked } from "@scripts/features/shared/printing";
+import {
+  printEntriesChunked,
+  buildCompanyPrintHeader,
+} from "@scripts/features/shared/printing";
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { getActiveDriverKey, saveDatabase } from "@scripts/core/storage";
 import type { CalculationItem } from "@scripts/features/calculation";
@@ -19,6 +26,13 @@ interface Services {
     getState: typeof getState;
     subscribe: typeof subscribeState;
     updateSlice: typeof updateSlice;
+  };
+  events?: {
+    emit?: (eventName: string, payload?: unknown) => void;
+    subscribe?: (
+      eventName: string,
+      handler: (payload: unknown) => void
+    ) => (() => void) | void;
   };
 }
 
@@ -32,11 +46,54 @@ interface HistoryEntry {
   eppoCode?: string;
   bbch?: string;
   gps?: string;
+  gpsCoordinates?: { latitude?: number; longitude?: number } | null;
+  gpsPointId?: string | null;
   invekos?: string;
   uhrzeit?: string;
   items: CalculationItem[];
   savedAt?: string;
   [key: string]: unknown;
+}
+
+function resolveHistoryGps(entry: HistoryEntry): string {
+  if (entry?.gpsCoordinates) {
+    const formatted = formatGpsCoordinates(entry.gpsCoordinates);
+    if (formatted) {
+      return formatted;
+    }
+  }
+  return "";
+}
+
+function resolveHistoryGpsNote(entry: HistoryEntry): string {
+  return entry?.gps || "";
+}
+
+function resolveHistoryMapUrl(entry: HistoryEntry | null): string | null {
+  if (!entry?.gpsCoordinates) {
+    return null;
+  }
+  return buildGoogleMapsUrl(entry.gpsCoordinates);
+}
+
+function emitGpsActivationRequest(
+  services: Services,
+  entry: HistoryEntry | null
+): void {
+  if (!entry?.gpsPointId) {
+    window.alert(
+      "Dieser Eintrag ist nicht mit einem gespeicherten GPS-Punkt verknüpft."
+    );
+    return;
+  }
+  if (typeof services.events?.emit !== "function") {
+    window.alert("GPS-Modul konnte nicht benachrichtigt werden.");
+    return;
+  }
+  services.events.emit("gps:set-active-from-history", {
+    id: entry.gpsPointId,
+    source: "history",
+  });
 }
 
 const USE_VIRTUAL_SCROLLING = true;
@@ -45,6 +102,7 @@ const INITIAL_LOAD_LIMIT = 200;
 let initialized = false;
 let virtualListInstance: ReturnType<typeof initVirtualList> | null = null;
 const selectedIndexes = new Set<number>();
+let historyMessageTimeout: number | null = null;
 
 async function persistHistoryChanges(): Promise<void> {
   const driverKey = getActiveDriverKey();
@@ -73,6 +131,7 @@ function createSection(): HTMLElement {
         <button class="btn btn-outline-light btn-sm" data-action="print-selected" disabled>Ausgewählte drucken</button>
       </div>
       <div class="card-body">
+        <div class="alert alert-info d-none" data-role="history-message"></div>
         <div data-role="history-list" class="history-list"></div>
       </div>
     </div>
@@ -134,6 +193,7 @@ function renderCardsList(
             includeCheckbox: true,
             index,
             selected,
+            enableGpsActions: true,
           });
         },
       });
@@ -157,6 +217,7 @@ function renderCardsList(
         includeCheckbox: true,
         index: i,
         selected,
+        enableGpsActions: true,
       });
       const wrapper = document.createElement("div");
       wrapper.innerHTML = cardHtml;
@@ -189,6 +250,37 @@ function renderHistoryTable(section: HTMLElement, state: AppState): void {
   renderCardsList(state, listContainer, state.fieldLabels);
 }
 
+function showHistoryFeedback(
+  section: HTMLElement,
+  text?: string,
+  variant: "info" | "success" | "warning" | "danger" = "info",
+  autoHideMs = 5000
+): void {
+  const messageNode = section.querySelector<HTMLElement>(
+    '[data-role="history-message"]'
+  );
+  if (!messageNode) {
+    return;
+  }
+  if (historyMessageTimeout) {
+    window.clearTimeout(historyMessageTimeout);
+    historyMessageTimeout = null;
+  }
+  if (!text) {
+    messageNode.classList.add("d-none");
+    messageNode.textContent = "";
+    return;
+  }
+  messageNode.className = `alert alert-${variant}`;
+  messageNode.textContent = text;
+  messageNode.classList.remove("d-none");
+  if (autoHideMs > 0) {
+    historyMessageTimeout = window.setTimeout(() => {
+      messageNode.classList.add("d-none");
+    }, autoHideMs);
+  }
+}
+
 function renderDetail(
   entry: HistoryEntry | null,
   section: HTMLElement,
@@ -217,6 +309,30 @@ function renderDetail(
     resolvedLabels,
     "detail"
   );
+  const mapUrl = resolveHistoryMapUrl(entry);
+  const gpsNoteValue = resolveHistoryGpsNote(entry);
+  const gpsCoordsValue = resolveHistoryGps(entry);
+  const gpsNoteHtml = gpsNoteValue ? escapeHtml(gpsNoteValue) : "&ndash;";
+  const gpsCoordsLink = mapUrl
+    ? ` <a class="btn btn-link btn-sm p-0 ms-2 align-baseline" href="${escapeHtml(
+        mapUrl
+      )}" target="_blank" rel="noopener noreferrer">Google Maps</a>`
+    : "";
+  const gpsCoordsHtml = gpsCoordsValue
+    ? `${escapeHtml(gpsCoordsValue)}${gpsCoordsLink}`
+    : "&ndash;";
+  const gpsNoteLabel =
+    detailLabels.gpsNote ||
+    tableLabels.gpsNote ||
+    detailLabels.gps ||
+    tableLabels.gps ||
+    "GPS-Notiz";
+  const gpsCoordsLabel =
+    detailLabels.gpsCoordinates ||
+    tableLabels.gpsCoordinates ||
+    detailLabels.gps ||
+    tableLabels.gps ||
+    "GPS-Koordinaten";
 
   detailBody.innerHTML = `
     <p>
@@ -232,13 +348,32 @@ function renderDetail(
       <strong>${escapeHtml(detailLabels.eppoCode || "EPPO-Code")}:</strong> ${escapeHtml(entry.eppoCode || "")}<br />
       <strong>${escapeHtml(detailLabels.bbch || "BBCH-Stadium")}:</strong> ${escapeHtml(entry.bbch || "")}<br />
       <strong>${escapeHtml(detailLabels.invekos || "InVeKoS-Schlag")}:</strong> ${escapeHtml(entry.invekos || "")}<br />
-      <strong>${escapeHtml(detailLabels.gps || "GPS-Koordinaten")}:</strong> ${escapeHtml(entry.gps || "")}<br />
+      <strong>${escapeHtml(gpsNoteLabel)}:</strong> ${gpsNoteHtml}<br />
+      <strong>${escapeHtml(gpsCoordsLabel)}:</strong> ${gpsCoordsHtml}<br />
       <strong>${escapeHtml(detailLabels.time || "Uhrzeit")}:</strong> ${escapeHtml(entry.uhrzeit || "")}
     </p>
     <div class="table-responsive">
       ${snapshotTable}
     </div>
-    <button class="btn btn-outline-secondary no-print" data-action="detail-print">Drucken / PDF</button>
+    <div class="mt-3 d-flex flex-wrap gap-2">
+      <button class="btn btn-outline-secondary no-print" data-action="detail-print">Drucken / PDF</button>
+      ${
+        entry.gpsPointId != null
+          ? `<button class="btn btn-outline-success no-print"
+                     data-action="detail-activate-gps"
+                     data-index="${typeof index === "number" ? index : ""}">
+               GPS im Modul aktivieren
+             </button>`
+          : ""
+      }
+      ${
+        mapUrl
+          ? `<a class="btn btn-outline-info no-print" href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">
+               Google Maps öffnen
+             </a>`
+          : ""
+      }
+    </div>
   `;
   detailCard.classList.remove("d-none");
 }
@@ -283,32 +418,6 @@ const HISTORY_SUMMARY_STYLES = `
   }
 `;
 
-function buildCompanyHeader(company: AppState["company"]): string {
-  const hasContent = Boolean(
-    company?.name ||
-      company?.headline ||
-      company?.address ||
-      company?.contactEmail
-  );
-  if (!hasContent) {
-    return "";
-  }
-  const address = company?.address
-    ? escapeHtml(company.address).replace(/\n/g, "<br />")
-    : "";
-  const email = company?.contactEmail
-    ? `<p>${escapeHtml(company.contactEmail)}</p>`
-    : "";
-  return `
-    <div class="print-meta">
-      ${company?.name ? `<h1>${escapeHtml(company.name)}</h1>` : ""}
-      ${company?.headline ? `<p>${escapeHtml(company.headline)}</p>` : ""}
-      ${address ? `<p>${address}</p>` : ""}
-      ${email}
-    </div>
-  `;
-}
-
 async function printSummary(
   entries: HistoryEntry[],
   labels: AppState["fieldLabels"]
@@ -318,7 +427,7 @@ async function printSummary(
     return;
   }
   const company = getState().company || {};
-  const headerHtml = buildCompanyHeader(company);
+  const headerHtml = buildCompanyPrintHeader(company);
   try {
     await printEntriesChunked(entries, labels, {
       title: "Historie – Übersicht",
@@ -351,7 +460,19 @@ function printDetail(
     }
   );
 
-  const content = `${buildCompanyHeader(company)}
+  const mapUrl = resolveHistoryMapUrl(entry);
+  const gpsNoteValue = resolveHistoryGpsNote(entry);
+  const gpsCoordsValue = resolveHistoryGps(entry);
+  const gpsNoteLabel = detailLabels.gpsNote || detailLabels.gps || "GPS-Notiz";
+  const gpsCoordsLabel =
+    detailLabels.gpsCoordinates || detailLabels.gps || "GPS-Koordinaten";
+  const gpsCoordsHtml = gpsCoordsValue
+    ? mapUrl
+      ? `${escapeHtml(gpsCoordsValue)} (${escapeHtml(mapUrl)})`
+      : escapeHtml(gpsCoordsValue)
+    : "";
+
+  const content = `${buildCompanyPrintHeader(company)}
     <section class="history-detail">
       <h2>${escapeHtml(detailLabels.title || "Historieneintrag")} – ${escapeHtml(
         entry.datum || entry.date || ""
@@ -380,9 +501,10 @@ function printDetail(
         <strong>${escapeHtml(detailLabels.invekos || "InVeKoS-Schlag")}:</strong> ${escapeHtml(
           entry.invekos || ""
         )}<br />
-        <strong>${escapeHtml(detailLabels.gps || "GPS-Koordinaten")}:</strong> ${escapeHtml(
-          entry.gps || ""
+        <strong>${escapeHtml(gpsNoteLabel)}:</strong> ${escapeHtml(
+          gpsNoteValue || ""
         )}<br />
+        <strong>${escapeHtml(gpsCoordsLabel)}:</strong> ${gpsCoordsHtml}<br />
         <strong>${escapeHtml(detailLabels.time || "Uhrzeit")}:</strong> ${escapeHtml(
           entry.uhrzeit || ""
         )}
@@ -436,6 +558,48 @@ export function initHistory(
   const section = createSection();
   host.appendChild(section);
 
+  if (typeof services.events?.subscribe === "function") {
+    services.events.subscribe(
+      "history:gps-activation-result",
+      (payload: unknown) => {
+        const data =
+          payload && typeof payload === "object"
+            ? (payload as {
+                status?: string;
+                name?: string | null;
+                id?: string | null;
+                message?: string;
+              })
+            : null;
+        if (!data) {
+          return;
+        }
+        const status = (data.status || "info").toLowerCase();
+        let variant: "info" | "success" | "warning" | "danger" = "info";
+        let autoHide = 5000;
+        if (status === "success") {
+          variant = "success";
+        } else if (status === "error") {
+          variant = "danger";
+        } else if (status === "warning") {
+          variant = "warning";
+        } else if (status === "pending") {
+          variant = "info";
+          autoHide = 0;
+        }
+        const fallbackName = data.name || data.id || "GPS-Punkt";
+        const defaultMessage =
+          status === "success"
+            ? `"${fallbackName}" wurde aktiviert.`
+            : status === "pending"
+              ? `"${fallbackName}" wird aktiviert...`
+              : `GPS-Aktivierung für "${fallbackName}" konnte nicht abgeschlossen werden.`;
+        const text = data.message || defaultMessage;
+        showHistoryFeedback(section, text, variant, autoHide);
+      }
+    );
+  }
+
   const handleStateChange = (nextState: AppState) => {
     toggleSectionAvailability(section, nextState);
     renderHistoryTable(section, nextState);
@@ -484,6 +648,20 @@ export function initHistory(
       return;
     }
 
+    if (action === "detail-activate-gps") {
+      const detailCard = target.closest<HTMLElement>("#history-detail");
+      const indexAttr = target.dataset.index || detailCard?.dataset.index || "";
+      const index = indexAttr !== "" ? Number(indexAttr) : NaN;
+      if (Number.isNaN(index)) {
+        window.alert("Kein Historien-Eintrag ausgewählt.");
+        return;
+      }
+      const state = services.state.getState();
+      const entry = state.history[index] as HistoryEntry | undefined;
+      emitGpsActivationRequest(services, entry ?? null);
+      return;
+    }
+
     if (action === "print-selected") {
       const state = services.state.getState();
       const entries = Array.from(selectedIndexes)
@@ -519,6 +697,7 @@ export function initHistory(
           includeCheckbox: true,
           index: i,
           selected,
+          enableGpsActions: true,
         });
         const wrapper = document.createElement("div");
         wrapper.innerHTML = cardHtml;
@@ -566,6 +745,9 @@ export function initHistory(
       void persistHistoryChanges().catch((err) => {
         console.error("Persist delete history error", err);
       });
+    } else if (action === "activate-gps") {
+      const entry = state.history[index] as HistoryEntry | undefined;
+      emitGpsActivationRequest(services, entry ?? null);
     }
   });
 

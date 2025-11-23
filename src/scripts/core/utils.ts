@@ -68,3 +68,66 @@ export function debounce<T extends (...args: any[]) => void>(
     }, delay);
   };
 }
+
+/**
+ * Formats latitude/longitude pairs into a simple string.
+ * Accepts objects containing either latitude/longitude or lat/lng keys.
+ */
+export function formatGpsCoordinates(
+  coords:
+    | {
+        latitude?: number | string;
+        longitude?: number | string;
+        lat?: number | string;
+        lng?: number | string;
+      }
+    | null
+    | undefined,
+  fallback: string = ""
+): string {
+  if (!coords || typeof coords !== "object") {
+    return fallback;
+  }
+  const latitude = Number(
+    (coords as any).latitude ?? (coords as any).lat ?? Number.NaN
+  );
+  const longitude = Number(
+    (coords as any).longitude ?? (coords as any).lng ?? Number.NaN
+  );
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return fallback;
+  }
+  const format = (value: number) => value.toFixed(6);
+  return `${format(latitude)}, ${format(longitude)}`;
+}
+
+/**
+ * Builds a Google Maps URL that opens the provided coordinates in a new tab.
+ * Returns null when the coordinates are invalid so callers can hide the link.
+ */
+export function buildGoogleMapsUrl(
+  coords:
+    | {
+        latitude?: number | string;
+        longitude?: number | string;
+        lat?: number | string;
+        lng?: number | string;
+      }
+    | null
+    | undefined
+): string | null {
+  if (!coords || typeof coords !== "object") {
+    return null;
+  }
+  const latitude = Number(
+    (coords as any).latitude ?? (coords as any).lat ?? Number.NaN
+  );
+  const longitude = Number(
+    (coords as any).longitude ?? (coords as any).lng ?? Number.NaN
+  );
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+  const query = encodeURIComponent(`${latitude},${longitude}`);
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}

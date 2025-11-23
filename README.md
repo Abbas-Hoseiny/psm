@@ -38,6 +38,34 @@ localStorage.removeItem("bvlManifestUrl");
 
 Nach dem Ändern der URL einmal die Seite neu laden und dann "Daten aktualisieren" klicken.
 
+## Lookup Explorer verwenden
+
+Der Reiter **"EPPO & BBCH Lookup"** steht erst zur Verfügung, wenn eine Datenbank verbunden ist **und** in den Einstellungen der SQLite-Treiber aktiv ist. Ohne SQLite bleiben die Buttons deaktiviert und ein Hinweis erklärt den Grund.
+
+### 1. Lookup-Daten importieren
+
+- Öffne im linken Menü den Lookup-Bereich und prüfe den Status mit `Status aktualisieren` oder `Daten prüfen`.
+- Lade EPPO- bzw. BBCH-Daten über die Buttons `Daten laden`. Der Import wird im Statusfeld (Datum, Eintragsanzahl) bestätigt.
+- Wiederhole den Import nur bei neuen Daten – die App merkt sich den letzten Stand in der verbundenen Datenbank.
+
+### 2. Sprache und Filter wählen
+
+- Das EPPO-Formular besitzt ein Suchfeld, ein Limit (10/25/50) und ein dynamisches Sprach-Dropdown.
+- Die Sprachen werden aus der Datenbank gelesen; unbekannte Codes werden automatisch als deutsche Labels (z. B. "Deutsch") dargestellt.
+- Die gewählte Sprache wird im Browser gespeichert und bei der nächsten Sitzung wiederhergestellt. "Alle Sprachen" zeigt gemischte Treffer.
+
+### 3. Suchen und blättern
+
+- Starte die Suche mit `Suchen`. Standardmäßig werden 25 Treffer pro Seite geladen.
+- Unter der Tabelle steht „Einträge X–Y von Z“ sowie ein Vor/Zurück-Buttonpaar. Darüber steuerst du explizit die Seiten; es werden nie mehr Datensätze geladen als angefordert.
+- BBCH-Suchen funktionieren analog, allerdings ohne Sprachfilter.
+
+### 4. Codes in Berechnung übernehmen
+
+- Jede Zeile bietet `Kopieren` und `Übernehmen`.
+- `Übernehmen` trägt EPPO-Code, Name sowie BBCH-Stadium direkt in das Berechnungsformular ein und quittiert den Erfolg mit einer Meldung.
+- Ist keine SQLite-Datenbank aktiv, bleiben die Buttons deaktiviert, um Fehlversuche zu vermeiden.
+
 ## Projektstruktur
 
 - `index.html` – Host-Dokument, bindet Bootstrap & App Entry-Point

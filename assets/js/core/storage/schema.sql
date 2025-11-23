@@ -47,3 +47,17 @@ CREATE TABLE IF NOT EXISTS history_items (
 CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_history_items_history_id ON history_items(history_id);
 CREATE INDEX IF NOT EXISTS idx_mediums_method_id ON mediums(method_id);
+
+CREATE TABLE IF NOT EXISTS gps_points (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  latitude REAL NOT NULL,
+  longitude REAL NOT NULL,
+  source TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_gps_points_created ON gps_points(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_gps_points_name ON gps_points(name COLLATE NOCASE);

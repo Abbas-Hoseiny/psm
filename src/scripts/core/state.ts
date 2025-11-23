@@ -1,5 +1,24 @@
 import { getDefaultFieldLabels } from "./labels";
 
+export interface GpsPoint {
+  id: string;
+  name: string;
+  description?: string | null;
+  latitude: number;
+  longitude: number;
+  source?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GpsState {
+  points: GpsPoint[];
+  activePointId: string | null;
+  pending: boolean;
+  lastError: string | null;
+  initialized: boolean;
+}
+
 export interface AppState {
   app: {
     ready: boolean;
@@ -12,7 +31,8 @@ export interface AppState {
       | "zulassung"
       | "settings"
       | "report"
-      | "lookup";
+      | "lookup"
+      | "gps";
     storageDriver: "memory" | "sqlite" | "filesystem" | "localstorage";
   };
   company: {
@@ -43,6 +63,7 @@ export interface AppState {
   history: any[];
   fieldLabels: any;
   calcContext: any | null;
+  gps: GpsState;
   zulassung: {
     filters: {
       culture: string | null;
@@ -124,6 +145,13 @@ let state: AppState = {
   history: [],
   fieldLabels: getDefaultFieldLabels(),
   calcContext: null,
+  gps: {
+    points: [],
+    activePointId: null,
+    pending: false,
+    lastError: null,
+    initialized: false,
+  },
   zulassung: {
     filters: {
       culture: null,
@@ -245,6 +273,13 @@ export function resetState(newState?: AppState): AppState {
     history: [],
     fieldLabels: getDefaultFieldLabels(),
     calcContext: null,
+    gps: {
+      points: [],
+      activePointId: null,
+      pending: false,
+      lastError: null,
+      initialized: false,
+    },
     zulassung: {
       filters: {
         culture: null,

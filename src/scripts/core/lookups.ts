@@ -4,6 +4,7 @@ import {
   searchEppoCodes as workerSearchEppoCodes,
   searchBbchStages as workerSearchBbchStages,
   getLookupStats as workerGetLookupStats,
+  listLookupLanguages as workerListLookupLanguages,
 } from "./storage/sqlite";
 
 export type LookupKind = "eppo" | "bbch";
@@ -50,6 +51,12 @@ export interface LookupSearchOptions {
 export interface LookupSearchResult<T> {
   rows: T[];
   total: number;
+}
+
+export interface LookupLanguageInfo {
+  code: string;
+  label: string;
+  count: number;
 }
 
 const LOOKUP_ASSETS: Record<LookupKind, string> = {
@@ -227,4 +234,35 @@ export async function searchBbchSuggestions(
 ): Promise<BbchLookupResult[]> {
   const result = await searchBbchLookup({ query, limit, offset: 0 });
   return result.rows;
+}
+
+export async function listLookupLanguages(): Promise<LookupLanguageInfo[]> {
+  try {
+    await ensureLookupData("eppo");
+  } catch (error) {
+    console.error("Lookup-Sprachen nicht verfügbar:", error);
+    return [];
+  }
+
+  try {
+    const raw = await workerListLookupLanguages();
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw.map((entry: any) => {
+      const code =
+        typeof entry?.language === "string"
+          ? entry.language.trim().toUpperCase()
+          : "";
+      const labelSource =
+        typeof entry?.label === "string" ? entry.label.trim() : "";
+      const label = labelSource || code || "Ohne Sprachcode";
+      const count = Number(entry?.count) || 0;
+      const normalized: LookupLanguageInfo = { code, label, count };
+      return normalized;
+    });
+  } catch (error) {
+    console.error("Lookup-Sprachen konnten nicht geladen werden:", error);
+    return [];
+  }
 }

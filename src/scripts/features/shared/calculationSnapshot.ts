@@ -1,4 +1,8 @@
-import { escapeHtml } from "@scripts/core/utils";
+import {
+  escapeHtml,
+  formatGpsCoordinates,
+  buildGoogleMapsUrl,
+} from "@scripts/core/utils";
 import { buildMediumTableHTML } from "./mediumTable";
 
 interface SnapshotOptions {
@@ -6,6 +10,7 @@ interface SnapshotOptions {
   includeCheckbox?: boolean;
   index?: number;
   selected?: boolean;
+  enableGpsActions?: boolean;
 }
 
 export interface CalculationSnapshotEntry {
@@ -18,6 +23,8 @@ export interface CalculationSnapshotEntry {
   eppoCode?: string;
   bbch?: string;
   gps?: string;
+  gpsCoordinates?: { latitude?: number; longitude?: number } | null;
+  gpsPointId?: string | null;
   invekos?: string;
   uhrzeit?: string;
   items?: any[];
@@ -31,6 +38,20 @@ export interface CalculationSnapshotLabels {
   };
 }
 
+function resolveSnapshotGps(entry: CalculationSnapshotEntry): string {
+  if (entry?.gpsCoordinates) {
+    const formatted = formatGpsCoordinates(entry.gpsCoordinates);
+    if (formatted) {
+      return formatted;
+    }
+  }
+  return "";
+}
+
+function resolveSnapshotGpsNote(entry: CalculationSnapshotEntry): string {
+  return entry?.gps || "";
+}
+
 export function renderCalculationSnapshot(
   entry: CalculationSnapshotEntry,
   labels: CalculationSnapshotLabels,
@@ -41,10 +62,36 @@ export function renderCalculationSnapshot(
     includeCheckbox = false,
     index,
     selected = false,
+    enableGpsActions = false,
   } = options;
 
   const tableLabels = labels?.history?.tableColumns ?? {};
   const detailLabels = labels?.history?.detail ?? {};
+  const gpsNoteValue = resolveSnapshotGpsNote(entry);
+  const gpsNoteHtml = gpsNoteValue ? escapeHtml(gpsNoteValue) : "–";
+  const gpsCoordinateValue = resolveSnapshotGps(entry);
+  const gpsMapUrl = entry?.gpsCoordinates
+    ? buildGoogleMapsUrl(entry.gpsCoordinates)
+    : null;
+  const gpsCoordinatesHtml = gpsCoordinateValue
+    ? gpsMapUrl
+      ? `${escapeHtml(
+          gpsCoordinateValue
+        )} <a class="btn btn-link btn-sm p-0 ms-1 align-baseline" href="${escapeHtml(
+          gpsMapUrl
+        )}" target="_blank" rel="noopener noreferrer">Google Maps</a>`
+      : escapeHtml(gpsCoordinateValue)
+    : "–";
+  const gpsNoteLabel =
+    detailLabels.gpsNote ||
+    tableLabels.gpsNote ||
+    detailLabels.gps ||
+    tableLabels.gps ||
+    "GPS-Notiz";
+  const gpsCoordinatesLabel =
+    detailLabels.gpsCoordinates ||
+    tableLabels.gpsCoordinates ||
+    "GPS-Koordinaten";
 
   const selectedClass = selected ? " calc-snapshot-card--selected" : "";
   const dataIndex = typeof index === "number" ? ` data-index="${index}"` : "";
@@ -61,21 +108,37 @@ export function renderCalculationSnapshot(
          </div>`
       : "";
 
-  const actionsHtml =
-    showActions && typeof index === "number"
-      ? `<div class="calc-snapshot-card__actions no-print">
-           <button class="btn btn-sm btn-info"
-                   data-action="view"
-                   data-index="${index}">
-             Ansehen
-           </button>
-           <button class="btn btn-sm btn-danger"
-                   data-action="delete"
-                   data-index="${index}">
-             Löschen
-           </button>
-         </div>`
-      : "";
+  const actionsHtml = (() => {
+    if (!showActions || typeof index !== "number") {
+      return "";
+    }
+    const buttons: string[] = [
+      `<button class="btn btn-sm btn-info"
+               data-action="view"
+               data-index="${index}">
+         Ansehen
+       </button>`,
+      `<button class="btn btn-sm btn-danger"
+               data-action="delete"
+               data-index="${index}">
+         Löschen
+       </button>`,
+    ];
+    if (enableGpsActions && entry?.gpsPointId) {
+      buttons.push(`
+        <button class="btn btn-sm btn-outline-success"
+                data-action="activate-gps"
+                data-index="${index}">
+          GPS aktivieren
+        </button>
+      `);
+    }
+    return `
+      <div class="calc-snapshot-card__actions no-print">
+        ${buttons.join("\n")}
+      </div>
+    `;
+  })();
 
   const mediumTable = buildMediumTableHTML(
     entry.items || [],
@@ -124,8 +187,12 @@ export function renderCalculationSnapshot(
             ${escapeHtml(entry?.invekos || "–")}
           </div>
           <div class="calc-snapshot-card__info-item">
-            <strong>${escapeHtml(detailLabels.gps || tableLabels.gps || "GPS")}:</strong>
-            ${escapeHtml(entry?.gps || "–")}
+            <strong>${escapeHtml(gpsNoteLabel)}:</strong>
+            ${gpsNoteHtml}
+          </div>
+          <div class="calc-snapshot-card__info-item">
+            <strong>${escapeHtml(gpsCoordinatesLabel)}:</strong>
+            ${gpsCoordinatesHtml}
           </div>
           <div class="calc-snapshot-card__info-item">
             <strong>${escapeHtml(detailLabels.quantity || tableLabels.quantity || "Kisten")}:</strong>
@@ -163,6 +230,91 @@ export function renderCalculationSnapshotForPrint(
       classes: "history-detail-table",
     }
   );
+  const gpsNoteValue = resolveSnapshotGpsNote(entry);
+  const gpsCoordinateValue = resolveSnapshotGps(entry);
+  const gpsMapUrl = entry?.gpsCoordinates
+    ? buildGoogleMapsUrl(entry.gpsCoordinates)
+    : null;
+  const gpsNoteLabel = detailLabels.gpsNote || detailLabels.gps || "GPS-Notiz";
+  const gpsCoordinatesLabel = detailLabels.gpsCoordinates || "GPS-Koordinaten";
+  const gpsCoordinateHtml = gpsCoordinateValue
+    ? gpsMapUrl
+      ? `<a href="${escapeHtml(gpsMapUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
+          gpsCoordinateValue
+        )}</a>`
+      : escapeHtml(gpsCoordinateValue)
+    : "–";
+
+  const metaItems: Array<{
+    label: string;
+    value: string | null;
+    isHtml?: boolean;
+  }> = [
+    {
+      label: detailLabels.creator || "Erstellt von",
+      value: entry?.ersteller || null,
+    },
+    {
+      label: detailLabels.location || "Standort",
+      value: entry?.standort || null,
+    },
+    {
+      label: detailLabels.crop || "Kultur",
+      value: entry?.kultur || null,
+    },
+    {
+      label: detailLabels.eppoCode || "EPPO-Code",
+      value: entry?.eppoCode || null,
+    },
+    {
+      label: detailLabels.bbch || "BBCH",
+      value: entry?.bbch || null,
+    },
+    {
+      label: detailLabels.invekos || "InVeKoS",
+      value: entry?.invekos || null,
+    },
+    {
+      label: gpsNoteLabel,
+      value: gpsNoteValue || null,
+    },
+    {
+      label: gpsCoordinatesLabel,
+      value: gpsCoordinateHtml,
+      isHtml: true,
+    },
+    {
+      label: detailLabels.quantity || "Kisten",
+      value:
+        entry?.kisten !== undefined && entry?.kisten !== null
+          ? String(entry.kisten)
+          : null,
+    },
+    {
+      label: detailLabels.time || "Uhrzeit",
+      value: entry?.uhrzeit || null,
+    },
+  ];
+
+  const metaBlockHtml = metaItems
+    .map(({ label, value, isHtml }) => {
+      const normalizedValue = (() => {
+        if (value === null || value === undefined) {
+          return "";
+        }
+        if (typeof value === "string") {
+          return value.trim();
+        }
+        return String(value);
+      })();
+      const displayValue = normalizedValue
+        ? isHtml
+          ? normalizedValue
+          : escapeHtml(normalizedValue)
+        : "–";
+      return `<strong>${escapeHtml(label)}:</strong> ${displayValue}`;
+    })
+    .join("<br />");
 
   return `
     <div class="calc-snapshot-print">
@@ -172,30 +324,7 @@ export function renderCalculationSnapshotForPrint(
         )}</h3>
       </div>
       <div class="calc-snapshot-print__meta">
-        <p>
-          <strong>${escapeHtml(detailLabels.creator || "Erstellt von")}:</strong>
-          ${escapeHtml(entry?.ersteller || "–")}<br />
-          <strong>${escapeHtml(detailLabels.location || "Standort")}:</strong>
-          ${escapeHtml(entry?.standort || "–")}<br />
-          <strong>${escapeHtml(detailLabels.crop || "Kultur")}:</strong>
-          ${escapeHtml(entry?.kultur || "–")}<br />
-          <strong>${escapeHtml(detailLabels.eppoCode || "EPPO-Code")}:</strong>
-          ${escapeHtml(entry?.eppoCode || "–")}<br />
-          <strong>${escapeHtml(detailLabels.bbch || "BBCH")}:</strong>
-          ${escapeHtml(entry?.bbch || "–")}<br />
-          <strong>${escapeHtml(detailLabels.invekos || "InVeKoS")}:</strong>
-          ${escapeHtml(entry?.invekos || "–")}<br />
-          <strong>${escapeHtml(detailLabels.gps || "GPS")}:</strong>
-          ${escapeHtml(entry?.gps || "–")}<br />
-          <strong>${escapeHtml(detailLabels.quantity || "Kisten")}:</strong>
-          ${escapeHtml(
-            entry?.kisten !== undefined && entry?.kisten !== null
-              ? String(entry.kisten)
-              : "–"
-          )}<br />
-          <strong>${escapeHtml(detailLabels.time || "Uhrzeit")}:</strong>
-          ${escapeHtml(entry?.uhrzeit || "–")}
-        </p>
+        <p>${metaBlockHtml}</p>
       </div>
       <div class="calc-snapshot-print__mediums">
         ${mediumTable}

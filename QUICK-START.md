@@ -17,6 +17,7 @@
 **Frage zu beantworten:** Soll die Migration durchgeführt werden?
 
 **Antwort:** ✅ **Ja, empfohlen!**
+
 - 86% weniger JavaScript
 - 64% schnellere Ladezeit
 - 6 Wochen Aufwand, 1 Entwickler
@@ -27,6 +28,7 @@
 ### 💻 Ich bin Entwickler (Migration umsetzen)
 
 **Lies:**
+
 1. [DOKUMENTATION.md](./DOKUMENTATION.md) - Überblick (5 Min)
 2. [ASTRO-MIGRATION.md](./ASTRO-MIGRATION.md) - Strategie (35 Min)
 3. [astro-agent.task.md](./astro-agent.task.md) - Schritt-für-Schritt (Referenz)
@@ -38,6 +40,7 @@
 ### 🏗️ Ich bin Tech Lead / Architekt
 
 **Lies alle in dieser Reihenfolge:**
+
 1. [ANALYSE-ZUSAMMENFASSUNG.md](./ANALYSE-ZUSAMMENFASSUNG.md) - 10 Min
 2. [ARCHITEKTUR.md](./ARCHITEKTUR.md) - 20 Min
 3. [PERFORMANCE.md](./PERFORMANCE.md) - 25 Min
@@ -50,12 +53,14 @@
 ### 🔍 Ich will nur Zahlen sehen
 
 **Aktuell:**
+
 - 1,6 MB Assets (unkomprimiert)
 - 4-15s Ladezeit (3G/4G)
 - 80 MB Memory
 - Lighthouse: 72/100
 
 **Nach Migration:**
+
 - 400 KB Assets (komprimiert) → **-75%**
 - 1-3s Ladezeit → **-64%**
 - 40 MB Memory → **-50%**
@@ -67,14 +72,24 @@
 
 ## 📁 Alle Dokumente
 
-| Datei | Zeilen | Zweck |
-|-------|--------|-------|
-| [DOKUMENTATION.md](./DOKUMENTATION.md) | 215 | Navigations-Übersicht |
-| [ANALYSE-ZUSAMMENFASSUNG.md](./ANALYSE-ZUSAMMENFASSUNG.md) | 302 | Executive Summary ⭐ |
-| [ARCHITEKTUR.md](./ARCHITEKTUR.md) | 378 | Technische Architektur |
-| [PERFORMANCE.md](./PERFORMANCE.md) | 443 | Performance-Analyse |
-| [ASTRO-MIGRATION.md](./ASTRO-MIGRATION.md) | 838 | Migrations-Strategie |
-| [astro-agent.task.md](./astro-agent.task.md) | 1.251 | Implementierungs-Anleitung ⭐ |
+| Datei                                                      | Zeilen | Zweck                         |
+| ---------------------------------------------------------- | ------ | ----------------------------- |
+| [DOKUMENTATION.md](./DOKUMENTATION.md)                     | 215    | Navigations-Übersicht         |
+| [ANALYSE-ZUSAMMENFASSUNG.md](./ANALYSE-ZUSAMMENFASSUNG.md) | 302    | Executive Summary ⭐          |
+| [ARCHITEKTUR.md](./ARCHITEKTUR.md)                         | 378    | Technische Architektur        |
+| [PERFORMANCE.md](./PERFORMANCE.md)                         | 443    | Performance-Analyse           |
+| [ASTRO-MIGRATION.md](./ASTRO-MIGRATION.md)                 | 838    | Migrations-Strategie          |
+| [astro-agent.task.md](./astro-agent.task.md)               | 1.251  | Implementierungs-Anleitung ⭐ |
+
+---
+
+## 🧭 Lookup Explorer ausprobieren
+
+1. Verbinde im Browser eine SQLite-Datenbank und öffne den Bereich **EPPO & BBCH Lookup**.
+2. Klicke auf `Daten laden`, um EPPO- und BBCH-Referenzen zu importieren (Statuskarte zeigt Datum & Anzahl).
+3. Wähle Suchbegriff, Limit (10/25/50) und optional eine Sprache aus der dynamischen Liste.
+4. Navigiere mit den Vor-/Zurück-Buttons zwischen den Seiten – es werden nur die angefragten Treffer geladen.
+5. Übernehme einen Code direkt ins Berechnungsformular über den Button `Übernehmen`. Details siehe [README » Lookup Explorer verwenden](./README.md#lookup-explorer-verwenden).
 
 ---
 
