@@ -252,9 +252,10 @@ function renderProfileList(state: AppState): void {
   if (!profileTableBody) {
     return;
   }
+  const tableBody = profileTableBody;
   const profiles = state.mediumProfiles || [];
   if (!profiles.length) {
-    profileTableBody.innerHTML = `
+    tableBody.innerHTML = `
       <tr>
         <td colspan="3" class="text-center text-muted">Noch keine Profile erstellt.</td>
       </tr>
@@ -264,7 +265,7 @@ function renderProfileList(state: AppState): void {
   const mediumMap = new Map<string, any>(
     state.mediums.map((medium: any) => [medium.id, medium])
   );
-  profileTableBody.innerHTML = "";
+  tableBody.innerHTML = "";
   profiles.forEach((profile) => {
     const row = document.createElement("tr");
     const labels = profile.mediumIds
@@ -288,7 +289,7 @@ function renderProfileList(state: AppState): void {
         </div>
       </td>
     `;
-    profileTableBody.appendChild(row);
+    tableBody.appendChild(row);
   });
 }
 
