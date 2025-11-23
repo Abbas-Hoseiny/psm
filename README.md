@@ -1,6 +1,8 @@
-# Bio-Pflanzenschutz – All in One
+# Pflanzenschutz-Aufzeichnung
 
-Statische Web-Anwendung zur Verwaltung, Berechnung und Dokumentation von Pflanzenschutzmitteln. Die gesamte Logik läuft im Browser – inklusive einer **SQLite-WASM** Datenbank im Web Worker für große Datenmengen. Für Browser ohne OPFS stehen weiterhin JSON-basierte Speicher-Treiber zur Verfügung.
+> Historischer Hinweis: Das Repository heißt weiterhin `pflanzenschutzliste`, die Anwendung selbst wird jedoch neutral als **Pflanzenschutz-Aufzeichnung** geführt.
+
+Pflanzenschutz-Aufzeichnung ist eine statische Web-Anwendung zur Verwaltung, Berechnung und Dokumentation von Pflanzenschutzmitteln. Die gesamte Logik läuft im Browser – inklusive einer **SQLite-WASM** Datenbank im Web Worker für große Datenmengen. Für Browser ohne OPFS stehen weiterhin JSON-basierte Speicher-Treiber zur Verfügung.
 
 ## Highlights
 
@@ -128,7 +130,7 @@ SQL-Definition: `assets/js/core/storage/schema.sql`.
 ## Entwicklung & Setup
 
 ```bash
-# Repository klonen
+# Repository klonen (Name bleibt aus Kompatibilitätsgründen "pflanzenschutzliste")
 git clone https://github.com/Abbas-Hoseiny/pflanzenschutzliste.git
 cd pflanzenschutzliste
 
@@ -154,4 +156,4 @@ Automatisierte Tests sind aktuell nicht hinterlegt. Für Releases sollten diese 
 
 ## Lizenz
 
-[MIT License](LICENSE) © 2025 Pflanzenschutzliste
+[MIT License](LICENSE) © 2025 Pflanzenschutz-Aufzeichnung

@@ -1,5 +1,7 @@
 # Persistenz- und Datenmodell-Plan
 
+> Gilt für die neutrale Anwendung **Pflanzenschutz-Aufzeichnung**.
+
 ## 1. Status quo (Stand November 2025)
 
 | Bereich           | Tabellen / Strukturen                                                               | Inhalt                                                                    | Bemerkungen                                                                  |

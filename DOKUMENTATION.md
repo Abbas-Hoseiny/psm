@@ -1,6 +1,8 @@
 # 📚 Dokumentations-Übersicht
 
-## Willkommen zur Pflanzenschutzliste-Analyse
+> Dieses Dokument bündelt alle Materialien der neutralen Anwendung **Pflanzenschutz-Aufzeichnung**.
+
+## Willkommen zur Pflanzenschutz-Aufzeichnung-Analyse
 
 Diese Dokumentation enthält die vollständige Projekt-Analyse und einen detaillierten Plan zur Migration zu Astro 4.
 
@@ -15,6 +17,7 @@ Diese Dokumentation enthält die vollständige Projekt-Analyse und einen detaill
 **Zielgruppe:** Alle (Entscheider, Entwickler, Product Owner)
 
 **Inhalt:**
+
 - Executive Summary der gesamten Analyse
 - Ist-Zustand und Probleme
 - Migrations-Empfehlung mit Begründung
@@ -34,6 +37,7 @@ Gibt schnellen Überblick über alle Ergebnisse ohne technische Tiefe.
 **Zielgruppe:** Entwickler, Architekten
 
 **Inhalt:**
+
 - Vollständige Ist-Architektur
 - Projekt-Struktur und Dateibaum
 - Architektur-Muster (Feature-Module, State, Events)
@@ -46,6 +50,7 @@ Gibt schnellen Überblick über alle Ergebnisse ohne technische Tiefe.
 Für tiefes Verständnis der aktuellen Architektur vor der Migration.
 
 **Highlights:**
+
 - 📊 Detaillierte Modul-Übersicht
 - 🔄 Datenfluss-Visualisierungen
 - ⚠️ Identifizierte technische Schulden
@@ -60,6 +65,7 @@ Für tiefes Verständnis der aktuellen Architektur vor der Migration.
 **Zielgruppe:** Performance-Engineers, Tech Leads
 
 **Inhalt:**
+
 - Detaillierte Asset-Größen und Ladezeiten
 - Netzwerk-Analyse (3G, 4G, cached)
 - Laufzeit-Performance (JavaScript, Rendering, Memory)
@@ -73,6 +79,7 @@ Für tiefes Verständnis der aktuellen Architektur vor der Migration.
 Für detaillierte Performance-Metriken und Optimierungs-Empfehlungen.
 
 **Highlights:**
+
 - 📈 1,6 MB Assets, 4-15s Ladezeit (aktuell)
 - 🔴 Kritische Performance-Probleme identifiziert
 - 💡 Konkrete Optimierungs-Vorschläge mit geschätztem Gewinn
@@ -87,6 +94,7 @@ Für detaillierte Performance-Metriken und Optimierungs-Empfehlungen.
 **Zielgruppe:** Tech Leads, Architekten, erfahrene Entwickler
 
 **Inhalt:**
+
 - Warum Astro? (Begründung mit Vergleichen)
 - Was ist Astro? (Islands Architecture)
 - Phasenweiser Migrations-Plan (6 Wochen)
@@ -100,6 +108,7 @@ Für detaillierte Performance-Metriken und Optimierungs-Empfehlungen.
 Vor Start der Migration für strategisches Verständnis.
 
 **Highlights:**
+
 - ✅ 86% weniger JavaScript, 64% schnellere Ladezeit
 - 📅 6-Wochen-Plan mit konkreten Phasen
 - 💰 Kosten-Nutzen-Analyse (Break-Even: 3-6 Monate)
@@ -114,6 +123,7 @@ Vor Start der Migration für strategisches Verständnis.
 **Zielgruppe:** Entwickler, der die Migration umsetzt
 
 **Inhalt:**
+
 - Phase-für-Phase Implementierungs-Schritte
 - Konkrete Code-Beispiele und Konfigurationen
 - GitHub Actions Workflow für Deployment
@@ -128,6 +138,7 @@ Vor Start der Migration für strategisches Verständnis.
 Vor und während der Migration als Schritt-für-Schritt-Anleitung.
 
 **Highlights:**
+
 - 📝 Detaillierte Aufgaben für 30 Arbeitstage
 - 💻 Code-Beispiele für jede Komponente
 - ✅ Acceptance Criteria pro Phase
@@ -178,14 +189,14 @@ Vor und während der Migration als Schritt-für-Schritt-Anleitung.
 
 ## 📊 Dokumentations-Metriken
 
-| Dokument | Zeilen | Wörter (ca.) | Lesezeit | Komplexität |
-|----------|--------|--------------|----------|-------------|
-| ANALYSE-ZUSAMMENFASSUNG.md | 302 | 2.500 | 10 min | ⭐⭐ Leicht |
-| ARCHITEKTUR.md | 378 | 5.500 | 20 min | ⭐⭐⭐ Mittel |
-| PERFORMANCE.md | 443 | 6.500 | 25 min | ⭐⭐⭐⭐ Hoch |
-| ASTRO-MIGRATION.md | 838 | 11.000 | 35 min | ⭐⭐⭐⭐ Hoch |
-| astro-agent.task.md | 1.251 | 16.500 | 60 min | ⭐⭐⭐⭐⭐ Sehr hoch |
-| **GESAMT** | **3.212** | **~42.000** | **~150 min** | - |
+| Dokument                   | Zeilen    | Wörter (ca.) | Lesezeit     | Komplexität          |
+| -------------------------- | --------- | ------------ | ------------ | -------------------- |
+| ANALYSE-ZUSAMMENFASSUNG.md | 302       | 2.500        | 10 min       | ⭐⭐ Leicht          |
+| ARCHITEKTUR.md             | 378       | 5.500        | 20 min       | ⭐⭐⭐ Mittel        |
+| PERFORMANCE.md             | 443       | 6.500        | 25 min       | ⭐⭐⭐⭐ Hoch        |
+| ASTRO-MIGRATION.md         | 838       | 11.000       | 35 min       | ⭐⭐⭐⭐ Hoch        |
+| astro-agent.task.md        | 1.251     | 16.500       | 60 min       | ⭐⭐⭐⭐⭐ Sehr hoch |
+| **GESAMT**                 | **3.212** | **~42.000**  | **~150 min** | -                    |
 
 ---
 
@@ -209,12 +220,12 @@ Vor und während der Migration als Schritt-für-Schritt-Anleitung.
 
 ### Aufwand & Nutzen
 
-| Aspekt | Wert |
-|--------|------|
-| **Entwicklungs-Aufwand** | 30 Arbeitstage (6 Wochen) |
-| **Kosten** | ~256 Entwicklungs-Stunden |
-| **Performance-Gewinn** | 86% weniger JS, 64% schneller |
-| **Break-Even** | 3-6 Monate |
+| Aspekt                   | Wert                           |
+| ------------------------ | ------------------------------ |
+| **Entwicklungs-Aufwand** | 30 Arbeitstage (6 Wochen)      |
+| **Kosten**               | ~256 Entwicklungs-Stunden      |
+| **Performance-Gewinn**   | 86% weniger JS, 64% schneller  |
+| **Break-Even**           | 3-6 Monate                     |
 | **Langfristiger Nutzen** | Hoch (weniger techn. Schulden) |
 
 ---
@@ -233,11 +244,13 @@ Vor und während der Migration als Schritt-für-Schritt-Anleitung.
 **Basis:** ANALYSE-ZUSAMMENFASSUNG.md
 
 **Fragen zu beantworten:**
+
 - ✅ Ist der ROI akzeptabel? (Break-Even: 3-6 Monate)
 - ✅ Ist die Timeline machbar? (6 Wochen, 1 Entwickler)
 - ✅ Sind die Risiken beherrschbar? (Ja, niedrig-mittel)
 
 **Entscheidung:**
+
 - [ ] ✅ Ja → Weiter zu Schritt 3
 - [ ] ❌ Nein → Status Quo beibehalten (dokumentiert)
 
@@ -248,11 +261,13 @@ Vor und während der Migration als Schritt-für-Schritt-Anleitung.
 **Basis:** astro-agent.task.md
 
 **Voraussetzungen:**
+
 - ✅ Freigabe von Schritt 2
 - ✅ Entwickler verfügbar (6 Wochen)
 - ✅ Testumgebung bereit
 
 **Phase 1 (Woche 1):**
+
 - Tag 1-2: Astro-Setup
 - Tag 3-5: Layout & Shell
 
@@ -271,6 +286,7 @@ Vor und während der Migration als Schritt-für-Schritt-Anleitung.
 **Referenz:** astro-agent.task.md (Eskalations-Pfad)
 
 **Bei Problemen:**
+
 1. Analysedokumente nochmal lesen
 2. Astro-Dokumentation konsultieren (docs.astro.build)
 3. Bestehenden Code als Referenz nutzen

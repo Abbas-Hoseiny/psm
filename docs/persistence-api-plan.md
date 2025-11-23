@@ -1,5 +1,7 @@
 # Persistenz-API-Plan
 
+> Rahmen: Neutral geführte Anwendung **Pflanzenschutz-Aufzeichnung**.
+
 > Ergänzung zu `persistence-plan.md` und `sqlite-schema-update.md`. Ziel: konkrete Anpassungen an Frontend-APIs (Schritt 1.4 der Task-Liste).
 
 ## 1. State-Slice-Erweiterungen

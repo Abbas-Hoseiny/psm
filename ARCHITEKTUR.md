@@ -1,4 +1,6 @@
-# Projekt-Architektur: Bio-Pflanzenschutz
+# Projekt-Architektur: Pflanzenschutz-Aufzeichnung
+
+> Diese Architekturübersicht beschreibt die neutrale Anwendung **Pflanzenschutz-Aufzeichnung**.
 
 ## Überblick
 
@@ -6,20 +8,20 @@ Diese Anwendung ist eine **statische Single-Page-Webanwendung** zur Verwaltung, 
 
 ### Technologie-Stack
 
-| Komponente | Technologie | Version/Details |
-|------------|-------------|-----------------|
-| Frontend-Framework | Vanilla JavaScript | ES6+ Module |
-| UI-Framework | Bootstrap | 5.3.0 (CDN) |
-| Icons | Bootstrap Icons | 1.11.0 (CDN) |
-| Datenbank | SQLite-WASM | 3.46.1 (@sqlite.org/sqlite-wasm) |
-| Build-Tools | Keine | Direkte ES-Module |
-| Hosting | GitHub Pages | Statische Dateien |
-| Sprache | JavaScript/CSS/HTML | ~8.400 Zeilen JS, ~600 Zeilen CSS |
+| Komponente         | Technologie         | Version/Details                   |
+| ------------------ | ------------------- | --------------------------------- |
+| Frontend-Framework | Vanilla JavaScript  | ES6+ Module                       |
+| UI-Framework       | Bootstrap           | 5.3.0 (CDN)                       |
+| Icons              | Bootstrap Icons     | 1.11.0 (CDN)                      |
+| Datenbank          | SQLite-WASM         | 3.46.1 (@sqlite.org/sqlite-wasm)  |
+| Build-Tools        | Keine               | Direkte ES-Module                 |
+| Hosting            | GitHub Pages        | Statische Dateien                 |
+| Sprache            | JavaScript/CSS/HTML | ~8.400 Zeilen JS, ~600 Zeilen CSS |
 
 ## Projekt-Struktur
 
 ```
-pflanzenschutzliste/
+pflanzenschutzliste/          # Repository-Ordner (Legacy-Name)
 ├── index.html                 # Entry Point
 ├── assets/
 │   ├── css/                   # Styling (~20KB)
@@ -75,18 +77,20 @@ export function initFeatureName(container, services) {
   // Initialisierung
   setupEventListeners();
   renderUI();
-  
+
   // Cleanup bei Section-Wechsel
-  services.events.subscribe('app:sectionChanged', handleSectionChange);
+  services.events.subscribe("app:sectionChanged", handleSectionChange);
 }
 ```
 
 **Vorteile:**
+
 - Klare Trennung der Verantwortlichkeiten
 - Lazy Loading möglich (aber nicht implementiert)
 - Einfache Wartbarkeit
 
 **Nachteile:**
+
 - Keine Code-Splitting (alle Module laden sofort)
 - Keine Tree-Shaking
 
@@ -118,11 +122,12 @@ subscribeState(listener)
 
 ```javascript
 // eventBus.js - Pub/Sub Pattern
-emit(eventName, payload)
-subscribe(eventName, handler)
+emit(eventName, payload);
+subscribe(eventName, handler);
 ```
 
 **Events:**
+
 - `app:sectionChanged` - Navigation
 - `db:connected`, `db:disconnected` - Datenbankstatus
 - `bvl:syncStart`, `bvl:syncProgress`, `bvl:syncComplete` - Synchronisation
@@ -144,6 +149,7 @@ subscribe(eventName, handler)
 ```
 
 **SQLite-WASM Worker:**
+
 - Läuft in separatem Thread (Web Worker)
 - OPFS-Support für Persistenz (Chromium-basiert)
 - In-Memory Fallback für Firefox/Safari
@@ -252,24 +258,26 @@ Storage Layer (SQLite Worker)
 
 ## Browser-Kompatibilität
 
-| Feature | Chrome/Edge | Firefox | Safari |
-|---------|-------------|---------|--------|
-| ES6-Module | ✅ | ✅ | ✅ |
-| SQLite-WASM | ✅ | ✅ | ✅ |
-| OPFS (Persistenz) | ✅ | ❌ | ❌ |
-| File System Access | ✅ | ❌ | ❌ |
-| LocalStorage | ✅ | ✅ | ✅ |
+| Feature            | Chrome/Edge | Firefox | Safari |
+| ------------------ | ----------- | ------- | ------ |
+| ES6-Module         | ✅          | ✅      | ✅     |
+| SQLite-WASM        | ✅          | ✅      | ✅     |
+| OPFS (Persistenz)  | ✅          | ❌      | ❌     |
+| File System Access | ✅          | ❌      | ❌     |
+| LocalStorage       | ✅          | ✅      | ✅     |
 
 **Empfehlung:** Chrome/Edge für volle Funktionalität (OPFS-Persistenz)
 
 ## Sicherheit
 
 ### Positiv
+
 - Keine Server-Seite → Keine Server-Angriffsfläche
 - Content Security Policy möglich
 - HTTPS via GitHub Pages
 
 ### Zu beachten
+
 - SQLite-WASM von CDN (jsdelivr.net)
 - Bootstrap von CDN (vertrauenswürdig)
 - Keine Input-Sanitization bei dynamischem HTML
@@ -278,18 +286,21 @@ Storage Layer (SQLite Worker)
 ## Deployment
 
 ### Aktuell: GitHub Pages
-- **URL:** https://abbas-hoseiny.github.io/pflanzenschutzliste/
+
+- **URL:** https://abbas-hoseiny.github.io/pflanzenschutzliste/ (Legacy-Veröffentlichung)
 - **Prozess:** Push zu main → Auto-Deploy
 - **Konfiguration:** Keine (direkte statische Files)
 - **Build-Step:** Keiner
 
 ### Vorteile
+
 - Zero-Config
 - Kostenlos
 - Schnelle CDN-Auslieferung
 - HTTPS automatisch
 
 ### Limitierungen
+
 - Keine Build-Optimierungen
 - Keine Environment-Variables
 - Keine Server-Side Rendering
@@ -297,6 +308,7 @@ Storage Layer (SQLite Worker)
 ## Dependencies-Analyse
 
 ### Externe Runtime-Abhängigkeiten
+
 ```json
 {
   "bootstrap": "5.3.0 (CDN)",
@@ -306,6 +318,7 @@ Storage Layer (SQLite Worker)
 ```
 
 ### Keine Build-Dependencies
+
 - Keine package.json
 - Keine node_modules
 - Keine DevDependencies
@@ -315,12 +328,14 @@ Storage Layer (SQLite Worker)
 ## Code-Qualität
 
 ### Positiv
+
 - Konsistente ES6+ Syntax
 - Modulare Struktur
 - Dokumentierte Funktionen (teilweise)
 - Error-Handling vorhanden
 
 ### Verbesserungspotenzial
+
 - Keine Tests
 - Keine Linter-Konfiguration
 - Keine TypeScript-Typen
@@ -348,19 +363,20 @@ Storage Layer (SQLite Worker)
 
 ## Wartbarkeit-Score
 
-| Kriterium | Bewertung | Kommentar |
-|-----------|-----------|-----------|
-| Modularität | ⭐⭐⭐⭐ | Gute Feature-Trennung |
-| Lesbarkeit | ⭐⭐⭐ | Okay, aber lange Files |
-| Testbarkeit | ⭐⭐ | Keine Tests vorhanden |
-| Dokumentation | ⭐⭐⭐ | README gut, Code-Kommentare mittel |
-| Erweiterbarkeit | ⭐⭐⭐⭐ | Neue Features einfach hinzufügbar |
+| Kriterium       | Bewertung | Kommentar                          |
+| --------------- | --------- | ---------------------------------- |
+| Modularität     | ⭐⭐⭐⭐  | Gute Feature-Trennung              |
+| Lesbarkeit      | ⭐⭐⭐    | Okay, aber lange Files             |
+| Testbarkeit     | ⭐⭐      | Keine Tests vorhanden              |
+| Dokumentation   | ⭐⭐⭐    | README gut, Code-Kommentare mittel |
+| Erweiterbarkeit | ⭐⭐⭐⭐  | Neue Features einfach hinzufügbar  |
 
 **Gesamt:** ⭐⭐⭐ (3/5) - Solide, aber Verbesserungspotenzial
 
 ## Zusammenfassung
 
 ### Stärken
+
 ✅ Funktionale, produktive Anwendung
 ✅ Klare Modul-Struktur
 ✅ Moderne Browser-APIs (SQLite-WASM, OPFS)
@@ -368,6 +384,7 @@ Storage Layer (SQLite Worker)
 ✅ Einfaches Deployment
 
 ### Schwächen
+
 ❌ Keine Performance-Optimierungen
 ❌ Monolithisches JavaScript-Laden
 ❌ Große CDN-Dependencies
@@ -375,4 +392,5 @@ Storage Layer (SQLite Worker)
 ❌ Hohe Browser-Last
 
 ### Empfehlung
+
 Die Architektur ist für eine statische Web-App ohne Build-Prozess gut durchdacht. Für zukünftige Skalierung und Performance-Verbesserungen wird jedoch ein moderner Build-Prozess mit Code-Splitting und Optimierung empfohlen (siehe PERFORMANCE.md und ASTRO-MIGRATION.md).

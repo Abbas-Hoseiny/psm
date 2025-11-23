@@ -1,5 +1,7 @@
 # GPS & Lookup Integrationsplan
 
+> Umsetzungskontext: Anwendung **Pflanzenschutz-Aufzeichnung**.
+
 ## Ausgangslage
 
 - Repository ist auf Commit `8e5f8ea` zurückgesetzt: Lookup-Feature vorhanden, GPS-Bereich war zuvor auseinandergebaut.

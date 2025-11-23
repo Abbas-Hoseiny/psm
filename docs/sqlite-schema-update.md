@@ -1,5 +1,7 @@
 # SQLite-Schema-Update (Version 4 → 5)
 
+> Zielsystem: Datenhaltung der Anwendung **Pflanzenschutz-Aufzeichnung**.
+
 > Arbeitsgrundlage für Schritt 1.3 der Task-Liste
 
 ## 1. Versionsstrategie

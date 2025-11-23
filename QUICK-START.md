@@ -1,5 +1,7 @@
 # 🚀 Quick Start Guide
 
+> Gilt für die neutrale Anwendung **Pflanzenschutz-Aufzeichnung**.
+
 ## Für eilige Leser
 
 **Aufgabe:** Projekt analysieren und Astro-Migrations-Plan erstellen  

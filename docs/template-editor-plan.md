@@ -1,5 +1,7 @@
 # Template-Editor Plan (Vorlage-Bereich)
 
+> Kontext: Umsetzung innerhalb der Anwendung **Pflanzenschutz-Aufzeichnung**.
+
 ## 1. Technologie-Entscheidungen
 
 | Aspekt       | Entscheidung                                                                                   |
