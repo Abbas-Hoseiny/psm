@@ -99,6 +99,7 @@ function createSection(
     creator: "",
     location: "",
     crop: "",
+    usageType: "",
     quantity: "",
     eppoCode: "",
     bbch: "",
@@ -221,6 +222,20 @@ function createSection(
             )}" value="${escapeAttr(formDefaults.invekos || "")}" />
           </div>
           <div class="col-md-3">
+            <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.usageType.label" data-default-label="${escapeAttr(
+              labels.calculation.fields.usageType.label
+            )}" value="${escapeAttr(
+              labels.calculation.fields.usageType.label
+            )}" placeholder="${escapeAttr(
+              labels.calculation.fields.usageType.label
+            )}" aria-label="Bezeichnung für Feld" />
+            <input type="text" class="form-control" id="calc-verwendung" name="calc-verwendung" required data-placeholder-id="calc-form-usage" placeholder="${escapeAttr(
+              labels.calculation.fields.usageType.placeholder
+            )}" aria-label="${escapeAttr(
+              labels.calculation.fields.usageType.label
+            )}" value="${escapeAttr(formDefaults.usageType || "")}" />
+          </div>
+          <div class="col-md-3">
             <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.gps.label" data-default-label="${escapeAttr(
               labels.calculation.fields.gps.label
             )}" value="${escapeAttr(
@@ -326,6 +341,12 @@ function createSection(
                   labels.calculation.fields.invekos.label
                 )}</span>
                 <span class="calc-summary-value" data-field="invekos"></span>
+              </div>
+              <div class="calc-summary-row">
+                <span class="calc-summary-label" data-label-id="calc-summary-usage">${escapeHtml(
+                  labels.calculation.fields.usageType.label
+                )}</span>
+                <span class="calc-summary-value" data-field="usageType"></span>
               </div>
               <div class="calc-summary-row">
                 <span class="calc-summary-label" data-label-id="calc-summary-gps">${escapeHtml(
@@ -513,6 +534,7 @@ function applyFieldLabels(section: HTMLElement, labels: Labels): void {
     "calc-form-creator": labels.calculation.fields.creator.label,
     "calc-form-location": labels.calculation.fields.location.label,
     "calc-form-crop": labels.calculation.fields.crop.label,
+    "calc-form-usage": labels.calculation.fields.usageType.label,
     "calc-form-quantity": labels.calculation.fields.quantity.label,
     "calc-form-date": labels.calculation.fields.date?.label || "Datum",
     "calc-form-eppo": labels.calculation.fields.eppoCode.label,
@@ -530,6 +552,7 @@ function applyFieldLabels(section: HTMLElement, labels: Labels): void {
     "calc-summary-eppo": labels.calculation.fields.eppoCode.label,
     "calc-summary-bbch": labels.calculation.fields.bbch.label,
     "calc-summary-invekos": labels.calculation.fields.invekos.label,
+    "calc-summary-usage": labels.calculation.fields.usageType.label,
     "calc-summary-gps": labels.calculation.fields.gps.label,
     "calc-summary-time": labels.calculation.fields.time.label,
   };
@@ -568,6 +591,7 @@ function applyFieldLabels(section: HTMLElement, labels: Labels): void {
     "calc-form-creator": labels.calculation.fields.creator.placeholder,
     "calc-form-location": labels.calculation.fields.location.placeholder,
     "calc-form-crop": labels.calculation.fields.crop.placeholder,
+    "calc-form-usage": labels.calculation.fields.usageType.placeholder,
     "calc-form-quantity": labels.calculation.fields.quantity.placeholder,
     "calc-form-eppo": labels.calculation.fields.eppoCode.placeholder,
     "calc-form-bbch": labels.calculation.fields.bbch.placeholder,
@@ -687,6 +711,7 @@ function renderResults(
   setFieldText("bbch", header.bbch || "");
   setFieldText("gps", resolveGpsDisplay(header));
   setFieldText("invekos", header.invekos || "");
+  setFieldText("usageType", header.usageType || "");
   setFieldText("uhrzeit", header.uhrzeit || "");
 
   const updateCompanyRowVisibility = (rowKey: string, visible: boolean) => {
@@ -1065,6 +1090,7 @@ export function initCalculation(
     const rawEppo = (formData.get("calc-eppo") || "").toString().trim();
     const rawBbch = (formData.get("calc-bbch") || "").toString().trim();
     const rawInvekos = (formData.get("calc-invekos") || "").toString().trim();
+    const rawUsage = (formData.get("calc-verwendung") || "").toString().trim();
     const rawGps = (formData.get("calc-gps") || "").toString().trim();
     const rawTime = (formData.get("calc-uhrzeit") || "").toString().trim();
     const rawDate = (formData.get("calc-datum") || "").toString().trim();
@@ -1074,7 +1100,7 @@ export function initCalculation(
     const eppoCode = rawEppo;
     const bbch = rawBbch;
     const invekos = rawInvekos;
-    const gps = rawGps;
+    const usageType = rawUsage;
     const normalizedDate = normalizeDateInput(rawDate);
     const uhrzeit = rawTime
       ? rawTime
@@ -1085,6 +1111,10 @@ export function initCalculation(
     const kisten = Number(rawKisten);
     if (!ersteller || Number.isNaN(kisten)) {
       window.alert("Bitte Felder korrekt ausfüllen!");
+      return;
+    }
+    if (!usageType) {
+      window.alert("Bitte die Art der Verwendung angeben.");
       return;
     }
 
@@ -1160,6 +1190,7 @@ export function initCalculation(
       gpsCoordinates,
       gpsPointId: selectedGpsPoint?.id ?? null,
       invekos,
+      usageType,
       uhrzeit,
       kisten,
       datum: normalizedDate.display || "",
@@ -1181,6 +1212,7 @@ export function initCalculation(
           creator: "",
           location: "",
           crop: "",
+          usageType: "",
           quantity: "",
           eppoCode: "",
           bbch: "",
@@ -1192,6 +1224,7 @@ export function initCalculation(
         creator: rawErsteller,
         location: rawStandort,
         crop: rawKultur,
+        usageType: rawUsage,
         quantity: rawKisten,
         eppoCode: rawEppo,
         bbch: rawBbch,

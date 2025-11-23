@@ -210,7 +210,6 @@
 
 .calc-table-wrapper {
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .calc-table-wrapper .calc-medium-table {

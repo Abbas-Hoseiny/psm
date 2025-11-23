@@ -6,9 +6,8 @@ import {
 } from "@scripts/core/state";
 import { initCalculation } from "@scripts/features/calculation";
 import { initStartup } from "@scripts/features/startup";
-import { initHistory } from "@scripts/features/history";
+import { initDocumentation } from "@scripts/features/documentation";
 import { initSettings } from "@scripts/features/settings";
-import { initReporting } from "@scripts/features/reporting";
 import { initZulassung } from "@scripts/features/zulassung";
 import { initLookup } from "@scripts/features/lookup";
 import { initGps } from "@scripts/features/gps";
@@ -35,12 +34,12 @@ function initIndex(): void {
   initStartup(startupRegion, services);
   const calcContainer = document.querySelector('[data-feature="calculation"]');
   initCalculation(calcContainer, services);
-  const historyContainer = document.querySelector('[data-feature="history"]');
-  initHistory(historyContainer, services);
+  const documentationContainer = document.querySelector(
+    '[data-feature="documentation"]'
+  );
+  initDocumentation(documentationContainer, services);
   const settingsContainer = document.querySelector('[data-feature="settings"]');
   initSettings(settingsContainer, services);
-  const reportingContainer = document.querySelector('[data-feature="report"]');
-  initReporting(reportingContainer, services);
   const zulassungContainer = document.querySelector(
     '[data-feature="zulassung"]'
   );

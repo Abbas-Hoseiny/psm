@@ -295,6 +295,59 @@ export async function importDB(arrayBuffer: ArrayBuffer): Promise<void> {
   await callWorker("importDB", arrayBuffer);
 }
 
+export type HistoryQueryFilters = {
+  startDate?: string;
+  endDate?: string;
+  creator?: string;
+  location?: string;
+  crop?: string;
+  usageType?: string;
+  eppoCode?: string;
+  invekos?: string;
+  bbch?: string;
+  text?: string;
+};
+
+export type HistoryQueryOptions = {
+  page?: number;
+  pageSize?: number;
+  filters?: HistoryQueryFilters;
+  sortDirection?: "asc" | "desc";
+};
+
+export type HistoryQueryResult = {
+  items: any[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+};
+
+export async function listHistoryEntries(
+  options: HistoryQueryOptions = {}
+): Promise<HistoryQueryResult> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("listHistory", options);
+}
+
+export async function getHistoryEntryById(id: number | string): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("getHistoryEntry", Number(id));
+}
+
+export async function deleteHistoryEntryById(
+  id: number | string
+): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("deleteHistoryEntry", Number(id));
+}
+
 /**
  * Import BVL dataset
  */

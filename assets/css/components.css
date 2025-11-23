@@ -210,7 +210,6 @@
 
 .calc-table-wrapper {
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .calc-table-wrapper .calc-medium-table {
@@ -464,5 +463,70 @@
   .calc-snapshot-print__mediums table {
     width: 100%;
     font-size: 0.85rem;
+  }
+}
+
+/* Documentation view */
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.doc-entry-card {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.doc-entry-card__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.doc-entry-card__date {
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.doc-entry-card__title {
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+.doc-entry-card__meta {
+  font-size: 0.9rem;
+  color: var(--color-text-muted, #a0a0a0);
+}
+
+.doc-entry-card__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.doc-entry-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.doc-entry-card__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+@media (min-width: 992px) {
+  .doc-entry-card__main {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
   }
 }

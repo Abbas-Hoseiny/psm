@@ -44,6 +44,7 @@ interface HistoryEntry {
   ersteller?: string;
   standort?: string;
   kultur?: string;
+  usageType?: string;
   kisten?: number;
   eppoCode?: string;
   bbch?: string;

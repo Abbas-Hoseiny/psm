@@ -35,6 +35,7 @@ export interface AppState {
     hasDatabase: boolean;
     activeSection:
       | "calc"
+      | "documentation"
       | "history"
       | "zulassung"
       | "settings"
@@ -58,6 +59,7 @@ export interface AppState {
       creator: string;
       location: string;
       crop: string;
+      usageType: string;
       quantity: string;
       eppoCode: string;
       bbch: string;
@@ -142,6 +144,7 @@ let state: AppState = {
       creator: "",
       location: "",
       crop: "",
+      usageType: "",
       quantity: "",
       eppoCode: "",
       bbch: "",
@@ -272,6 +275,7 @@ export function resetState(newState?: AppState): AppState {
         creator: "",
         location: "",
         crop: "",
+        usageType: "",
         quantity: "",
         eppoCode: "",
         bbch: "",

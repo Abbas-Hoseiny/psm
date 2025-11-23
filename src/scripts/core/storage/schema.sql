@@ -28,6 +28,25 @@ CREATE TABLE IF NOT EXISTS mediums (
   FOREIGN KEY(method_id) REFERENCES measurement_methods(id)
 );
 
+CREATE TABLE IF NOT EXISTS medium_profiles (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS medium_profile_mediums (
+  profile_id TEXT NOT NULL,
+  medium_id TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (profile_id, medium_id),
+  FOREIGN KEY(profile_id) REFERENCES medium_profiles(id) ON DELETE CASCADE,
+  FOREIGN KEY(medium_id) REFERENCES mediums(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_medium_profile_mediums_profile
+  ON medium_profile_mediums(profile_id, sort_order);
+
 CREATE TABLE IF NOT EXISTS lookup_eppo_codes (
   code TEXT NOT NULL,
   language TEXT NOT NULL DEFAULT '',

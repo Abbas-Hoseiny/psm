@@ -21,6 +21,7 @@ export interface CalculationSnapshotEntry {
   ersteller?: string;
   standort?: string;
   kultur?: string;
+  usageType?: string;
   kisten?: number;
   eppoCode?: string;
   bbch?: string;
@@ -95,6 +96,8 @@ export function renderCalculationSnapshot(
 
   const tableLabels = labels?.history?.tableColumns ?? {};
   const detailLabels = labels?.history?.detail ?? {};
+  const usageLabel =
+    detailLabels.usageType || tableLabels.usageType || "Art der Verwendung";
   const gpsNoteValue = resolveSnapshotGpsNote(entry);
   const gpsCoordinateValue = resolveSnapshotGps(entry);
   const showGpsNote = shouldDisplayGpsNote(gpsNoteValue, gpsCoordinateValue);
@@ -208,6 +211,10 @@ export function renderCalculationSnapshot(
               detailLabels.crop || tableLabels.crop || "Kultur"
             )}:</strong>
             ${escapeHtml(entry?.kultur || "–")}
+          </div>
+          <div class="calc-snapshot-card__info-item">
+            <strong>${escapeHtml(usageLabel)}:</strong>
+            ${escapeHtml(entry?.usageType || "–")}
           </div>
           <div class="calc-snapshot-card__info-item">
             <strong>${escapeHtml(

@@ -90,6 +90,33 @@ function ensurePayloadStorageSchema(targetDb = db) {
   }
 }
 
+function ensureMediumProfileTables(targetDb = db) {
+  if (!targetDb) {
+    return;
+  }
+
+  targetDb.exec(`
+    CREATE TABLE IF NOT EXISTS medium_profiles (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS medium_profile_mediums (
+      profile_id TEXT NOT NULL,
+      medium_id TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (profile_id, medium_id),
+      FOREIGN KEY(profile_id) REFERENCES medium_profiles(id) ON DELETE CASCADE,
+      FOREIGN KEY(medium_id) REFERENCES mediums(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_medium_profile_mediums_profile
+      ON medium_profile_mediums(profile_id, sort_order);
+  `);
+}
+
 function hasColumn(targetDb, tableName, columnName) {
   if (!targetDb) {
     return false;
@@ -680,6 +707,25 @@ async function applySchema() {
         zulassungsnummer TEXT,
         FOREIGN KEY(method_id) REFERENCES measurement_methods(id)
       );
+
+      CREATE TABLE IF NOT EXISTS medium_profiles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS medium_profile_mediums (
+        profile_id TEXT NOT NULL,
+        medium_id TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (profile_id, medium_id),
+        FOREIGN KEY(profile_id) REFERENCES medium_profiles(id) ON DELETE CASCADE,
+        FOREIGN KEY(medium_id) REFERENCES mediums(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_medium_profile_mediums_profile
+        ON medium_profile_mediums(profile_id, sort_order);
       
       CREATE TABLE IF NOT EXISTS lookup_eppo_codes (
         code TEXT PRIMARY KEY,
@@ -935,6 +981,23 @@ async function applySchema() {
       throw error;
     }
   }
+
+  postMigrationVersion = db.selectValue("PRAGMA user_version") || 0;
+  const profileTablesMissing =
+    !hasTable(db, "medium_profiles") || !hasTable(db, "medium_profile_mediums");
+  if (profileTablesMissing || postMigrationVersion < 7) {
+    console.log("Migrating database to version 7...");
+    db.exec("BEGIN TRANSACTION");
+    try {
+      ensureMediumProfileTables(db);
+      db.exec("PRAGMA user_version = 7");
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      console.error("Migration to version 7 failed:", error);
+      throw error;
+    }
+  }
 }
 
 /**
@@ -1033,6 +1096,46 @@ async function importSnapshot(snapshot) {
       mediumStmt.finalize();
     }
 
+    // Import medium profiles
+    if (snapshot.mediumProfiles && Array.isArray(snapshot.mediumProfiles)) {
+      ensureMediumProfileTables();
+      db.exec("DELETE FROM medium_profile_mediums");
+      db.exec("DELETE FROM medium_profiles");
+
+      const profileStmt = db.prepare(
+        "INSERT INTO medium_profiles (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)"
+      );
+      const linkStmt = db.prepare(
+        "INSERT INTO medium_profile_mediums (profile_id, medium_id, sort_order) VALUES (?, ?, ?)"
+      );
+      for (const profile of snapshot.mediumProfiles) {
+        const id = String(profile.id || "").trim();
+        if (!id) {
+          continue;
+        }
+        const name = String(profile.name || "Profil ohne Namen");
+        const createdAt =
+          profile.createdAt || profile.created_at || new Date().toISOString();
+        const updatedAt = profile.updatedAt || profile.updated_at || createdAt;
+
+        profileStmt.bind([id, name, createdAt, updatedAt]).step();
+        profileStmt.reset();
+
+        const mediumIds = Array.isArray(profile.mediumIds)
+          ? profile.mediumIds
+          : [];
+        mediumIds.forEach((mediumId, index) => {
+          if (!mediumId) {
+            return;
+          }
+          linkStmt.bind([id, String(mediumId), index]).step();
+          linkStmt.reset();
+        });
+      }
+      profileStmt.finalize();
+      linkStmt.finalize();
+    }
+
     // Import history
     if (snapshot.history && Array.isArray(snapshot.history)) {
       const historyStmt = db.prepare(
@@ -1099,6 +1202,7 @@ async function exportSnapshot() {
       measurementMethods: [],
     },
     mediums: [],
+    mediumProfiles: [],
     history: [],
   };
 
@@ -1149,6 +1253,41 @@ async function exportSnapshot() {
       });
     },
   });
+
+  // Export medium profiles
+  const profileMap = new Map();
+  db.exec({
+    sql: `SELECT id, name, created_at, updated_at
+          FROM medium_profiles
+          ORDER BY name COLLATE NOCASE`,
+    rowMode: "object",
+    callback: (row) => {
+      profileMap.set(row.id, {
+        id: String(row.id),
+        name: String(row.name ?? ""),
+        createdAt: row.created_at || new Date().toISOString(),
+        updatedAt: row.updated_at || new Date().toISOString(),
+        mediumIds: [],
+      });
+    },
+  });
+
+  if (profileMap.size) {
+    db.exec({
+      sql: `SELECT profile_id, medium_id, sort_order
+            FROM medium_profile_mediums
+            ORDER BY profile_id, sort_order, rowid`,
+      rowMode: "object",
+      callback: (row) => {
+        const profile = profileMap.get(row.profile_id);
+        if (profile) {
+          profile.mediumIds.push(String(row.medium_id));
+        }
+      },
+    });
+  }
+
+  snapshot.mediumProfiles = Array.from(profileMap.values());
 
   // Export history
   const historyMap = new Map();
@@ -1241,20 +1380,90 @@ async function listMediums() {
 /**
  * History operations with paging
  */
-async function listHistory({ page = 1, pageSize = 50 } = {}) {
+async function listHistory({
+  page = 1,
+  pageSize = 50,
+  filters = {},
+  sortDirection = "desc",
+} = {}) {
   if (!db) throw new Error("Database not initialized");
 
-  const offset = (page - 1) * pageSize;
-  const history = [];
+  const sanitizedDirection =
+    String(sortDirection).toLowerCase() === "asc" ? "ASC" : "DESC";
 
-  db.exec({
+  const normalizedPageSize = Number.isFinite(Number(pageSize))
+    ? Math.max(1, Number(pageSize))
+    : 50;
+  const normalizedPage = Number.isFinite(Number(page))
+    ? Math.max(1, Number(page))
+    : 1;
+  const offset = (normalizedPage - 1) * normalizedPageSize;
+
+  const whereParts = [];
+  const whereParams = [];
+
+  if (filters.startDate) {
+    whereParts.push("datetime(created_at) >= datetime(?)");
+    whereParams.push(filters.startDate);
+  }
+
+  if (filters.endDate) {
+    whereParts.push("datetime(created_at) <= datetime(?)");
+    whereParams.push(filters.endDate);
+  }
+
+  const textFilters = [
+    ["creator", "$.ersteller"],
+    ["location", "$.standort"],
+    ["crop", "$.kultur"],
+    ["usageType", "$.usageType"],
+    ["eppoCode", "$.eppoCode"],
+    ["invekos", "$.invekos"],
+    ["bbch", "$.bbch"],
+  ];
+
+  textFilters.forEach(([key, jsonPath]) => {
+    const value = filters?.[key];
+    if (typeof value === "string" && value.trim()) {
+      whereParts.push(
+        `LOWER(json_extract(header_json, '${jsonPath}')) LIKE LOWER(?)`
+      );
+      whereParams.push(`%${value.trim()}%`);
+    }
+  });
+
+  if (typeof filters?.text === "string" && filters.text.trim()) {
+    const textValue = `%${filters.text.trim()}%`;
+    const jsonTargets = [
+      "$.ersteller",
+      "$.standort",
+      "$.kultur",
+      "$.usageType",
+      "$.eppoCode",
+      "$.invekos",
+      "$.bbch",
+      "$.gps",
+    ];
+    const textClauses = jsonTargets.map(
+      (path) => `LOWER(json_extract(header_json, '${path}')) LIKE LOWER(?)`
+    );
+    whereParts.push(`(${textClauses.join(" OR ")})`);
+    for (let i = 0; i < jsonTargets.length; i += 1) {
+      whereParams.push(textValue);
+    }
+  }
+
+  const whereSql = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
+
+  const history = [];
+  const queryConfig = {
     sql: `
-      SELECT id, created_at, header_json 
-      FROM history 
-      ORDER BY created_at DESC 
-      LIMIT ? OFFSET ?
+      SELECT id, created_at, header_json
+      FROM history
+      ${whereSql}
+      ORDER BY datetime(created_at) ${sanitizedDirection}, rowid ${sanitizedDirection}
+      LIMIT ${normalizedPageSize} OFFSET ${offset}
     `,
-    bind: [pageSize, offset],
     callback: (row) => {
       const header = JSON.parse(row[2] || "{}");
       history.push({
@@ -1262,16 +1471,23 @@ async function listHistory({ page = 1, pageSize = 50 } = {}) {
         ...header,
       });
     },
-  });
+  };
+  if (whereParams.length) {
+    queryConfig.bind = [...whereParams];
+  }
+  db.exec(queryConfig);
 
-  const totalCount = db.selectValue("SELECT COUNT(*) FROM history") || 0;
+  const totalCount = db.selectValue(
+    `SELECT COUNT(*) FROM history ${whereSql}`,
+    whereParams.length ? [...whereParams] : undefined
+  );
 
   return {
     items: history,
-    page,
-    pageSize,
-    totalCount,
-    totalPages: Math.ceil(totalCount / pageSize),
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+    totalCount: Number(totalCount) || 0,
+    totalPages: Math.ceil((Number(totalCount) || 0) / normalizedPageSize),
   };
 }
 
@@ -1392,6 +1608,7 @@ async function importDB(data) {
     await sqlite3.oo1.OpfsDb.importDb("/pflanzenschutz.sqlite", bytes);
     db = createDatabaseInstance("opfs");
     configureDatabase();
+    await applySchema();
     currentMode = "opfs";
     isInitialized = true;
     return { success: true, mode: "opfs" };
@@ -1429,6 +1646,7 @@ async function importDB(data) {
 
   db = newDb;
   configureDatabase();
+  await applySchema();
   currentMode = "memory";
   isInitialized = true;
   return { success: true, mode: "memory" };
