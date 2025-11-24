@@ -1,5 +1,20 @@
 import { getDefaultFieldLabels } from "./labels";
 
+export interface ArchiveLogEntry {
+  id: string;
+  archivedAt: string;
+  startDate: string;
+  endDate: string;
+  entryCount: number;
+  fileName: string;
+  storageHint?: string;
+  note?: string;
+}
+
+export interface ArchiveState {
+  logs: ArchiveLogEntry[];
+}
+
 export interface GpsPoint {
   id: string;
   name: string;
@@ -41,7 +56,8 @@ export interface AppState {
       | "settings"
       | "report"
       | "lookup"
-      | "gps";
+      | "gps"
+      | "import";
     storageDriver: "memory" | "sqlite" | "filesystem" | "localstorage";
   };
   company: {
@@ -73,6 +89,7 @@ export interface AppState {
   mediums: any[];
   mediumProfiles: MediumProfile[];
   history: any[];
+  archives: ArchiveState;
   fieldLabels: any;
   calcContext: any | null;
   gps: GpsState;
@@ -158,6 +175,7 @@ let state: AppState = {
   mediums: [],
   mediumProfiles: [],
   history: [],
+  archives: { logs: [] },
   fieldLabels: getDefaultFieldLabels(),
   calcContext: null,
   gps: {
@@ -289,6 +307,7 @@ export function resetState(newState?: AppState): AppState {
     mediums: [],
     mediumProfiles: [],
     history: [],
+    archives: { logs: [] },
     fieldLabels: getDefaultFieldLabels(),
     calcContext: null,
     gps: {

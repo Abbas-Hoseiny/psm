@@ -3,6 +3,7 @@ import {
   subscribeState,
   updateSlice,
   type AppState,
+  type ArchiveLogEntry,
 } from "@scripts/core/state";
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { getActiveDriverKey, saveDatabase } from "@scripts/core/storage";
@@ -10,6 +11,11 @@ import {
   deleteHistoryEntryById,
   getHistoryEntryById,
   listHistoryEntries,
+  exportHistoryRange,
+  deleteHistoryRange,
+  vacuumDatabase,
+  setArchiveLogs,
+  persistSqliteDatabaseFile,
   type HistoryQueryFilters,
 } from "@scripts/core/storage/sqlite";
 import {
@@ -25,11 +31,19 @@ import {
 } from "@scripts/features/shared/printing";
 import { buildMediumTableHTML } from "@scripts/features/shared/mediumTable";
 import type { CalculationItem } from "@scripts/features/calculation";
+import { strToU8, zipSync } from "fflate";
 
 interface Services {
   state: {
     getState: typeof getState;
     subscribe: typeof subscribeState;
+  };
+  events?: {
+    subscribe?: (
+      eventName: string,
+      handler: (payload: unknown) => void
+    ) => (() => void) | void;
+    emit?: (eventName: string, payload?: unknown) => void;
   };
 }
 
@@ -74,8 +88,26 @@ interface DocumentationFilters {
 
 type EntryDetailPayload = { entry: DocumentationEntry; detail: HistoryEntry };
 
+const ARCHIVE_ENTRY_LIMIT = 5000;
+const ARCHIVE_HIGHLIGHT_LIMIT = 50;
+const ARCHIVE_LOG_LIMIT = 50;
+
 function formatDateInputValue(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function normalizeDateInput(value?: string | null): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return formatDateInputValue(parsed);
 }
 
 function toDateBoundaryIso(
@@ -124,6 +156,186 @@ function applyDateFiltersToForm(
   }
 }
 
+function buildEntryIdFromRef(
+  ref: DocumentationFocusEntryRef,
+  defaultSource: DocumentationEntrySource = "sqlite"
+): string | null {
+  if (typeof ref === "string") {
+    if (ref.includes(":")) {
+      return ref;
+    }
+    if (/^\d+$/.test(ref)) {
+      return createEntryId(defaultSource, Number(ref));
+    }
+    return ref;
+  }
+  if (typeof ref === "number") {
+    return createEntryId(defaultSource, ref);
+  }
+  if (ref && typeof ref === "object") {
+    const source = ref.source || defaultSource;
+    if (typeof ref.ref === "string" && ref.ref.includes(":")) {
+      return ref.ref;
+    }
+    const numeric = Number(ref.ref);
+    if (!Number.isNaN(numeric)) {
+      return createEntryId(source, numeric);
+    }
+  }
+  return null;
+}
+
+function normalizeFocusEntryIds(
+  refs: DocumentationFocusEntryRef[] | undefined
+): Set<string> {
+  const ids = new Set<string>();
+  if (!refs?.length) {
+    return ids;
+  }
+  refs.forEach((ref) => {
+    const entryId = buildEntryIdFromRef(ref);
+    if (entryId) {
+      ids.add(entryId);
+    }
+  });
+  return ids;
+}
+
+function updateFocusBanner(section: HTMLElement): void {
+  const banner = section.querySelector<HTMLElement>(
+    '[data-role="doc-focus-banner"]'
+  );
+  const textNode = section.querySelector<HTMLElement>(
+    '[data-role="doc-focus-text"]'
+  );
+  if (!banner || !textNode) {
+    return;
+  }
+  if (!focusContext) {
+    banner.classList.add("d-none");
+    return;
+  }
+  const rangeText =
+    currentFilters.startDate && currentFilters.endDate
+      ? `${currentFilters.startDate} - ${currentFilters.endDate}`
+      : "Aktuelle Filter";
+  const label = focusContext.label || "Importierter Zeitraum";
+  const count = focusContext.highlightEntryIds.size;
+  const countText = count ? ` (${count} markiert)` : "";
+  textNode.textContent = `${label}: ${rangeText}${countText}`;
+  banner.classList.remove("d-none");
+}
+
+function clearFocusContext(
+  section: HTMLElement,
+  services: Services,
+  options: { refreshList?: boolean } = {}
+): void {
+  if (!focusContext) {
+    return;
+  }
+  focusContext = null;
+  pendingEntrySelectionId = null;
+  updateFocusBanner(section);
+  if (options.refreshList) {
+    renderList(section, services.state.getState().fieldLabels);
+  }
+}
+
+function attemptPendingSelection(
+  section: HTMLElement,
+  labels: AppState["fieldLabels"]
+): void {
+  if (!pendingEntrySelectionId) {
+    return;
+  }
+  const entry = findEntryById(pendingEntrySelectionId);
+  if (!entry) {
+    return;
+  }
+  pendingEntrySelectionId = null;
+  void handleDetailRequest(section, entry, labels);
+}
+
+function handleFocusRangeEvent(
+  section: HTMLElement,
+  services: Services,
+  payload: DocumentationFocusPayload | undefined
+): void {
+  if (!payload) {
+    return;
+  }
+  const normalizedStart = normalizeDateInput(payload.startDate);
+  const normalizedEnd = normalizeDateInput(payload.endDate);
+  const hasEntryRefs = Boolean(payload.entryIds?.length);
+  if (!normalizedStart && !normalizedEnd && !hasEntryRefs) {
+    return;
+  }
+  currentFilters = {
+    ...currentFilters,
+    ...(normalizedStart ? { startDate: normalizedStart } : {}),
+    ...(normalizedEnd ? { endDate: normalizedEnd } : {}),
+  };
+  if (payload.creator !== undefined) {
+    currentFilters = {
+      ...currentFilters,
+      creator: payload.creator || undefined,
+    };
+  }
+  if (payload.crop !== undefined) {
+    currentFilters = {
+      ...currentFilters,
+      crop: payload.crop || undefined,
+    };
+  }
+  const highlightEntryIds = normalizeFocusEntryIds(payload.entryIds);
+  focusContext = {
+    label: payload.label,
+    reason: payload.reason,
+    startDate: currentFilters.startDate,
+    endDate: currentFilters.endDate,
+    highlightEntryIds,
+  };
+  pendingEntrySelectionId =
+    payload.autoSelectFirst && highlightEntryIds.size
+      ? (highlightEntryIds.values().next().value ?? null)
+      : null;
+  const form = section.querySelector<HTMLFormElement>("#doc-filter");
+  applyDateFiltersToForm(form, currentFilters);
+  updateFocusBanner(section);
+  focusLock = true;
+  void applyFilters(section, services.state.getState()).finally(() => {
+    focusLock = false;
+  });
+}
+
+type DocumentationFocusEntryRef =
+  | string
+  | number
+  | {
+      source?: DocumentationEntrySource;
+      ref: string | number;
+    };
+
+interface DocumentationFocusPayload {
+  startDate?: string;
+  endDate?: string;
+  creator?: string;
+  crop?: string;
+  label?: string;
+  reason?: string;
+  entryIds?: DocumentationFocusEntryRef[];
+  autoSelectFirst?: boolean;
+}
+
+interface DocumentationFocusContext {
+  label?: string;
+  reason?: string;
+  startDate?: string;
+  endDate?: string;
+  highlightEntryIds: Set<string>;
+}
+
 const PAGE_SIZE = 50;
 let initialized = false;
 let dataMode: DataMode = "memory";
@@ -137,6 +349,11 @@ const entryDetailCache = new Map<string, HistoryEntry>();
 let isLoadingEntries = false;
 let currentLoadToken: symbol | null = null;
 let lastHistoryLength = 0;
+let focusContext: DocumentationFocusContext | null = null;
+let focusLock = false;
+let pendingEntrySelectionId: string | null = null;
+let isArchiving = false;
+let lastArchiveLogSignature = "";
 
 function resolveStorageDriver(state: AppState): string {
   return state.app?.storageDriver || getActiveDriverKey();
@@ -195,6 +412,296 @@ function mapSqliteHistoryEntry(
 
 function findEntryById(id: string): DocumentationEntry | undefined {
   return allEntries.find((entry) => entry.id === id);
+}
+
+interface ArchiveFormValues {
+  startDate: string;
+  endDate: string;
+  storageHint?: string;
+  note?: string;
+  removeAfterExport: boolean;
+}
+
+function updateArchiveFormDefaults(section: HTMLElement): void {
+  const form = section.querySelector<HTMLFormElement>(
+    '[data-role="archive-form"]'
+  );
+  if (!form) {
+    return;
+  }
+  const startInput = form.querySelector<HTMLInputElement>(
+    'input[name="archive-start"]'
+  );
+  const endInput = form.querySelector<HTMLInputElement>(
+    'input[name="archive-end"]'
+  );
+  if (startInput) {
+    startInput.value = currentFilters.startDate || "";
+  }
+  if (endInput) {
+    endInput.value = currentFilters.endDate || "";
+  }
+}
+
+function setArchiveStatus(
+  section: HTMLElement,
+  message: string,
+  variant: "info" | "success" | "warning" | "danger" = "info"
+): void {
+  const status = section.querySelector<HTMLElement>(
+    '[data-role="archive-status"]'
+  );
+  if (!status) {
+    return;
+  }
+  if (!message) {
+    status.classList.add("d-none");
+    status.textContent = "";
+    return;
+  }
+  status.className = `alert alert-${variant}`;
+  status.textContent = message;
+  status.classList.remove("d-none");
+}
+
+function toggleArchiveForm(section: HTMLElement, visible?: boolean): void {
+  const form = section.querySelector<HTMLElement>('[data-role="archive-form"]');
+  const toggleBtn = section.querySelector<HTMLButtonElement>(
+    '[data-action="archive-toggle"]'
+  );
+  if (!form) {
+    return;
+  }
+  const isVisible = !form.classList.contains("d-none");
+  const nextVisible = typeof visible === "boolean" ? visible : !isVisible;
+  form.classList.toggle("d-none", !nextVisible);
+  if (toggleBtn) {
+    toggleBtn.textContent = nextVisible
+      ? "Archiv-Eingaben ausblenden"
+      : "Archiv erstellen";
+  }
+  if (nextVisible) {
+    updateArchiveFormDefaults(section);
+  }
+}
+
+function readArchiveFormValues(
+  form: HTMLFormElement
+): ArchiveFormValues | null {
+  const startInput = form.querySelector<HTMLInputElement>(
+    'input[name="archive-start"]'
+  );
+  const endInput = form.querySelector<HTMLInputElement>(
+    'input[name="archive-end"]'
+  );
+  if (!startInput?.value || !endInput?.value) {
+    return null;
+  }
+  const storageInput = form.querySelector<HTMLInputElement>(
+    'input[name="archive-storage"]'
+  );
+  const noteInput = form.querySelector<HTMLTextAreaElement>(
+    'textarea[name="archive-note"]'
+  );
+  const removeCheckbox = form.querySelector<HTMLInputElement>(
+    'input[name="archive-remove"]'
+  );
+  return {
+    startDate: startInput.value,
+    endDate: endInput.value,
+    storageHint: storageInput?.value.trim() || undefined,
+    note: noteInput?.value.trim() || undefined,
+    removeAfterExport: removeCheckbox ? removeCheckbox.checked : true,
+  };
+}
+
+function updateArchiveAvailability(
+  section: HTMLElement,
+  state: AppState
+): void {
+  const toggleBtn = section.querySelector<HTMLButtonElement>(
+    '[data-action="archive-toggle"]'
+  );
+  const submitBtn = section.querySelector<HTMLButtonElement>(
+    '[data-action="archive-submit"]'
+  );
+  const form = section.querySelector<HTMLElement>('[data-role="archive-form"]');
+  const driverHint = section.querySelector<HTMLElement>(
+    '[data-role="archive-driver-hint"]'
+  );
+  const isSqlite =
+    resolveStorageDriver(state) === "sqlite" && Boolean(state.app?.hasDatabase);
+  if (toggleBtn) {
+    toggleBtn.disabled = !isSqlite || isArchiving;
+  }
+  if (submitBtn) {
+    submitBtn.disabled = !isSqlite || isArchiving;
+  }
+  if (!isSqlite && form) {
+    form.classList.add("d-none");
+  }
+  if (driverHint) {
+    driverHint.textContent = isSqlite
+      ? "Lokale SQLite-Datenbank aktiv"
+      : "Nur mit SQLite verfügbar";
+    driverHint.className = `badge ${isSqlite ? "bg-success" : "bg-secondary"}`;
+  }
+}
+
+function setArchiveBusy(section: HTMLElement, busy: boolean): void {
+  isArchiving = busy;
+  const form = section.querySelector<HTMLFormElement>(
+    '[data-role="archive-form"]'
+  );
+  const toggleBtn = section.querySelector<HTMLButtonElement>(
+    '[data-action="archive-toggle"]'
+  );
+  if (form) {
+    form
+      .querySelectorAll<
+        HTMLInputElement | HTMLTextAreaElement | HTMLButtonElement
+      >("input, textarea, button")
+      .forEach((element) => {
+        if (element.dataset.action === "archive-cancel" && busy) {
+          element.setAttribute("disabled", "disabled");
+          return;
+        }
+        if (busy) {
+          element.setAttribute("disabled", "disabled");
+        } else {
+          element.removeAttribute("disabled");
+        }
+      });
+  }
+  if (toggleBtn) {
+    toggleBtn.disabled = busy || toggleBtn.disabled;
+    if (!busy) {
+      const state = getState();
+      toggleBtn.disabled =
+        resolveStorageDriver(state) !== "sqlite" || !state.app?.hasDatabase;
+    }
+  }
+}
+
+function buildArchiveFilename(startDate: string, endDate: string): string {
+  const sanitize = (value: string) =>
+    value ? value.replace(/[^0-9-]/g, "") : "unbekannt";
+  return `pflanzenschutz-archiv-${sanitize(startDate)}_${sanitize(endDate)}.zip`;
+}
+
+async function persistArchiveLogs(logs: ArchiveLogEntry[]): Promise<void> {
+  try {
+    await setArchiveLogs(logs);
+    await persistSqliteDatabaseFile();
+  } catch (error) {
+    console.warn("Archive logs could not be persisted", error);
+  }
+}
+
+function computeArchiveLogSignature(
+  logs: ArchiveLogEntry[] | undefined | null
+): string {
+  if (!Array.isArray(logs) || !logs.length) {
+    return "[]";
+  }
+  return logs
+    .map((log) => `${log.id}:${log.archivedAt}:${log.entryCount}`)
+    .join("|");
+}
+
+function formatArchiveLogDate(value: string | undefined): string {
+  if (!value) {
+    return "-";
+  }
+  return formatDateFromIso(value) || value.slice(0, 16).replace("T", " ");
+}
+
+function renderArchiveLogs(
+  section: HTMLElement,
+  logs: ArchiveLogEntry[] | undefined | null
+): void {
+  const target = section.querySelector<HTMLElement>(
+    '[data-role="archive-log-list"]'
+  );
+  if (!target) {
+    return;
+  }
+  const list = Array.isArray(logs) ? logs : [];
+  if (!list.length) {
+    target.innerHTML =
+      '<div class="text-muted small">Noch keine Archive erstellt.</div>';
+    return;
+  }
+  const items = list
+    .map((log) => {
+      const dateLabel = formatArchiveLogDate(log.archivedAt);
+      const rangeLabel = `${log.startDate || "-"} – ${log.endDate || "-"}`;
+      const entryLabel = log.entryCount === 1 ? "Eintrag" : "Einträge";
+      const storage = log.storageHint
+        ? `<div class="small">Ablage: ${escapeHtml(log.storageHint)}</div>`
+        : "";
+      const note = log.note
+        ? `<div class="small text-muted">Notiz: ${escapeHtml(log.note)}</div>`
+        : "";
+      const copyButton = log.storageHint
+        ? `<button class="btn btn-sm btn-outline-secondary" data-action="archive-log-copy-hint" data-log-id="${log.id}">Hinweis kopieren</button>`
+        : "";
+      return `
+        <div class="list-group-item border rounded mb-2">
+          <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+            <div>
+              <div class="fw-bold">${escapeHtml(dateLabel)}</div>
+              <div class="small text-muted">${escapeHtml(rangeLabel)} · ${log.entryCount} ${entryLabel}</div>
+              <div class="small">Datei: ${escapeHtml(log.fileName || "unbenannt")}</div>
+              ${storage}
+              ${note}
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-start">
+              <button class="btn btn-sm btn-outline-primary" data-action="archive-log-focus" data-log-id="${log.id}">Dokumentation anzeigen</button>
+              ${copyButton}
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+  target.innerHTML = `<div class="list-group list-group-flush">${items}</div>`;
+}
+
+function getArchiveLogById(
+  state: AppState,
+  logId: string
+): ArchiveLogEntry | undefined {
+  const logs = state.archives?.logs;
+  if (!Array.isArray(logs)) {
+    return undefined;
+  }
+  return logs.find((entry) => entry.id === logId);
+}
+
+async function copyText(value: string): Promise<void> {
+  if (!value) {
+    return;
+  }
+  if (
+    typeof navigator !== "undefined" &&
+    navigator.clipboard &&
+    typeof navigator.clipboard.writeText === "function"
+  ) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  if (typeof document !== "undefined") {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+  }
 }
 
 async function resolveEntryDetail(
@@ -318,6 +825,63 @@ function matchesFilter(
   return true;
 }
 
+function buildHistorySignature(entry: HistoryEntry | null | undefined): string {
+  if (!entry) {
+    return "";
+  }
+  const normalize = (value: unknown): string =>
+    value == null ? "" : String(value);
+  const items = Array.isArray(entry.items) ? entry.items : [];
+  const itemHashes = items
+    .map((item) => {
+      const sortedEntries = Object.keys(item)
+        .sort()
+        .reduce<Record<string, unknown>>((acc, key) => {
+          acc[key] = (item as Record<string, unknown>)[key];
+          return acc;
+        }, {});
+      return JSON.stringify(sortedEntries);
+    })
+    .sort();
+  return JSON.stringify({
+    savedAt: normalize(entry.savedAt),
+    dateIso: normalize(entry.dateIso),
+    datum: normalize(entry.datum),
+    ersteller: normalize(entry.ersteller),
+    standort: normalize(entry.standort),
+    kultur: normalize(entry.kultur),
+    usageType: normalize(entry.usageType),
+    eppoCode: normalize(entry.eppoCode),
+    invekos: normalize(entry.invekos),
+    bbch: normalize(entry.bbch),
+    gps: normalize(entry.gps),
+    gpsPointId: normalize(entry.gpsPointId),
+    kisten: entry.kisten ?? null,
+    itemHashes,
+  });
+}
+
+function pruneStateHistoryBySignatures(signatures: Set<string>): void {
+  if (!signatures.size) {
+    return;
+  }
+  updateSlice("history", (history = []) => {
+    if (!Array.isArray(history) || history.length === 0) {
+      return history;
+    }
+    let changed = false;
+    const next = history.filter((entry) => {
+      const signature = buildHistorySignature(entry as HistoryEntry);
+      if (signatures.has(signature)) {
+        changed = true;
+        return false;
+      }
+      return true;
+    });
+    return changed ? next : history;
+  });
+}
+
 function sortEntries(entries: DocumentationEntry[]): DocumentationEntry[] {
   return entries.slice().sort((a, b) => {
     const dateA =
@@ -352,6 +916,9 @@ function updateSelectionInfo(section: HTMLElement): void {
   const exportBtn = section.querySelector<HTMLButtonElement>(
     '[data-action="export-selection"]'
   );
+  const exportZipBtn = section.querySelector<HTMLButtonElement>(
+    '[data-action="export-zip"]'
+  );
   const deleteBtn = section.querySelector<HTMLButtonElement>(
     '[data-action="delete-selection"]'
   );
@@ -367,6 +934,9 @@ function updateSelectionInfo(section: HTMLElement): void {
   }
   if (exportBtn) {
     exportBtn.disabled = disabled;
+  }
+  if (exportZipBtn) {
+    exportZipBtn.disabled = disabled;
   }
   if (deleteBtn) {
     deleteBtn.disabled = disabled;
@@ -445,7 +1015,7 @@ function renderDetail(
     "GPS-Koordinaten";
 
   const gpsCoordsHtml = gpsCoords
-    ? `${escapeHtml(gpsCoords)}$${
+    ? `${escapeHtml(gpsCoords)}${
         mapUrl
           ? ` <a class="btn btn-link btn-sm p-0 ms-2 align-baseline" href="${escapeHtml(
               mapUrl
@@ -525,9 +1095,17 @@ function renderList(
 
     visibleEntries.forEach((item) => {
       const row = document.createElement("div");
-      row.className = "doc-sidebar-entry list-group-item";
+      const isHighlighted = Boolean(
+        focusContext?.highlightEntryIds?.has(item.id)
+      );
+      row.className = `doc-sidebar-entry list-group-item${
+        isHighlighted ? " doc-sidebar-entry--highlight" : ""
+      }`;
       row.dataset.entryId = item.id;
       const dateValue = resolveEntryDate(item.entry) || "-";
+      const importBadge = isHighlighted
+        ? '<span class="badge bg-warning-subtle text-warning-emphasis badge-import">Import</span>'
+        : "";
       row.innerHTML = `
         <div
           class="doc-sidebar-entry__main"
@@ -535,7 +1113,10 @@ function renderList(
           data-entry-id="${item.id}"
         >
           <div class="d-flex justify-content-between gap-2">
-            <span class="fw-bold">${escapeHtml(item.entry.kultur || "-")}</span>
+            <span class="fw-bold d-flex align-items-center gap-2">
+              ${escapeHtml(item.entry.kultur || "-")}
+              ${importBadge}
+            </span>
             <small class="text-muted">${escapeHtml(dateValue)}</small>
           </div>
           <div class="text-muted small mb-1">
@@ -586,6 +1167,7 @@ function renderList(
   }
 
   markActiveListEntry(section, activeEntryId);
+  attemptPendingSelection(section, labels);
 }
 
 function updateInfo(
@@ -726,6 +1308,10 @@ async function applyFilters(
   entryDetailCache.clear();
   currentPage = 1;
   resetSelection(section);
+  updateArchiveAvailability(section, state);
+  updateArchiveFormDefaults(section);
+  renderArchiveLogs(section, state.archives?.logs ?? []);
+  lastArchiveLogSignature = computeArchiveLogSignature(state.archives?.logs);
 
   if (useSqlite) {
     await fetchSqlitePage(section, state.fieldLabels, 1, false);
@@ -776,21 +1362,31 @@ async function deleteSelectedEntries(
     return;
   }
 
-  const sqliteEntries = Array.from(selectedEntryIds)
+  const selectedEntries = Array.from(selectedEntryIds)
     .map((id) => findEntryById(id))
-    .filter((entry): entry is DocumentationEntry => Boolean(entry))
-    .filter((entry) => entry.source === "sqlite");
+    .filter((entry): entry is DocumentationEntry => Boolean(entry));
 
-  if (sqliteEntries.length) {
+  const entriesForRemoval: HistoryEntry[] = [];
+  for (const entry of selectedEntries) {
+    const detail = await resolveEntryDetail(entry);
+    if (detail) {
+      entriesForRemoval.push(detail);
+    }
+  }
+
+  const sqliteEntries = selectedEntries.filter(
+    (entry) => entry.source === "sqlite"
+  );
+
+  const removedFromSqlite = Boolean(sqliteEntries.length);
+  if (removedFromSqlite) {
     for (const entry of sqliteEntries) {
       await deleteHistoryEntryById(entry.ref);
     }
   }
 
   const memoryIndexes = new Set(
-    Array.from(selectedEntryIds)
-      .map((id) => findEntryById(id))
-      .filter((entry): entry is DocumentationEntry => Boolean(entry))
+    selectedEntries
       .filter((entry) => entry.source === "state")
       .map((entry) => entry.ref)
   );
@@ -800,6 +1396,24 @@ async function deleteSelectedEntries(
       history.filter((_, idx) => !memoryIndexes.has(idx))
     );
     await persistHistoryChanges();
+  }
+
+  if (entriesForRemoval.length) {
+    const signatures = new Set(
+      entriesForRemoval.map((entry) => buildHistorySignature(entry))
+    );
+    pruneStateHistoryBySignatures(signatures);
+  }
+
+  if (removedFromSqlite) {
+    try {
+      await persistSqliteDatabaseFile();
+    } catch (error) {
+      console.warn(
+        "SQLite-Datei konnte nach dem Löschen nicht gespeichert werden",
+        error
+      );
+    }
   }
 
   resetSelection(section);
@@ -847,6 +1461,223 @@ async function persistHistoryChanges(): Promise<void> {
   }
 }
 
+async function handleArchiveSubmit(
+  section: HTMLElement,
+  services: Services,
+  form: HTMLFormElement
+): Promise<void> {
+  if (isArchiving) {
+    return;
+  }
+  const state = services.state.getState();
+  const driverKey = resolveStorageDriver(state);
+  if (driverKey !== "sqlite" || !state.app?.hasDatabase) {
+    setArchiveStatus(
+      section,
+      "Archivieren ist nur mit einer lokalen SQLite-Datenbank möglich.",
+      "warning"
+    );
+    return;
+  }
+  const values = readArchiveFormValues(form);
+  if (!values?.startDate || !values.endDate) {
+    setArchiveStatus(
+      section,
+      "Bitte Start- und Enddatum für das Archiv wählen.",
+      "warning"
+    );
+    return;
+  }
+  const startDate = normalizeDateInput(values.startDate);
+  const endDate = normalizeDateInput(values.endDate);
+  if (!startDate || !endDate) {
+    setArchiveStatus(section, "Die angegebenen Daten sind ungültig.", "danger");
+    return;
+  }
+  if (new Date(startDate) > new Date(endDate)) {
+    setArchiveStatus(
+      section,
+      "Startdatum darf nicht nach dem Enddatum liegen.",
+      "danger"
+    );
+    return;
+  }
+
+  const archiveFilters: DocumentationFilters = {
+    startDate,
+    endDate,
+    creator: currentFilters.creator,
+    crop: currentFilters.crop,
+  };
+  const queryFilters = toHistoryQueryFilters(archiveFilters);
+
+  setArchiveBusy(section, true);
+  setArchiveStatus(section, "Prüfe Zeitraum und Eintragsmenge...", "info");
+
+  try {
+    const preview = await listHistoryEntries({
+      page: 1,
+      pageSize: 1,
+      filters: queryFilters,
+      sortDirection: "asc",
+    });
+    const targetCount = preview.totalCount || 0;
+    if (!targetCount) {
+      setArchiveStatus(
+        section,
+        "Im angegebenen Zeitraum wurden keine Einträge gefunden.",
+        "warning"
+      );
+      return;
+    }
+    if (targetCount > ARCHIVE_ENTRY_LIMIT) {
+      setArchiveStatus(
+        section,
+        `Maximal ${ARCHIVE_ENTRY_LIMIT} Einträge pro Archiv erlaubt. Bitte Zeitraum verkürzen.`,
+        "warning"
+      );
+      return;
+    }
+
+    setArchiveStatus(
+      section,
+      `Exportiere ${targetCount} Einträge in ein ZIP-Archiv...`,
+      "info"
+    );
+    const exportResult = await exportHistoryRange({
+      filters: queryFilters,
+      limit: targetCount,
+      sortDirection: "asc",
+    });
+    const exportedEntries = exportResult?.entries ?? [];
+    if (!exportedEntries.length) {
+      setArchiveStatus(
+        section,
+        "Archiv konnte nicht erstellt werden – Export lieferte keine Einträge.",
+        "danger"
+      );
+      return;
+    }
+
+    const payloadEntries = exportedEntries.map((entry) => ({ ...entry }));
+    const metadata = {
+      format: "pflanzenschutz-archive",
+      formatVersion: 1,
+      exportedAt: new Date().toISOString(),
+      entryCount: payloadEntries.length,
+      filters: {
+        startDate,
+        endDate,
+        creator: archiveFilters.creator || null,
+        crop: archiveFilters.crop || null,
+      },
+      archive: {
+        removeFromDatabase: values.removeAfterExport,
+        storageHint: values.storageHint || null,
+        note: values.note || null,
+      },
+    };
+    const archiveZip = zipSync({
+      "pflanzenschutz.json": strToU8(JSON.stringify(payloadEntries, null, 2)),
+      "metadata.json": strToU8(JSON.stringify(metadata, null, 2)),
+    });
+    const archiveBuffer = new ArrayBuffer(archiveZip.byteLength);
+    new Uint8Array(archiveBuffer).set(archiveZip);
+    const archiveBlob = new Blob([archiveBuffer], { type: "application/zip" });
+    const filename = buildArchiveFilename(startDate, endDate);
+    triggerDownload(archiveBlob, filename);
+
+    let vacuumFailed = false;
+    if (values.removeAfterExport) {
+      setArchiveStatus(
+        section,
+        "Export abgeschlossen. Entferne Einträge und bereinige Datenbank...",
+        "info"
+      );
+      await deleteHistoryRange({ filters: queryFilters });
+      const removedSignatures = new Set(
+        payloadEntries.map((entry) => buildHistorySignature(entry))
+      );
+      pruneStateHistoryBySignatures(removedSignatures);
+      try {
+        await persistSqliteDatabaseFile();
+      } catch (error) {
+        console.error(
+          "SQLite-Datei konnte nach dem Archivieren nicht gespeichert werden",
+          error
+        );
+      }
+      try {
+        await vacuumDatabase();
+      } catch (vacuumError) {
+        vacuumFailed = true;
+        console.error("VACUUM fehlgeschlagen", vacuumError);
+      }
+    }
+
+    const now = new Date().toISOString();
+    const logEntry: ArchiveLogEntry = {
+      id: `archive-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      archivedAt: now,
+      startDate,
+      endDate,
+      entryCount: payloadEntries.length,
+      fileName: filename,
+      storageHint: values.storageHint || undefined,
+      note: values.note || undefined,
+    };
+    if (vacuumFailed) {
+      logEntry.note = logEntry.note
+        ? `${logEntry.note} | VACUUM fehlgeschlagen`
+        : "VACUUM fehlgeschlagen";
+    }
+
+    let nextLogs: ArchiveLogEntry[] = [];
+    updateSlice("archives", (archives) => {
+      const currentLogs = Array.isArray(archives?.logs) ? archives.logs : [];
+      nextLogs = [logEntry, ...currentLogs].slice(0, ARCHIVE_LOG_LIMIT);
+      return { ...archives, logs: nextLogs };
+    });
+    await persistArchiveLogs(nextLogs);
+
+    if (!values.removeAfterExport && exportResult?.historyIds?.length) {
+      const refs = exportResult.historyIds
+        .slice(0, ARCHIVE_HIGHLIGHT_LIMIT)
+        .map((ref) => ({ source: "sqlite" as DocumentationEntrySource, ref }));
+      services.events?.emit?.("documentation:focus-range", {
+        startDate,
+        endDate,
+        label: "Archiviert",
+        reason: "archive",
+        entryIds: refs,
+      });
+    }
+
+    toggleArchiveForm(section, false);
+    form.reset();
+    updateArchiveFormDefaults(section);
+    await applyFilters(section, services.state.getState());
+    const archiveMessage = values.removeAfterExport
+      ? `Archiv ${filename} erstellt und ${payloadEntries.length} Einträge entfernt.`
+      : `Archiv ${filename} erstellt. ${payloadEntries.length} Einträge bleiben in der Datenbank.`;
+    setArchiveStatus(
+      section,
+      archiveMessage,
+      vacuumFailed ? "warning" : "success"
+    );
+  } catch (error) {
+    console.error("Archivieren fehlgeschlagen", error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Archiv konnte nicht erstellt werden.";
+    setArchiveStatus(section, message, "danger");
+  } finally {
+    setArchiveBusy(section, false);
+    updateArchiveAvailability(section, services.state.getState());
+  }
+}
+
 async function printEntries(entries: HistoryEntry[]): Promise<void> {
   if (!entries.length) {
     window.alert("Keine Einträge ausgewählt.");
@@ -861,6 +1692,15 @@ async function printEntries(entries: HistoryEntry[]): Promise<void> {
   });
 }
 
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function exportEntries(entries: HistoryEntry[]): void {
   if (!entries.length) {
     window.alert("Keine Einträge ausgewählt.");
@@ -870,13 +1710,40 @@ function exportEntries(entries: HistoryEntry[]): void {
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: "application/json",
   });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  anchor.href = url;
-  anchor.download = `pflanzenschutz-dokumentation-${timestamp}.json`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  triggerDownload(blob, `pflanzenschutz-dokumentation-${timestamp}.json`);
+}
+
+async function exportEntriesAsZip(
+  entries: HistoryEntry[],
+  filters: DocumentationFilters
+): Promise<void> {
+  if (!entries.length) {
+    window.alert("Keine Einträge ausgewählt.");
+    return;
+  }
+  const payload = entries.map((entry) => ({ ...entry }));
+  const metadata = {
+    format: "pflanzenschutz-export",
+    formatVersion: 1,
+    exportedAt: new Date().toISOString(),
+    entryCount: payload.length,
+    filters: {
+      startDate: filters.startDate || null,
+      endDate: filters.endDate || null,
+      creator: filters.creator || null,
+      crop: filters.crop || null,
+    },
+  };
+  const archive = zipSync({
+    "pflanzenschutz.json": strToU8(JSON.stringify(payload, null, 2)),
+    "metadata.json": strToU8(JSON.stringify(metadata, null, 2)),
+  });
+  const archiveBuffer = new ArrayBuffer(archive.byteLength);
+  new Uint8Array(archiveBuffer).set(archive);
+  const blob = new Blob([archiveBuffer], { type: "application/zip" });
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  triggerDownload(blob, `pflanzenschutz-dokumentation-${timestamp}.zip`);
 }
 
 function createSection(): HTMLElement {
@@ -920,16 +1787,76 @@ function createSection(): HTMLElement {
       </div>
     </div>
 
-    <div class="card card-dark">
+    <div class="card card-dark mt-4" data-role="archive-card">
+      <div class="card-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
+        <div>Archiv & Bereinigung</div>
+        <span class="badge bg-secondary" data-role="archive-driver-hint">Nur mit SQLite verfügbar</span>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Exportiere einen Zeitraum als ZIP-Backup und lösche die Einträge optional endgültig aus der Datenbank.
+        </p>
+        <div class="alert alert-info d-none" data-role="archive-status"></div>
+        <form class="row g-3 d-none" data-role="archive-form">
+          <div class="col-md-3">
+            <label class="form-label" for="archive-start">Startdatum</label>
+            <input type="date" class="form-control" id="archive-start" name="archive-start" required value="${startValue}" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="archive-end">Enddatum</label>
+            <input type="date" class="form-control" id="archive-end" name="archive-end" required value="${endValue}" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="archive-storage">Speicherort / Hinweis (optional)</label>
+            <input type="text" class="form-control" id="archive-storage" name="archive-storage" placeholder="z. B. NAS-Ordner" />
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="archive-note">Notiz (optional)</label>
+            <textarea class="form-control" id="archive-note" name="archive-note" rows="2" placeholder="Zusätzliche Hinweise"></textarea>
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="archive-remove" name="archive-remove" checked />
+              <label class="form-check-label" for="archive-remove">
+                Nach erfolgreichem Export aus Datenbank entfernen (inkl. VACUUM)
+              </label>
+            </div>
+          </div>
+          <div class="col-12 d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-secondary" type="button" data-action="archive-cancel">Abbrechen</button>
+            <button class="btn btn-primary" type="submit" data-action="archive-submit">Archiv jetzt erstellen</button>
+          </div>
+        </form>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-outline-warning" type="button" data-action="archive-toggle">Archiv erstellen</button>
+        </div>
+        <div class="mt-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="h6 mb-0">Archiv-Historie</h5>
+            <small class="text-muted">Letzte ${ARCHIVE_LOG_LIMIT}</small>
+          </div>
+          <div data-role="archive-log-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-dark mt-4">
       <div class="card-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 no-print">
         <div class="small text-muted" data-role="doc-info">Keine Einträge</div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
           <div class="small text-muted" data-role="doc-selection-info">Keine Einträge ausgewählt</div>
           <div class="btn-group">
             <button class="btn btn-outline-light btn-sm" data-action="print-selection" disabled>Drucken</button>
-            <button class="btn btn-outline-light btn-sm" data-action="export-selection" disabled>Exportieren</button>
+            <button class="btn btn-outline-light btn-sm" data-action="export-selection" disabled>JSON-Export</button>
+            <button class="btn btn-outline-light btn-sm" data-action="export-zip" disabled>ZIP-Export</button>
             <button class="btn btn-outline-light btn-sm" data-action="delete-selection" disabled>Löschen</button>
           </div>
+        </div>
+      </div>
+      <div class="doc-focus-banner d-none no-print" data-role="doc-focus-banner">
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+          <span data-role="doc-focus-text">Importierter Zeitraum aktiv.</span>
+          <button class="btn btn-sm btn-outline-warning" data-action="doc-focus-clear">Markierung entfernen</button>
         </div>
       </div>
       <div class="card-body p-0">
@@ -989,21 +1916,26 @@ function parseFilters(form: HTMLFormElement | null): DocumentationFilters {
 
 function wireEventHandlers(section: HTMLElement, services: Services): void {
   section.addEventListener("submit", (event) => {
-    if (
-      !(event.target instanceof HTMLFormElement) ||
-      event.target.id !== "doc-filter"
-    ) {
+    if (!(event.target instanceof HTMLFormElement)) {
       return;
     }
-    event.preventDefault();
-    const nextFilters = parseFilters(event.target);
-    if (!nextFilters.startDate || !nextFilters.endDate) {
-      window.alert("Bitte Start- und Enddatum auswählen.");
+    if (event.target.id === "doc-filter") {
+      event.preventDefault();
+      clearFocusContext(section, services, { refreshList: true });
+      const nextFilters = parseFilters(event.target);
+      if (!nextFilters.startDate || !nextFilters.endDate) {
+        window.alert("Bitte Start- und Enddatum auswählen.");
+        return;
+      }
+      currentFilters = nextFilters;
+      resetSelection(section);
+      void applyFilters(section, services.state.getState());
       return;
     }
-    currentFilters = nextFilters;
-    resetSelection(section);
-    void applyFilters(section, services.state.getState());
+    if (event.target.dataset.role === "archive-form") {
+      event.preventDefault();
+      void handleArchiveSubmit(section, services, event.target);
+    }
   });
 
   section.addEventListener("click", (event) => {
@@ -1025,8 +1957,85 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
       form?.reset();
       currentFilters = getDefaultFilters();
       applyDateFiltersToForm(form ?? null, currentFilters);
+      clearFocusContext(section, services, { refreshList: true });
       resetSelection(section);
       void applyFilters(section, services.state.getState());
+      return;
+    }
+
+    if (action === "archive-toggle") {
+      toggleArchiveForm(section);
+      setArchiveStatus(section, "");
+      return;
+    }
+
+    if (action === "archive-cancel") {
+      toggleArchiveForm(section, false);
+      setArchiveStatus(section, "");
+      return;
+    }
+
+    if (action === "archive-log-focus") {
+      const logId = target.dataset.logId;
+      if (!logId) {
+        return;
+      }
+      const log = getArchiveLogById(services.state.getState(), logId);
+      if (!log) {
+        window.alert("Archiv-Eintrag nicht gefunden.");
+        return;
+      }
+      const label = log.fileName
+        ? `Archiv ${log.fileName}`
+        : "Archivierter Zeitraum";
+      if (typeof services.events?.emit === "function") {
+        services.events.emit("documentation:focus-range", {
+          startDate: log.startDate,
+          endDate: log.endDate,
+          label,
+          reason: "archive-log",
+        });
+      } else {
+        currentFilters = {
+          ...currentFilters,
+          startDate: log.startDate,
+          endDate: log.endDate,
+        };
+        void applyFilters(section, services.state.getState());
+      }
+      setArchiveStatus(
+        section,
+        `Dokumentation auf Archiv ${log.startDate} – ${log.endDate} fokussiert.`,
+        "success"
+      );
+      return;
+    }
+
+    if (action === "archive-log-copy-hint") {
+      const logId = target.dataset.logId;
+      if (!logId) {
+        return;
+      }
+      const log = getArchiveLogById(services.state.getState(), logId);
+      if (!log || !log.storageHint) {
+        window.alert("Kein Speicherhinweis vorhanden.");
+        return;
+      }
+      const storageHint = log.storageHint;
+      void (async () => {
+        try {
+          await copyText(storageHint);
+          setArchiveStatus(section, "Speicherhinweis kopiert.", "success");
+        } catch (error) {
+          console.error("Hinweis konnte nicht kopiert werden", error);
+          window.alert("Hinweis konnte nicht kopiert werden.");
+        }
+      })();
+      return;
+    }
+
+    if (action === "doc-focus-clear") {
+      clearFocusContext(section, services, { refreshList: true });
       return;
     }
 
@@ -1047,6 +2056,14 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
       void (async () => {
         const entries = await collectSelectedEntries();
         exportEntries(entries);
+      })();
+      return;
+    }
+
+    if (action === "export-zip") {
+      void (async () => {
+        const entries = await collectSelectedEntries();
+        await exportEntriesAsZip(entries, currentFilters);
       })();
       return;
     }
@@ -1135,6 +2152,27 @@ export function initDocumentation(
   host.appendChild(section);
 
   wireEventHandlers(section, services);
+  updateArchiveAvailability(section, services.state.getState());
+  updateArchiveFormDefaults(section);
+  const initialLogs = services.state.getState().archives?.logs ?? [];
+  renderArchiveLogs(section, initialLogs);
+  lastArchiveLogSignature = computeArchiveLogSignature(initialLogs);
+
+  if (typeof services.events?.subscribe === "function") {
+    services.events.subscribe(
+      "documentation:focus-range",
+      (payload: unknown) => {
+        if (!payload || typeof payload !== "object") {
+          return;
+        }
+        handleFocusRangeEvent(
+          section,
+          services,
+          payload as DocumentationFocusPayload
+        );
+      }
+    );
+  }
 
   const applyAndRender = () => {
     void applyFilters(section, services.state.getState());
@@ -1147,9 +2185,20 @@ export function initDocumentation(
   applyAndRender();
 
   services.state.subscribe((nextState) => {
+    const nextLogSignature = computeArchiveLogSignature(
+      nextState.archives?.logs
+    );
+    if (nextLogSignature !== lastArchiveLogSignature) {
+      lastArchiveLogSignature = nextLogSignature;
+      renderArchiveLogs(section, nextState.archives?.logs ?? []);
+    }
     const nextLength = Array.isArray(nextState.history)
       ? nextState.history.length
       : 0;
+    if (focusLock) {
+      lastHistoryLength = nextLength;
+      return;
+    }
     if (dataMode === "sqlite") {
       if (nextLength !== lastHistoryLength) {
         lastHistoryLength = nextLength;

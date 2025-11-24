@@ -507,6 +507,9 @@ self.onmessage = async function (event) {
       case "listHistory":
         result = await listHistory(payload);
         break;
+      case "exportHistoryRange":
+        result = await exportHistoryRange(payload);
+        break;
       case "getHistoryEntry":
         result = await getHistoryEntry(payload);
         break;
@@ -515,6 +518,15 @@ self.onmessage = async function (event) {
         break;
       case "deleteHistoryEntry":
         result = await deleteHistoryEntry(payload);
+        break;
+      case "deleteHistoryRange":
+        result = await deleteHistoryRange(payload);
+        break;
+      case "vacuumDatabase":
+        result = await vacuumDatabase();
+        break;
+      case "setArchiveLogs":
+        result = await setArchiveLogs(payload);
         break;
       case "exportDB":
         result = await exportDB();
@@ -1015,7 +1027,7 @@ async function importSnapshot(snapshot) {
       DELETE FROM history;
       DELETE FROM mediums;
       DELETE FROM measurement_methods;
-      DELETE FROM meta WHERE key IN ('version','company','defaults','fieldLabels','measurementMethods');
+      DELETE FROM meta WHERE key IN ('version','company','defaults','fieldLabels','measurementMethods','archives');
     `);
 
     // Import meta data
@@ -1028,6 +1040,7 @@ async function importSnapshot(snapshot) {
         measurementMethods: JSON.stringify(
           snapshot.meta.measurementMethods || []
         ),
+        archives: JSON.stringify(snapshot.archives || { logs: [] }),
       };
 
       const stmt = db.prepare(
@@ -1204,6 +1217,7 @@ async function exportSnapshot() {
     mediums: [],
     mediumProfiles: [],
     history: [],
+    archives: { logs: [] },
   };
 
   // Export meta
@@ -1218,6 +1232,7 @@ async function exportSnapshot() {
         else if (key === "defaults") snapshot.meta.defaults = parsed;
         else if (key === "fieldLabels") snapshot.meta.fieldLabels = parsed;
         else if (key === "version") snapshot.meta.version = parsed;
+        else if (key === "archives") snapshot.archives = parsed;
       } catch (e) {
         console.warn(`Failed to parse meta key ${key}:`, e);
       }
@@ -1380,25 +1395,7 @@ async function listMediums() {
 /**
  * History operations with paging
  */
-async function listHistory({
-  page = 1,
-  pageSize = 50,
-  filters = {},
-  sortDirection = "desc",
-} = {}) {
-  if (!db) throw new Error("Database not initialized");
-
-  const sanitizedDirection =
-    String(sortDirection).toLowerCase() === "asc" ? "ASC" : "DESC";
-
-  const normalizedPageSize = Number.isFinite(Number(pageSize))
-    ? Math.max(1, Number(pageSize))
-    : 50;
-  const normalizedPage = Number.isFinite(Number(page))
-    ? Math.max(1, Number(page))
-    : 1;
-  const offset = (normalizedPage - 1) * normalizedPageSize;
-
+function buildHistoryFilterQuery(filters = {}) {
   const historyDateExpr = `COALESCE(
     NULLIF(json_extract(header_json, '$.dateIso'), ''),
     CASE
@@ -1465,7 +1462,34 @@ async function listHistory({
     }
   }
 
-  const whereSql = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
+  return {
+    historyDateExpr,
+    whereSql: whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "",
+    whereParams,
+  };
+}
+
+async function listHistory({
+  page = 1,
+  pageSize = 50,
+  filters = {},
+  sortDirection = "desc",
+} = {}) {
+  if (!db) throw new Error("Database not initialized");
+
+  const sanitizedDirection =
+    String(sortDirection).toLowerCase() === "asc" ? "ASC" : "DESC";
+
+  const normalizedPageSize = Number.isFinite(Number(pageSize))
+    ? Math.max(1, Number(pageSize))
+    : 50;
+  const normalizedPage = Number.isFinite(Number(page))
+    ? Math.max(1, Number(page))
+    : 1;
+  const offset = (normalizedPage - 1) * normalizedPageSize;
+
+  const { historyDateExpr, whereSql, whereParams } =
+    buildHistoryFilterQuery(filters);
 
   const history = [];
   const queryConfig = {
@@ -1501,6 +1525,113 @@ async function listHistory({
     totalCount: Number(totalCount) || 0,
     totalPages: Math.ceil((Number(totalCount) || 0) / normalizedPageSize),
   };
+}
+
+async function exportHistoryRange({
+  filters = {},
+  limit = 5000,
+  sortDirection = "asc",
+} = {}) {
+  if (!db) throw new Error("Database not initialized");
+
+  const sanitizedLimit = Number.isFinite(Number(limit))
+    ? Math.min(Math.max(Number(limit), 1), 10000)
+    : 5000;
+  const direction =
+    String(sortDirection).toLowerCase() === "desc" ? "DESC" : "ASC";
+
+  const { historyDateExpr, whereSql, whereParams } =
+    buildHistoryFilterQuery(filters);
+
+  const entries = [];
+  const historyIds = [];
+  const sql = `
+    SELECT history.id AS history_id,
+           history.header_json AS header_json,
+           COALESCE(json_group_array(history_items.payload_json), '[]') AS items_json
+    FROM history
+    LEFT JOIN history_items ON history_items.history_id = history.id
+    ${whereSql}
+    GROUP BY history.id
+    ORDER BY datetime(${historyDateExpr}) ${direction}, history.rowid ${direction}
+    LIMIT ?
+  `;
+  const bindParams = whereParams.length
+    ? [...whereParams, sanitizedLimit]
+    : [sanitizedLimit];
+
+  db.exec({
+    sql,
+    bind: bindParams,
+    rowMode: "object",
+    callback: (row) => {
+      try {
+        const header = JSON.parse(row.header_json || "{}");
+        const rawItems = JSON.parse(row.items_json || "[]");
+        const items = Array.isArray(rawItems)
+          ? rawItems
+              .map((item) => {
+                if (item == null) {
+                  return null;
+                }
+                if (typeof item === "string") {
+                  try {
+                    return JSON.parse(item);
+                  } catch (err) {
+                    console.warn("Konnte History-Item nicht parsen", err);
+                    return null;
+                  }
+                }
+                return item;
+              })
+              .filter((value) => value !== null)
+          : [];
+        historyIds.push(row.history_id);
+        entries.push({
+          ...header,
+          items,
+        });
+      } catch (error) {
+        console.warn("Archiv-Export konnte nicht gelesen werden", error);
+      }
+    },
+  });
+
+  return { entries, historyIds };
+}
+
+async function deleteHistoryRange({ filters = {} } = {}) {
+  if (!db) throw new Error("Database not initialized");
+
+  const { whereSql, whereParams } = buildHistoryFilterQuery(filters);
+  db.exec("BEGIN TRANSACTION");
+  try {
+    const deleteConfig = {
+      sql: `DELETE FROM history ${whereSql}`,
+    };
+    if (whereParams.length) {
+      deleteConfig.bind = [...whereParams];
+    }
+    db.exec(deleteConfig);
+    db.exec("COMMIT");
+    return { success: true };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+async function vacuumDatabase() {
+  if (!db) throw new Error("Database not initialized");
+  db.exec("VACUUM");
+  return { success: true };
+}
+
+async function setArchiveLogs(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  const logs = Array.isArray(payload.logs) ? payload.logs : [];
+  setMetaValue("archives", JSON.stringify({ logs }));
+  return { success: true, count: logs.length };
 }
 
 async function getHistoryEntry(id) {

@@ -85,6 +85,9 @@ export function applyDatabase(data: any): void {
     mediums: [...(data.mediums ?? [])],
     mediumProfiles: [...(data.mediumProfiles ?? [])],
     history: [...(data.history ?? [])],
+    archives: {
+      logs: [...(data.archives?.logs ?? current.archives?.logs ?? [])],
+    },
     fieldLabels,
     app: {
       ...current.app,
@@ -126,6 +129,11 @@ export function createInitialDatabase(overrides: any = {}): any {
     if ("templates" in merged) {
       delete (merged as any).templates;
     }
+    if (!merged.archives) {
+      (merged as any).archives = { logs: [] };
+    } else if (!Array.isArray(merged.archives.logs)) {
+      merged.archives.logs = [];
+    }
     return merged;
   }
   const state = getState();
@@ -140,10 +148,16 @@ export function createInitialDatabase(overrides: any = {}): any {
     mediums: [...state.mediums],
     mediumProfiles: [...state.mediumProfiles],
     history: [],
+    archives: { logs: [] },
   };
   const merged = deepMerge(base, overrides);
   if ("templates" in merged) {
     delete (merged as any).templates;
+  }
+  if (!merged.archives) {
+    (merged as any).archives = { logs: [] };
+  } else if (!Array.isArray(merged.archives.logs)) {
+    merged.archives.logs = [];
   }
   return merged;
 }
@@ -161,6 +175,7 @@ export function getDatabaseSnapshot(): any {
     mediums: [...state.mediums],
     mediumProfiles: [...state.mediumProfiles],
     history: [...state.history],
+    archives: { logs: [...(state.archives?.logs ?? [])] },
   };
 }
 

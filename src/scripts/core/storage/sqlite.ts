@@ -10,6 +10,7 @@ let pendingMessages = new Map<
   { resolve: (value: any) => void; reject: (reason?: any) => void }
 >();
 let fileHandle: any = null;
+let pendingFilePersist: Promise<void> | null = null;
 
 /**
  * Check if SQLite-WASM is supported
@@ -192,6 +193,36 @@ export async function open(): Promise<{ data: any; context: any }> {
 /**
  * Save current state to database
  */
+async function persistFileHandleIfNeeded(): Promise<void> {
+  if (!worker || !fileHandle) {
+    return;
+  }
+  if (pendingFilePersist) {
+    await pendingFilePersist;
+    return;
+  }
+  pendingFilePersist = (async () => {
+    try {
+      const exported = await callWorker("exportDB");
+      const writable = await fileHandle.createWritable();
+      await writable.write(new Uint8Array(exported.data));
+      await writable.close();
+    } finally {
+      pendingFilePersist = null;
+    }
+  })();
+  await pendingFilePersist;
+}
+
+export async function persistSqliteDatabaseFile(): Promise<void> {
+  try {
+    await persistFileHandleIfNeeded();
+  } catch (error) {
+    console.error("SQLite-Datei konnte nicht gespeichert werden", error);
+    throw error;
+  }
+}
+
 export async function save(data: any): Promise<{ context: any }> {
   if (!worker) {
     throw new Error("Database not initialized");
@@ -201,15 +232,10 @@ export async function save(data: any): Promise<{ context: any }> {
   await callWorker("importSnapshot", data);
 
   // If we have a file handle, save to file
-  if (fileHandle) {
-    try {
-      const exported = await callWorker("exportDB");
-      const writable = await fileHandle.createWritable();
-      await writable.write(new Uint8Array(exported.data));
-      await writable.close();
-    } catch (err) {
-      console.error("Failed to save to file:", err);
-    }
+  try {
+    await persistFileHandleIfNeeded();
+  } catch (err) {
+    console.error("Failed to save to file:", err);
   }
 
   return { context: { fileHandle } };
@@ -323,6 +349,11 @@ export type HistoryQueryResult = {
   totalPages: number;
 };
 
+export type HistoryRangeExportResult = {
+  entries: any[];
+  historyIds: Array<number | string>;
+};
+
 export async function listHistoryEntries(
   options: HistoryQueryOptions = {}
 ): Promise<HistoryQueryResult> {
@@ -346,6 +377,51 @@ export async function deleteHistoryEntryById(
     throw new Error("Database not initialized");
   }
   return await callWorker("deleteHistoryEntry", Number(id));
+}
+
+export async function exportHistoryRange(
+  options: {
+    filters?: HistoryQueryFilters;
+    limit?: number;
+    sortDirection?: "asc" | "desc";
+  } = {}
+): Promise<HistoryRangeExportResult> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("exportHistoryRange", options);
+}
+
+export async function deleteHistoryRange(
+  options: {
+    filters?: HistoryQueryFilters;
+  } = {}
+): Promise<any> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("deleteHistoryRange", options);
+}
+
+export async function vacuumDatabase(): Promise<void> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  await callWorker("vacuumDatabase");
+}
+
+export async function setArchiveLogs(logs: any[]): Promise<void> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  await callWorker("setArchiveLogs", { logs });
+}
+
+export async function appendHistoryEntry(entry: any): Promise<{ id: number }> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("appendHistoryEntry", entry);
 }
 
 /**
