@@ -3,6 +3,13 @@ import { renderCalculationSnapshot } from "@scripts/features/shared/calculationS
 import { initVirtualList } from "@scripts/core/virtualList";
 import { escapeHtml, parseIsoDate } from "@scripts/core/utils";
 import { printEntriesChunked } from "@scripts/features/shared/printing";
+import { getActiveDriverKey } from "@scripts/core/storage";
+import {
+  listHistoryEntriesPaged,
+  exportHistoryRange,
+  type HistoryCursor,
+  type HistoryQueryFilters,
+} from "@scripts/core/storage/sqlite";
 import type { CalculationItem } from "@scripts/features/calculation";
 
 interface Services {
@@ -33,11 +40,25 @@ type ReportingEntry = {
 
 const USE_VIRTUAL_SCROLLING = true;
 const INITIAL_LOAD_LIMIT = 200;
+const REPORT_PAGE_SIZE = 50;
+
+type DataMode = "memory" | "sqlite";
 
 let initialized = false;
 let currentEntries: ReportingEntry[] = [];
 let activeFilter: DateFilter | null = null;
 let virtualListInstance: ReturnType<typeof initVirtualList> | null = null;
+let dataMode: DataMode = "memory";
+let reportEntries: ReportingEntry[] = [];
+let reportCursor: HistoryCursor | null = null;
+let reportHasMore = false;
+let reportTotalCount = 0;
+let isLoadingReport = false;
+let reportFilters: HistoryQueryFilters | null = null;
+let pendingReportReload: {
+  section: HTMLElement;
+  labels: AppState["fieldLabels"];
+} | null = null;
 
 function createSection(): HTMLElement {
   const section = document.createElement("div");
@@ -68,6 +89,7 @@ function createSection(): HTMLElement {
       </div>
       <div class="card-body">
         <div data-role="report-list" class="report-list"></div>
+        <div data-role="report-load-more" class="mt-3"></div>
       </div>
     </div>
   `;
@@ -153,6 +175,152 @@ function describeFilter(
   return `${prefix} (${entryCount})`;
 }
 
+function resolveStorageDriver(state: AppState): string {
+  return state.app?.storageDriver || getActiveDriverKey();
+}
+
+function shouldUseSqlite(state: AppState): boolean {
+  return (
+    resolveStorageDriver(state) === "sqlite" && Boolean(state.app?.hasDatabase)
+  );
+}
+
+function clearReportCache(): void {
+  reportEntries = [];
+  reportCursor = null;
+  reportHasMore = false;
+  reportTotalCount = 0;
+  currentEntries = [];
+}
+
+function toDateBoundaryIso(
+  date: Date | null,
+  boundary: "start" | "end"
+): string | null {
+  if (!date || Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const clone = new Date(date.getTime());
+  if (boundary === "start") {
+    clone.setHours(0, 0, 0, 0);
+  } else {
+    clone.setHours(23, 59, 59, 999);
+  }
+  return clone.toISOString();
+}
+
+function buildHistoryFiltersFromDateFilter(
+  filter: DateFilter | null
+): HistoryQueryFilters | null {
+  if (!filter) {
+    return null;
+  }
+  const startIso = toDateBoundaryIso(filter.start ?? null, "start");
+  const endIso = toDateBoundaryIso(filter.end ?? null, "end");
+  const result: HistoryQueryFilters = {};
+  if (startIso) {
+    result.startDate = startIso;
+  }
+  if (endIso) {
+    result.endDate = endIso;
+  }
+  return Object.keys(result).length ? result : null;
+}
+
+async function loadReportEntries(
+  section: HTMLElement,
+  labels: AppState["fieldLabels"],
+  { reset = false }: { reset?: boolean } = {}
+): Promise<void> {
+  if (dataMode !== "sqlite") {
+    return;
+  }
+  if (isLoadingReport) {
+    if (reset) {
+      pendingReportReload = { section, labels };
+    }
+    return;
+  }
+
+  pendingReportReload = null;
+
+  isLoadingReport = true;
+  if (reset) {
+    clearReportCache();
+    currentEntries = [];
+    renderTable(section, [], labels);
+  }
+
+  const filters = reportFilters || undefined;
+
+  try {
+    const result = await listHistoryEntriesPaged({
+      cursor: reset ? null : reportCursor,
+      pageSize: REPORT_PAGE_SIZE,
+      sortDirection: "desc",
+      includeItems: true,
+      includeTotal: reset || reportTotalCount === 0,
+      filters,
+    });
+
+    const mapped = result.items.map((item) => ({
+      ...item,
+      items: Array.isArray(item.items) ? item.items : [],
+    }));
+
+    reportEntries = reset ? mapped : [...reportEntries, ...mapped];
+    reportCursor = result.nextCursor ?? null;
+    reportHasMore = Boolean(result.hasMore);
+    if (typeof result.totalCount === "number") {
+      reportTotalCount = result.totalCount;
+    } else if (!reportHasMore) {
+      reportTotalCount = reportEntries.length;
+    }
+
+    renderTable(section, reportEntries, labels);
+  } catch (error) {
+    console.error("Auswertung konnte nicht geladen werden", error);
+    window.alert(
+      "Auswertung konnte nicht geladen werden. Bitte erneut versuchen."
+    );
+  } finally {
+    isLoadingReport = false;
+    updateLoadMoreButton(section);
+    if (pendingReportReload) {
+      const queued = pendingReportReload;
+      pendingReportReload = null;
+      void loadReportEntries(queued.section, queued.labels, { reset: true });
+    }
+  }
+}
+
+function updateLoadMoreButton(section: HTMLElement): void {
+  const container = section.querySelector<HTMLElement>(
+    '[data-role="report-load-more"]'
+  );
+  if (!container) {
+    return;
+  }
+  if (dataMode !== "sqlite") {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = "";
+  if (!reportHasMore && reportEntries.length > 0) {
+    return;
+  }
+  const button = document.createElement("button");
+  button.className = "btn btn-secondary w-100";
+  button.dataset.action = "report-load-more";
+  button.disabled = isLoadingReport;
+  button.textContent = isLoadingReport
+    ? "Lade Auswertung ..."
+    : reportTotalCount && reportEntries.length
+      ? `Mehr laden (${Math.max(reportTotalCount - reportEntries.length, 0)} weitere)`
+      : "Mehr laden";
+  container.appendChild(button);
+}
+
 function renderCardsList(
   listContainer: HTMLElement,
   entries: ReportingEntry[],
@@ -168,7 +336,7 @@ function renderCardsList(
         estimatedItemHeight: 200,
         overscan: 6,
         renderItem: (node, index) => {
-          const entry = currentEntries[index];
+          const entry = entries[index];
           node.innerHTML = renderCalculationSnapshot(entry, resolvedLabels, {
             showActions: false,
             includeCheckbox: false,
@@ -229,6 +397,8 @@ function renderTable(
     renderCardsList(listContainer, entries, labels);
   }
 
+  updateLoadMoreButton(section);
+
   const info = section.querySelector<HTMLElement>('[data-role="report-info"]');
   if (info) {
     info.textContent = describeFilter(entries.length, labels);
@@ -266,13 +436,11 @@ function applyFilter(
   renderTable(section, filtered, state.fieldLabels);
 }
 
-function toggleSection(section: HTMLElement, state: AppState): void {
+function toggleSection(section: HTMLElement, state: AppState): boolean {
   const ready = Boolean(state.app?.hasDatabase);
-  const active = state.app?.activeSection === "report";
+  const active = ready && state.app?.activeSection === "report";
   section.classList.toggle("d-none", !(ready && active));
-  if (ready) {
-    applyFilter(section, state, activeFilter);
-  }
+  return active;
 }
 
 function buildCompanyHeader(company: AppState["company"]): string {
@@ -321,9 +489,29 @@ async function printReport(
   filter: DateFilter | null,
   labels: AppState["fieldLabels"]
 ): Promise<void> {
-  if (!entries.length) {
+  if (dataMode !== "sqlite" && !entries.length) {
     window.alert("Keine Daten für den Druck vorhanden.");
     return;
+  }
+  let entriesToPrint = entries;
+  if (dataMode === "sqlite") {
+    try {
+      const exportResult = await exportHistoryRange({
+        filters: buildHistoryFiltersFromDateFilter(filter) || undefined,
+        sortDirection: "asc",
+      });
+      entriesToPrint = exportResult.entries as ReportingEntry[];
+    } catch (error) {
+      console.error("Bericht konnte nicht exportiert werden", error);
+      window.alert(
+        "Bericht konnte nicht für den Druck vorbereitet werden. Bitte erneut versuchen."
+      );
+      return;
+    }
+    if (!entriesToPrint.length) {
+      window.alert("Keine Daten für den Druck vorhanden.");
+      return;
+    }
   }
   const resolvedLabels = labels || getState().fieldLabels;
   const reportingLabels = resolveReportingLabels(resolvedLabels);
@@ -331,7 +519,7 @@ async function printReport(
   const headerHtml =
     buildCompanyHeader(company) + buildFilterInfo(filter, resolvedLabels);
   try {
-    await printEntriesChunked(entries, resolvedLabels, {
+    await printEntriesChunked(entriesToPrint, resolvedLabels, {
       title: reportingLabels.printTitle || "Bericht",
       headerHtml,
       chunkSize: 50,
@@ -375,14 +563,52 @@ export function initReporting(
       startLabel: new Intl.DateTimeFormat("de-DE").format(start),
       endLabel: new Intl.DateTimeFormat("de-DE").format(end),
     };
-    applyFilter(section, services.state.getState(), activeFilter);
+    const state = services.state.getState();
+    if (dataMode === "sqlite") {
+      reportFilters = buildHistoryFiltersFromDateFilter(activeFilter);
+      if (isLoadingReport) {
+        pendingReportReload = { section, labels: state.fieldLabels };
+      } else {
+        void loadReportEntries(section, state.fieldLabels, { reset: true });
+      }
+    } else {
+      applyFilter(section, state, activeFilter);
+    }
   });
 
-  services.state.subscribe((nextState) => {
-    toggleSection(section, nextState);
-  });
+  const handleStateChange = (nextState: AppState) => {
+    const active = toggleSection(section, nextState);
+    const nextMode: DataMode = shouldUseSqlite(nextState) ? "sqlite" : "memory";
+    const modeChanged = nextMode !== dataMode;
 
-  toggleSection(section, services.state.getState());
+    if (modeChanged) {
+      dataMode = nextMode;
+      clearReportCache();
+      if (dataMode === "sqlite") {
+        reportFilters = buildHistoryFiltersFromDateFilter(activeFilter);
+      } else {
+        reportFilters = null;
+      }
+    }
+
+    if (!active) {
+      return;
+    }
+
+    if (dataMode === "sqlite") {
+      if (modeChanged || (!reportEntries.length && !isLoadingReport)) {
+        reportFilters = buildHistoryFiltersFromDateFilter(activeFilter);
+        void loadReportEntries(section, nextState.fieldLabels, { reset: true });
+      } else {
+        renderTable(section, reportEntries, nextState.fieldLabels);
+      }
+    } else {
+      applyFilter(section, nextState, activeFilter);
+    }
+  };
+
+  services.state.subscribe(handleStateChange);
+  handleStateChange(services.state.getState());
 
   section.addEventListener("click", (event) => {
     const target = event.target as HTMLElement | null;
@@ -391,6 +617,9 @@ export function initReporting(
     }
 
     if (target.dataset.action === "load-more") {
+      if (dataMode === "sqlite") {
+        return;
+      }
       const btn = target as HTMLButtonElement;
       const currentLimit = parseInt(btn.dataset.currentLimit || "0", 10);
       const listContainer = section.querySelector<HTMLElement>(
@@ -432,6 +661,21 @@ export function initReporting(
         newBtn.dataset.currentLimit = String(newLimit);
         listContainer.appendChild(newBtn);
       }
+      return;
+    }
+
+    if (target.dataset.action === "report-load-more") {
+      if (dataMode !== "sqlite") {
+        return;
+      }
+      const btn = target as HTMLButtonElement;
+      btn.disabled = true;
+      const state = services.state.getState();
+      void loadReportEntries(section, state.fieldLabels)
+        .catch(() => undefined)
+        .finally(() => {
+          btn.disabled = false;
+        });
       return;
     }
 

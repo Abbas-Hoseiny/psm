@@ -113,3 +113,19 @@ CREATE TABLE IF NOT EXISTS gps_points (
 
 CREATE INDEX IF NOT EXISTS idx_gps_points_created ON gps_points(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_gps_points_name ON gps_points(name COLLATE NOCASE);
+
+-- Archive logs for documentation exports
+CREATE TABLE IF NOT EXISTS archive_logs (
+  id TEXT PRIMARY KEY,
+  archived_at TEXT NOT NULL,
+  start_date TEXT,
+  end_date TEXT,
+  entry_count INTEGER NOT NULL DEFAULT 0,
+  file_name TEXT,
+  storage_hint TEXT,
+  note TEXT,
+  metadata_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_archive_logs_archived_at
+  ON archive_logs(archived_at DESC, id DESC);

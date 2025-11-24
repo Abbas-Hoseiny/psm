@@ -1,3 +1,5 @@
+import type { ArchiveLogEntry } from "../state";
+
 /**
  * SQLite Storage Driver
  * Main thread interface to SQLite Worker
@@ -349,9 +351,59 @@ export type HistoryQueryResult = {
   totalPages: number;
 };
 
+export type HistoryCursor = {
+  id: number | string;
+  createdAt: string;
+};
+
+export type HistoryPagedOptions = {
+  cursor?: HistoryCursor | null;
+  pageSize?: number;
+  filters?: HistoryQueryFilters;
+  sortDirection?: "asc" | "desc";
+  includeItems?: boolean;
+  includeTotal?: boolean;
+};
+
+export type HistoryPagedResult = {
+  items: any[];
+  nextCursor: HistoryCursor | null;
+  pageSize: number;
+  sortDirection: "asc" | "desc";
+  hasMore: boolean;
+  totalCount?: number;
+};
+
 export type HistoryRangeExportResult = {
   entries: any[];
   historyIds: Array<number | string>;
+};
+
+export type ArchiveLogCursor = {
+  id: string;
+  archivedAt: string;
+};
+
+export type ArchiveLogListOptions = {
+  limit?: number;
+  cursor?: ArchiveLogCursor | null;
+  sortDirection?: "asc" | "desc";
+};
+
+export type ArchiveLogRecord = ArchiveLogEntry & {
+  metadata?: Record<string, unknown> | null;
+};
+
+export type ArchiveLogListResult = {
+  items: ArchiveLogRecord[];
+  nextCursor: ArchiveLogCursor | null;
+  hasMore: boolean;
+  pageSize: number;
+  sortDirection: "asc" | "desc";
+};
+
+export type ArchiveLogInput = Partial<ArchiveLogRecord> & {
+  entryCount?: number;
 };
 
 export async function listHistoryEntries(
@@ -361,6 +413,15 @@ export async function listHistoryEntries(
     throw new Error("Database not initialized");
   }
   return await callWorker("listHistory", options);
+}
+
+export async function listHistoryEntriesPaged(
+  options: HistoryPagedOptions = {}
+): Promise<HistoryPagedResult> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("listHistoryPaged", options);
 }
 
 export async function getHistoryEntryById(id: number | string): Promise<any> {
@@ -415,6 +476,33 @@ export async function setArchiveLogs(logs: any[]): Promise<void> {
     throw new Error("Database not initialized");
   }
   await callWorker("setArchiveLogs", { logs });
+}
+
+export async function listArchiveLogs(
+  options: ArchiveLogListOptions = {}
+): Promise<ArchiveLogListResult> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("listArchiveLogs", options);
+}
+
+export async function insertArchiveLog(
+  entry: ArchiveLogInput
+): Promise<ArchiveLogRecord> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("insertArchiveLog", entry);
+}
+
+export async function deleteArchiveLog(
+  id: string
+): Promise<{ success: boolean }> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("deleteArchiveLog", { id });
 }
 
 export async function appendHistoryEntry(entry: any): Promise<{ id: number }> {

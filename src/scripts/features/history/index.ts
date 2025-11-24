@@ -20,6 +20,12 @@ import {
 } from "@scripts/features/shared/printing";
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { getActiveDriverKey, saveDatabase } from "@scripts/core/storage";
+import {
+  listHistoryEntriesPaged,
+  deleteHistoryEntryById,
+  persistSqliteDatabaseFile,
+  type HistoryCursor,
+} from "@scripts/core/storage/sqlite";
 import type { CalculationItem } from "@scripts/features/calculation";
 
 interface Services {
@@ -38,6 +44,7 @@ interface Services {
 }
 
 interface HistoryEntry {
+  id?: number | string;
   datum?: string;
   date?: string;
   dateIso?: string | null;
@@ -111,8 +118,140 @@ function emitGpsActivationRequest(
   });
 }
 
+function resolveStorageDriver(state: AppState): string {
+  return state.app?.storageDriver || getActiveDriverKey();
+}
+
+function shouldUseSqlite(state: AppState): boolean {
+  return (
+    resolveStorageDriver(state) === "sqlite" && Boolean(state.app?.hasDatabase)
+  );
+}
+
+function clearHistoryCache(): void {
+  historyEntries = [];
+  historyCursor = null;
+  historyHasMore = false;
+  historyTotalCount = 0;
+}
+
+function getEntriesSnapshot(state: AppState): HistoryEntry[] {
+  if (dataMode === "sqlite") {
+    return historyEntries;
+  }
+  return Array.isArray(state.history) ? (state.history as HistoryEntry[]) : [];
+}
+
+function getEntryByIndex(state: AppState, index: number): HistoryEntry | null {
+  if (Number.isNaN(index) || index < 0) {
+    return null;
+  }
+  const entries = getEntriesSnapshot(state);
+  return entries[index] || null;
+}
+
+function mapWorkerHistoryEntry(record: Record<string, any>): HistoryEntry {
+  const entry: HistoryEntry = {
+    id: record.id ?? record.historyId ?? record.rowid,
+    ...record,
+    items: Array.isArray(record.items) ? record.items : [],
+  };
+  if (!entry.savedAt && typeof record.createdAt === "string") {
+    entry.savedAt = record.createdAt;
+  }
+  return entry;
+}
+
+async function loadHistoryEntries(
+  section: HTMLElement,
+  labels: AppState["fieldLabels"],
+  { reset = false }: { reset?: boolean } = {}
+): Promise<void> {
+  if (dataMode !== "sqlite" || isLoadingHistory) {
+    return;
+  }
+
+  isLoadingHistory = true;
+  if (reset) {
+    clearHistoryCache();
+    selectedIndexes.clear();
+    renderHistoryTable(section, getState());
+    updateSelectionUI(section);
+  }
+
+  try {
+    const result = await listHistoryEntriesPaged({
+      cursor: reset ? null : historyCursor,
+      pageSize: HISTORY_PAGE_SIZE,
+      sortDirection: "desc",
+      includeItems: true,
+      includeTotal: reset || historyTotalCount === 0,
+    });
+    const mapped = result.items.map((item) => mapWorkerHistoryEntry(item));
+    historyEntries = reset ? mapped : [...historyEntries, ...mapped];
+    historyCursor = result.nextCursor ?? null;
+    historyHasMore = Boolean(result.hasMore);
+    if (typeof result.totalCount === "number") {
+      historyTotalCount = result.totalCount;
+    } else if (!historyHasMore) {
+      historyTotalCount = historyEntries.length;
+    }
+    renderHistoryTable(section, getState());
+  } catch (error) {
+    console.error("History konnte nicht geladen werden", error);
+    window.alert(
+      "Historie konnte nicht geladen werden. Bitte erneut versuchen."
+    );
+  } finally {
+    isLoadingHistory = false;
+    const loadMoreSlot = section.querySelector<HTMLElement>(
+      '[data-role="history-load-more"]'
+    );
+    if (loadMoreSlot) {
+      updateLoadMoreButton(section);
+    }
+  }
+}
+
+function updateLoadMoreButton(section: HTMLElement): void {
+  const target = section.querySelector<HTMLElement>(
+    '[data-role="history-load-more"]'
+  );
+  if (!target) {
+    return;
+  }
+  if (dataMode !== "sqlite") {
+    target.innerHTML = "";
+    return;
+  }
+  target.innerHTML = "";
+  if (!historyHasMore && historyEntries.length > 0) {
+    return;
+  }
+  const button = document.createElement("button");
+  button.className = "btn btn-secondary w-100";
+  button.dataset.action = "load-more-sqlite";
+  button.disabled = isLoadingHistory;
+  button.textContent = isLoadingHistory
+    ? "Lade Historie ..."
+    : historyTotalCount && historyEntries.length
+      ? `Mehr laden (${Math.max(historyTotalCount - historyEntries.length, 0)} weitere)`
+      : "Mehr laden";
+  target.appendChild(button);
+}
+
 const USE_VIRTUAL_SCROLLING = true;
 const INITIAL_LOAD_LIMIT = 200;
+const HISTORY_PAGE_SIZE = 50;
+
+type DataMode = "sqlite" | "memory";
+
+let dataMode: DataMode = "memory";
+let historyEntries: HistoryEntry[] = [];
+let historyCursor: HistoryCursor | null = null;
+let historyHasMore = false;
+let historyTotalCount = 0;
+let isLoadingHistory = false;
 
 let initialized = false;
 let virtualListInstance: ReturnType<typeof initVirtualList> | null = null;
@@ -148,6 +287,7 @@ function createSection(): HTMLElement {
       <div class="card-body">
         <div class="alert alert-info d-none" data-role="history-message"></div>
         <div data-role="history-list" class="history-list"></div>
+        <div data-role="history-load-more" class="mt-3"></div>
       </div>
     </div>
     <div class="card card-dark mt-4 d-none" id="history-detail">
@@ -185,7 +325,7 @@ function renderCardsList(
   listContainer: HTMLElement,
   labels: AppState["fieldLabels"]
 ): void {
-  const entries: HistoryEntry[] = state.history || [];
+  const entries = getEntriesSnapshot(state);
   const resolvedLabels = labels || getState().fieldLabels;
 
   for (const idx of Array.from(selectedIndexes)) {
@@ -194,7 +334,12 @@ function renderCardsList(
     }
   }
 
-  if (USE_VIRTUAL_SCROLLING && entries.length > INITIAL_LOAD_LIMIT) {
+  const shouldVirtualize =
+    dataMode === "memory" &&
+    USE_VIRTUAL_SCROLLING &&
+    entries.length > INITIAL_LOAD_LIMIT;
+
+  if (shouldVirtualize) {
     if (!virtualListInstance) {
       virtualListInstance = initVirtualList(listContainer, {
         itemCount: entries.length,
@@ -221,7 +366,10 @@ function renderCardsList(
       virtualListInstance = null;
     }
 
-    const limit = Math.min(entries.length, INITIAL_LOAD_LIMIT);
+    const limit =
+      dataMode === "sqlite"
+        ? entries.length
+        : Math.min(entries.length, INITIAL_LOAD_LIMIT);
     const fragment = document.createDocumentFragment();
 
     for (let i = 0; i < limit; i += 1) {
@@ -244,7 +392,7 @@ function renderCardsList(
     listContainer.innerHTML = "";
     listContainer.appendChild(fragment);
 
-    if (entries.length > limit) {
+    if (dataMode === "memory" && entries.length > limit) {
       const loadMoreBtn = document.createElement("button");
       loadMoreBtn.className = "btn btn-secondary w-100 mt-3";
       loadMoreBtn.textContent = `Mehr laden (${
@@ -265,6 +413,7 @@ function renderHistoryTable(section: HTMLElement, state: AppState): void {
     return;
   }
   renderCardsList(state, listContainer, state.fieldLabels);
+  updateLoadMoreButton(section);
 }
 
 function showHistoryFeedback(
@@ -641,18 +790,37 @@ export function initHistory(
   }
 
   const handleStateChange = (nextState: AppState) => {
+    const nextMode: DataMode = shouldUseSqlite(nextState) ? "sqlite" : "memory";
+    if (nextMode !== dataMode) {
+      dataMode = nextMode;
+      selectedIndexes.clear();
+      updateSelectionUI(section);
+      clearHistoryCache();
+      if (dataMode === "sqlite") {
+        void loadHistoryEntries(section, nextState.fieldLabels, {
+          reset: true,
+        });
+      }
+    } else if (
+      dataMode === "sqlite" &&
+      !isLoadingHistory &&
+      historyEntries.length === 0 &&
+      nextState.app?.hasDatabase
+    ) {
+      void loadHistoryEntries(section, nextState.fieldLabels, { reset: true });
+    }
     toggleSectionAvailability(section, nextState);
     renderHistoryTable(section, nextState);
     const detailCard = section.querySelector<HTMLElement>("#history-detail");
     if (detailCard && !detailCard.classList.contains("d-none")) {
       const detailIndex = Number(detailCard.dataset.index);
-      if (!Number.isNaN(detailIndex) && nextState.history[detailIndex]) {
-        renderDetail(
-          nextState.history[detailIndex] as HistoryEntry,
-          section,
-          detailIndex,
-          nextState.fieldLabels
-        );
+      if (!Number.isNaN(detailIndex)) {
+        const entry = getEntryByIndex(nextState, detailIndex);
+        if (entry) {
+          renderDetail(entry, section, detailIndex, nextState.fieldLabels);
+        } else {
+          renderDetail(null, section, null, nextState.fieldLabels);
+        }
       } else {
         renderDetail(null, section, null, nextState.fieldLabels);
       }
@@ -672,6 +840,7 @@ export function initHistory(
     if (!action) {
       return;
     }
+    const state = services.state.getState();
 
     if (action === "detail-print") {
       const detailCard = target.closest<HTMLElement>("#history-detail");
@@ -680,9 +849,8 @@ export function initHistory(
         typeof indexAttr === "string" && indexAttr !== ""
           ? Number(indexAttr)
           : NaN;
-      const state = services.state.getState();
       const entry = Number.isInteger(index)
-        ? (state.history[index] as HistoryEntry)
+        ? getEntryByIndex(state, index)
         : null;
       printDetail(entry, state.fieldLabels);
       return;
@@ -696,18 +864,16 @@ export function initHistory(
         window.alert("Kein Historien-Eintrag ausgewählt.");
         return;
       }
-      const state = services.state.getState();
-      const entry = state.history[index] as HistoryEntry | undefined;
+      const entry = getEntryByIndex(state, index);
       emitGpsActivationRequest(services, entry ?? null);
       return;
     }
 
     if (action === "print-selected") {
-      const state = services.state.getState();
       const entries = Array.from(selectedIndexes)
         .sort((a, b) => a - b)
-        .map((idx) => state.history[idx] as HistoryEntry)
-        .filter(Boolean);
+        .map((idx) => getEntryByIndex(state, idx))
+        .filter((entry): entry is HistoryEntry => Boolean(entry));
       void printSummary(entries, state.fieldLabels);
       return;
     }
@@ -715,9 +881,9 @@ export function initHistory(
     if (action === "load-more") {
       const btn = target as HTMLButtonElement;
       const currentLimit = parseInt(btn.dataset.currentLimit ?? "0", 10);
-      const state = services.state.getState();
+      const entries = getEntriesSnapshot(state);
       const newLimit = Math.min(
-        state.history.length,
+        entries.length,
         currentLimit + INITIAL_LOAD_LIMIT
       );
       const listContainer = section.querySelector<HTMLElement>(
@@ -730,7 +896,7 @@ export function initHistory(
 
       const fragment = document.createDocumentFragment();
       for (let i = currentLimit; i < newLimit; i += 1) {
-        const entry = state.history[i] as HistoryEntry;
+        const entry = entries[i];
         const selected = selectedIndexes.has(i);
         const cardHtml = renderCalculationSnapshot(entry, resolvedLabels, {
           showActions: true,
@@ -749,11 +915,11 @@ export function initHistory(
       btn.remove();
       listContainer.appendChild(fragment);
 
-      if (newLimit < state.history.length) {
+      if (newLimit < entries.length) {
         const newBtn = document.createElement("button");
         newBtn.className = "btn btn-secondary w-100 mt-3";
         newBtn.textContent = `Mehr laden (${
-          state.history.length - newLimit
+          entries.length - newLimit
         } weitere)`;
         newBtn.dataset.action = "load-more";
         newBtn.dataset.currentLimit = String(newLimit);
@@ -762,33 +928,72 @@ export function initHistory(
       return;
     }
 
+    if (action === "load-more-sqlite") {
+      const btn = target as HTMLButtonElement;
+      btn.disabled = true;
+      void loadHistoryEntries(section, state.fieldLabels).finally(() => {
+        btn.disabled = false;
+      });
+      return;
+    }
+
     const index = Number(target.dataset.index);
     if (Number.isNaN(index)) {
       return;
     }
 
-    const state = services.state.getState();
+    const entry = getEntryByIndex(state, index);
+    if (!entry) {
+      return;
+    }
 
     if (action === "view") {
-      const entry = state.history[index] as HistoryEntry | undefined;
-      renderDetail(entry ?? null, section, index, state.fieldLabels);
+      renderDetail(entry, section, index, state.fieldLabels);
     } else if (action === "delete") {
       if (!window.confirm("Wirklich löschen?")) {
         return;
       }
-      services.state.updateSlice("history", (history) => {
-        const copy = [...history];
-        copy.splice(index, 1);
-        return copy;
-      });
-      selectedIndexes.clear();
-      updateSelectionUI(section);
-      renderDetail(null, section, null, state.fieldLabels);
-      void persistHistoryChanges().catch((err) => {
-        console.error("Persist delete history error", err);
-      });
+      if (dataMode === "sqlite") {
+        const rawId = entry.id;
+        const entryId =
+          typeof rawId === "string"
+            ? Number(rawId)
+            : (rawId as number | undefined);
+        if (entryId == null || Number.isNaN(entryId)) {
+          window.alert("Eintrag kann nicht gelöscht werden (fehlende ID).");
+          return;
+        }
+        void (async () => {
+          try {
+            await deleteHistoryEntryById(entryId);
+            await persistSqliteDatabaseFile().catch(() => undefined);
+            selectedIndexes.clear();
+            updateSelectionUI(section);
+            renderDetail(null, section, null, state.fieldLabels);
+            await loadHistoryEntries(section, state.fieldLabels, {
+              reset: true,
+            });
+          } catch (error) {
+            console.error("SQLite history delete failed", error);
+            window.alert(
+              "Eintrag konnte nicht gelöscht werden. Bitte erneut versuchen."
+            );
+          }
+        })();
+      } else {
+        services.state.updateSlice("history", (history) => {
+          const copy = [...history];
+          copy.splice(index, 1);
+          return copy;
+        });
+        selectedIndexes.clear();
+        updateSelectionUI(section);
+        renderDetail(null, section, null, state.fieldLabels);
+        void persistHistoryChanges().catch((err) => {
+          console.error("Persist delete history error", err);
+        });
+      }
     } else if (action === "activate-gps") {
-      const entry = state.history[index] as HistoryEntry | undefined;
       emitGpsActivationRequest(services, entry ?? null);
     }
   });

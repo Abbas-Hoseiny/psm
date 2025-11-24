@@ -10,13 +10,16 @@ import { getActiveDriverKey, saveDatabase } from "@scripts/core/storage";
 import {
   deleteHistoryEntryById,
   getHistoryEntryById,
-  listHistoryEntries,
+  listHistoryEntriesPaged,
   exportHistoryRange,
   deleteHistoryRange,
   vacuumDatabase,
-  setArchiveLogs,
   persistSqliteDatabaseFile,
+  listArchiveLogs,
+  insertArchiveLog,
   type HistoryQueryFilters,
+  type ArchiveLogInput,
+  type HistoryCursor,
 } from "@scripts/core/storage/sqlite";
 import {
   buildGoogleMapsUrl,
@@ -354,6 +357,10 @@ let focusLock = false;
 let pendingEntrySelectionId: string | null = null;
 let isArchiving = false;
 let lastArchiveLogSignature = "";
+let archiveLogsLoaded = false;
+let archiveLogsLoading: Promise<void> | null = null;
+let historyCursor: HistoryCursor | null = null;
+let sqliteHasMore = false;
 
 function resolveStorageDriver(state: AppState): string {
   return state.app?.storageDriver || getActiveDriverKey();
@@ -546,6 +553,12 @@ function updateArchiveAvailability(
       : "Nur mit SQLite verfügbar";
     driverHint.className = `badge ${isSqlite ? "bg-success" : "bg-secondary"}`;
   }
+
+  if (isSqlite) {
+    void ensureArchiveLogsLoaded();
+  } else {
+    archiveLogsLoaded = false;
+  }
 }
 
 function setArchiveBusy(section: HTMLElement, busy: boolean): void {
@@ -589,12 +602,80 @@ function buildArchiveFilename(startDate: string, endDate: string): string {
   return `pflanzenschutz-archiv-${sanitize(startDate)}_${sanitize(endDate)}.zip`;
 }
 
-async function persistArchiveLogs(logs: ArchiveLogEntry[]): Promise<void> {
+function pushArchiveLogToState(entry: ArchiveLogEntry): ArchiveLogEntry[] {
+  let nextLogs: ArchiveLogEntry[] = [];
+  updateSlice("archives", (archives) => {
+    const currentLogs = Array.isArray(archives?.logs) ? archives.logs : [];
+    nextLogs = [entry, ...currentLogs].slice(0, ARCHIVE_LOG_LIMIT);
+    return { ...(archives || { logs: [] }), logs: nextLogs };
+  });
+  return nextLogs;
+}
+
+async function ensureArchiveLogsLoaded({
+  force = false,
+}: { force?: boolean } = {}): Promise<void> {
+  if (archiveLogsLoading) {
+    await archiveLogsLoading;
+    if (!force) {
+      return;
+    }
+  } else if (archiveLogsLoaded && !force) {
+    return;
+  }
+
+  const state = getState();
+  const driverKey = resolveStorageDriver(state);
+  if (driverKey !== "sqlite" || !state.app?.hasDatabase) {
+    return;
+  }
+
+  const loader = (async () => {
+    try {
+      const result = await listArchiveLogs({ limit: ARCHIVE_LOG_LIMIT });
+      updateSlice("archives", (archives) => {
+        const base =
+          archives && typeof archives === "object" ? archives : { logs: [] };
+        return { ...base, logs: result.items };
+      });
+      archiveLogsLoaded = true;
+    } catch (error) {
+      console.warn("Archive logs could not be loaded", error);
+    }
+  })();
+
+  archiveLogsLoading = loader;
   try {
-    await setArchiveLogs(logs);
+    await loader;
+  } finally {
+    archiveLogsLoading = null;
+  }
+}
+
+async function recordArchiveLog(
+  entry: ArchiveLogEntry,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  const driverKey = resolveStorageDriver(getState());
+  pushArchiveLogToState(entry);
+
+  if (driverKey !== "sqlite") {
+    console.warn("Archive logs require SQLite. Changes stored in memory only.");
+    return;
+  }
+
+  try {
+    const payload: ArchiveLogInput = {
+      ...entry,
+      metadata: metadata ?? undefined,
+    };
+    await insertArchiveLog(payload);
     await persistSqliteDatabaseFile();
   } catch (error) {
-    console.warn("Archive logs could not be persisted", error);
+    console.error("Archive log could not be persisted", error);
+    archiveLogsLoaded = false;
+  } finally {
+    await ensureArchiveLogsLoaded({ force: true });
   }
 }
 
@@ -1156,13 +1237,27 @@ function renderList(
     '[data-action="load-more"]'
   );
   if (loadMore) {
-    const available = dataMode === "sqlite" ? totalEntries : allEntries.length;
-    const hasMore = visibleEntries.length < available;
+    const hasMore =
+      dataMode === "sqlite"
+        ? sqliteHasMore
+        : visibleEntries.length < allEntries.length;
     loadMore.classList.toggle("d-none", !hasMore);
-    loadMore.disabled = isLoadingEntries;
+    loadMore.disabled = isLoadingEntries || !hasMore;
     if (hasMore) {
-      const remaining = Math.max(available - visibleEntries.length, 0);
-      loadMore.textContent = `Mehr laden (${remaining} weitere)`;
+      if (dataMode === "sqlite") {
+        if (typeof totalEntries === "number" && totalEntries > 0) {
+          const remaining = Math.max(totalEntries - visibleEntries.length, 0);
+          loadMore.textContent = `Mehr laden (${remaining} weitere)`;
+        } else {
+          loadMore.textContent = "Mehr laden";
+        }
+      } else {
+        const remaining = Math.max(
+          allEntries.length - visibleEntries.length,
+          0
+        );
+        loadMore.textContent = `Mehr laden (${remaining} weitere)`;
+      }
     }
   }
 
@@ -1223,38 +1318,49 @@ async function reopenDetailIfVisible(
   }
 }
 
-async function fetchSqlitePage(
+async function fetchSqliteEntries(
   section: HTMLElement,
   labels: AppState["fieldLabels"],
-  page: number,
-  append: boolean
+  { reset = false }: { reset?: boolean } = {}
 ): Promise<void> {
   const token = Symbol("doc-load");
   currentLoadToken = token;
   isLoadingEntries = true;
-  if (!append) {
+
+  if (reset) {
+    historyCursor = null;
+    sqliteHasMore = false;
     allEntries = [];
     visibleEntries = [];
     totalEntries = 0;
+    currentPage = 1;
     renderList(section, labels);
     updateInfo(section, labels);
   }
 
   try {
-    const result = await listHistoryEntries({
-      page,
+    const result = await listHistoryEntriesPaged({
+      cursor: reset ? null : historyCursor,
       pageSize: PAGE_SIZE,
       filters: toHistoryQueryFilters(currentFilters),
       sortDirection: "desc",
+      includeTotal: reset || totalEntries === 0,
     });
     if (currentLoadToken !== token) {
       return;
     }
-    const mapped = result.items.map((item) => mapSqliteHistoryEntry(item));
-    allEntries = append ? [...allEntries, ...mapped] : mapped;
+    const mapped = result.items.map((item: Record<string, unknown>) =>
+      mapSqliteHistoryEntry(item)
+    );
+    allEntries = reset ? mapped : [...allEntries, ...mapped];
     visibleEntries = allEntries.slice();
-    currentPage = page;
-    totalEntries = result.totalCount;
+    historyCursor = result.nextCursor ?? null;
+    sqliteHasMore = Boolean(result.hasMore);
+    if (typeof result.totalCount === "number") {
+      totalEntries = result.totalCount;
+    } else if (!totalEntries) {
+      totalEntries = visibleEntries.length;
+    }
   } catch (error) {
     if (currentLoadToken === token) {
       console.error("Dokumentation konnte nicht geladen werden", error);
@@ -1314,7 +1420,7 @@ async function applyFilters(
   lastArchiveLogSignature = computeArchiveLogSignature(state.archives?.logs);
 
   if (useSqlite) {
-    await fetchSqlitePage(section, state.fieldLabels, 1, false);
+    await fetchSqliteEntries(section, state.fieldLabels, { reset: true });
     await reopenDetailIfVisible(section, state.fieldLabels);
     return;
   }
@@ -1330,8 +1436,10 @@ async function loadMoreEntries(
     if (isLoadingEntries) {
       return;
     }
-    const nextPage = currentPage + 1;
-    await fetchSqlitePage(section, labels, nextPage, true);
+    if (!sqliteHasMore) {
+      return;
+    }
+    await fetchSqliteEntries(section, labels, { reset: false });
     return;
   }
   currentPage += 1;
@@ -1515,13 +1623,14 @@ async function handleArchiveSubmit(
   setArchiveStatus(section, "Prüfe Zeitraum und Eintragsmenge...", "info");
 
   try {
-    const preview = await listHistoryEntries({
-      page: 1,
+    const preview = await listHistoryEntriesPaged({
+      cursor: null,
       pageSize: 1,
       filters: queryFilters,
       sortDirection: "asc",
+      includeTotal: true,
     });
-    const targetCount = preview.totalCount || 0;
+    const targetCount = preview.totalCount ?? preview.items.length ?? 0;
     if (!targetCount) {
       setArchiveStatus(
         section,
@@ -1632,13 +1741,15 @@ async function handleArchiveSubmit(
         : "VACUUM fehlgeschlagen";
     }
 
-    let nextLogs: ArchiveLogEntry[] = [];
-    updateSlice("archives", (archives) => {
-      const currentLogs = Array.isArray(archives?.logs) ? archives.logs : [];
-      nextLogs = [logEntry, ...currentLogs].slice(0, ARCHIVE_LOG_LIMIT);
-      return { ...archives, logs: nextLogs };
-    });
-    await persistArchiveLogs(nextLogs);
+    const logMetadata = {
+      filters: { ...archiveFilters },
+      removeAfterExport: Boolean(values.removeAfterExport),
+      historyIdSample: exportResult?.historyIds?.slice(
+        0,
+        ARCHIVE_HIGHLIGHT_LIMIT
+      ),
+    } as Record<string, unknown>;
+    await recordArchiveLog(logEntry, logMetadata);
 
     if (!values.removeAfterExport && exportResult?.historyIds?.length) {
       const refs = exportResult.historyIds
@@ -2157,6 +2268,7 @@ export function initDocumentation(
   const initialLogs = services.state.getState().archives?.logs ?? [];
   renderArchiveLogs(section, initialLogs);
   lastArchiveLogSignature = computeArchiveLogSignature(initialLogs);
+  void ensureArchiveLogsLoaded();
 
   if (typeof services.events?.subscribe === "function") {
     services.events.subscribe(

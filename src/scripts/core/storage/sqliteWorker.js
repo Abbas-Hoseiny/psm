@@ -245,6 +245,167 @@ function ensureGpsPointTable(targetDb = db) {
   `);
 }
 
+function ensureArchiveLogsTable(targetDb = db) {
+  if (!targetDb) {
+    return;
+  }
+  targetDb.exec(`
+    CREATE TABLE IF NOT EXISTS archive_logs (
+      id TEXT PRIMARY KEY,
+      archived_at TEXT NOT NULL,
+      start_date TEXT,
+      end_date TEXT,
+      entry_count INTEGER NOT NULL DEFAULT 0,
+      file_name TEXT,
+      storage_hint TEXT,
+      note TEXT,
+      metadata_json TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_archive_logs_archived_at
+      ON archive_logs(archived_at DESC, id DESC);
+  `);
+}
+
+function generateArchiveLogId() {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return `archive_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeArchiveLogEntry(entry) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+  const id = entry.id ? String(entry.id) : generateArchiveLogId();
+  const archivedAt =
+    entry.archivedAt || entry.archived_at || new Date().toISOString();
+  const startDate = entry.startDate || entry.start_date || null;
+  const endDate = entry.endDate || entry.end_date || null;
+  const entryCount = Number(entry.entryCount ?? entry.entry_count ?? 0) || 0;
+  const fileName = entry.fileName || entry.file_name || "";
+  const storageHint = entry.storageHint || entry.storage_hint || null;
+  const note = entry.note ?? entry.note_text ?? null;
+  return {
+    id,
+    archivedAt,
+    startDate,
+    endDate,
+    entryCount,
+    fileName,
+    storageHint,
+    note,
+    metadata: {
+      ...entry,
+      id,
+      archivedAt,
+      startDate,
+      endDate,
+      entryCount,
+      fileName,
+      storageHint,
+      note,
+    },
+  };
+}
+
+function toArchiveLogMetaPayload(entry) {
+  return {
+    id: entry.id,
+    archivedAt: entry.archivedAt,
+    startDate: entry.startDate ?? null,
+    endDate: entry.endDate ?? null,
+    entryCount: entry.entryCount ?? 0,
+    fileName: entry.fileName ?? "",
+    storageHint: entry.storageHint ?? null,
+    note: entry.note ?? null,
+  };
+}
+
+function replaceArchiveLogs(logs = [], targetDb = db) {
+  ensureArchiveLogsTable(targetDb);
+  targetDb.exec("DELETE FROM archive_logs");
+  if (!Array.isArray(logs) || !logs.length) {
+    return [];
+  }
+  const stmt = targetDb.prepare(
+    `INSERT OR REPLACE INTO archive_logs
+      (id, archived_at, start_date, end_date, entry_count, file_name, storage_hint, note, metadata_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  const sanitized = [];
+  for (const raw of logs) {
+    const normalized = normalizeArchiveLogEntry(raw);
+    if (!normalized) {
+      continue;
+    }
+    stmt
+      .bind([
+        normalized.id,
+        normalized.archivedAt,
+        normalized.startDate,
+        normalized.endDate,
+        normalized.entryCount,
+        normalized.fileName,
+        normalized.storageHint,
+        normalized.note,
+        JSON.stringify(normalized.metadata || raw || {}),
+      ])
+      .step();
+    stmt.reset();
+    sanitized.push(toArchiveLogMetaPayload(normalized));
+  }
+  stmt.finalize();
+  return sanitized;
+}
+
+function readAllArchiveLogs(targetDb = db) {
+  ensureArchiveLogsTable(targetDb);
+  const logs = [];
+  targetDb.exec({
+    sql: `SELECT id, archived_at, start_date, end_date, entry_count, file_name, storage_hint, note, metadata_json
+          FROM archive_logs
+          ORDER BY datetime(archived_at) DESC, id DESC`,
+    rowMode: "object",
+    callback: (row) => {
+      const mapped = mapArchiveLogRow(row);
+      if (mapped) {
+        logs.push(mapped);
+      }
+    },
+  });
+  return logs;
+}
+
+function mapArchiveLogRow(row) {
+  if (!row) {
+    return null;
+  }
+  const metadata = row.metadata_json ? safeParseJson(row.metadata_json) : null;
+  const entry = metadata && typeof metadata === "object" ? { ...metadata } : {};
+  entry.id = String(row.id);
+  entry.archivedAt =
+    row.archived_at || entry.archivedAt || new Date().toISOString();
+  entry.startDate = row.start_date ?? entry.startDate ?? null;
+  entry.endDate = row.end_date ?? entry.endDate ?? null;
+  entry.entryCount = Number(row.entry_count ?? entry.entryCount ?? 0) || 0;
+  entry.fileName = row.file_name || entry.fileName || "";
+  entry.storageHint = row.storage_hint ?? entry.storageHint ?? null;
+  entry.note = row.note ?? entry.note ?? null;
+  return entry;
+}
+
+function syncArchiveLogsMeta(targetDb = db) {
+  const logs = readAllArchiveLogs(targetDb).map((entry) =>
+    toArchiveLogMetaPayload(entry)
+  );
+  setMetaValue("archives", JSON.stringify({ logs }), targetDb);
+}
+
 function generateGpsPointId() {
   if (
     typeof crypto !== "undefined" &&
@@ -507,6 +668,9 @@ self.onmessage = async function (event) {
       case "listHistory":
         result = await listHistory(payload);
         break;
+      case "listHistoryPaged":
+        result = await listHistoryPaged(payload);
+        break;
       case "exportHistoryRange":
         result = await exportHistoryRange(payload);
         break;
@@ -527,6 +691,15 @@ self.onmessage = async function (event) {
         break;
       case "setArchiveLogs":
         result = await setArchiveLogs(payload);
+        break;
+      case "listArchiveLogs":
+        result = await listArchiveLogs(payload);
+        break;
+      case "insertArchiveLog":
+        result = await insertArchiveLog(payload);
+        break;
+      case "deleteArchiveLog":
+        result = await deleteArchiveLog(payload);
         break;
       case "exportDB":
         result = await exportDB();
@@ -1010,6 +1183,34 @@ async function applySchema() {
       throw error;
     }
   }
+
+  postMigrationVersion = db.selectValue("PRAGMA user_version") || 0;
+  const archiveTableMissing = !hasTable(db, "archive_logs");
+  if (archiveTableMissing || postMigrationVersion < 8) {
+    console.log("Migrating database to version 8...");
+    db.exec("BEGIN TRANSACTION");
+    try {
+      ensureArchiveLogsTable(db);
+      const archivesMetaRaw = getMetaValue("archives", db);
+      if (archivesMetaRaw) {
+        try {
+          const parsed = JSON.parse(archivesMetaRaw);
+          const logs = Array.isArray(parsed?.logs) ? parsed.logs : [];
+          if (logs.length) {
+            replaceArchiveLogs(logs, db);
+          }
+        } catch (parseError) {
+          console.warn("Archiv-Logs konnten nicht migriert werden", parseError);
+        }
+      }
+      db.exec("PRAGMA user_version = 8");
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      console.error("Migration to version 8 failed:", error);
+      throw error;
+    }
+  }
 }
 
 /**
@@ -1080,6 +1281,12 @@ async function importSnapshot(snapshot) {
         }
         methodStmt.finalize();
       }
+
+      const importedArchiveLogs = Array.isArray(snapshot.archives?.logs)
+        ? snapshot.archives.logs
+        : [];
+      const sanitized = replaceArchiveLogs(importedArchiveLogs, db);
+      setMetaValue("archives", JSON.stringify({ logs: sanitized }), db);
     }
 
     // Import mediums
@@ -1304,6 +1511,13 @@ async function exportSnapshot() {
 
   snapshot.mediumProfiles = Array.from(profileMap.values());
 
+  const archiveLogsFromTable = readAllArchiveLogs();
+  if (archiveLogsFromTable.length) {
+    snapshot.archives = {
+      logs: archiveLogsFromTable.map((entry) => toArchiveLogMetaPayload(entry)),
+    };
+  }
+
   // Export history
   const historyMap = new Map();
   db.exec({
@@ -1469,6 +1683,22 @@ function buildHistoryFilterQuery(filters = {}) {
   };
 }
 
+function buildHistoryCursorClause(cursor, historyDateExpr, sortDirection) {
+  if (!cursor || !cursor.createdAt) {
+    return null;
+  }
+  const comparator = sortDirection === "ASC" ? ">" : "<";
+  const createdAt = String(cursor.createdAt);
+  const cursorId = Number(cursor.id ?? cursor.historyId ?? cursor.rowid ?? 0);
+  return {
+    clause: `(
+      datetime(${historyDateExpr}) ${comparator} datetime(?)
+      OR (datetime(${historyDateExpr}) = datetime(?) AND history.id ${comparator} ?)
+    )`,
+    params: [createdAt, createdAt, cursorId],
+  };
+}
+
 async function listHistory({
   page = 1,
   pageSize = 50,
@@ -1524,6 +1754,151 @@ async function listHistory({
     pageSize: normalizedPageSize,
     totalCount: Number(totalCount) || 0,
     totalPages: Math.ceil((Number(totalCount) || 0) / normalizedPageSize),
+  };
+}
+
+async function listHistoryPaged({
+  cursor = null,
+  pageSize = 50,
+  filters = {},
+  sortDirection = "desc",
+  includeItems = false,
+  includeTotal = false,
+} = {}) {
+  if (!db) throw new Error("Database not initialized");
+
+  const sanitizedDirection =
+    String(sortDirection).toLowerCase() === "asc" ? "ASC" : "DESC";
+  const normalizedPageSize = Math.min(Math.max(Number(pageSize) || 1, 1), 500);
+  const fetchLimit = normalizedPageSize + 1;
+
+  const { historyDateExpr, whereSql, whereParams } =
+    buildHistoryFilterQuery(filters);
+  const cursorClause = buildHistoryCursorClause(
+    cursor,
+    historyDateExpr,
+    sanitizedDirection
+  );
+
+  const clauseSegments = [];
+  const bindParams = [];
+
+  if (whereSql?.trim()) {
+    clauseSegments.push(whereSql.replace(/^\s*WHERE\s+/i, ""));
+    if (whereParams.length) {
+      bindParams.push(...whereParams);
+    }
+  }
+
+  if (cursorClause) {
+    clauseSegments.push(cursorClause.clause);
+    bindParams.push(...cursorClause.params);
+  }
+
+  const combinedWhereSql =
+    clauseSegments.length > 0 ? `WHERE ${clauseSegments.join(" AND ")}` : "";
+
+  const rows = [];
+  db.exec({
+    sql: `
+      SELECT
+        history.id AS id,
+        history.header_json AS header_json,
+        history.created_at AS created_at,
+        ${historyDateExpr} AS cursor_created_at
+      FROM history
+      ${combinedWhereSql}
+      ORDER BY datetime(cursor_created_at) ${sanitizedDirection}, history.id ${sanitizedDirection}
+      LIMIT ?
+    `,
+    bind: [...bindParams, fetchLimit],
+    rowMode: "object",
+    callback: (row) => rows.push(row),
+  });
+
+  const hasMore = rows.length > normalizedPageSize;
+  const entries = hasMore ? rows.slice(0, -1) : rows;
+
+  let nextCursor = null;
+  if (hasMore && entries.length) {
+    const lastEntry = entries[entries.length - 1];
+    nextCursor = {
+      id: lastEntry.id,
+      createdAt:
+        lastEntry.cursor_created_at ||
+        lastEntry.created_at ||
+        new Date().toISOString(),
+    };
+  }
+
+  const history = entries.map((row) => {
+    let header;
+    try {
+      header = JSON.parse(row.header_json || "{}");
+    } catch (error) {
+      console.warn("Konnte History-Header nicht parsen", error);
+      header = {};
+    }
+    const entry = {
+      id: row.id,
+      ...header,
+    };
+    if (includeItems) {
+      entry.items = [];
+    }
+    return entry;
+  });
+
+  if (includeItems && history.length) {
+    const historyIds = history.map((entry) => entry.id);
+    const placeholders = historyIds.map(() => "?").join(",");
+    const itemsMap = new Map();
+
+    db.exec({
+      sql: `
+        SELECT history_id, payload_json
+        FROM history_items
+        WHERE history_id IN (${placeholders})
+        ORDER BY history_id, rowid
+      `,
+      bind: historyIds,
+      callback: (row) => {
+        const historyId = row[0];
+        const rawPayload = row[1];
+        if (!itemsMap.has(historyId)) {
+          itemsMap.set(historyId, []);
+        }
+        try {
+          itemsMap.get(historyId).push(JSON.parse(rawPayload || "{}"));
+        } catch (error) {
+          console.warn("Konnte History-Item nicht parsen", error);
+        }
+      },
+    });
+
+    history.forEach((entry) => {
+      entry.items = itemsMap.get(entry.id) || [];
+    });
+  }
+
+  let totalCount;
+  if (includeTotal) {
+    totalCount =
+      Number(
+        db.selectValue(
+          `SELECT COUNT(*) FROM history ${whereSql || ""}`,
+          whereParams.length ? [...whereParams] : undefined
+        )
+      ) || 0;
+  }
+
+  return {
+    items: history,
+    nextCursor,
+    pageSize: normalizedPageSize,
+    sortDirection: sanitizedDirection === "ASC" ? "asc" : "desc",
+    hasMore,
+    totalCount,
   };
 }
 
@@ -1630,8 +2005,145 @@ async function vacuumDatabase() {
 async function setArchiveLogs(payload = {}) {
   if (!db) throw new Error("Database not initialized");
   const logs = Array.isArray(payload.logs) ? payload.logs : [];
-  setMetaValue("archives", JSON.stringify({ logs }));
-  return { success: true, count: logs.length };
+  db.exec("BEGIN TRANSACTION");
+  try {
+    const sanitized = replaceArchiveLogs(logs, db);
+    setMetaValue("archives", JSON.stringify({ logs: sanitized }), db);
+    db.exec("COMMIT");
+    return { success: true, count: sanitized.length };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+async function listArchiveLogs({
+  limit = 50,
+  cursor = null,
+  sortDirection = "desc",
+} = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureArchiveLogsTable();
+
+  const sanitizedDirection =
+    String(sortDirection).toLowerCase() === "asc" ? "ASC" : "DESC";
+  const normalizedLimit = Math.min(Math.max(Number(limit) || 1, 1), 500);
+  const fetchLimit = normalizedLimit + 1;
+
+  const cursorClause = (() => {
+    if (!cursor || !cursor.archivedAt) {
+      return null;
+    }
+    const comparator = sanitizedDirection === "ASC" ? ">" : "<";
+    const tieComparator = comparator;
+    const createdAt = String(cursor.archivedAt);
+    const cursorId = cursor.id ? String(cursor.id) : "";
+    return {
+      clause: `(
+        datetime(archived_at) ${comparator} datetime(?)
+        OR (datetime(archived_at) = datetime(?) AND id ${tieComparator} ?)
+      )`,
+      params: [createdAt, createdAt, cursorId],
+    };
+  })();
+
+  const clauses = [];
+  const params = [];
+  if (cursorClause) {
+    clauses.push(cursorClause.clause);
+    params.push(...cursorClause.params);
+  }
+  const whereSql = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+  const rows = [];
+  db.exec({
+    sql: `SELECT id, archived_at, start_date, end_date, entry_count, file_name, storage_hint, note, metadata_json
+          FROM archive_logs
+          ${whereSql}
+          ORDER BY datetime(archived_at) ${sanitizedDirection}, id ${sanitizedDirection}
+          LIMIT ?`,
+    bind: [...params, fetchLimit],
+    rowMode: "object",
+    callback: (row) => rows.push(row),
+  });
+
+  let nextCursor = null;
+  const hasMore = rows.length > normalizedLimit;
+  if (hasMore) {
+    const nextRow = rows.pop();
+    if (nextRow) {
+      nextCursor = {
+        id: String(nextRow.id),
+        archivedAt: nextRow.archived_at,
+      };
+    }
+  }
+
+  const items = rows
+    .map((row) => mapArchiveLogRow(row))
+    .filter((entry) => Boolean(entry));
+
+  return {
+    items,
+    nextCursor,
+    hasMore,
+    pageSize: normalizedLimit,
+    sortDirection: sanitizedDirection,
+  };
+}
+
+async function insertArchiveLog(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureArchiveLogsTable();
+  const normalized = normalizeArchiveLogEntry(payload);
+  if (!normalized) {
+    throw new Error("Ungültiger Archiv-Eintrag");
+  }
+  const stmt = db.prepare(
+    `INSERT OR REPLACE INTO archive_logs
+      (id, archived_at, start_date, end_date, entry_count, file_name, storage_hint, note, metadata_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  stmt
+    .bind([
+      normalized.id,
+      normalized.archivedAt,
+      normalized.startDate,
+      normalized.endDate,
+      normalized.entryCount,
+      normalized.fileName,
+      normalized.storageHint,
+      normalized.note,
+      JSON.stringify(normalized.metadata || payload || {}),
+    ])
+    .step();
+  stmt.finalize();
+  syncArchiveLogsMeta();
+  return mapArchiveLogRow({
+    id: normalized.id,
+    archived_at: normalized.archivedAt,
+    start_date: normalized.startDate,
+    end_date: normalized.endDate,
+    entry_count: normalized.entryCount,
+    file_name: normalized.fileName,
+    storage_hint: normalized.storageHint,
+    note: normalized.note,
+    metadata_json: JSON.stringify(normalized.metadata || payload || {}),
+  });
+}
+
+async function deleteArchiveLog(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureArchiveLogsTable();
+  const id = payload && payload.id ? String(payload.id) : "";
+  if (!id) {
+    throw new Error("Archiv-Log-ID fehlt");
+  }
+  const stmt = db.prepare("DELETE FROM archive_logs WHERE id = ?");
+  stmt.bind([id]).step();
+  stmt.finalize();
+  syncArchiveLogsMeta();
+  return { success: true };
 }
 
 async function getHistoryEntry(id) {
