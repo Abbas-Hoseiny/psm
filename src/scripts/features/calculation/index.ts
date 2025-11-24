@@ -15,6 +15,10 @@ import { setFieldLabelByPath } from "@scripts/core/labels";
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { saveDatabase, getActiveDriverKey } from "@scripts/core/storage";
 import {
+  appendHistoryEntry,
+  persistSqliteDatabaseFile,
+} from "@scripts/core/storage/sqlite";
+import {
   buildMediumTableHead,
   buildMediumTableRows,
 } from "../shared/mediumTable";
@@ -1289,13 +1293,51 @@ export function initCalculation(
         window.alert("Keine Berechnung vorhanden.");
         return;
       }
+      const savedAt = new Date().toISOString();
+      const entryForState = {
+        ...calc.header,
+        items: calc.items,
+        savedAt,
+      };
+      const appState = services.state.getState();
+      const driverKey = getActiveDriverKey();
+      const useSqlite =
+        driverKey === "sqlite" && Boolean(appState.app?.hasDatabase);
+
+      if (useSqlite) {
+        void (async () => {
+          try {
+            const result = await appendHistoryEntry({
+              header: entryForState,
+              items: calc.items,
+            });
+            await persistSqliteDatabaseFile().catch((error) => {
+              console.warn(
+                "SQLite-Datei konnte nicht sofort persistiert werden",
+                error
+              );
+            });
+            services.events.emit("history:data-changed", {
+              type: "created",
+              id: result?.id ?? null,
+            });
+            services.events.emit("database:saved", {
+              scope: "history",
+              driver: "sqlite",
+            });
+            window.alert("Berechnung gespeichert! (Siehe Historie)");
+          } catch (error) {
+            console.error("History konnte nicht gespeichert werden", error);
+            window.alert(
+              "Berechnung konnte nicht gespeichert werden. Bitte erneut versuchen."
+            );
+          }
+        })();
+        return;
+      }
+
       services.state.updateSlice("history", (history) => {
-        const entry = {
-          ...calc.header,
-          items: calc.items,
-          savedAt: new Date().toISOString(),
-        };
-        return [...history, entry];
+        return [...history, entryForState];
       });
       void persistHistory(services).catch((err) => {
         console.error("Persist history promise error", err);

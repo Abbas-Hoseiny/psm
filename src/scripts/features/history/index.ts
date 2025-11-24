@@ -210,6 +210,10 @@ async function loadHistoryEntries(
     if (loadMoreSlot) {
       updateLoadMoreButton(section);
     }
+    if (historyNeedsRefresh) {
+      historyNeedsRefresh = false;
+      void loadHistoryEntries(section, labels, { reset: true });
+    }
   }
 }
 
@@ -252,6 +256,7 @@ let historyCursor: HistoryCursor | null = null;
 let historyHasMore = false;
 let historyTotalCount = 0;
 let isLoadingHistory = false;
+let historyNeedsRefresh = false;
 
 let initialized = false;
 let virtualListInstance: ReturnType<typeof initVirtualList> | null = null;
@@ -787,6 +792,21 @@ export function initHistory(
         showHistoryFeedback(section, text, variant, autoHide);
       }
     );
+
+    services.events.subscribe("history:data-changed", () => {
+      if (dataMode !== "sqlite") {
+        return;
+      }
+      historyNeedsRefresh = true;
+      const isHidden = section.classList.contains("d-none");
+      if (isHidden || isLoadingHistory) {
+        return;
+      }
+      historyNeedsRefresh = false;
+      void loadHistoryEntries(section, getState().fieldLabels, {
+        reset: true,
+      });
+    });
   }
 
   const handleStateChange = (nextState: AppState) => {
@@ -796,6 +816,7 @@ export function initHistory(
       selectedIndexes.clear();
       updateSelectionUI(section);
       clearHistoryCache();
+      historyNeedsRefresh = false;
       if (dataMode === "sqlite") {
         void loadHistoryEntries(section, nextState.fieldLabels, {
           reset: true,
@@ -810,6 +831,17 @@ export function initHistory(
       void loadHistoryEntries(section, nextState.fieldLabels, { reset: true });
     }
     toggleSectionAvailability(section, nextState);
+
+    if (
+      dataMode === "sqlite" &&
+      historyNeedsRefresh &&
+      !isLoadingHistory &&
+      !section.classList.contains("d-none")
+    ) {
+      historyNeedsRefresh = false;
+      void loadHistoryEntries(section, nextState.fieldLabels, { reset: true });
+    }
+
     renderHistoryTable(section, nextState);
     const detailCard = section.querySelector<HTMLElement>("#history-detail");
     if (detailCard && !detailCard.classList.contains("d-none")) {
@@ -973,6 +1005,10 @@ export function initHistory(
             await loadHistoryEntries(section, state.fieldLabels, {
               reset: true,
             });
+            services.events?.emit?.("history:data-changed", {
+              type: "deleted",
+              id: entryId,
+            });
           } catch (error) {
             console.error("SQLite history delete failed", error);
             window.alert(
@@ -991,6 +1027,10 @@ export function initHistory(
         renderDetail(null, section, null, state.fieldLabels);
         void persistHistoryChanges().catch((err) => {
           console.error("Persist delete history error", err);
+        });
+        services.events?.emit?.("history:data-changed", {
+          type: "deleted",
+          id: entry?.id ?? null,
         });
       }
     } else if (action === "activate-gps") {

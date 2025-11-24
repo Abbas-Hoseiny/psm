@@ -731,6 +731,12 @@ async function runImport(
 
     const successCount = importedRefs.length;
     if (successCount) {
+      if (driverKey === "sqlite") {
+        services.events?.emit?.("history:data-changed", {
+          type: "created-bulk",
+          count: successCount,
+        });
+      }
       setFeedback(
         section,
         `${successCount} Einträge importiert. ${failed.length ? `${failed.length} Einträge konnten nicht übernommen werden.` : ""}`.trim()

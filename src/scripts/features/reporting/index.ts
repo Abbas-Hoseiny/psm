@@ -17,6 +17,12 @@ interface Services {
     getState: typeof getState;
     subscribe: typeof subscribeState;
   };
+  events?: {
+    subscribe?: (
+      eventName: string,
+      handler: (payload: unknown) => void
+    ) => (() => void) | void;
+  };
 }
 
 type DateFilter = {
@@ -59,6 +65,7 @@ let pendingReportReload: {
   section: HTMLElement;
   labels: AppState["fieldLabels"];
 } | null = null;
+let reportNeedsRefresh = false;
 
 function createSection(): HTMLElement {
   const section = document.createElement("div");
@@ -287,9 +294,10 @@ async function loadReportEntries(
     isLoadingReport = false;
     updateLoadMoreButton(section);
     if (pendingReportReload) {
-      const queued = pendingReportReload;
+      const { section: queuedSection, labels: queuedLabels } =
+        pendingReportReload;
       pendingReportReload = null;
-      void loadReportEntries(queued.section, queued.labels, { reset: true });
+      void loadReportEntries(queuedSection, queuedLabels, { reset: true });
     }
   }
 }
@@ -543,6 +551,30 @@ export function initReporting(
   const section = createSection();
   host.appendChild(section);
 
+  if (typeof services.events?.subscribe === "function") {
+    services.events.subscribe("history:data-changed", () => {
+      if (dataMode !== "sqlite") {
+        return;
+      }
+      reportNeedsRefresh = true;
+      if (isLoadingReport) {
+        pendingReportReload = {
+          section,
+          labels: services.state.getState().fieldLabels,
+        };
+        return;
+      }
+      if (section.classList.contains("d-none")) {
+        return;
+      }
+      reportNeedsRefresh = false;
+      reportFilters = buildHistoryFiltersFromDateFilter(activeFilter);
+      void loadReportEntries(section, services.state.getState().fieldLabels, {
+        reset: true,
+      });
+    });
+  }
+
   const filterForm = section.querySelector<HTMLFormElement>("#report-filter");
   filterForm?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -586,12 +618,21 @@ export function initReporting(
       clearReportCache();
       if (dataMode === "sqlite") {
         reportFilters = buildHistoryFiltersFromDateFilter(activeFilter);
+        reportNeedsRefresh = true;
       } else {
         reportFilters = null;
+        reportNeedsRefresh = false;
       }
     }
 
     if (!active) {
+      return;
+    }
+
+    if (dataMode === "sqlite" && reportNeedsRefresh && !isLoadingReport) {
+      reportNeedsRefresh = false;
+      reportFilters = buildHistoryFiltersFromDateFilter(activeFilter);
+      void loadReportEntries(section, nextState.fieldLabels, { reset: true });
       return;
     }
 
