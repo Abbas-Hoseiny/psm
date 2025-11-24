@@ -654,7 +654,27 @@ export async function listBvlSyncLog(options: any = {}): Promise<any> {
   return await callWorker("listBvlSyncLog", options);
 }
 
-export async function queryZulassung(params: any): Promise<any> {
+export type ZulassungQueryOptions = {
+  culture?: string | null;
+  pest?: string | null;
+  text?: string;
+  includeExpired?: boolean;
+  page?: number;
+  pageSize?: number;
+  includeTotal?: boolean;
+};
+
+export type ZulassungQueryResult = {
+  items: any[];
+  page: number;
+  pageSize: number;
+  totalCount: number | null;
+  hasMore: boolean;
+};
+
+export async function queryZulassung(
+  params: ZulassungQueryOptions = {}
+): Promise<ZulassungQueryResult> {
   if (!worker) {
     throw new Error("Database not initialized");
   }

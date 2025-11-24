@@ -28,9 +28,9 @@ import {
 } from "@scripts/core/storage/sqlite";
 import type { CalculationItem } from "@scripts/features/calculation";
 import {
-  createLoadMoreWidget,
-  type LoadMoreWidget,
-} from "@scripts/features/shared/loadMoreWidget";
+  createPagerWidget,
+  type PagerWidget,
+} from "@scripts/features/shared/pagerWidget";
 
 interface Services {
   state: {
@@ -138,6 +138,8 @@ function clearHistoryCache(): void {
   historyHasMore = false;
   historyTotalCount = 0;
   historyLoadError = null;
+  historyPageIndex = 0;
+  historyPendingAdvance = null;
 }
 
 function getEntriesSnapshot(state: AppState): HistoryEntry[] {
@@ -145,6 +147,37 @@ function getEntriesSnapshot(state: AppState): HistoryEntry[] {
     return historyEntries;
   }
   return Array.isArray(state.history) ? (state.history as HistoryEntry[]) : [];
+}
+
+function getLoadedPageCount(): number {
+  if (dataMode !== "sqlite" || historyEntries.length === 0) {
+    return historyEntries.length ? 1 : 0;
+  }
+  return Math.max(Math.ceil(historyEntries.length / HISTORY_PAGE_SIZE), 1);
+}
+
+function getSqlitePageOffset(): number {
+  if (dataMode !== "sqlite") {
+    return 0;
+  }
+  const maxPage = Math.max(getLoadedPageCount() - 1, 0);
+  const safeIndex = Math.min(Math.max(historyPageIndex, 0), maxPage);
+  return safeIndex * HISTORY_PAGE_SIZE;
+}
+
+function getVisibleEntriesCount(): number {
+  if (dataMode !== "sqlite") {
+    const state = getState();
+    const entries = Array.isArray(state.history)
+      ? (state.history as HistoryEntry[])
+      : historyEntries;
+    return entries.length;
+  }
+  const start = getSqlitePageOffset();
+  return Math.max(
+    Math.min(historyEntries.length - start, HISTORY_PAGE_SIZE),
+    0
+  );
 }
 
 function getEntryByIndex(state: AppState, index: number): HistoryEntry | null {
@@ -178,7 +211,7 @@ async function loadHistoryEntries(
 
   isLoadingHistory = true;
   historyLoadError = null;
-  updateLoadMoreWidget(section);
+  updatePagerWidget(section);
   if (reset) {
     clearHistoryCache();
     selectedIndexes.clear();
@@ -186,6 +219,7 @@ async function loadHistoryEntries(
     updateSelectionUI(section);
   }
 
+  let shouldQueueNextFetch = false;
   try {
     const result = await listHistoryEntriesPaged({
       cursor: reset ? null : historyCursor,
@@ -203,6 +237,22 @@ async function loadHistoryEntries(
     } else if (!historyHasMore) {
       historyTotalCount = historyEntries.length;
     }
+    if (reset) {
+      historyPageIndex = 0;
+    }
+    const maxPageIndex = Math.max(getLoadedPageCount() - 1, 0);
+    if (historyPendingAdvance === "next") {
+      if (historyPageIndex < maxPageIndex) {
+        historyPageIndex += 1;
+        historyPendingAdvance = null;
+      } else if (!historyHasMore) {
+        historyPendingAdvance = null;
+      } else {
+        shouldQueueNextFetch = true;
+      }
+    } else {
+      historyPageIndex = Math.min(historyPageIndex, maxPageIndex);
+    }
     renderHistoryTable(section, getState());
   } catch (error) {
     console.error("History konnte nicht geladen werden", error);
@@ -210,44 +260,52 @@ async function loadHistoryEntries(
     window.alert(
       "Historie konnte nicht geladen werden. Bitte erneut versuchen."
     );
+    historyPendingAdvance = null;
   } finally {
     isLoadingHistory = false;
-    updateLoadMoreWidget(section);
+    updatePagerWidget(section);
     if (historyNeedsRefresh) {
       historyNeedsRefresh = false;
+      historyPendingAdvance = null;
       void loadHistoryEntries(section, labels, { reset: true });
+      return;
     }
+    if (shouldQueueNextFetch) {
+      const latestLabels = getState().fieldLabels;
+      void loadHistoryEntries(section, latestLabels);
+      return;
+    }
+    historyPendingAdvance = null;
   }
 }
 
-function ensureLoadMoreWidget(section: HTMLElement): LoadMoreWidget | null {
+function ensurePagerWidget(section: HTMLElement): PagerWidget | null {
   const target = section.querySelector<HTMLElement>(
     '[data-role="history-load-more"]'
   );
   if (!target) {
     return null;
   }
-  if (!historyLoadMoreWidget || historyLoadMoreTarget !== target) {
-    historyLoadMoreWidget?.destroy();
-    historyLoadMoreWidget = createLoadMoreWidget(target, {
-      onRequest: () => {
-        const labels = getState().fieldLabels;
-        void loadHistoryEntries(section, labels);
-      },
-      formatter: ({ remaining }) => {
-        if (typeof remaining === "number" && remaining > 0) {
-          return `Mehr laden (${remaining} weitere)`;
-        }
-        return null;
+  if (!historyPagerWidget || historyPagerTarget !== target) {
+    historyPagerWidget?.destroy();
+    const widget = createPagerWidget(target, {
+      onPrev: () => goToPrevPage(section),
+      onNext: () => goToNextPage(section),
+      labels: {
+        prev: "Zurück",
+        next: "Weiter",
+        loading: "Lade Historie...",
+        empty: "Keine Historien-Einträge",
       },
     });
-    historyLoadMoreTarget = target;
+    historyPagerWidget = widget;
+    historyPagerTarget = target;
   }
-  return historyLoadMoreWidget;
+  return historyPagerWidget;
 }
 
-function updateLoadMoreWidget(section: HTMLElement): void {
-  const widget = ensureLoadMoreWidget(section);
+function updatePagerWidget(section: HTMLElement): void {
+  const widget = ensurePagerWidget(section);
   if (!widget) {
     return;
   }
@@ -259,30 +317,80 @@ function updateLoadMoreWidget(section: HTMLElement): void {
     widget.update({ status: "error", message: historyLoadError });
     return;
   }
-  const remaining =
-    historyTotalCount > historyEntries.length
-      ? Math.max(historyTotalCount - historyEntries.length, 0)
-      : undefined;
+
+  const totalLoaded = historyEntries.length;
+  const visibleCount = getVisibleEntriesCount();
+  const pageOffset = getSqlitePageOffset();
+  const totalKnown =
+    historyTotalCount > 0 ? historyTotalCount : Math.max(totalLoaded, 0);
+
+  const info = visibleCount
+    ? `Einträge ${numberFormatter.format(pageOffset + 1)}–${numberFormatter.format(
+        pageOffset + visibleCount
+      )}${totalKnown ? ` von ${numberFormatter.format(totalKnown)}` : ""}`
+    : totalLoaded === 0 && isLoadingHistory
+      ? "Lade Historie..."
+      : "Keine Einträge auf dieser Seite.";
+
+  if (totalLoaded === 0 && !isLoadingHistory) {
+    widget.update({ status: "disabled", info });
+    return;
+  }
+
+  const loadedPages = getLoadedPageCount();
+  const canPrev = historyPageIndex > 0 && !isLoadingHistory;
+  const canNext =
+    !isLoadingHistory && (historyPageIndex + 1 < loadedPages || historyHasMore);
+
+  widget.update({
+    status: "ready",
+    info,
+    canPrev,
+    canNext,
+    loadingDirection: isLoadingHistory ? historyPendingAdvance : null,
+  });
+}
+
+function goToPrevPage(section: HTMLElement): void {
+  if (dataMode !== "sqlite" || historyPageIndex === 0 || isLoadingHistory) {
+    return;
+  }
+  historyPageIndex = Math.max(historyPageIndex - 1, 0);
+  renderHistoryTable(section, getState());
+  updateSelectionUI(section);
+  updatePagerWidget(section);
+}
+
+function goToNextPage(section: HTMLElement): void {
+  if (dataMode !== "sqlite") {
+    return;
+  }
+  const loadedPages = getLoadedPageCount();
+  const hasBufferedNext = historyPageIndex + 1 < loadedPages;
+  if (hasBufferedNext && !isLoadingHistory) {
+    historyPageIndex += 1;
+    renderHistoryTable(section, getState());
+    updatePagerWidget(section);
+    return;
+  }
   if (isLoadingHistory) {
-    widget.update({ status: "loading", remaining });
+    historyPendingAdvance = "next";
+    updatePagerWidget(section);
     return;
   }
   if (!historyHasMore) {
-    widget.update({
-      status: "done",
-      label:
-        historyEntries.length === 0
-          ? "Keine Historien-Einträge vorhanden"
-          : "Alle Einträge geladen",
-    });
     return;
   }
-  widget.update({ status: "idle", remaining });
+  historyPendingAdvance = "next";
+  updatePagerWidget(section);
+  const labels = getState().fieldLabels;
+  void loadHistoryEntries(section, labels);
 }
 
 const USE_VIRTUAL_SCROLLING = true;
 const INITIAL_LOAD_LIMIT = 200;
 const HISTORY_PAGE_SIZE = 50;
+const numberFormatter = new Intl.NumberFormat("de-DE");
 
 type DataMode = "sqlite" | "memory";
 
@@ -294,8 +402,10 @@ let historyTotalCount = 0;
 let isLoadingHistory = false;
 let historyNeedsRefresh = false;
 let historyLoadError: string | null = null;
-let historyLoadMoreWidget: LoadMoreWidget | null = null;
-let historyLoadMoreTarget: HTMLElement | null = null;
+let historyPageIndex = 0;
+let historyPendingAdvance: "next" | null = null;
+let historyPagerWidget: PagerWidget | null = null;
+let historyPagerTarget: HTMLElement | null = null;
 
 let initialized = false;
 let virtualListInstance: ReturnType<typeof initVirtualList> | null = null;
@@ -365,7 +475,6 @@ function updateCardSelection(
 }
 
 function renderCardsList(
-  section: HTMLElement,
   state: AppState,
   listContainer: HTMLElement,
   labels: AppState["fieldLabels"]
@@ -379,9 +488,43 @@ function renderCardsList(
     }
   }
 
+  const pageOffset = dataMode === "sqlite" ? getSqlitePageOffset() : 0;
+  const visibleEntries =
+    dataMode === "sqlite"
+      ? entries.slice(
+          pageOffset,
+          Math.min(pageOffset + HISTORY_PAGE_SIZE, entries.length)
+        )
+      : entries;
+  if (dataMode === "sqlite") {
+    if (virtualListInstance) {
+      virtualListInstance.destroy();
+      virtualListInstance = null;
+    }
+    const fragment = document.createDocumentFragment();
+    visibleEntries.forEach((entry, idx) => {
+      const absoluteIndex = pageOffset + idx;
+      const selected = selectedIndexes.has(absoluteIndex);
+      const cardHtml = renderCalculationSnapshot(entry, resolvedLabels, {
+        showActions: true,
+        includeCheckbox: true,
+        index: absoluteIndex,
+        selected,
+        enableGpsActions: true,
+      });
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = cardHtml;
+      if (wrapper.firstElementChild) {
+        fragment.appendChild(wrapper.firstElementChild);
+      }
+    });
+    listContainer.innerHTML = "";
+    listContainer.appendChild(fragment);
+    return;
+  }
+
   const shouldVirtualize =
-    USE_VIRTUAL_SCROLLING &&
-    (dataMode === "sqlite" || entries.length > INITIAL_LOAD_LIMIT);
+    USE_VIRTUAL_SCROLLING && entries.length > INITIAL_LOAD_LIMIT;
 
   if (shouldVirtualize) {
     if (!virtualListInstance) {
@@ -390,7 +533,7 @@ function renderCardsList(
         itemCount: entries.length,
         estimatedItemHeight: 250,
         overscan: 6,
-        lazyLoadThreshold: dataMode === "sqlite" ? 20 : undefined,
+        lazyLoadThreshold: undefined,
         renderItem: (node, index) => {
           const currentState = getState();
           const entry = getEntryByIndex(currentState, index);
@@ -400,73 +543,57 @@ function renderCardsList(
           }
           const latestLabels = currentState.fieldLabels || resolvedLabels;
           const selected = selectedIndexes.has(index);
-          node.innerHTML = renderCalculationSnapshot(
-            entry,
-            latestLabels,
-            {
-              showActions: true,
-              includeCheckbox: true,
-              index,
-              selected,
-              enableGpsActions: true,
-            }
-          );
-        },
-        onRequestMore: () => {
-          if (dataMode !== "sqlite" || !historyHasMore || isLoadingHistory) {
-            return;
-          }
-          const latestLabels = getState().fieldLabels;
-          void loadHistoryEntries(section, latestLabels);
+          node.innerHTML = renderCalculationSnapshot(entry, latestLabels, {
+            showActions: true,
+            includeCheckbox: true,
+            index,
+            selected,
+            enableGpsActions: true,
+          });
         },
       });
     } else {
       virtualListInstance.updateItemCount(entries.length);
     }
     return;
-  } else {
-    if (virtualListInstance) {
-      virtualListInstance.destroy();
-      virtualListInstance = null;
-      listContainer.innerHTML = "";
-    }
+  }
 
-    const limit =
-      dataMode === "sqlite"
-        ? entries.length
-        : Math.min(entries.length, INITIAL_LOAD_LIMIT);
-    const fragment = document.createDocumentFragment();
-
-    for (let i = 0; i < limit; i += 1) {
-      const entry = entries[i];
-      const selected = selectedIndexes.has(i);
-      const cardHtml = renderCalculationSnapshot(entry, resolvedLabels, {
-        showActions: true,
-        includeCheckbox: true,
-        index: i,
-        selected,
-        enableGpsActions: true,
-      });
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = cardHtml;
-      if (wrapper.firstElementChild) {
-        fragment.appendChild(wrapper.firstElementChild);
-      }
-    }
-
+  if (virtualListInstance) {
+    virtualListInstance.destroy();
+    virtualListInstance = null;
     listContainer.innerHTML = "";
-    listContainer.appendChild(fragment);
+  }
 
-    if (dataMode === "memory" && entries.length > limit) {
-      const loadMoreBtn = document.createElement("button");
-      loadMoreBtn.className = "btn btn-secondary w-100 mt-3";
-      loadMoreBtn.textContent = `Mehr laden (${
-        entries.length - limit
-      } weitere)`;
-      loadMoreBtn.dataset.action = "load-more";
-      loadMoreBtn.dataset.currentLimit = String(limit);
-      listContainer.appendChild(loadMoreBtn);
+  const limit = Math.min(entries.length, INITIAL_LOAD_LIMIT);
+  const fragment = document.createDocumentFragment();
+
+  for (let i = 0; i < limit; i += 1) {
+    const entry = entries[i];
+    const selected = selectedIndexes.has(i);
+    const cardHtml = renderCalculationSnapshot(entry, resolvedLabels, {
+      showActions: true,
+      includeCheckbox: true,
+      index: i,
+      selected,
+      enableGpsActions: true,
+    });
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = cardHtml;
+    if (wrapper.firstElementChild) {
+      fragment.appendChild(wrapper.firstElementChild);
     }
+  }
+
+  listContainer.innerHTML = "";
+  listContainer.appendChild(fragment);
+
+  if (entries.length > limit) {
+    const loadMoreBtn = document.createElement("button");
+    loadMoreBtn.className = "btn btn-secondary w-100 mt-3";
+    loadMoreBtn.textContent = `Mehr laden (${entries.length - limit} weitere)`;
+    loadMoreBtn.dataset.action = "load-more";
+    loadMoreBtn.dataset.currentLimit = String(limit);
+    listContainer.appendChild(loadMoreBtn);
   }
 }
 
@@ -477,8 +604,8 @@ function renderHistoryTable(section: HTMLElement, state: AppState): void {
   if (!listContainer) {
     return;
   }
-  renderCardsList(section, state, listContainer, state.fieldLabels);
-  updateLoadMoreWidget(section);
+  renderCardsList(state, listContainer, state.fieldLabels);
+  updatePagerWidget(section);
 }
 
 function showHistoryFeedback(

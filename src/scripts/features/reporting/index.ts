@@ -12,9 +12,9 @@ import {
 } from "@scripts/core/storage/sqlite";
 import type { CalculationItem } from "@scripts/features/calculation";
 import {
-  createLoadMoreWidget,
-  type LoadMoreWidget,
-} from "@scripts/features/shared/loadMoreWidget";
+  createPagerWidget,
+  type PagerWidget,
+} from "@scripts/features/shared/pagerWidget";
 
 interface Services {
   state: {
@@ -51,6 +51,7 @@ type ReportingEntry = {
 const USE_VIRTUAL_SCROLLING = true;
 const INITIAL_LOAD_LIMIT = 200;
 const REPORT_PAGE_SIZE = 50;
+const numberFormatter = new Intl.NumberFormat("de-DE");
 
 type DataMode = "memory" | "sqlite";
 
@@ -71,8 +72,10 @@ let pendingReportReload: {
 } | null = null;
 let reportNeedsRefresh = false;
 let reportLoadError: string | null = null;
-let reportLoadMoreWidget: LoadMoreWidget | null = null;
-let reportLoadMoreTarget: HTMLElement | null = null;
+let reportPageIndex = 0;
+let reportPendingAdvance: "next" | null = null;
+let reportPagerWidget: PagerWidget | null = null;
+let reportPagerTarget: HTMLElement | null = null;
 
 function createSection(): HTMLElement {
   const section = document.createElement("div");
@@ -206,6 +209,32 @@ function clearReportCache(): void {
   reportTotalCount = 0;
   currentEntries = [];
   reportLoadError = null;
+  reportPageIndex = 0;
+  reportPendingAdvance = null;
+}
+
+function getLoadedPageCount(): number {
+  if (dataMode !== "sqlite" || reportEntries.length === 0) {
+    return reportEntries.length ? 1 : 0;
+  }
+  return Math.max(Math.ceil(reportEntries.length / REPORT_PAGE_SIZE), 1);
+}
+
+function getSqlitePageOffset(): number {
+  if (dataMode !== "sqlite") {
+    return 0;
+  }
+  const maxPage = Math.max(getLoadedPageCount() - 1, 0);
+  const safeIndex = Math.min(Math.max(reportPageIndex, 0), maxPage);
+  return safeIndex * REPORT_PAGE_SIZE;
+}
+
+function getVisibleEntriesCount(): number {
+  if (dataMode !== "sqlite") {
+    return currentEntries.length;
+  }
+  const start = getSqlitePageOffset();
+  return Math.max(Math.min(reportEntries.length - start, REPORT_PAGE_SIZE), 0);
 }
 
 function toDateBoundaryIso(
@@ -261,7 +290,7 @@ async function loadReportEntries(
 
   isLoadingReport = true;
   reportLoadError = null;
-  updateLoadMoreWidget(section);
+  updatePagerWidget(section);
   if (reset) {
     clearReportCache();
     currentEntries = [];
@@ -269,6 +298,7 @@ async function loadReportEntries(
   }
 
   const filters = reportFilters || undefined;
+  let shouldQueueNextFetch = false;
 
   try {
     const result = await listHistoryEntriesPaged({
@@ -294,52 +324,75 @@ async function loadReportEntries(
       reportTotalCount = reportEntries.length;
     }
 
+    if (reset) {
+      reportPageIndex = 0;
+    }
+    const maxPageIndex = Math.max(getLoadedPageCount() - 1, 0);
+    if (reportPendingAdvance === "next") {
+      if (reportPageIndex < maxPageIndex) {
+        reportPageIndex += 1;
+        reportPendingAdvance = null;
+      } else if (!reportHasMore) {
+        reportPendingAdvance = null;
+      } else {
+        shouldQueueNextFetch = true;
+      }
+    } else {
+      reportPageIndex = Math.min(reportPageIndex, maxPageIndex);
+    }
     renderTable(section, reportEntries, labels);
   } catch (error) {
     console.error("Auswertung konnte nicht geladen werden", error);
     reportLoadError =
       "Auswertung konnte nicht geladen werden. Bitte erneut versuchen.";
     window.alert(reportLoadError);
+    reportPendingAdvance = null;
   } finally {
     isLoadingReport = false;
-    updateLoadMoreWidget(section);
+    updatePagerWidget(section);
     if (pendingReportReload) {
       const { section: queuedSection, labels: queuedLabels } =
         pendingReportReload;
       pendingReportReload = null;
       void loadReportEntries(queuedSection, queuedLabels, { reset: true });
+      return;
     }
+    if (shouldQueueNextFetch) {
+      const latestLabels = getState().fieldLabels;
+      void loadReportEntries(section, latestLabels);
+      return;
+    }
+    reportPendingAdvance = null;
   }
 }
 
-function ensureReportLoadMoreWidget(section: HTMLElement): LoadMoreWidget | null {
+function ensurePagerWidget(section: HTMLElement): PagerWidget | null {
   const target = section.querySelector<HTMLElement>(
     '[data-role="report-load-more"]'
   );
   if (!target) {
     return null;
   }
-  if (!reportLoadMoreWidget || reportLoadMoreTarget !== target) {
-    reportLoadMoreWidget?.destroy();
-    reportLoadMoreWidget = createLoadMoreWidget(target, {
-      formatter: ({ remaining }) => {
-        if (typeof remaining === "number" && remaining > 0) {
-          return `Mehr laden (${remaining} weitere)`;
-        }
-        return null;
-      },
-      onRequest: () => {
-        const labels = getState().fieldLabels;
-        void loadReportEntries(section, labels).catch(() => undefined);
+  if (!reportPagerWidget || reportPagerTarget !== target) {
+    reportPagerWidget?.destroy();
+    const widget = createPagerWidget(target, {
+      onPrev: () => goToPrevPage(section),
+      onNext: () => goToNextPage(section),
+      labels: {
+        prev: "Zurück",
+        next: "Weiter",
+        loading: "Lade Auswertung...",
+        empty: "Keine Einträge",
       },
     });
-    reportLoadMoreTarget = target;
+    reportPagerWidget = widget;
+    reportPagerTarget = target;
   }
-  return reportLoadMoreWidget;
+  return reportPagerWidget;
 }
 
-function updateLoadMoreWidget(section: HTMLElement): void {
-  const widget = ensureReportLoadMoreWidget(section);
+function updatePagerWidget(section: HTMLElement): void {
+  const widget = ensurePagerWidget(section);
   if (!widget) {
     return;
   }
@@ -351,52 +404,120 @@ function updateLoadMoreWidget(section: HTMLElement): void {
     widget.update({ status: "error", message: reportLoadError });
     return;
   }
-  const remaining =
-    reportTotalCount > reportEntries.length
-      ? Math.max(reportTotalCount - reportEntries.length, 0)
-      : undefined;
+
+  const totalLoaded = reportEntries.length;
+  const visibleCount = getVisibleEntriesCount();
+  const pageOffset = getSqlitePageOffset();
+  const totalKnown =
+    reportTotalCount > 0 ? reportTotalCount : Math.max(totalLoaded, 0);
+
+  const info = visibleCount
+    ? `Einträge ${numberFormatter.format(pageOffset + 1)}–${numberFormatter.format(
+        pageOffset + visibleCount
+      )}${totalKnown ? ` von ${numberFormatter.format(totalKnown)}` : ""}`
+    : totalLoaded === 0 && isLoadingReport
+      ? "Lade Auswertung..."
+      : "Keine Einträge auf dieser Seite.";
+
+  if (totalLoaded === 0 && !isLoadingReport) {
+    widget.update({ status: "disabled", info });
+    return;
+  }
+
+  const loadedPages = getLoadedPageCount();
+  const canPrev = reportPageIndex > 0 && !isLoadingReport;
+  const canNext =
+    !isLoadingReport && (reportPageIndex + 1 < loadedPages || reportHasMore);
+
+  widget.update({
+    status: "ready",
+    info,
+    canPrev,
+    canNext,
+    loadingDirection: isLoadingReport ? reportPendingAdvance : null,
+  });
+}
+
+function goToPrevPage(section: HTMLElement): void {
+  if (dataMode !== "sqlite" || reportPageIndex === 0 || isLoadingReport) {
+    return;
+  }
+  reportPageIndex = Math.max(reportPageIndex - 1, 0);
+  renderTable(section, reportEntries, getState().fieldLabels);
+  updatePagerWidget(section);
+}
+
+function goToNextPage(section: HTMLElement): void {
+  if (dataMode !== "sqlite") {
+    return;
+  }
+  const loadedPages = getLoadedPageCount();
+  const hasBufferedNext = reportPageIndex + 1 < loadedPages;
+  if (hasBufferedNext && !isLoadingReport) {
+    reportPageIndex += 1;
+    renderTable(section, reportEntries, getState().fieldLabels);
+    updatePagerWidget(section);
+    return;
+  }
   if (isLoadingReport) {
-    widget.update({ status: "loading", remaining });
+    reportPendingAdvance = "next";
+    updatePagerWidget(section);
     return;
   }
   if (!reportHasMore) {
-    widget.update({
-      status: "done",
-      label:
-        reportEntries.length === 0
-          ? "Keine Einträge vorhanden"
-          : "Alle Einträge geladen",
-    });
     return;
   }
-  widget.update({ status: "idle", remaining });
+  reportPendingAdvance = "next";
+  updatePagerWidget(section);
+  const labels = getState().fieldLabels;
+  void loadReportEntries(section, labels);
 }
 
 function renderCardsList(
-  section: HTMLElement,
   listContainer: HTMLElement,
   entries: ReportingEntry[],
   labels: AppState["fieldLabels"]
 ): void {
   const resolvedLabels = labels || getState().fieldLabels;
 
+  if (dataMode === "sqlite") {
+    if (virtualListInstance) {
+      virtualListInstance.destroy();
+      virtualListInstance = null;
+    }
+    const pageOffset = getSqlitePageOffset();
+    const visibleEntries = reportEntries.slice(
+      pageOffset,
+      Math.min(pageOffset + REPORT_PAGE_SIZE, reportEntries.length)
+    );
+    const fragment = document.createDocumentFragment();
+    visibleEntries.forEach((entry) => {
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = renderCalculationSnapshot(entry, resolvedLabels, {
+        showActions: false,
+        includeCheckbox: false,
+      });
+      if (wrapper.firstElementChild) {
+        fragment.appendChild(wrapper.firstElementChild);
+      }
+    });
+    listContainer.innerHTML = "";
+    listContainer.appendChild(fragment);
+    return;
+  }
+
   const shouldVirtualize =
-    USE_VIRTUAL_SCROLLING &&
-    (dataMode === "sqlite" || entries.length > INITIAL_LOAD_LIMIT);
+    USE_VIRTUAL_SCROLLING && entries.length > INITIAL_LOAD_LIMIT;
 
   if (shouldVirtualize) {
-    const itemCount =
-      dataMode === "sqlite" ? reportEntries.length : currentEntries.length;
     if (!virtualListInstance) {
       listContainer.innerHTML = "";
       virtualListInstance = initVirtualList(listContainer, {
-        itemCount,
+        itemCount: currentEntries.length,
         estimatedItemHeight: 200,
         overscan: 6,
-        lazyLoadThreshold: dataMode === "sqlite" ? 20 : undefined,
         renderItem: (node, index) => {
-          const source = dataMode === "sqlite" ? reportEntries : currentEntries;
-          const entry = source[index];
+          const entry = currentEntries[index];
           if (!entry) {
             node.innerHTML = "";
             return;
@@ -406,18 +527,9 @@ function renderCardsList(
             includeCheckbox: false,
           });
         },
-        onRequestMore: dataMode === "sqlite"
-          ? () => {
-              if (!reportHasMore || isLoadingReport) {
-                return;
-              }
-              const latestLabels = getState().fieldLabels;
-              void loadReportEntries(section, latestLabels).catch(() => undefined);
-            }
-          : undefined,
       });
     } else {
-      virtualListInstance.updateItemCount(itemCount);
+      virtualListInstance.updateItemCount(currentEntries.length);
     }
     return;
   }
@@ -427,10 +539,7 @@ function renderCardsList(
     virtualListInstance = null;
   }
 
-  const limit =
-    dataMode === "sqlite"
-      ? entries.length
-      : Math.min(entries.length, INITIAL_LOAD_LIMIT);
+  const limit = Math.min(entries.length, INITIAL_LOAD_LIMIT);
   const fragment = document.createDocumentFragment();
 
   for (let i = 0; i < limit; i += 1) {
@@ -449,7 +558,7 @@ function renderCardsList(
   listContainer.innerHTML = "";
   listContainer.appendChild(fragment);
 
-  if (dataMode === "memory" && entries.length > limit) {
+  if (entries.length > limit) {
     const loadMoreBtn = document.createElement("button");
     loadMoreBtn.className = "btn btn-secondary w-100 mt-3";
     loadMoreBtn.textContent = `Mehr laden (${entries.length - limit} weitere)`;
@@ -470,10 +579,10 @@ function renderTable(
     '[data-role="report-list"]'
   );
   if (listContainer) {
-    renderCardsList(section, listContainer, entries, labels);
+    renderCardsList(listContainer, entries, labels);
   }
 
-  updateLoadMoreWidget(section);
+  updatePagerWidget(section);
 
   const info = section.querySelector<HTMLElement>('[data-role="report-info"]');
   if (info) {

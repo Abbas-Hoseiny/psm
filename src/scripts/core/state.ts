@@ -100,7 +100,15 @@ export interface AppState {
       text: string;
       includeExpired: boolean;
     };
-    results: any[];
+    results: {
+      items: any[];
+      page: number;
+      pageSize: number;
+      totalCount: number | null;
+      hasMore: boolean;
+    };
+    resultStatus: "idle" | "loading" | "ready" | "error";
+    resultError: string | null;
     lastSync: string | null;
     lastResultCounts: any | null;
     dataSource: string | null;
@@ -192,7 +200,15 @@ let state: AppState = {
       text: "",
       includeExpired: false,
     },
-    results: [],
+    results: {
+      items: [],
+      page: 0,
+      pageSize: 25,
+      totalCount: null,
+      hasMore: false,
+    },
+    resultStatus: "idle",
+    resultError: null,
     lastSync: null,
     lastResultCounts: null,
     dataSource: null,
@@ -324,7 +340,15 @@ export function resetState(newState?: AppState): AppState {
         text: "",
         includeExpired: false,
       },
-      results: [],
+      results: {
+        items: [],
+        page: 0,
+        pageSize: 25,
+        totalCount: null,
+        hasMore: false,
+      },
+      resultStatus: "idle",
+      resultError: null,
       lastSync: null,
       lastResultCounts: null,
       dataSource: null,

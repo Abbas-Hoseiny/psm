@@ -13,6 +13,10 @@ import {
   type GpsState,
 } from "@scripts/core/state";
 import { escapeHtml, buildGoogleMapsUrl } from "@scripts/core/utils";
+import {
+  createPagerWidget,
+  type PagerWidget,
+} from "@scripts/features/shared/pagerWidget";
 
 interface Services {
   state: {
@@ -78,6 +82,11 @@ let geolocationPending = false;
 let lastActionNote = "";
 let lastActiveId: string | null = null;
 let lastAvailability: AvailabilityStatus | null = null;
+const GPS_PAGE_SIZE = 25;
+const gpsNumberFormatter = new Intl.NumberFormat("de-DE");
+let gpsPageIndex = 0;
+let gpsPagerWidget: PagerWidget | null = null;
+let gpsPagerTarget: HTMLElement | null = null;
 
 type HistoryActivationStatus = "success" | "error" | "pending";
 
@@ -181,6 +190,7 @@ function createSection(): HTMLElement {
               <tbody data-role="gps-list"></tbody>
             </table>
           </div>
+          <div class="d-flex justify-content-end mt-3" data-role="gps-pager"></div>
           <div class="text-center text-muted py-4" data-role="gps-empty">
             <p class="mb-2">Noch keine GPS-Punkte vorhanden.</p>
             <p class="small text-muted mb-3">Nutzen Sie "Neuer Punkt" oder öffnen Sie Google Maps, um Koordinaten zu ermitteln.</p>
@@ -600,6 +610,93 @@ function updateBusyUi(
   }
 }
 
+function getGpsPageMeta(points: GpsPoint[]): {
+  total: number;
+  start: number;
+  end: number;
+  items: GpsPoint[];
+} {
+  const total = points.length;
+  if (!total) {
+    gpsPageIndex = 0;
+    return { total: 0, start: 0, end: 0, items: [] };
+  }
+  const totalPages = Math.max(Math.ceil(total / GPS_PAGE_SIZE), 1);
+  if (gpsPageIndex >= totalPages) {
+    gpsPageIndex = totalPages - 1;
+  }
+  if (gpsPageIndex < 0) {
+    gpsPageIndex = 0;
+  }
+  const start = gpsPageIndex * GPS_PAGE_SIZE;
+  const end = Math.min(start + GPS_PAGE_SIZE, total);
+  return { total, start, end, items: points.slice(start, end) };
+}
+
+function ensureGpsPager(): PagerWidget | null {
+  if (!refs?.root) {
+    return null;
+  }
+  const target = refs.root.querySelector<HTMLElement>(
+    '[data-role="gps-pager"]'
+  );
+  if (!target) {
+    return null;
+  }
+  if (!gpsPagerWidget || gpsPagerTarget !== target) {
+    gpsPagerWidget?.destroy();
+    gpsPagerWidget = createPagerWidget(target, {
+      onPrev: () => goToPrevGpsPage(),
+      onNext: () => goToNextGpsPage(),
+      labels: {
+        prev: "Zurück",
+        next: "Weiter",
+        loading: "GPS-Punkte werden geladen...",
+        empty: "Keine GPS-Punkte verfügbar",
+      },
+    });
+    gpsPagerTarget = target;
+  }
+  return gpsPagerWidget;
+}
+
+function updateGpsPager(
+  state: AppState,
+  availability: AvailabilityStatus
+): void {
+  const widget = ensureGpsPager();
+  if (!widget) {
+    return;
+  }
+  if (availability !== "ok") {
+    gpsPageIndex = 0;
+    const info =
+      availability === "no-db"
+        ? "Keine Datenbank verbunden."
+        : "Nur mit SQLite verfügbar.";
+    widget.update({ status: "disabled", info });
+    return;
+  }
+  const total = state.gps.points.length;
+  if (!total) {
+    gpsPageIndex = 0;
+    const info = state.gps.initialized
+      ? "Noch keine GPS-Punkte vorhanden."
+      : "GPS-Punkte werden geladen...";
+    widget.update({ status: "disabled", info });
+    return;
+  }
+  const { start, end } = getGpsPageMeta(state.gps.points);
+  widget.update({
+    status: "ready",
+    info: `Einträge ${gpsNumberFormatter.format(start + 1)}–${gpsNumberFormatter.format(
+      end
+    )} von ${gpsNumberFormatter.format(total)}`,
+    canPrev: gpsPageIndex > 0,
+    canNext: end < total,
+  });
+}
+
 function renderPointRows(points: GpsPoint[], activeId: string | null): string {
   if (!points.length) {
     return "";
@@ -690,14 +787,13 @@ function updateListUi(state: AppState, availability: AvailabilityStatus): void {
           ? "Wartet auf Datenbank."
           : "Nur mit SQLite verfügbar.";
     }
+    updateGpsPager(state, availability);
     return;
   }
 
   if (refs.listBody) {
-    refs.listBody.innerHTML = renderPointRows(
-      gpsState.points,
-      gpsState.activePointId
-    );
+    const { items } = getGpsPageMeta(gpsState.points);
+    refs.listBody.innerHTML = renderPointRows(items, gpsState.activePointId);
   }
   if (refs.emptyState) {
     const hasPoints = gpsState.points.length > 0;
@@ -747,6 +843,32 @@ function updateListUi(state: AppState, availability: AvailabilityStatus): void {
       )}" target="_blank" rel="noopener noreferrer">Google Maps öffnen</a>`;
     }
   }
+  updateGpsPager(state, availability);
+}
+
+function goToPrevGpsPage(): void {
+  if (gpsPageIndex === 0) {
+    return;
+  }
+  gpsPageIndex = Math.max(gpsPageIndex - 1, 0);
+  const state = getState();
+  const availability = evaluateAvailability(state.app);
+  updateListUi(state, availability);
+}
+
+function goToNextGpsPage(): void {
+  const state = getState();
+  const total = state.gps.points.length;
+  if (!total) {
+    return;
+  }
+  const maxPage = Math.max(Math.ceil(total / GPS_PAGE_SIZE) - 1, 0);
+  if (gpsPageIndex >= maxPage) {
+    return;
+  }
+  gpsPageIndex = Math.min(gpsPageIndex + 1, maxPage);
+  const availability = evaluateAvailability(state.app);
+  updateListUi(state, availability);
 }
 
 function updateDebugPanel(gpsState: GpsState): void {
@@ -1217,6 +1339,10 @@ export function initGps(container: Element | null, services: Services): void {
   const section = createSection();
   host.appendChild(section);
   refs = collectRefs(section);
+  gpsPageIndex = 0;
+  gpsPagerWidget?.destroy();
+  gpsPagerWidget = null;
+  gpsPagerTarget = null;
   attachEventListeners();
   setActiveTab(activeTab);
 

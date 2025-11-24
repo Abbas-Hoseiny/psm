@@ -30,7 +30,7 @@ Wer von diesen Grenzwerten abweichen will, dokumentiert das im PR-Template und l
 
 ## UX-Muster
 
-- **Mehr laden**: Einheitlicher Button plus Auto-Trigger beim Scroll-Ende in Virtual Lists; muss disabled sein, solange ein Cursor-Call laeuft.
+- **Vor/Zurueck**: Einheitliche Pager-Leiste mit Vor/Zurueck-Buttons (optional Seiteninfo) anstelle von "Mehr laden"; Buttons bleiben disabled, solange ein Cursor-Call laeuft.
 - **Busy-State**: Jede Worker-Anfrage blockiert nur lokale Controls, nicht globale Panels; Ladeindikatoren sollen nach 150 ms erscheinen.
 - **Fehlerpfad**: Abbruch einer Paginierung darf keine halbgefuellte Liste im State belassen; Items bleiben unveraendert, es erscheint ein Retry-Hinweis.
 
@@ -46,7 +46,7 @@ Wer von diesen Grenzwerten abweichen will, dokumentiert das im PR-Template und l
 
 1. Nutzt die Funktion einen existierenden Worker-Endpunkt mit Limitierung?
 2. Werden globale Stores nach dem Unmount bereinigt?
-3. Sind "Mehr laden"-UX und Busy/Fehler-Faelle abgedeckt?
+3. Sind Pager-UX (Vor/Zurueck) und Busy/Fehler-Faelle abgedeckt?
 4. Gibt es QA-Schritte fuer grosse Datensaetze (>=10k History-Eintraege)?
 5. Liefern Tests/Notizen Messwerte (Heap <250 MB, Zeit pro Page <250 ms)?
 
