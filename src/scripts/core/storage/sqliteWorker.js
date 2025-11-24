@@ -842,6 +842,9 @@ self.onmessage = async function (event) {
       case "appendBvlSyncLog":
         result = await appendBvlSyncLog(payload);
         break;
+      case "listBvlSyncLog":
+        result = await listBvlSyncLog(payload);
+        break;
       case "queryZulassung":
         result = await queryZulassung(payload);
         break;
