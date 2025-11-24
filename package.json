@@ -3,8 +3,8 @@
   "type": "module",
   "version": "2.0.0",
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
+    "dev": "astro dev --host 0.0.0.0 --port 4321",
+    "start": "astro dev --host 0.0.0.0 --port 4321",
     "build": "astro check && astro build",
     "preview": "astro preview",
     "astro": "astro"

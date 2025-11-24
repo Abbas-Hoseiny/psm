@@ -8,15 +8,15 @@ Keine UI darf mehr komplette Datenbestaende auf einmal laden oder im Arbeitsspei
 
 ### 1. Leitplanken dokumentieren
 
-- [ ] PERFORMANCE-Richtlinie in `PERFORMANCE.md` festhalten (Budgets, UX-Muster, Debug-Hilfen).
-- [ ] `task.md` verlinkt die Regeln, damit neue Features automatisch daran gemessen werden.
+- [x] PERFORMANCE-Richtlinie in [`PERFORMANCE.md`](./PERFORMANCE.md) festhalten (Budgets, UX-Muster, Debug-Hilfen) und dort aktuell halten.
+- [x] `task.md` verlinkt die Regeln, damit neue Features automatisch daran gemessen werden.
 - Tests: Markdown lint plus Review.
 
 ### 2. Datenzugriffe vereinheitlichen
 
-- [ ] Jede Worker-Liste (History, Reporting, Documentation, Settings/Mediums, GPS, Import-Vorschau) muss Cursor- oder pageSize-Parameter besitzen.
-- [ ] Fehlende Endpunkte ergaenzen (`listMediumsPaged`, `listGpsPointsPaged`, `streamHistoryChunk`, ...).
-- [ ] Persistenz-Verhalten pruefen: Nach Batch-Schreiboperationen muss `persistSqliteDatabaseFile()` bzw. das Debounce greifen.
+- [x] Jede Worker-Liste (History, Reporting, Documentation, Settings/Mediums, GPS, Import-Vorschau) muss Cursor- oder pageSize-Parameter besitzen.
+- [x] Fehlende Endpunkte ergaenzen (`listMediumsPaged`, `listGpsPointsPaged`, `streamHistoryChunk`, ...).
+- [x] Persistenz-Verhalten pruefen: Nach Batch-Schreiboperationen muss `persistSqliteDatabaseFile()` bzw. das Debounce greifen.
 - Tests: Vitest bzw. Vite Integration sowie `npm run build`.
 
 ### 3. UI-Komponenten auf Paging umbauen

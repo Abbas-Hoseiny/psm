@@ -10,6 +10,7 @@ Diese Regeln gelten fuer alle neuen oder refaktorierten Features. Ziel: kein Mod
 4. **Streaming vor Kopieren**: Fuer Druck, Export und lange Jobs muessen Worker-Streams oder Chunk-Callbacks verwendet werden.
 5. **Debounced Persist**: Schreibende Features stellen sicher, dass `persistSqliteDatabaseFile()` nur ueber den bestehenden Debounce getriggert wird.
 6. **Fallback-frei**: Neue Funktionen duerfen LocalStorage oder In-Memory-Singletons nicht als Primarspeicher nutzen.
+7. **Budget sichtbar machen**: Jeder PR dokumentiert gemessene Heap- und Payload-Werte im QA-Abschnitt, damit die untenstehenden Tabellen nachverfolgbar bleiben.
 
 ## Budgettabellen
 
@@ -21,6 +22,9 @@ Diese Regeln gelten fuer alle neuen oder refaktorierten Features. Ziel: kein Mod
 | Settings Mediums | 50 Eintraege | 100 Items          | Suche delegiert in Worker             |
 | GPS              | 100 Punkte   | 200 Punkte         | Worker-Paging + Bounding Box Filter   |
 | Import-Vorschau  | 20 Konflikte | 50 Konflikte       | Chunked ZIP-Analyse                   |
+| Lookup           | 25 Treffer   | 75 Treffer         | Sprache optional, Cursor Pflicht      |
+
+> **Messregeln:** Ein Budget gilt als verletzt, sobald `items.length` oder die addierte JSON-Payload (via `structuredClone` + `JSON.stringify`) ueber die Grenzwerte steigt. Jeder Testlauf protokolliert diese Zahlen im Debug-Overlay (siehe unten).
 
 Wer von diesen Grenzwerten abweichen will, dokumentiert das im PR-Template und liefert Messwerte (Heap-Profil, FPS, CPU) mit.
 
@@ -35,6 +39,8 @@ Wer von diesen Grenzwerten abweichen will, dokumentiert das im PR-Template und l
 - Dev-Build zeigt ein Overlay mit aktuellen Listen-Groessen, Cursor-Offsets und letzter Fetch-Zeit.
 - Sobald eine Liste mehr als ihr Budget haelt, loggt `warnIfLargeState(sliceName, size)` eine Warnung mit Stacktrace.
 - Feature-Flag `__PSL_DEBUG_FETCHES` aktiviert Timing-Logs pro Worker-Antwort.
+- CLI-Hook `npm run perf:report` fasst die letzten Overlay-Messwerte zusammen und scheitert im CI, falls Grenzen ueberschritten wurden.
+- In den Worker-Logs muss jede Cursor-Anfrage ihre Parameter (`limit`, `cursor` oder `pageSize`) ausgeben, damit QA die Einhaltung pruefen kann.
 
 ## Review-Checkliste
 
@@ -45,3 +51,5 @@ Wer von diesen Grenzwerten abweichen will, dokumentiert das im PR-Template und l
 5. Liefern Tests/Notizen Messwerte (Heap <250 MB, Zeit pro Page <250 ms)?
 
 Nur wenn alle Fragen positiv beantwortet wurden, gilt ein Feature als performance-konform.
+
+Siehe auch `task.md` fuer das aktuelle Implementierungsboard der Performance-Regeln.

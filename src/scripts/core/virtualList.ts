@@ -10,6 +10,12 @@ interface VirtualListOptions {
   renderItem: (node: HTMLElement, index: number) => void;
   overscan?: number;
   onRangeChange?: (start: number, end: number) => void;
+  lazyLoadThreshold?: number;
+  onRequestMore?: (info: {
+    start: number;
+    end: number;
+    itemCount: number;
+  }) => void;
 }
 
 interface VirtualListAPI {
@@ -30,7 +36,9 @@ export function initVirtualList(container: HTMLElement, {
   estimatedItemHeight,
   renderItem,
   overscan = 6,
-  onRangeChange
+  onRangeChange,
+  lazyLoadThreshold,
+  onRequestMore
 }: VirtualListOptions): VirtualListAPI {
   if (!container || typeof renderItem !== 'function') {
     throw new Error('initVirtualList requires a container and renderItem function');
@@ -42,6 +50,7 @@ export function initVirtualList(container: HTMLElement, {
   let visibleStart = 0;
   let visibleEnd = 0;
   let isDestroyed = false;
+  let lastRequestedMoreIndex = -1;
 
   // Create inner structure
   container.style.overflow = 'auto';
@@ -168,6 +177,8 @@ export function initVirtualList(container: HTMLElement, {
     if (onRangeChange) {
       onRangeChange(start, end);
     }
+
+    maybeRequestMore(end);
   }
 
   /**
@@ -190,6 +201,27 @@ export function initVirtualList(container: HTMLElement, {
     }, 16); // ~60fps
   }
 
+  function maybeRequestMore(renderedEnd: number) {
+    if (typeof onRequestMore !== 'function') {
+      return;
+    }
+    const threshold = typeof lazyLoadThreshold === 'number'
+      ? Math.max(1, Math.floor(lazyLoadThreshold))
+      : Math.max(overscan * 2, 6);
+    if (
+      currentItemCount > 0 &&
+      renderedEnd >= currentItemCount - threshold &&
+      renderedEnd > lastRequestedMoreIndex
+    ) {
+      lastRequestedMoreIndex = renderedEnd;
+      onRequestMore({
+        start: visibleStart,
+        end: renderedEnd,
+        itemCount: currentItemCount,
+      });
+    }
+  }
+
   // Attach scroll listener
   container.addEventListener('scroll', handleScroll);
 
@@ -202,7 +234,17 @@ export function initVirtualList(container: HTMLElement, {
      * Updates the item count and re-renders
      */
     updateItemCount(newCount) {
-      currentItemCount = newCount || 0;
+      const nextCount = newCount || 0;
+      const previousCount = currentItemCount;
+      currentItemCount = nextCount;
+      if (nextCount > previousCount) {
+        lastRequestedMoreIndex = -1;
+      } else {
+        lastRequestedMoreIndex = Math.min(
+          lastRequestedMoreIndex,
+          currentItemCount
+        );
+      }
       updateSpacerHeight();
       render();
     },

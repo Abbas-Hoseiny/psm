@@ -13,6 +13,14 @@ const SQLITE_WASM_CDN =
   "https://cdn.jsdelivr.net/npm/@sqlite.org/sqlite-wasm@3.46.1-build1/sqlite-wasm/jswasm/";
 const GPS_ACTIVE_POINT_META_KEY = "gps_active_point";
 
+function clampPageSize(value, fallback = 50, max = 500) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return fallback;
+  }
+  return Math.min(Math.max(1, Math.floor(numeric)), max);
+}
+
 function getFieldValue(record, fieldName) {
   if (!record || !fieldName) {
     return null;
@@ -472,6 +480,112 @@ async function listGpsPoints() {
   return { rows, activePointId: activePointId || null };
 }
 
+async function listGpsPointsPaged(options = {}) {
+  if (!db) {
+    throw new Error("Database not initialized");
+  }
+  ensureGpsPointTable();
+
+  const {
+    cursor = null,
+    limit,
+    pageSize,
+    search,
+    includeTotal = false,
+  } = options || {};
+
+  const effectivePageSize = clampPageSize(pageSize ?? limit, 100, 500);
+  const searchTerm = typeof search === "string" ? search.trim() : "";
+  const filterClauses = [];
+  const filterParams = [];
+
+  if (searchTerm) {
+    filterClauses.push(
+      "(LOWER(name) LIKE LOWER(?) OR LOWER(COALESCE(description, '')) LIKE LOWER(?))"
+    );
+    const like = `%${searchTerm}%`;
+    filterParams.push(like, like);
+  }
+
+  const queryClauses = [...filterClauses];
+  const queryParams = [...filterParams];
+  if (cursor && cursor.updatedAt) {
+    const idValue = cursor.id != null ? String(cursor.id) : "";
+    const updatedAt = cursor.updatedAt;
+    queryClauses.push(`(
+      datetime(updated_at) < datetime(?)
+      OR (datetime(updated_at) = datetime(?) AND id > ?)
+    )`);
+    queryParams.push(updatedAt, updatedAt, idValue);
+  }
+
+  const whereSql = queryClauses.length
+    ? `WHERE ${queryClauses.join(" AND ")}`
+    : "";
+
+  const stmt = db.prepare(
+    `SELECT rowid AS cursor_rowid, id, name, description, latitude, longitude, source, created_at, updated_at
+     FROM gps_points
+     ${whereSql}
+     ORDER BY datetime(updated_at) DESC, id ASC
+     LIMIT ?`
+  );
+  stmt.bind([...queryParams, effectivePageSize + 1]);
+
+  const rows = [];
+  while (stmt.step()) {
+    rows.push(stmt.getAsObject());
+  }
+  stmt.finalize();
+
+  const hasMore = rows.length > effectivePageSize;
+  const pageRows = hasMore ? rows.slice(0, effectivePageSize) : rows;
+  const items = pageRows
+    .map((row) => mapGpsPointRow(row))
+    .filter((row) => row !== null);
+
+  const lastRow = pageRows.length ? pageRows[pageRows.length - 1] : null;
+  const nextCursor =
+    hasMore && lastRow
+      ? {
+          id: String(lastRow.id ?? ""),
+          updatedAt: lastRow.updated_at || lastRow.updatedAt || null,
+          rowid: Number(lastRow.cursor_rowid) || Number(lastRow.rowid || 0),
+        }
+      : null;
+
+  let totalCount;
+  if (includeTotal) {
+    const totalWhere = filterClauses.length
+      ? `WHERE ${filterClauses.join(" AND ")}`
+      : "";
+      const totalStmt = db.prepare(
+        `SELECT COUNT(*) AS total FROM gps_points ${totalWhere}`
+      );
+      if (filterParams.length) {
+        totalStmt.bind(filterParams);
+      }
+    if (totalStmt.step()) {
+      const row = totalStmt.getAsObject();
+      totalCount = Number(row?.total) || 0;
+    } else {
+      totalCount = 0;
+    }
+    totalStmt.finalize();
+  }
+
+  const activePointId = getMetaValue(GPS_ACTIVE_POINT_META_KEY);
+
+  return {
+    items,
+    nextCursor,
+    hasMore,
+    pageSize: effectivePageSize,
+    activePointId: activePointId || null,
+    totalCount,
+  };
+}
+
 async function upsertGpsPoint(payload = {}) {
   if (!db) {
     throw new Error("Database not initialized");
@@ -665,11 +779,17 @@ self.onmessage = async function (event) {
       case "listMediums":
         result = await listMediums();
         break;
+      case "listMediumsPaged":
+        result = await listMediumsPaged(payload);
+        break;
       case "listHistory":
         result = await listHistory(payload);
         break;
       case "listHistoryPaged":
         result = await listHistoryPaged(payload);
+        break;
+      case "streamHistoryChunk":
+        result = await streamHistoryChunk(payload);
         break;
       case "exportHistoryRange":
         result = await exportHistoryRange(payload);
@@ -722,9 +842,6 @@ self.onmessage = async function (event) {
       case "appendBvlSyncLog":
         result = await appendBvlSyncLog(payload);
         break;
-      case "listBvlSyncLog":
-        result = await listBvlSyncLog(payload);
-        break;
       case "queryZulassung":
         result = await queryZulassung(payload);
         break;
@@ -754,6 +871,9 @@ self.onmessage = async function (event) {
         break;
       case "listGpsPoints":
         result = await listGpsPoints();
+        break;
+      case "listGpsPointsPaged":
+        result = await listGpsPointsPaged(payload);
         break;
       case "upsertGpsPoint":
         result = await upsertGpsPoint(payload);
@@ -1606,6 +1726,125 @@ async function listMediums() {
   return mediums;
 }
 
+function mapMediumRow(row) {
+  if (!row) {
+    return null;
+  }
+  return {
+    id: row.id != null ? String(row.id) : "",
+    name: row.name != null ? String(row.name) : "",
+    unit: row.unit != null ? String(row.unit) : "",
+    methodId:
+      row.method_id != null
+        ? String(row.method_id)
+        : row.methodId != null
+        ? String(row.methodId)
+        : null,
+    value: Number(row.value ?? 0),
+    zulassungsnummer:
+      row.zulassungsnummer != null
+        ? String(row.zulassungsnummer)
+        : row.zulassung != null
+        ? String(row.zulassung)
+        : null,
+  };
+}
+
+async function listMediumsPaged(options = {}) {
+  if (!db) {
+    throw new Error("Database not initialized");
+  }
+
+  const {
+    cursor = null,
+    limit,
+    pageSize,
+    search,
+    includeTotal = false,
+  } = options || {};
+
+  const effectivePageSize = clampPageSize(pageSize ?? limit, 50, 500);
+  const searchTerm = typeof search === "string" ? search.trim() : "";
+  const filterClauses = [];
+  const filterParams = [];
+
+  if (searchTerm) {
+    filterClauses.push(
+      "(LOWER(name) LIKE LOWER(?) OR LOWER(COALESCE(zulassungsnummer, '')) LIKE LOWER(?))"
+    );
+    const like = `%${searchTerm}%`;
+    filterParams.push(like, like);
+  }
+
+  const cursorRowId =
+    cursor && Number.isFinite(Number(cursor.rowid))
+      ? Number(cursor.rowid)
+      : null;
+
+  const whereParts = [...filterClauses];
+  const queryParams = [...filterParams];
+  if (cursorRowId !== null) {
+    whereParts.push("rowid > ?");
+    queryParams.push(cursorRowId);
+  }
+  const whereSql = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
+
+  const stmt = db.prepare(
+    `SELECT rowid AS cursor_rowid, id, name, unit, method_id, value, zulassungsnummer
+     FROM mediums
+     ${whereSql}
+     ORDER BY rowid ASC
+     LIMIT ?`
+  );
+  stmt.bind([...queryParams, effectivePageSize + 1]);
+
+  const rows = [];
+  while (stmt.step()) {
+    rows.push(stmt.getAsObject());
+  }
+  stmt.finalize();
+
+  const hasMore = rows.length > effectivePageSize;
+  const pageRows = hasMore ? rows.slice(0, effectivePageSize) : rows;
+  const items = pageRows
+    .map((row) => mapMediumRow(row))
+    .filter((row) => row !== null);
+
+  const lastRow = pageRows.length ? pageRows[pageRows.length - 1] : null;
+  const nextCursor =
+    hasMore && lastRow
+      ? { rowid: Number(lastRow.cursor_rowid) || Number(lastRow.rowid || 0) }
+      : null;
+
+  let totalCount;
+  if (includeTotal) {
+    const totalWhere = filterClauses.length
+      ? `WHERE ${filterClauses.join(" AND ")}`
+      : "";
+    const totalStmt = db.prepare(
+      `SELECT COUNT(*) AS total FROM mediums ${totalWhere}`
+    );
+    if (filterParams.length) {
+      totalStmt.bind(filterParams);
+    }
+    if (totalStmt.step()) {
+      const row = totalStmt.getAsObject();
+      totalCount = Number(row?.total) || 0;
+    } else {
+      totalCount = 0;
+    }
+    totalStmt.finalize();
+  }
+
+  return {
+    items,
+    nextCursor,
+    hasMore,
+    pageSize: effectivePageSize,
+    totalCount,
+  };
+}
+
 /**
  * History operations with paging
  */
@@ -1710,9 +1949,7 @@ async function listHistory({
   const sanitizedDirection =
     String(sortDirection).toLowerCase() === "asc" ? "ASC" : "DESC";
 
-  const normalizedPageSize = Number.isFinite(Number(pageSize))
-    ? Math.max(1, Number(pageSize))
-    : 50;
+  const normalizedPageSize = clampPageSize(pageSize, 50, 500);
   const normalizedPage = Number.isFinite(Number(page))
     ? Math.max(1, Number(page))
     : 1;
@@ -1769,7 +2006,7 @@ async function listHistoryPaged({
 
   const sanitizedDirection =
     String(sortDirection).toLowerCase() === "asc" ? "ASC" : "DESC";
-  const normalizedPageSize = Math.min(Math.max(Number(pageSize) || 1, 1), 500);
+  const normalizedPageSize = clampPageSize(pageSize, 50, 500);
   const fetchLimit = normalizedPageSize + 1;
 
   const { historyDateExpr, whereSql, whereParams } =
@@ -1900,6 +2137,32 @@ async function listHistoryPaged({
     hasMore,
     totalCount,
   };
+}
+
+async function streamHistoryChunk(options = {}) {
+  if (!db) {
+    throw new Error("Database not initialized");
+  }
+  const {
+    pageSize,
+    chunkSize,
+    includeItems = true,
+    includeTotal = false,
+    ...rest
+  } = options || {};
+
+  const effectiveSize = clampPageSize(
+    chunkSize ?? pageSize ?? 100,
+    100,
+    1000
+  );
+
+  return await listHistoryPaged({
+    pageSize: effectiveSize,
+    includeItems,
+    includeTotal,
+    ...rest,
+  });
 }
 
 async function exportHistoryRange({

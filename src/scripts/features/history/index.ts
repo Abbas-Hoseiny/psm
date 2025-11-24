@@ -27,6 +27,10 @@ import {
   type HistoryCursor,
 } from "@scripts/core/storage/sqlite";
 import type { CalculationItem } from "@scripts/features/calculation";
+import {
+  createLoadMoreWidget,
+  type LoadMoreWidget,
+} from "@scripts/features/shared/loadMoreWidget";
 
 interface Services {
   state: {
@@ -133,6 +137,7 @@ function clearHistoryCache(): void {
   historyCursor = null;
   historyHasMore = false;
   historyTotalCount = 0;
+  historyLoadError = null;
 }
 
 function getEntriesSnapshot(state: AppState): HistoryEntry[] {
@@ -172,6 +177,8 @@ async function loadHistoryEntries(
   }
 
   isLoadingHistory = true;
+  historyLoadError = null;
+  updateLoadMoreWidget(section);
   if (reset) {
     clearHistoryCache();
     selectedIndexes.clear();
@@ -199,17 +206,13 @@ async function loadHistoryEntries(
     renderHistoryTable(section, getState());
   } catch (error) {
     console.error("History konnte nicht geladen werden", error);
+    historyLoadError = "Historie konnte nicht geladen werden.";
     window.alert(
       "Historie konnte nicht geladen werden. Bitte erneut versuchen."
     );
   } finally {
     isLoadingHistory = false;
-    const loadMoreSlot = section.querySelector<HTMLElement>(
-      '[data-role="history-load-more"]'
-    );
-    if (loadMoreSlot) {
-      updateLoadMoreButton(section);
-    }
+    updateLoadMoreWidget(section);
     if (historyNeedsRefresh) {
       historyNeedsRefresh = false;
       void loadHistoryEntries(section, labels, { reset: true });
@@ -217,31 +220,64 @@ async function loadHistoryEntries(
   }
 }
 
-function updateLoadMoreButton(section: HTMLElement): void {
+function ensureLoadMoreWidget(section: HTMLElement): LoadMoreWidget | null {
   const target = section.querySelector<HTMLElement>(
     '[data-role="history-load-more"]'
   );
   if (!target) {
+    return null;
+  }
+  if (!historyLoadMoreWidget || historyLoadMoreTarget !== target) {
+    historyLoadMoreWidget?.destroy();
+    historyLoadMoreWidget = createLoadMoreWidget(target, {
+      onRequest: () => {
+        const labels = getState().fieldLabels;
+        void loadHistoryEntries(section, labels);
+      },
+      formatter: ({ remaining }) => {
+        if (typeof remaining === "number" && remaining > 0) {
+          return `Mehr laden (${remaining} weitere)`;
+        }
+        return null;
+      },
+    });
+    historyLoadMoreTarget = target;
+  }
+  return historyLoadMoreWidget;
+}
+
+function updateLoadMoreWidget(section: HTMLElement): void {
+  const widget = ensureLoadMoreWidget(section);
+  if (!widget) {
     return;
   }
   if (dataMode !== "sqlite") {
-    target.innerHTML = "";
+    widget.update({ status: "hidden" });
     return;
   }
-  target.innerHTML = "";
-  if (!historyHasMore && historyEntries.length > 0) {
+  if (historyLoadError) {
+    widget.update({ status: "error", message: historyLoadError });
     return;
   }
-  const button = document.createElement("button");
-  button.className = "btn btn-secondary w-100";
-  button.dataset.action = "load-more-sqlite";
-  button.disabled = isLoadingHistory;
-  button.textContent = isLoadingHistory
-    ? "Lade Historie ..."
-    : historyTotalCount && historyEntries.length
-      ? `Mehr laden (${Math.max(historyTotalCount - historyEntries.length, 0)} weitere)`
-      : "Mehr laden";
-  target.appendChild(button);
+  const remaining =
+    historyTotalCount > historyEntries.length
+      ? Math.max(historyTotalCount - historyEntries.length, 0)
+      : undefined;
+  if (isLoadingHistory) {
+    widget.update({ status: "loading", remaining });
+    return;
+  }
+  if (!historyHasMore) {
+    widget.update({
+      status: "done",
+      label:
+        historyEntries.length === 0
+          ? "Keine Historien-Einträge vorhanden"
+          : "Alle Einträge geladen",
+    });
+    return;
+  }
+  widget.update({ status: "idle", remaining });
 }
 
 const USE_VIRTUAL_SCROLLING = true;
@@ -257,6 +293,9 @@ let historyHasMore = false;
 let historyTotalCount = 0;
 let isLoadingHistory = false;
 let historyNeedsRefresh = false;
+let historyLoadError: string | null = null;
+let historyLoadMoreWidget: LoadMoreWidget | null = null;
+let historyLoadMoreTarget: HTMLElement | null = null;
 
 let initialized = false;
 let virtualListInstance: ReturnType<typeof initVirtualList> | null = null;
@@ -326,6 +365,7 @@ function updateCardSelection(
 }
 
 function renderCardsList(
+  section: HTMLElement,
   state: AppState,
   listContainer: HTMLElement,
   labels: AppState["fieldLabels"]
@@ -340,35 +380,55 @@ function renderCardsList(
   }
 
   const shouldVirtualize =
-    dataMode === "memory" &&
     USE_VIRTUAL_SCROLLING &&
-    entries.length > INITIAL_LOAD_LIMIT;
+    (dataMode === "sqlite" || entries.length > INITIAL_LOAD_LIMIT);
 
   if (shouldVirtualize) {
     if (!virtualListInstance) {
+      listContainer.innerHTML = "";
       virtualListInstance = initVirtualList(listContainer, {
         itemCount: entries.length,
         estimatedItemHeight: 250,
         overscan: 6,
+        lazyLoadThreshold: dataMode === "sqlite" ? 20 : undefined,
         renderItem: (node, index) => {
-          const entry = entries[index];
+          const currentState = getState();
+          const entry = getEntryByIndex(currentState, index);
+          if (!entry) {
+            node.innerHTML = "";
+            return;
+          }
+          const latestLabels = currentState.fieldLabels || resolvedLabels;
           const selected = selectedIndexes.has(index);
-          node.innerHTML = renderCalculationSnapshot(entry, resolvedLabels, {
-            showActions: true,
-            includeCheckbox: true,
-            index,
-            selected,
-            enableGpsActions: true,
-          });
+          node.innerHTML = renderCalculationSnapshot(
+            entry,
+            latestLabels,
+            {
+              showActions: true,
+              includeCheckbox: true,
+              index,
+              selected,
+              enableGpsActions: true,
+            }
+          );
+        },
+        onRequestMore: () => {
+          if (dataMode !== "sqlite" || !historyHasMore || isLoadingHistory) {
+            return;
+          }
+          const latestLabels = getState().fieldLabels;
+          void loadHistoryEntries(section, latestLabels);
         },
       });
     } else {
       virtualListInstance.updateItemCount(entries.length);
     }
+    return;
   } else {
     if (virtualListInstance) {
       virtualListInstance.destroy();
       virtualListInstance = null;
+      listContainer.innerHTML = "";
     }
 
     const limit =
@@ -417,8 +477,8 @@ function renderHistoryTable(section: HTMLElement, state: AppState): void {
   if (!listContainer) {
     return;
   }
-  renderCardsList(state, listContainer, state.fieldLabels);
-  updateLoadMoreButton(section);
+  renderCardsList(section, state, listContainer, state.fieldLabels);
+  updateLoadMoreWidget(section);
 }
 
 function showHistoryFeedback(
@@ -957,15 +1017,6 @@ export function initHistory(
         newBtn.dataset.currentLimit = String(newLimit);
         listContainer.appendChild(newBtn);
       }
-      return;
-    }
-
-    if (action === "load-more-sqlite") {
-      const btn = target as HTMLButtonElement;
-      btn.disabled = true;
-      void loadHistoryEntries(section, state.fieldLabels).finally(() => {
-        btn.disabled = false;
-      });
       return;
     }
 

@@ -11,6 +11,10 @@ import {
   type HistoryQueryFilters,
 } from "@scripts/core/storage/sqlite";
 import type { CalculationItem } from "@scripts/features/calculation";
+import {
+  createLoadMoreWidget,
+  type LoadMoreWidget,
+} from "@scripts/features/shared/loadMoreWidget";
 
 interface Services {
   state: {
@@ -66,6 +70,9 @@ let pendingReportReload: {
   labels: AppState["fieldLabels"];
 } | null = null;
 let reportNeedsRefresh = false;
+let reportLoadError: string | null = null;
+let reportLoadMoreWidget: LoadMoreWidget | null = null;
+let reportLoadMoreTarget: HTMLElement | null = null;
 
 function createSection(): HTMLElement {
   const section = document.createElement("div");
@@ -198,6 +205,7 @@ function clearReportCache(): void {
   reportHasMore = false;
   reportTotalCount = 0;
   currentEntries = [];
+  reportLoadError = null;
 }
 
 function toDateBoundaryIso(
@@ -252,6 +260,8 @@ async function loadReportEntries(
   pendingReportReload = null;
 
   isLoadingReport = true;
+  reportLoadError = null;
+  updateLoadMoreWidget(section);
   if (reset) {
     clearReportCache();
     currentEntries = [];
@@ -287,12 +297,12 @@ async function loadReportEntries(
     renderTable(section, reportEntries, labels);
   } catch (error) {
     console.error("Auswertung konnte nicht geladen werden", error);
-    window.alert(
-      "Auswertung konnte nicht geladen werden. Bitte erneut versuchen."
-    );
+    reportLoadError =
+      "Auswertung konnte nicht geladen werden. Bitte erneut versuchen.";
+    window.alert(reportLoadError);
   } finally {
     isLoadingReport = false;
-    updateLoadMoreButton(section);
+    updateLoadMoreWidget(section);
     if (pendingReportReload) {
       const { section: queuedSection, labels: queuedLabels } =
         pendingReportReload;
@@ -302,57 +312,112 @@ async function loadReportEntries(
   }
 }
 
-function updateLoadMoreButton(section: HTMLElement): void {
-  const container = section.querySelector<HTMLElement>(
+function ensureReportLoadMoreWidget(section: HTMLElement): LoadMoreWidget | null {
+  const target = section.querySelector<HTMLElement>(
     '[data-role="report-load-more"]'
   );
-  if (!container) {
+  if (!target) {
+    return null;
+  }
+  if (!reportLoadMoreWidget || reportLoadMoreTarget !== target) {
+    reportLoadMoreWidget?.destroy();
+    reportLoadMoreWidget = createLoadMoreWidget(target, {
+      formatter: ({ remaining }) => {
+        if (typeof remaining === "number" && remaining > 0) {
+          return `Mehr laden (${remaining} weitere)`;
+        }
+        return null;
+      },
+      onRequest: () => {
+        const labels = getState().fieldLabels;
+        void loadReportEntries(section, labels).catch(() => undefined);
+      },
+    });
+    reportLoadMoreTarget = target;
+  }
+  return reportLoadMoreWidget;
+}
+
+function updateLoadMoreWidget(section: HTMLElement): void {
+  const widget = ensureReportLoadMoreWidget(section);
+  if (!widget) {
     return;
   }
   if (dataMode !== "sqlite") {
-    container.innerHTML = "";
+    widget.update({ status: "hidden" });
     return;
   }
-  container.innerHTML = "";
-  if (!reportHasMore && reportEntries.length > 0) {
+  if (reportLoadError) {
+    widget.update({ status: "error", message: reportLoadError });
     return;
   }
-  const button = document.createElement("button");
-  button.className = "btn btn-secondary w-100";
-  button.dataset.action = "report-load-more";
-  button.disabled = isLoadingReport;
-  button.textContent = isLoadingReport
-    ? "Lade Auswertung ..."
-    : reportTotalCount && reportEntries.length
-      ? `Mehr laden (${Math.max(reportTotalCount - reportEntries.length, 0)} weitere)`
-      : "Mehr laden";
-  container.appendChild(button);
+  const remaining =
+    reportTotalCount > reportEntries.length
+      ? Math.max(reportTotalCount - reportEntries.length, 0)
+      : undefined;
+  if (isLoadingReport) {
+    widget.update({ status: "loading", remaining });
+    return;
+  }
+  if (!reportHasMore) {
+    widget.update({
+      status: "done",
+      label:
+        reportEntries.length === 0
+          ? "Keine Einträge vorhanden"
+          : "Alle Einträge geladen",
+    });
+    return;
+  }
+  widget.update({ status: "idle", remaining });
 }
 
 function renderCardsList(
+  section: HTMLElement,
   listContainer: HTMLElement,
   entries: ReportingEntry[],
   labels: AppState["fieldLabels"]
 ): void {
   const resolvedLabels = labels || getState().fieldLabels;
 
-  if (USE_VIRTUAL_SCROLLING && entries.length > INITIAL_LOAD_LIMIT) {
-    listContainer.innerHTML = "";
+  const shouldVirtualize =
+    USE_VIRTUAL_SCROLLING &&
+    (dataMode === "sqlite" || entries.length > INITIAL_LOAD_LIMIT);
+
+  if (shouldVirtualize) {
+    const itemCount =
+      dataMode === "sqlite" ? reportEntries.length : currentEntries.length;
     if (!virtualListInstance) {
+      listContainer.innerHTML = "";
       virtualListInstance = initVirtualList(listContainer, {
-        itemCount: entries.length,
+        itemCount,
         estimatedItemHeight: 200,
         overscan: 6,
+        lazyLoadThreshold: dataMode === "sqlite" ? 20 : undefined,
         renderItem: (node, index) => {
-          const entry = entries[index];
+          const source = dataMode === "sqlite" ? reportEntries : currentEntries;
+          const entry = source[index];
+          if (!entry) {
+            node.innerHTML = "";
+            return;
+          }
           node.innerHTML = renderCalculationSnapshot(entry, resolvedLabels, {
             showActions: false,
             includeCheckbox: false,
           });
         },
+        onRequestMore: dataMode === "sqlite"
+          ? () => {
+              if (!reportHasMore || isLoadingReport) {
+                return;
+              }
+              const latestLabels = getState().fieldLabels;
+              void loadReportEntries(section, latestLabels).catch(() => undefined);
+            }
+          : undefined,
       });
     } else {
-      virtualListInstance.updateItemCount(entries.length);
+      virtualListInstance.updateItemCount(itemCount);
     }
     return;
   }
@@ -362,7 +427,10 @@ function renderCardsList(
     virtualListInstance = null;
   }
 
-  const limit = Math.min(entries.length, INITIAL_LOAD_LIMIT);
+  const limit =
+    dataMode === "sqlite"
+      ? entries.length
+      : Math.min(entries.length, INITIAL_LOAD_LIMIT);
   const fragment = document.createDocumentFragment();
 
   for (let i = 0; i < limit; i += 1) {
@@ -381,7 +449,7 @@ function renderCardsList(
   listContainer.innerHTML = "";
   listContainer.appendChild(fragment);
 
-  if (entries.length > limit) {
+  if (dataMode === "memory" && entries.length > limit) {
     const loadMoreBtn = document.createElement("button");
     loadMoreBtn.className = "btn btn-secondary w-100 mt-3";
     loadMoreBtn.textContent = `Mehr laden (${entries.length - limit} weitere)`;
@@ -402,10 +470,10 @@ function renderTable(
     '[data-role="report-list"]'
   );
   if (listContainer) {
-    renderCardsList(listContainer, entries, labels);
+    renderCardsList(section, listContainer, entries, labels);
   }
 
-  updateLoadMoreButton(section);
+  updateLoadMoreWidget(section);
 
   const info = section.querySelector<HTMLElement>('[data-role="report-info"]');
   if (info) {
@@ -702,21 +770,6 @@ export function initReporting(
         newBtn.dataset.currentLimit = String(newLimit);
         listContainer.appendChild(newBtn);
       }
-      return;
-    }
-
-    if (target.dataset.action === "report-load-more") {
-      if (dataMode !== "sqlite") {
-        return;
-      }
-      const btn = target as HTMLButtonElement;
-      btn.disabled = true;
-      const state = services.state.getState();
-      void loadReportEntries(section, state.fieldLabels)
-        .catch(() => undefined)
-        .finally(() => {
-          btn.disabled = false;
-        });
       return;
     }
 

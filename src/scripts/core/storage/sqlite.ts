@@ -1,4 +1,4 @@
-import type { ArchiveLogEntry } from "../state";
+import type { ArchiveLogEntry, GpsPoint } from "../state";
 
 /**
  * SQLite Storage Driver
@@ -7,10 +7,21 @@ import type { ArchiveLogEntry } from "../state";
 
 let worker: Worker | null = null;
 let messageId = 0;
-let pendingMessages = new Map<
-  number,
-  { resolve: (value: any) => void; reject: (reason?: any) => void }
->();
+const DEFAULT_WORKER_TIMEOUT = 30000;
+const LONG_RUNNING_ACTION_TIMEOUTS: Record<string, number> = {
+  importBvlSqlite: 3 * 60 * 1000,
+  importBvlDataset: 2 * 60 * 1000,
+  exportHistoryRange: 60 * 1000,
+  exportDB: 60 * 1000,
+};
+
+type PendingMessage = {
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+  timeoutId: ReturnType<typeof setTimeout> | null;
+};
+
+let pendingMessages = new Map<number, PendingMessage>();
 let fileHandle: any = null;
 let pendingFilePersist: Promise<void> | null = null;
 
@@ -42,17 +53,19 @@ function callWorker(action: string, payload?: any): Promise<any> {
     }
 
     const id = ++messageId;
-    pendingMessages.set(id, { resolve, reject });
+    const pending: PendingMessage = { resolve, reject, timeoutId: null };
+    pendingMessages.set(id, pending);
 
     worker.postMessage({ id, action, payload });
 
-    // Timeout after 30 seconds
-    setTimeout(() => {
+    const timeoutMs =
+      LONG_RUNNING_ACTION_TIMEOUTS[action] ?? DEFAULT_WORKER_TIMEOUT;
+    pending.timeoutId = setTimeout(() => {
       if (pendingMessages.has(id)) {
         pendingMessages.delete(id);
         reject(new Error(`Worker call timeout: ${action}`));
       }
-    }, 30000);
+    }, timeoutMs);
   });
 }
 /**
@@ -74,13 +87,16 @@ async function initWorker(): Promise<void> {
       const { id, ok, result, error } = event.data;
 
       if (pendingMessages.has(id)) {
-        const { resolve, reject } = pendingMessages.get(id)!;
+        const pending = pendingMessages.get(id)!;
         pendingMessages.delete(id);
+        if (pending.timeoutId) {
+          clearTimeout(pending.timeoutId);
+        }
 
         if (ok) {
-          resolve(result);
+          pending.resolve(result);
         } else {
-          reject(new Error(error || "Worker error"));
+          pending.reject(new Error(error || "Worker error"));
         }
       }
     };
@@ -216,6 +232,10 @@ async function persistFileHandleIfNeeded(): Promise<void> {
   await pendingFilePersist;
 }
 
+/**
+ * Persist sqlite changes to disk. Multiple callers share the same pending
+ * promise so batch writes trigger only a single flush.
+ */
 export async function persistSqliteDatabaseFile(): Promise<void> {
   try {
     await persistFileHandleIfNeeded();
@@ -323,6 +343,58 @@ export async function importDB(arrayBuffer: ArrayBuffer): Promise<void> {
   await callWorker("importDB", arrayBuffer);
 }
 
+export type MediumRecord = {
+  id: string;
+  name: string;
+  unit: string;
+  methodId: string | null;
+  value: number;
+  zulassungsnummer: string | null;
+};
+
+export type MediumListCursor = {
+  rowid: number;
+};
+
+export type MediumListOptions = {
+  cursor?: MediumListCursor | null;
+  limit?: number;
+  pageSize?: number;
+  search?: string;
+  includeTotal?: boolean;
+};
+
+export type MediumListResult = {
+  items: MediumRecord[];
+  nextCursor: MediumListCursor | null;
+  hasMore: boolean;
+  pageSize: number;
+  totalCount?: number;
+};
+
+export type GpsListCursor = {
+  id: string;
+  updatedAt: string;
+  rowid?: number;
+};
+
+export type GpsListOptions = {
+  cursor?: GpsListCursor | null;
+  limit?: number;
+  pageSize?: number;
+  search?: string;
+  includeTotal?: boolean;
+};
+
+export type GpsListResult = {
+  items: GpsPoint[];
+  nextCursor: GpsListCursor | null;
+  hasMore: boolean;
+  pageSize: number;
+  activePointId: string | null;
+  totalCount?: number;
+};
+
 export type HistoryQueryFilters = {
   startDate?: string;
   endDate?: string;
@@ -406,6 +478,15 @@ export type ArchiveLogInput = Partial<ArchiveLogRecord> & {
   entryCount?: number;
 };
 
+export async function listMediumsPaged(
+  options: MediumListOptions = {}
+): Promise<MediumListResult> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("listMediumsPaged", options);
+}
+
 export async function listHistoryEntries(
   options: HistoryQueryOptions = {}
 ): Promise<HistoryQueryResult> {
@@ -422,6 +503,19 @@ export async function listHistoryEntriesPaged(
     throw new Error("Database not initialized");
   }
   return await callWorker("listHistoryPaged", options);
+}
+
+export type HistoryStreamOptions = HistoryPagedOptions & {
+  chunkSize?: number;
+};
+
+export async function streamHistoryChunk(
+  options: HistoryStreamOptions = {}
+): Promise<HistoryPagedResult> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("streamHistoryChunk", options);
 }
 
 export async function getHistoryEntryById(id: number | string): Promise<any> {
@@ -676,6 +770,15 @@ export async function listGpsPoints(): Promise<any> {
     throw new Error("Database not initialized");
   }
   return await callWorker("listGpsPoints");
+}
+
+export async function listGpsPointsPaged(
+  options: GpsListOptions = {}
+): Promise<GpsListResult> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("listGpsPointsPaged", options);
 }
 
 export async function upsertGpsPoint(payload: any): Promise<any> {
