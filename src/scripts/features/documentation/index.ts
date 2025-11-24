@@ -1522,6 +1522,10 @@ async function deleteSelectedEntries(
         error
       );
     }
+    services.events?.emit?.("history:data-changed", {
+      type: "deleted",
+      ids: sqliteEntries.map((entry) => entry.ref),
+    });
   }
 
   resetSelection(section);
@@ -1716,6 +1720,10 @@ async function handleArchiveSubmit(
           error
         );
       }
+      services.events?.emit?.("history:data-changed", {
+        type: "deleted-range",
+        filters: queryFilters,
+      });
       try {
         await vacuumDatabase();
       } catch (vacuumError) {
@@ -2284,6 +2292,13 @@ export function initDocumentation(
         );
       }
     );
+
+    services.events.subscribe("history:data-changed", () => {
+      if (dataMode !== "sqlite" || focusLock) {
+        return;
+      }
+      applyAndRender();
+    });
   }
 
   const applyAndRender = () => {
@@ -2312,14 +2327,13 @@ export function initDocumentation(
       return;
     }
     if (dataMode === "sqlite") {
-      if (nextLength !== lastHistoryLength) {
-        lastHistoryLength = nextLength;
-        applyAndRender();
-      }
+      lastHistoryLength = nextLength;
       return;
     }
-    lastHistoryLength = nextLength;
-    applyAndRender();
+    if (nextLength !== lastHistoryLength) {
+      lastHistoryLength = nextLength;
+      applyAndRender();
+    }
   });
 
   initialized = true;
