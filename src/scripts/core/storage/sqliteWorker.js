@@ -559,12 +559,12 @@ async function listGpsPointsPaged(options = {}) {
     const totalWhere = filterClauses.length
       ? `WHERE ${filterClauses.join(" AND ")}`
       : "";
-      const totalStmt = db.prepare(
-        `SELECT COUNT(*) AS total FROM gps_points ${totalWhere}`
-      );
-      if (filterParams.length) {
-        totalStmt.bind(filterParams);
-      }
+    const totalStmt = db.prepare(
+      `SELECT COUNT(*) AS total FROM gps_points ${totalWhere}`
+    );
+    if (filterParams.length) {
+      totalStmt.bind(filterParams);
+    }
     if (totalStmt.step()) {
       const row = totalStmt.getAsObject();
       totalCount = Number(row?.total) || 0;
@@ -1738,15 +1738,15 @@ function mapMediumRow(row) {
       row.method_id != null
         ? String(row.method_id)
         : row.methodId != null
-        ? String(row.methodId)
-        : null,
+          ? String(row.methodId)
+          : null,
     value: Number(row.value ?? 0),
     zulassungsnummer:
       row.zulassungsnummer != null
         ? String(row.zulassungsnummer)
         : row.zulassung != null
-        ? String(row.zulassung)
-        : null,
+          ? String(row.zulassung)
+          : null,
   };
 }
 
@@ -2151,11 +2151,7 @@ async function streamHistoryChunk(options = {}) {
     ...rest
   } = options || {};
 
-  const effectiveSize = clampPageSize(
-    chunkSize ?? pageSize ?? 100,
-    100,
-    1000
-  );
+  const effectiveSize = clampPageSize(chunkSize ?? pageSize ?? 100, 100, 1000);
 
   return await listHistoryPaged({
     pageSize: effectiveSize,
@@ -3163,40 +3159,43 @@ async function listBvlSyncLog(payload) {
 async function queryZulassung(payload) {
   if (!db) throw new Error("Database not initialized");
 
-  const { culture, pest, text, includeExpired } = payload || {};
+  const {
+    culture = null,
+    pest = null,
+    text = "",
+    includeExpired = false,
+    page = 0,
+    pageSize = 25,
+    includeTotal = false,
+  } = payload || {};
 
-  let sql = `
-    SELECT DISTINCT
-      m.kennr,
-      m.name,
-      m.formulierung,
-      m.zul_ende,
-      m.geringes_risiko,
-      a.awg_id,
-      a.status_json,
-      a.zulassungsende
-    FROM bvl_mittel m
-    JOIN bvl_awg a ON m.kennr = a.kennr
-  `;
+  const normalizedPageSize = clampPageSize(pageSize, 25, 100);
+  const normalizedPage = Number.isFinite(Number(page))
+    ? Math.max(Number(page), 0)
+    : 0;
+  const offset = normalizedPage * normalizedPageSize;
+  const fetchLimit = normalizedPageSize + 1;
 
+  const joins = ["JOIN bvl_awg a ON m.kennr = a.kennr"];
   const conditions = [];
   const bindings = [];
 
   if (culture) {
-    sql += ` JOIN bvl_awg_kultur ak ON a.awg_id = ak.awg_id `;
+    joins.push("JOIN bvl_awg_kultur ak ON a.awg_id = ak.awg_id");
     conditions.push("ak.kultur = ?");
     bindings.push(culture);
   }
 
   if (pest) {
-    sql += ` JOIN bvl_awg_schadorg aso ON a.awg_id = aso.awg_id `;
+    joins.push("JOIN bvl_awg_schadorg aso ON a.awg_id = aso.awg_id");
     conditions.push("aso.schadorg = ?");
     bindings.push(pest);
   }
 
-  if (text) {
-    const searchTerm = text.toLowerCase();
-    const textPattern = `%${searchTerm}%`;
+  const normalizedText =
+    typeof text === "string" ? text.trim().toLowerCase() : "";
+  if (normalizedText) {
+    const textPattern = `%${normalizedText}%`;
     conditions.push(`(
       LOWER(m.name) LIKE ? OR LOWER(m.kennr) LIKE ? OR
       EXISTS (
@@ -3234,13 +3233,49 @@ async function queryZulassung(payload) {
     conditions.push("(m.zul_ende IS NULL OR m.zul_ende >= date('now'))");
   }
 
-  if (conditions.length > 0) {
-    sql += " WHERE " + conditions.join(" AND ");
-  }
+  const joinClause = joins.length ? `\n    ${joins.join("\n    ")}` : "";
+  const fromClause = `FROM bvl_mittel m${joinClause}`;
+  const whereClause = conditions.length
+    ? `WHERE ${conditions.join(" AND ")}`
+    : "";
+  const orderClause = "ORDER BY LOWER(m.name), a.awg_id";
 
-  sql += " ORDER BY m.name";
+  const rows = [];
+  db.exec({
+    sql: `
+      SELECT DISTINCT
+        m.kennr,
+        m.name,
+        m.formulierung,
+        m.zul_ende,
+        m.geringes_risiko,
+        a.awg_id,
+        a.status_json,
+        a.zulassungsende
+      ${fromClause}
+      ${whereClause}
+      ${orderClause}
+      LIMIT ? OFFSET ?
+    `,
+    bind: [...bindings, fetchLimit, offset],
+    callback: (row) => {
+      rows.push(row);
+    },
+  });
 
-  const results = [];
+  const hasMore = rows.length > normalizedPageSize;
+  const trimmedRows = hasMore ? rows.slice(0, -1) : rows;
+
+  const results = trimmedRows.map((row) => ({
+    kennr: row[0],
+    name: row[1],
+    formulierung: row[2],
+    zul_ende: row[3],
+    geringes_risiko: row[4],
+    awg_id: row[5],
+    status_json: row[6],
+    zulassungsende: row[7],
+  }));
 
   const payloadCache = new Map();
   const addressCache = new Map();
@@ -3313,23 +3348,6 @@ async function queryZulassung(payload) {
     addressCache.set(normalized, payload);
     return payload;
   };
-
-  db.exec({
-    sql,
-    bind: bindings,
-    callback: (row) => {
-      results.push({
-        kennr: row[0],
-        name: row[1],
-        formulierung: row[2],
-        zul_ende: row[3],
-        geringes_risiko: row[4],
-        awg_id: row[5],
-        status_json: row[6],
-        zulassungsende: row[7],
-      });
-    },
-  });
 
   // Enrich each result with detailed information
   for (const result of results) {
@@ -3537,7 +3555,26 @@ async function queryZulassung(payload) {
     });
   }
 
-  return results;
+  let totalCount = null;
+  if (includeTotal) {
+    const countValue = db.selectValue(
+      `
+        SELECT COUNT(DISTINCT a.awg_id)
+        ${fromClause}
+        ${whereClause}
+      `,
+      bindings.length ? [...bindings] : undefined
+    );
+    totalCount = Number(countValue) || 0;
+  }
+
+  return {
+    items: results,
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+    totalCount,
+    hasMore,
+  };
 }
 
 async function listBvlCultures(payload) {

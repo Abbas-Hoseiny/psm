@@ -21,7 +21,7 @@ Keine UI darf mehr komplette Datenbestaende auf einmal laden oder im Arbeitsspei
 
 ### 3. UI-Komponenten auf Paging umbauen
 
-- [ ] Gemeinsames "Mehr laden"-Widget inklusive Spinner, Fehlerzustand und Retry.
+- [ ] Gemeinsamer Pager (Vor/Zurueck) inklusive Spinner, Fehlerzustand und Retry.
 - [ ] Virtual-List-Helper anpassen, damit er Cursor-Callbacks aus Schritt 2 nutzt.
 - [ ] Module migrieren (History, Reporting, Documentation, Import-Vorschau, Settings, GPS-Liste, Lookup). Nach jedem Modul manuelles QA (Scroll + Reload + Filter).
 - Tests: Komponententests, etwa mit Vitest + Testing Library, sowie manuelle Browser-Smoketests.
@@ -42,7 +42,7 @@ Keine UI darf mehr komplette Datenbestaende auf einmal laden oder im Arbeitsspei
 
 ### 6. QA und Regression
 
-- [ ] Testmatrix mit Szenarien (Initial Load, Mehr laden, Filter, Delete, Browser-Reload) pro Feature bauen.
+- [ ] Testmatrix mit Szenarien (Initial Load, Vor/Zurueck, Filter, Delete, Browser-Reload) pro Feature bauen.
 - [ ] Manuelle QA mit grossem Datensatz (z. B. 10k History-Eintraege) und RAM-Monitoring.
 - [ ] Release-Gate: Kein Merge, bevor alle Szenarien abgehakt und `npm run build` gruen sind.
 

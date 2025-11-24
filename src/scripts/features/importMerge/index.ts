@@ -8,6 +8,10 @@ import {
 } from "@scripts/core/storage/sqlite";
 import { updateSlice, type AppState } from "@scripts/core/state";
 import { escapeHtml, formatDateFromIso } from "@scripts/core/utils";
+import {
+  createPagerWidget,
+  type PagerWidget,
+} from "@scripts/features/shared/pagerWidget";
 import { strFromU8, unzipSync } from "fflate";
 
 type HistoryEntry = {
@@ -78,6 +82,11 @@ const SUPPORTED_ZIP_FILES = [
 let initialized = false;
 let currentSession: ImportSession | null = null;
 let isProcessing = false;
+const PREVIEW_PAGE_SIZE = 25;
+const previewNumberFormatter = new Intl.NumberFormat("de-DE");
+let previewPageIndex = 0;
+let previewPagerWidget: PagerWidget | null = null;
+let previewPagerTarget: HTMLElement | null = null;
 
 function createSection(): HTMLElement {
   const wrapper = document.createElement("div");
@@ -125,6 +134,7 @@ function createSection(): HTMLElement {
             <tbody data-role="import-preview-table"></tbody>
           </table>
         </div>
+        <div class="d-flex justify-content-end mt-3" data-role="import-pager"></div>
         <div class="d-flex flex-wrap gap-2 mt-3">
           <button class="btn btn-outline-info" data-action="focus-import" disabled>Dokumentation markieren</button>
           <button class="btn btn-success" data-action="run-import" disabled>Import starten</button>
@@ -190,6 +200,7 @@ function updateActionButtons(section: HTMLElement): void {
 
 function resetSession(section: HTMLElement): void {
   currentSession = null;
+  resetPreviewPager(section);
   const summaryCard = section.querySelector<HTMLElement>(
     '[data-role="import-summary-card"]'
   );
@@ -472,6 +483,117 @@ function renderWarnings(section: HTMLElement, session: ImportSession): void {
   `;
 }
 
+function getPreviewPageBounds(session: ImportSession): {
+  start: number;
+  end: number;
+  total: number;
+} {
+  const total = session.entries.length;
+  if (!total) {
+    previewPageIndex = 0;
+    return { start: 0, end: 0, total: 0 };
+  }
+  const totalPages = Math.max(Math.ceil(total / PREVIEW_PAGE_SIZE), 1);
+  if (previewPageIndex >= totalPages) {
+    previewPageIndex = totalPages - 1;
+  }
+  if (previewPageIndex < 0) {
+    previewPageIndex = 0;
+  }
+  const start = previewPageIndex * PREVIEW_PAGE_SIZE;
+  const end = Math.min(start + PREVIEW_PAGE_SIZE, total);
+  return { start, end, total };
+}
+
+function ensurePreviewPager(section: HTMLElement): PagerWidget | null {
+  const target = section.querySelector<HTMLElement>(
+    '[data-role="import-pager"]'
+  );
+  if (!target) {
+    return null;
+  }
+  if (!previewPagerWidget || previewPagerTarget !== target) {
+    previewPagerWidget?.destroy();
+    previewPagerWidget = createPagerWidget(target, {
+      onPrev: () => goToPrevPreviewPage(section),
+      onNext: () => goToNextPreviewPage(section),
+      labels: {
+        prev: "Zurück",
+        next: "Weiter",
+        loading: "Vorschau wird geladen...",
+        empty: "Keine Einträge verfügbar",
+      },
+    });
+    previewPagerTarget = target;
+  }
+  return previewPagerWidget;
+}
+
+function updatePreviewPager(
+  section: HTMLElement,
+  session: ImportSession | null
+): void {
+  const widget = ensurePreviewPager(section);
+  if (!widget) {
+    return;
+  }
+  if (!session) {
+    previewPageIndex = 0;
+    widget.update({ status: "hidden" });
+    return;
+  }
+  const total = session.entries.length;
+  if (!total) {
+    previewPageIndex = 0;
+    widget.update({
+      status: "disabled",
+      info: "Keine Einträge vorhanden.",
+    });
+    return;
+  }
+  const { start, end } = getPreviewPageBounds(session);
+  const info = `Einträge ${previewNumberFormatter.format(start + 1)}–${previewNumberFormatter.format(
+    end
+  )} von ${previewNumberFormatter.format(total)}`;
+  widget.update({
+    status: "ready",
+    info,
+    canPrev: previewPageIndex > 0,
+    canNext: end < total,
+  });
+}
+
+function goToPrevPreviewPage(section: HTMLElement): void {
+  if (!currentSession || previewPageIndex === 0) {
+    return;
+  }
+  previewPageIndex = Math.max(previewPageIndex - 1, 0);
+  renderPreview(section, currentSession);
+}
+
+function goToNextPreviewPage(section: HTMLElement): void {
+  if (!currentSession) {
+    return;
+  }
+  const total = currentSession.entries.length;
+  if (!total) {
+    return;
+  }
+  const maxPage = Math.max(Math.ceil(total / PREVIEW_PAGE_SIZE) - 1, 0);
+  if (previewPageIndex >= maxPage) {
+    return;
+  }
+  previewPageIndex = Math.min(previewPageIndex + 1, maxPage);
+  renderPreview(section, currentSession);
+}
+
+function resetPreviewPager(section?: HTMLElement | null): void {
+  previewPageIndex = 0;
+  if (section) {
+    updatePreviewPager(section, currentSession);
+  }
+}
+
 function renderPreview(
   section: HTMLElement,
   session: ImportSession | null
@@ -484,14 +606,18 @@ function renderPreview(
   }
   if (!session) {
     tableBody.innerHTML = "";
+    updatePreviewPager(section, null);
     return;
   }
-  const rows = session.entries.slice(0, 5);
-  if (!rows.length) {
+  const total = session.entries.length;
+  if (!total) {
     tableBody.innerHTML =
       '<tr><td colspan="5" class="text-center text-muted">Keine Einträge</td></tr>';
+    updatePreviewPager(section, session);
     return;
   }
+  const { start, end } = getPreviewPageBounds(session);
+  const rows = session.entries.slice(start, end);
   const html = rows
     .map((entry) => {
       const date = formatDisplayDate(resolveEntryDateIso(entry));
@@ -507,6 +633,7 @@ function renderPreview(
     })
     .join("");
   tableBody.innerHTML = html;
+  updatePreviewPager(section, session);
 }
 
 async function readZipPayload(buffer: Uint8Array): Promise<{
@@ -621,10 +748,12 @@ function renderSession(section: HTMLElement): void {
   }
   if (!currentSession) {
     summaryCard.classList.add("d-none");
+    updatePreviewPager(section, null);
     updateActionButtons(section);
     return;
   }
   summaryCard.classList.remove("d-none");
+  previewPageIndex = 0;
   const nameNode = summaryCard.querySelector<HTMLElement>(
     '[data-role="import-file-name"]'
   );

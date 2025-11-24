@@ -8,6 +8,11 @@ import { syncBvlData } from "@scripts/core/bvlSync";
 import { checkForUpdates } from "@scripts/core/bvlDataset";
 import * as storage from "@scripts/core/storage/sqlite";
 import { escapeHtml } from "@scripts/core/utils";
+import {
+  createPagerWidget,
+  type PagerDirection,
+  type PagerWidget,
+} from "@scripts/features/shared/pagerWidget";
 
 declare const bootstrap:
   | {
@@ -54,6 +59,13 @@ type ReportingResult = {
 
 type ProgressInfo = ZulassungState["progress"];
 
+type FiltersSnapshot = {
+  culture: string | null;
+  pest: string | null;
+  text: string;
+  includeExpired: boolean;
+};
+
 type SyncLogEntry = {
   synced_at: string;
   ok: number;
@@ -64,11 +76,18 @@ const numberFormatter = new Intl.NumberFormat("de-DE", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 3,
 });
+const RESULTS_PAGE_SIZE = 25;
+const pagerNumberFormatter = new Intl.NumberFormat("de-DE");
 
 let initialized = false;
 let container: HTMLElement | null = null;
 let services: Services | null = null;
 let isSectionVisible = false;
+let resultsPagerWidget: PagerWidget | null = null;
+let resultsPagerTarget: HTMLElement | null = null;
+let resultsPagerLoadingDirection: PagerDirection | null = null;
+let activeSearchToken = 0;
+let appliedFiltersSnapshot: FiltersSnapshot | null = null;
 
 function safeParseJson<T = any>(value: unknown): T | null {
   if (!value) {
@@ -491,6 +510,7 @@ function render(): void {
   `;
 
   attachEventHandlers(section);
+  updateResultsPager(section);
 }
 
 function renderStatusSection(zulassungState: ZulassungState): string {
@@ -643,7 +663,9 @@ function renderSyncSection(zulassungState: ZulassungState): string {
 }
 
 function renderFilterSection(zulassungState: ZulassungState): string {
-  const { filters, lookups, busy } = zulassungState;
+  const { filters, lookups } = zulassungState;
+  const disableSearch =
+    zulassungState.busy || zulassungState.resultStatus === "loading";
   const cultures = Array.isArray(lookups.cultures) ? lookups.cultures : [];
   const pests = Array.isArray(lookups.pests) ? lookups.pests : [];
 
@@ -701,7 +723,7 @@ function renderFilterSection(zulassungState: ZulassungState): string {
           </div>
         </div>
         <div class="mt-3">
-          <button id="btn-search" class="btn btn-primary" ${busy ? "disabled" : ""}>
+          <button id="btn-search" class="btn btn-primary" ${disableSearch ? "disabled" : ""}>
             <i class="bi bi-search me-1"></i>Suchen
           </button>
           <button id="btn-clear-filters" class="btn btn-secondary ms-2">
@@ -714,29 +736,186 @@ function renderFilterSection(zulassungState: ZulassungState): string {
 }
 
 function renderResultsSection(zulassungState: ZulassungState): string {
-  const { results } = zulassungState;
+  const { results, resultStatus, resultError } = zulassungState;
+  const items = Array.isArray(results.items) ? results.items : [];
+  const hasItems = items.length > 0;
+  let content = "";
 
-  if (!Array.isArray(results) || results.length === 0) {
-    return `
-      <div class="card mb-3">
-        <div class="card-body">
-          <h5 class="card-title">Ergebnisse</h5>
-          <p class="text-muted">Keine Ergebnisse. Bitte wählen Sie Filter aus und klicken Sie auf "Suchen".</p>
-        </div>
+  if (resultStatus === "error") {
+    content = `
+      <div class="alert alert-danger mb-0">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        ${escapeHtml(resultError || "Suche fehlgeschlagen. Bitte erneut versuchen.")}
+      </div>
+    `;
+  } else if (resultStatus === "loading" && !hasItems) {
+    content = `
+      <div class="d-flex align-items-center text-muted">
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        Suche läuft...
+      </div>
+    `;
+  } else if (!hasItems) {
+    const message =
+      resultStatus === "idle"
+        ? 'Keine Ergebnisse. Bitte wählen Sie Filter aus und klicken Sie auf "Suchen".'
+        : "Keine Treffer für die aktuellen Filter.";
+    content = `<p class="text-muted mb-0">${escapeHtml(message)}</p>`;
+  } else {
+    content = `
+      <div class="list-group">
+        ${items.map((result) => renderResultItem(result as ReportingResult)).join("")}
       </div>
     `;
   }
 
+  const summary = hasItems ? formatResultRange(results) : null;
+
   return `
     <div class="card mb-3">
       <div class="card-body">
-        <h5 class="card-title">Ergebnisse (${results.length})</h5>
-        <div class="list-group">
-          ${results.map((result) => renderResultItem(result as ReportingResult)).join("")}
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+          <h5 class="card-title mb-0">Ergebnisse</h5>
+          ${summary ? `<small class="text-muted">${summary}</small>` : ""}
         </div>
+        ${content}
+        <div class="d-flex justify-content-end mt-3" data-role="zulassung-pager"></div>
       </div>
     </div>
   `;
+}
+
+function formatResultRange(results: ZulassungState["results"]): string | null {
+  const items = Array.isArray(results.items) ? results.items : [];
+  if (!items.length) {
+    return null;
+  }
+  const startIndex = results.page * results.pageSize + 1;
+  const endIndex = startIndex + items.length - 1;
+  const totalText =
+    typeof results.totalCount === "number"
+      ? ` von ${pagerNumberFormatter.format(results.totalCount)}`
+      : "";
+  return `Einträge ${pagerNumberFormatter.format(startIndex)}–${pagerNumberFormatter.format(
+    endIndex
+  )}${totalText}`;
+}
+
+function ensureResultsPager(section: HTMLElement): PagerWidget | null {
+  const target = section.querySelector<HTMLElement>(
+    '[data-role="zulassung-pager"]'
+  );
+  if (!target) {
+    resultsPagerWidget?.destroy();
+    resultsPagerWidget = null;
+    resultsPagerTarget = null;
+    return null;
+  }
+  if (!resultsPagerWidget || resultsPagerTarget !== target) {
+    resultsPagerWidget?.destroy();
+    resultsPagerWidget = createPagerWidget(target, {
+      onPrev: () => goToPrevResultsPage(),
+      onNext: () => goToNextResultsPage(),
+      labels: {
+        prev: "Zurück",
+        next: "Weiter",
+        loading: "Suche läuft...",
+        empty: "Noch keine Suche",
+      },
+    });
+    resultsPagerTarget = target;
+  }
+  return resultsPagerWidget;
+}
+
+function updateResultsPager(section: HTMLElement): void {
+  if (!services) {
+    return;
+  }
+  const widget = ensureResultsPager(section);
+  if (!widget) {
+    return;
+  }
+  const state = services.state.getState();
+  if (!state.app.hasDatabase) {
+    widget.update({ status: "disabled", info: "Keine aktive Datenbank." });
+    return;
+  }
+
+  const { results, resultStatus, resultError } = state.zulassung;
+  if (resultStatus === "error") {
+    widget.update({
+      status: "error",
+      message: resultError || "Suche fehlgeschlagen",
+    });
+    return;
+  }
+
+  if (resultStatus === "idle") {
+    widget.update({ status: "disabled", info: "Noch keine Suche." });
+    return;
+  }
+
+  const isLoading = resultStatus === "loading";
+  const items = Array.isArray(results.items) ? results.items : [];
+  if (!items.length) {
+    widget.update({
+      status: "disabled",
+      info: isLoading ? "Suche läuft..." : "Keine Treffer.",
+    });
+    return;
+  }
+
+  const rangeText = formatResultRange(results) ?? "";
+  const canPrev = !isLoading && results.page > 0;
+  const hasMore = Boolean(results.hasMore);
+  const totalCount =
+    typeof results.totalCount === "number" ? results.totalCount : null;
+  const lastIndex = results.page * results.pageSize + items.length;
+  const canAdvanceByTotal =
+    totalCount !== null ? lastIndex < totalCount : hasMore;
+  widget.update({
+    status: "ready",
+    info: rangeText,
+    canPrev,
+    canNext: !isLoading && (hasMore || canAdvanceByTotal),
+    loadingDirection: isLoading ? resultsPagerLoadingDirection : null,
+  });
+}
+
+function goToPrevResultsPage(): void {
+  if (!services) {
+    return;
+  }
+  const { zulassung } = services.state.getState();
+  if (zulassung.resultStatus === "loading" || zulassung.results.page === 0) {
+    return;
+  }
+  loadResultsPage(zulassung.results.page - 1, "prev");
+}
+
+function goToNextResultsPage(): void {
+  if (!services) {
+    return;
+  }
+  const { zulassung } = services.state.getState();
+  if (zulassung.resultStatus === "loading") {
+    return;
+  }
+  if (
+    !zulassung.results.hasMore &&
+    typeof zulassung.results.totalCount === "number"
+  ) {
+    const lastIndex =
+      zulassung.results.page * zulassung.results.pageSize +
+      zulassung.results.items.length;
+    if (lastIndex >= zulassung.results.totalCount) {
+      return;
+    }
+  } else if (!zulassung.results.hasMore) {
+    return;
+  }
+  loadResultsPage(zulassung.results.page + 1, "next");
 }
 
 function renderResultItem(result: ReportingResult): string {
@@ -2282,12 +2461,11 @@ function attachEventHandlers(section: HTMLElement): void {
     });
 
     filterText.addEventListener("keydown", (event) => {
-      if (
-        event.key === "Enter" &&
-        services &&
-        !services.state.getState().zulassung.busy
-      ) {
-        handleSearch();
+      if (event.key === "Enter" && services) {
+        const zulassungState = services.state.getState().zulassung;
+        if (!zulassungState.busy && zulassungState.resultStatus !== "loading") {
+          handleSearch();
+        }
       }
     });
   }
@@ -2307,6 +2485,128 @@ function attachEventHandlers(section: HTMLElement): void {
       handleSync();
     });
   }
+}
+
+function normalizeFilters(filters: ZulassungState["filters"]): FiltersSnapshot {
+  return {
+    culture: filters.culture || null,
+    pest: filters.pest || null,
+    text: filters.text ? filters.text.trim() : "",
+    includeExpired: Boolean(filters.includeExpired),
+  };
+}
+
+function resetSearchResults(): void {
+  appliedFiltersSnapshot = null;
+  activeSearchToken += 1;
+  resultsPagerLoadingDirection = null;
+  if (!services) {
+    return;
+  }
+  services.state.updateSlice("zulassung", (prev) => ({
+    ...prev,
+    results: {
+      items: [],
+      page: 0,
+      pageSize: RESULTS_PAGE_SIZE,
+      totalCount: null,
+      hasMore: false,
+    },
+    resultStatus: "idle" as ZulassungState["resultStatus"],
+    resultError: null,
+  }));
+  renderIfVisible();
+}
+
+function loadResultsPage(
+  page: number,
+  direction: PagerDirection | null,
+  options: { filters?: FiltersSnapshot; reset?: boolean } = {}
+): void {
+  if (!services) {
+    return;
+  }
+  const normalizedPage = Math.max(0, page);
+  const filters = options.filters ?? appliedFiltersSnapshot;
+  if (!filters) {
+    return;
+  }
+
+  const currentState = services.state.getState();
+  const hasTotal =
+    typeof currentState.zulassung.results.totalCount === "number";
+  const requestToken = ++activeSearchToken;
+  resultsPagerLoadingDirection = direction;
+  if (options.reset) {
+    appliedFiltersSnapshot = filters;
+  }
+
+  services.state.updateSlice("zulassung", (prev) => ({
+    ...prev,
+    resultStatus: "loading" as ZulassungState["resultStatus"],
+    resultError: null,
+    results: {
+      ...prev.results,
+      items: [],
+      page: normalizedPage,
+      pageSize: RESULTS_PAGE_SIZE,
+      totalCount: options.reset ? null : prev.results.totalCount,
+      hasMore: prev.results.hasMore,
+    },
+  }));
+  renderIfVisible();
+
+  void (async () => {
+    try {
+      const response = await storage.queryZulassung({
+        ...filters,
+        page: normalizedPage,
+        pageSize: RESULTS_PAGE_SIZE,
+        includeTotal: options.reset || !hasTotal,
+      });
+
+      if (requestToken !== activeSearchToken) {
+        return;
+      }
+
+      services!.state.updateSlice("zulassung", (prev) => ({
+        ...prev,
+        filters: options.reset
+          ? { ...prev.filters, text: filters.text }
+          : prev.filters,
+        results: {
+          items: Array.isArray(response.items) ? response.items : [],
+          page:
+            typeof response.page === "number" ? response.page : normalizedPage,
+          pageSize:
+            typeof response.pageSize === "number"
+              ? response.pageSize
+              : RESULTS_PAGE_SIZE,
+          totalCount:
+            typeof response.totalCount === "number"
+              ? response.totalCount
+              : prev.results.totalCount,
+          hasMore: Boolean(response.hasMore),
+        },
+        resultStatus: "ready" as ZulassungState["resultStatus"],
+        resultError: null,
+      }));
+    } catch (error: any) {
+      if (requestToken !== activeSearchToken) {
+        return;
+      }
+      services!.state.updateSlice("zulassung", (prev) => ({
+        ...prev,
+        resultStatus: "error" as ZulassungState["resultStatus"],
+        resultError: error?.message || "Unbekannter Fehler",
+      }));
+    } finally {
+      if (requestToken === activeSearchToken) {
+        resultsPagerLoadingDirection = null;
+        renderIfVisible();
+      }
+    }
+  })();
 }
 
 async function handleSync(): Promise<void> {
@@ -2358,6 +2658,7 @@ async function handleSync(): Promise<void> {
     }));
 
     await loadInitialData();
+    resetSearchResults();
 
     const [syncLog, schema] = await Promise.all([
       storage.listBvlSyncLog({ limit: 10 }),
@@ -2385,45 +2686,13 @@ async function handleSync(): Promise<void> {
   }
 }
 
-async function handleSearch(): Promise<void> {
+function handleSearch(): void {
   if (!services) {
     return;
   }
-
   const state = services.state.getState();
-  const { filters } = state.zulassung;
-  const normalizedFilters = {
-    ...filters,
-    text: filters.text ? filters.text.trim() : "",
-  };
-
-  services.state.updateSlice("zulassung", (prev) => ({
-    ...prev,
-    busy: true,
-  }));
-
-  render();
-
-  try {
-    const results = await storage.queryZulassung(normalizedFilters);
-
-    services.state.updateSlice("zulassung", (prev) => ({
-      ...prev,
-      busy: false,
-      filters: { ...prev.filters, text: normalizedFilters.text },
-      results,
-    }));
-
-    render();
-  } catch (error: any) {
-    services.state.updateSlice("zulassung", (prev) => ({
-      ...prev,
-      busy: false,
-      error: error?.message || "Unbekannter Fehler",
-    }));
-
-    render();
-  }
+  const filters = normalizeFilters(state.zulassung.filters);
+  loadResultsPage(0, null, { filters, reset: true });
 }
 
 function handleClearFilters(): void {
@@ -2439,10 +2708,8 @@ function handleClearFilters(): void {
       text: "",
       includeExpired: false,
     },
-    results: [],
   }));
-
-  render();
+  resetSearchResults();
 }
 
 export function initZulassung(

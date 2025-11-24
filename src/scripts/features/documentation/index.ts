@@ -35,6 +35,10 @@ import {
 import { buildMediumTableHTML } from "@scripts/features/shared/mediumTable";
 import type { CalculationItem } from "@scripts/features/calculation";
 import { strToU8, zipSync } from "fflate";
+import {
+  createPagerWidget,
+  type PagerWidget,
+} from "@scripts/features/shared/pagerWidget";
 
 interface Services {
   state: {
@@ -340,13 +344,14 @@ interface DocumentationFocusContext {
 }
 
 const PAGE_SIZE = 50;
+const numberFormatter = new Intl.NumberFormat("de-DE");
 let initialized = false;
 let dataMode: DataMode = "memory";
 let currentFilters: DocumentationFilters = getDefaultFilters();
-let currentPage = 1;
 let totalEntries = 0;
 let allEntries: DocumentationEntry[] = [];
 let visibleEntries: DocumentationEntry[] = [];
+let docPageIndex = 0;
 const selectedEntryIds = new Set<string>();
 const entryDetailCache = new Map<string, HistoryEntry>();
 let isLoadingEntries = false;
@@ -361,6 +366,10 @@ let archiveLogsLoaded = false;
 let archiveLogsLoading: Promise<void> | null = null;
 let historyCursor: HistoryCursor | null = null;
 let sqliteHasMore = false;
+let docPendingAdvance: "next" | null = null;
+let docPagerWidget: PagerWidget | null = null;
+let docPagerTarget: HTMLElement | null = null;
+let docLoadError: string | null = null;
 
 function resolveStorageDriver(state: AppState): string {
   return state.app?.storageDriver || getActiveDriverKey();
@@ -975,9 +984,145 @@ function sortEntries(entries: DocumentationEntry[]): DocumentationEntry[] {
   });
 }
 
-function paginateEntries(): void {
-  const end = currentPage * PAGE_SIZE;
-  visibleEntries = allEntries.slice(0, end);
+function getLoadedPageCount(): number {
+  if (allEntries.length === 0) {
+    return 0;
+  }
+  return Math.max(Math.ceil(allEntries.length / PAGE_SIZE), 1);
+}
+
+function getPageOffset(): number {
+  if (!allEntries.length) {
+    docPageIndex = 0;
+    return 0;
+  }
+  const maxPage = Math.max(getLoadedPageCount() - 1, 0);
+  if (docPageIndex > maxPage) {
+    docPageIndex = maxPage;
+  }
+  if (docPageIndex < 0) {
+    docPageIndex = 0;
+  }
+  return docPageIndex * PAGE_SIZE;
+}
+
+function updateVisibleEntries(): void {
+  if (!allEntries.length) {
+    visibleEntries = [];
+    return;
+  }
+  const start = getPageOffset();
+  const end = Math.min(start + PAGE_SIZE, allEntries.length);
+  visibleEntries = allEntries.slice(start, end);
+}
+
+function ensurePagerWidget(section: HTMLElement): PagerWidget | null {
+  const target = section.querySelector<HTMLElement>('[data-role="doc-pager"]');
+  if (!target) {
+    return null;
+  }
+  if (!docPagerWidget || docPagerTarget !== target) {
+    docPagerWidget?.destroy();
+    const widget = createPagerWidget(target, {
+      onPrev: () => goToPrevPage(section),
+      onNext: () => goToNextPage(section),
+      labels: {
+        prev: "Zurück",
+        next: "Weiter",
+        loading: "Lade Dokumentation...",
+        empty: "Keine Einträge",
+      },
+    });
+    docPagerWidget = widget;
+    docPagerTarget = target;
+  }
+  return docPagerWidget;
+}
+
+function updatePagerWidget(section: HTMLElement): void {
+  const widget = ensurePagerWidget(section);
+  if (!widget) {
+    return;
+  }
+
+  if (docLoadError) {
+    widget.update({ status: "error", message: docLoadError });
+    return;
+  }
+
+  const totalKnown =
+    totalEntries > 0 ? totalEntries : Math.max(allEntries.length, 0);
+  const visibleCount = visibleEntries.length;
+
+  if (!visibleCount && !allEntries.length && !isLoadingEntries) {
+    widget.update({ status: "disabled", info: "Keine Einträge vorhanden." });
+    return;
+  }
+
+  if (!visibleCount && isLoadingEntries && !allEntries.length) {
+    widget.update({ status: "disabled", info: "Lade Dokumentation..." });
+    return;
+  }
+
+  const pageOffset = visibleCount ? getPageOffset() : 0;
+  const info = visibleCount
+    ? `Einträge ${numberFormatter.format(pageOffset + 1)}–${numberFormatter.format(
+        pageOffset + visibleCount
+      )}${totalKnown ? ` von ${numberFormatter.format(totalKnown)}` : ""}`
+    : isLoadingEntries
+      ? "Lade Dokumentation..."
+      : "Keine Einträge auf dieser Seite.";
+
+  if (!visibleCount) {
+    widget.update({ status: "disabled", info });
+    return;
+  }
+
+  const hasBufferedNext = (docPageIndex + 1) * PAGE_SIZE < allEntries.length;
+  const canNext =
+    !isLoadingEntries &&
+    (hasBufferedNext || (dataMode === "sqlite" && sqliteHasMore));
+  const canPrev = docPageIndex > 0 && !isLoadingEntries;
+
+  widget.update({
+    status: "ready",
+    info,
+    canPrev,
+    canNext,
+    loadingDirection: isLoadingEntries ? docPendingAdvance : null,
+  });
+}
+
+function goToPrevPage(section: HTMLElement): void {
+  if (docPageIndex === 0 || isLoadingEntries) {
+    return;
+  }
+  docPageIndex = Math.max(docPageIndex - 1, 0);
+  updateVisibleEntries();
+  renderList(section, getState().fieldLabels);
+  updateInfo(section, getState().fieldLabels);
+}
+
+function goToNextPage(section: HTMLElement): void {
+  const hasBufferedNext = (docPageIndex + 1) * PAGE_SIZE < allEntries.length;
+  if (hasBufferedNext && !isLoadingEntries) {
+    docPageIndex += 1;
+    updateVisibleEntries();
+    renderList(section, getState().fieldLabels);
+    updateInfo(section, getState().fieldLabels);
+    return;
+  }
+  if (isLoadingEntries) {
+    docPendingAdvance = "next";
+    updatePagerWidget(section);
+    return;
+  }
+  if (dataMode !== "sqlite" || !sqliteHasMore) {
+    return;
+  }
+  docPendingAdvance = "next";
+  updatePagerWidget(section);
+  void fetchSqliteEntries(section, getState().fieldLabels, { reset: false });
 }
 
 function resetSelection(section?: HTMLElement | null): void {
@@ -1154,6 +1299,7 @@ function renderList(
   section: HTMLElement,
   labels: AppState["fieldLabels"]
 ): void {
+  updateVisibleEntries();
   const listContainer = section.querySelector<HTMLElement>(
     '[data-role="doc-list"]'
   );
@@ -1233,36 +1379,9 @@ function renderList(
     listContainer.appendChild(fragment);
   }
 
-  const loadMore = section.querySelector<HTMLButtonElement>(
-    '[data-action="load-more"]'
-  );
-  if (loadMore) {
-    const hasMore =
-      dataMode === "sqlite"
-        ? sqliteHasMore
-        : visibleEntries.length < allEntries.length;
-    loadMore.classList.toggle("d-none", !hasMore);
-    loadMore.disabled = isLoadingEntries || !hasMore;
-    if (hasMore) {
-      if (dataMode === "sqlite") {
-        if (typeof totalEntries === "number" && totalEntries > 0) {
-          const remaining = Math.max(totalEntries - visibleEntries.length, 0);
-          loadMore.textContent = `Mehr laden (${remaining} weitere)`;
-        } else {
-          loadMore.textContent = "Mehr laden";
-        }
-      } else {
-        const remaining = Math.max(
-          allEntries.length - visibleEntries.length,
-          0
-        );
-        loadMore.textContent = `Mehr laden (${remaining} weitere)`;
-      }
-    }
-  }
-
   markActiveListEntry(section, activeEntryId);
   attemptPendingSelection(section, labels);
+  updatePagerWidget(section);
 }
 
 function updateInfo(
@@ -1326,6 +1445,8 @@ async function fetchSqliteEntries(
   const token = Symbol("doc-load");
   currentLoadToken = token;
   isLoadingEntries = true;
+  docLoadError = null;
+  updatePagerWidget(section);
 
   if (reset) {
     historyCursor = null;
@@ -1333,11 +1454,14 @@ async function fetchSqliteEntries(
     allEntries = [];
     visibleEntries = [];
     totalEntries = 0;
-    currentPage = 1;
+    docPageIndex = 0;
+    docPendingAdvance = null;
+    updateVisibleEntries();
     renderList(section, labels);
     updateInfo(section, labels);
   }
 
+  let shouldQueueNextFetch = false;
   try {
     const result = await listHistoryEntriesPaged({
       cursor: reset ? null : historyCursor,
@@ -1353,20 +1477,40 @@ async function fetchSqliteEntries(
       mapSqliteHistoryEntry(item)
     );
     allEntries = reset ? mapped : [...allEntries, ...mapped];
-    visibleEntries = allEntries.slice();
     historyCursor = result.nextCursor ?? null;
     sqliteHasMore = Boolean(result.hasMore);
     if (typeof result.totalCount === "number") {
       totalEntries = result.totalCount;
     } else if (!totalEntries) {
-      totalEntries = visibleEntries.length;
+      totalEntries = allEntries.length;
     }
+
+    if (reset) {
+      docPageIndex = 0;
+    }
+    const maxPageIndex = Math.max(getLoadedPageCount() - 1, 0);
+    if (docPendingAdvance === "next") {
+      if (docPageIndex < maxPageIndex) {
+        docPageIndex += 1;
+        docPendingAdvance = null;
+      } else if (!sqliteHasMore) {
+        docPendingAdvance = null;
+      } else {
+        shouldQueueNextFetch = true;
+      }
+    } else {
+      docPageIndex = Math.min(docPageIndex, maxPageIndex);
+    }
+    updateVisibleEntries();
   } catch (error) {
     if (currentLoadToken === token) {
       console.error("Dokumentation konnte nicht geladen werden", error);
       window.alert(
         "Dokumentation konnte nicht geladen werden. Bitte erneut versuchen."
       );
+      docLoadError =
+        "Dokumentation konnte nicht geladen werden. Bitte erneut versuchen.";
+      docPendingAdvance = null;
     }
   } finally {
     if (currentLoadToken === token) {
@@ -1374,6 +1518,12 @@ async function fetchSqliteEntries(
       currentLoadToken = null;
       renderList(section, labels);
       updateInfo(section, labels);
+      if (shouldQueueNextFetch) {
+        docPendingAdvance = "next";
+        void fetchSqliteEntries(section, labels, { reset: false });
+      } else {
+        docPendingAdvance = null;
+      }
     }
   }
 }
@@ -1389,7 +1539,10 @@ async function loadMemoryEntries(
       .filter((item) => matchesFilter(item.entry, currentFilters))
   );
   totalEntries = allEntries.length;
-  paginateEntries();
+  docPageIndex = 0;
+  docPendingAdvance = null;
+  docLoadError = null;
+  updateVisibleEntries();
   renderList(section, state.fieldLabels);
   updateInfo(section, state.fieldLabels);
   await reopenDetailIfVisible(section, state.fieldLabels);
@@ -1412,7 +1565,9 @@ async function applyFilters(
   const useSqlite = driverKey === "sqlite" && hasDatabase;
   dataMode = useSqlite ? "sqlite" : "memory";
   entryDetailCache.clear();
-  currentPage = 1;
+  docPageIndex = 0;
+  docPendingAdvance = null;
+  docLoadError = null;
   resetSelection(section);
   updateArchiveAvailability(section, state);
   updateArchiveFormDefaults(section);
@@ -1426,25 +1581,6 @@ async function applyFilters(
   }
 
   await loadMemoryEntries(section, state);
-}
-
-async function loadMoreEntries(
-  section: HTMLElement,
-  labels: AppState["fieldLabels"]
-): Promise<void> {
-  if (dataMode === "sqlite") {
-    if (isLoadingEntries) {
-      return;
-    }
-    if (!sqliteHasMore) {
-      return;
-    }
-    await fetchSqliteEntries(section, labels, { reset: false });
-    return;
-  }
-  currentPage += 1;
-  paginateEntries();
-  renderList(section, labels);
 }
 
 async function collectSelectedEntries(): Promise<HistoryEntry[]> {
@@ -1984,7 +2120,7 @@ function createSection(): HTMLElement {
             <div class="d-flex flex-column h-100">
               <div data-role="doc-list" class="list-group list-group-flush flex-grow-1 overflow-auto"></div>
               <div class="p-3">
-                <button class="btn btn-secondary w-100 d-none" data-action="load-more">Mehr laden</button>
+                <div data-role="doc-pager"></div>
               </div>
             </div>
           </div>
@@ -2155,11 +2291,6 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
 
     if (action === "doc-focus-clear") {
       clearFocusContext(section, services, { refreshList: true });
-      return;
-    }
-
-    if (action === "load-more") {
-      void loadMoreEntries(section, services.state.getState().fieldLabels);
       return;
     }
 

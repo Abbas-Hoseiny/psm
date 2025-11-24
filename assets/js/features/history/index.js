@@ -2,22 +2,19 @@ import { getState } from "../../core/state.js";
 import { printHtml } from "../../core/print.js";
 import { saveDatabase, getActiveDriverKey } from "../../core/storage/index.js";
 import { getDatabaseSnapshot } from "../../core/database.js";
-import {
-  buildMediumTableHTML,
-  buildMediumSummaryLines,
-} from "../shared/mediumTable.js";
+import { buildMediumTableHTML } from "../shared/mediumTable.js";
 import { escapeHtml } from "../../core/utils.js";
-import { initVirtualList } from "../../core/virtualList.js";
 import { renderCalculationSnapshot } from "../shared/calculationSnapshot.js";
 import { printEntriesChunked } from "../shared/printing.js";
+import { createPagerWidget } from "../shared/pagerWidget.js";
 
 let initialized = false;
 const selectedIndexes = new Set();
-let virtualListInstance = null;
-
-// Feature flag for virtual scrolling
-const USE_VIRTUAL_SCROLLING = true;
-const INITIAL_LOAD_LIMIT = 200;
+const HISTORY_PAGE_SIZE = 50;
+const numberFormatter = new Intl.NumberFormat("de-DE");
+let historyPageIndex = 0;
+let historyPagerWidget = null;
+let historyPagerTarget = null;
 
 async function persistHistoryChanges() {
   const driverKey = getActiveDriverKey();
@@ -48,7 +45,9 @@ function createSection() {
           <button class="btn btn-outline-light btn-sm" data-action="print-selected" disabled>Ausgewählte drucken</button>
         </div>
         <div class="card-body">
+          <div class="alert alert-info d-none" data-role="history-message"></div>
           <div data-role="history-list" class="history-list"></div>
+          <div data-role="history-load-more" class="mt-3"></div>
         </div>
       </div>
       <div class="card card-dark mt-4 d-none" id="history-detail">
@@ -78,6 +77,91 @@ function updateCardSelection(listContainer, index, selected) {
   }
 }
 
+function clampPageOffset(entriesLength) {
+  if (!entriesLength) {
+    historyPageIndex = 0;
+    return 0;
+  }
+  const maxPage = Math.max(Math.ceil(entriesLength / HISTORY_PAGE_SIZE) - 1, 0);
+  if (historyPageIndex > maxPage) {
+    historyPageIndex = maxPage;
+  }
+  if (historyPageIndex < 0) {
+    historyPageIndex = 0;
+  }
+  return historyPageIndex * HISTORY_PAGE_SIZE;
+}
+
+function ensurePagerWidget(section) {
+  const target = section.querySelector('[data-role="history-load-more"]');
+  if (!target) {
+    return null;
+  }
+  if (!historyPagerWidget || historyPagerTarget !== target) {
+    if (
+      historyPagerWidget &&
+      typeof historyPagerWidget.destroy === "function"
+    ) {
+      historyPagerWidget.destroy();
+    }
+    historyPagerWidget = createPagerWidget(target, {
+      onPrev: () => goToPrevPage(section),
+      onNext: () => goToNextPage(section),
+      labels: {
+        prev: "Zurück",
+        next: "Weiter",
+        loading: "Lade Historie…",
+        empty: "Keine Historien-Einträge",
+      },
+    });
+    historyPagerTarget = target;
+  }
+  return historyPagerWidget;
+}
+
+function updatePagerWidget(section, entriesLength) {
+  const widget = ensurePagerWidget(section);
+  if (!widget) {
+    return;
+  }
+  if (!entriesLength) {
+    widget.update({ status: "disabled", info: "Keine Historien-Einträge." });
+    return;
+  }
+  const pageOffset = clampPageOffset(entriesLength);
+  const visibleCount = Math.min(entriesLength - pageOffset, HISTORY_PAGE_SIZE);
+  const info = `Einträge ${numberFormatter.format(
+    pageOffset + 1
+  )}–${numberFormatter.format(pageOffset + visibleCount)} von ${numberFormatter.format(
+    entriesLength
+  )}`;
+  const canPrev = historyPageIndex > 0;
+  const canNext = pageOffset + visibleCount < entriesLength;
+  widget.update({
+    status: "ready",
+    info,
+    canPrev,
+    canNext,
+  });
+}
+
+function goToPrevPage(section) {
+  if (historyPageIndex === 0) {
+    return;
+  }
+  historyPageIndex = Math.max(historyPageIndex - 1, 0);
+  renderTable(getState(), section, getState().fieldLabels);
+}
+
+function goToNextPage(section) {
+  const entries = getState().history || [];
+  if ((historyPageIndex + 1) * HISTORY_PAGE_SIZE >= entries.length) {
+    return;
+  }
+  historyPageIndex += 1;
+  renderTable(getState(), section, getState().fieldLabels);
+}
+
 /**
  * Initialize or update virtual list
  */
@@ -85,82 +169,54 @@ function renderCardsList(state, listContainer, labels) {
   const entries = state.history || [];
   const resolvedLabels = labels || getState().fieldLabels;
 
-  // Clean up any stale selected indexes
   for (const idx of Array.from(selectedIndexes)) {
     if (!entries[idx]) {
       selectedIndexes.delete(idx);
     }
   }
 
-  if (USE_VIRTUAL_SCROLLING && entries.length > INITIAL_LOAD_LIMIT) {
-    // Use virtual scrolling for large lists
-    if (!virtualListInstance) {
-      virtualListInstance = initVirtualList(listContainer, {
-        itemCount: entries.length,
-        estimatedItemHeight: 250,
-        overscan: 6,
-        renderItem: (node, index) => {
-          const entry = entries[index];
-          const selected = selectedIndexes.has(index);
-          node.innerHTML = renderCalculationSnapshot(entry, resolvedLabels, {
-            showActions: true,
-            includeCheckbox: true,
-            index,
-            selected,
-          });
-        },
-      });
-    } else {
-      // Update existing virtual list
-      virtualListInstance.updateItemCount(entries.length);
-    }
-  } else {
-    // Regular rendering for smaller lists or fallback
-    // Destroy virtual list if it exists
-    if (virtualListInstance) {
-      virtualListInstance.destroy();
-      virtualListInstance = null;
-    }
+  const pageOffset = clampPageOffset(entries.length);
+  const visibleEntries = entries.slice(
+    pageOffset,
+    Math.min(pageOffset + HISTORY_PAGE_SIZE, entries.length)
+  );
 
-    // Render all or initial batch
-    const limit = Math.min(entries.length, INITIAL_LOAD_LIMIT);
-    const fragment = document.createDocumentFragment();
+  listContainer.innerHTML = "";
 
-    for (let i = 0; i < limit; i++) {
-      const entry = entries[i];
-      const selected = selectedIndexes.has(i);
-      const cardHtml = renderCalculationSnapshot(entry, resolvedLabels, {
-        showActions: true,
-        includeCheckbox: true,
-        index: i,
-        selected,
-      });
-
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = cardHtml;
-      fragment.appendChild(wrapper.firstElementChild);
-    }
-
-    listContainer.innerHTML = "";
-    listContainer.appendChild(fragment);
-
-    // Add "Load More" button if needed
-    if (entries.length > limit) {
-      const loadMoreBtn = document.createElement("button");
-      loadMoreBtn.className = "btn btn-secondary w-100 mt-3";
-      loadMoreBtn.textContent = `Mehr laden (${entries.length - limit} weitere)`;
-      loadMoreBtn.dataset.action = "load-more";
-      loadMoreBtn.dataset.currentLimit = String(limit);
-      listContainer.appendChild(loadMoreBtn);
-    }
+  if (!visibleEntries.length) {
+    const empty = document.createElement("p");
+    empty.className = "text-muted text-center mb-0";
+    empty.textContent = "Keine Historien-Einträge vorhanden.";
+    listContainer.appendChild(empty);
+    return;
   }
+
+  const fragment = document.createDocumentFragment();
+  visibleEntries.forEach((entry, idx) => {
+    const absoluteIndex = pageOffset + idx;
+    const selected = selectedIndexes.has(absoluteIndex);
+    const cardHtml = renderCalculationSnapshot(entry, resolvedLabels, {
+      showActions: true,
+      includeCheckbox: true,
+      index: absoluteIndex,
+      selected,
+    });
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = cardHtml;
+    fragment.appendChild(wrapper.firstElementChild);
+  });
+
+  listContainer.appendChild(fragment);
 }
 
 function renderTable(state, section, labels) {
   const listContainer = section.querySelector('[data-role="history-list"]');
+  const entries = state.history || [];
+  clampPageOffset(entries.length);
   if (listContainer) {
     renderCardsList(state, listContainer, labels);
   }
+  updatePagerWidget(section, entries.length);
 }
 
 function renderDetail(entry, section, index = null, labels) {
@@ -396,53 +452,6 @@ export function initHistory(container, services) {
         .map((idx) => state.history[idx])
         .filter(Boolean);
       printSummary(entries, state.fieldLabels);
-      return;
-    }
-
-    // Handle load more
-    if (action === "load-more") {
-      const btn = event.target;
-      const currentLimit = parseInt(btn.dataset.currentLimit, 10);
-      const state = getState();
-      const newLimit = Math.min(
-        state.history.length,
-        currentLimit + INITIAL_LOAD_LIMIT
-      );
-
-      const listContainer = section.querySelector('[data-role="history-list"]');
-      const resolvedLabels = state.fieldLabels;
-
-      // Render additional items
-      const fragment = document.createDocumentFragment();
-      for (let i = currentLimit; i < newLimit; i++) {
-        const entry = state.history[i];
-        const selected = selectedIndexes.has(i);
-        const cardHtml = renderCalculationSnapshot(entry, resolvedLabels, {
-          showActions: true,
-          includeCheckbox: true,
-          index: i,
-          selected,
-        });
-
-        const wrapper = document.createElement("div");
-        wrapper.innerHTML = cardHtml;
-        fragment.appendChild(wrapper.firstElementChild);
-      }
-
-      // Remove the button and add new items
-      btn.remove();
-      listContainer.appendChild(fragment);
-
-      // Add new button if more items remain
-      if (newLimit < state.history.length) {
-        const newBtn = document.createElement("button");
-        newBtn.className = "btn btn-secondary w-100 mt-3";
-        newBtn.textContent = `Mehr laden (${state.history.length - newLimit} weitere)`;
-        newBtn.dataset.action = "load-more";
-        newBtn.dataset.currentLimit = String(newLimit);
-        listContainer.appendChild(newBtn);
-      }
-
       return;
     }
 

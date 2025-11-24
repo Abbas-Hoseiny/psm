@@ -1,5 +1,10 @@
 import { escapeHtml } from "@scripts/core/utils";
 import {
+  createPagerWidget,
+  type PagerWidget,
+  type PagerDirection,
+} from "@scripts/features/shared/pagerWidget";
+import {
   ensureLookupData,
   getLookupStats,
   listLookupLanguages,
@@ -181,24 +186,8 @@ export function initLookup(
     bbchResults: section.querySelector<HTMLTableSectionElement>(
       '[data-role="bbch-results-body"]'
     ),
-    eppoPageInfo: section.querySelector<HTMLElement>(
-      '[data-role="eppo-page-info"]'
-    ),
-    eppoPrevPage: section.querySelector<HTMLButtonElement>(
-      '[data-action="eppo-page-prev"]'
-    ),
-    eppoNextPage: section.querySelector<HTMLButtonElement>(
-      '[data-action="eppo-page-next"]'
-    ),
-    bbchPageInfo: section.querySelector<HTMLElement>(
-      '[data-role="bbch-page-info"]'
-    ),
-    bbchPrevPage: section.querySelector<HTMLButtonElement>(
-      '[data-action="bbch-page-prev"]'
-    ),
-    bbchNextPage: section.querySelector<HTMLButtonElement>(
-      '[data-action="bbch-page-next"]'
-    ),
+    eppoPager: section.querySelector<HTMLElement>('[data-role="eppo-pager"]'),
+    bbchPager: section.querySelector<HTMLElement>('[data-role="bbch-pager"]'),
     tabButtons: Array.from(
       section.querySelectorAll<HTMLButtonElement>('[data-role="lookup-tab"]')
     ),
@@ -241,24 +230,39 @@ export function initLookup(
     },
   };
 
-  const paginationRefs: Record<
-    LookupTab,
-    {
-      info?: HTMLElement | null;
-      prev?: HTMLButtonElement | null;
-      next?: HTMLButtonElement | null;
+  const pagerTargets: Record<LookupTab, HTMLElement | null> = {
+    eppo: refs.eppoPager,
+    bbch: refs.bbchPager,
+  };
+
+  const pagerWidgets: Record<LookupTab, PagerWidget | null> = {
+    eppo: null,
+    bbch: null,
+  };
+
+  const pagerLoadingDirections: Record<LookupTab, PagerDirection | null> = {
+    eppo: null,
+    bbch: null,
+  };
+
+  const ensurePager = (tab: LookupTab): PagerWidget | null => {
+    const target = pagerTargets[tab];
+    if (!target) {
+      return null;
     }
-  > = {
-    eppo: {
-      info: refs.eppoPageInfo,
-      prev: refs.eppoPrevPage,
-      next: refs.eppoNextPage,
-    },
-    bbch: {
-      info: refs.bbchPageInfo,
-      prev: refs.bbchPrevPage,
-      next: refs.bbchNextPage,
-    },
+    if (!pagerWidgets[tab]) {
+      pagerWidgets[tab] = createPagerWidget(target, {
+        onPrev: () => changePage(tab, -1),
+        onNext: () => changePage(tab, 1),
+        labels: {
+          prev: "Zurück",
+          next: "Weiter",
+          loading: "Suche läuft...",
+          empty: "Keine Treffer",
+        },
+      });
+    }
+    return pagerWidgets[tab];
   };
 
   const setMessage = (
@@ -354,53 +358,65 @@ export function initLookup(
     state.loading = false;
     state.page = 0;
     state.currentCount = 0;
+    pagerLoadingDirections[tab] = null;
     updatePaginationUi(tab);
   };
 
   const updatePaginationUi = (tab: LookupTab) => {
+    const widget = ensurePager(tab);
+    if (!widget) {
+      return;
+    }
     const state = searchState[tab];
-    const { info, prev, next } = paginationRefs[tab];
-    if (info) {
-      if (!databaseReady) {
-        info.textContent = "Keine aktive Datenbank.";
-      } else if (!state.executed) {
-        info.textContent = state.loading
-          ? "Suche läuft..."
-          : "Noch keine Suche.";
-      } else if (!state.total) {
-        info.textContent = "Keine Treffer.";
-      } else {
-        const firstIndex = state.page * state.limit + 1;
-        const lastIndex = Math.min(
-          state.total,
-          firstIndex + (state.currentCount || state.limit) - 1
-        );
-        info.textContent = `Einträge ${numberFormatter.format(
-          firstIndex
-        )}–${numberFormatter.format(lastIndex)} von ${numberFormatter.format(
-          state.total
-        )}`;
-      }
+
+    if (!databaseReady) {
+      widget.update({
+        status: "disabled",
+        info: "Keine aktive Datenbank.",
+      });
+      return;
     }
-    const maxPage = state.total
-      ? Math.max(Math.ceil(state.total / state.limit) - 1, 0)
-      : 0;
-    const disablePrev =
-      !databaseReady || !state.executed || state.page <= 0 || !state.total;
-    const disableNext =
-      !databaseReady ||
-      !state.executed ||
-      !state.total ||
-      state.page >= maxPage;
-    if (prev) {
-      prev.disabled = disablePrev;
+
+    if (!state.executed) {
+      widget.update({
+        status: "disabled",
+        info: state.loading ? "Suche läuft..." : "Noch keine Suche.",
+      });
+      return;
     }
-    if (next) {
-      next.disabled = disableNext;
+
+    if (!state.total) {
+      widget.update({
+        status: "disabled",
+        info: state.loading ? "Suche läuft..." : "Keine Treffer.",
+      });
+      return;
     }
+
+    const firstIndex = state.page * state.limit + 1;
+    const lastIndex = Math.min(
+      state.total,
+      firstIndex + (state.currentCount || state.limit) - 1
+    );
+    const info = `Einträge ${numberFormatter.format(
+      firstIndex
+    )}–${numberFormatter.format(lastIndex)} von ${numberFormatter.format(
+      state.total
+    )}`;
+    const maxPage = Math.max(Math.ceil(state.total / state.limit) - 1, 0);
+    const canPrev = !state.loading && state.page > 0;
+    const canNext = !state.loading && state.page < maxPage;
+
+    widget.update({
+      status: "ready",
+      info,
+      canPrev,
+      canNext,
+      loadingDirection: state.loading ? pagerLoadingDirections[tab] : null,
+    });
   };
 
-  const changePage = (tab: LookupTab, delta: number) => {
+  function changePage(tab: LookupTab, delta: number): void {
     if (!databaseReady) {
       return;
     }
@@ -414,8 +430,9 @@ export function initLookup(
       return;
     }
     state.page = nextPage;
+    pagerLoadingDirections[tab] = delta > 0 ? "next" : "prev";
     void runSearch(tab);
-  };
+  }
 
   const getResultBody = (tab: LookupTab): HTMLTableSectionElement | null =>
     tab === "eppo" ? refs.eppoResults : refs.bbchResults;
@@ -629,6 +646,7 @@ export function initLookup(
         if (state.page > maxPage) {
           state.page = maxPage;
           state.loading = false;
+          pagerLoadingDirections[tab] = null;
           await runSearch(tab);
           return;
         }
@@ -649,16 +667,16 @@ export function initLookup(
 
       state.executed = true;
       state.currentCount = rows.length;
-      state.loading = false;
-      updatePaginationUi(tab);
     } catch (error) {
-      state.loading = false;
       console.error("Lookup-Suche fehlgeschlagen", error);
       setMessage("Suche fehlgeschlagen.", "danger");
       showPlaceholder(tab, "Fehler bei der Suche");
       state.executed = false;
       state.total = 0;
       state.currentCount = 0;
+    } finally {
+      state.loading = false;
+      pagerLoadingDirections[tab] = null;
       updatePaginationUi(tab);
     }
   };
@@ -809,11 +827,6 @@ export function initLookup(
       }
     }
   });
-
-  refs.eppoPrevPage?.addEventListener("click", () => changePage("eppo", -1));
-  refs.eppoNextPage?.addEventListener("click", () => changePage("eppo", 1));
-  refs.bbchPrevPage?.addEventListener("click", () => changePage("bbch", -1));
-  refs.bbchNextPage?.addEventListener("click", () => changePage("bbch", 1));
 
   refs.importEppoBtn?.addEventListener("click", () => {
     void withButtonBusy(refs.importEppoBtn, async () => {
@@ -1022,17 +1035,7 @@ function createSection(): HTMLElement {
               </tbody>
             </table>
           </div>
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2">
-            <small class="text-muted" data-role="eppo-page-info">Noch keine Suche.</small>
-            <div class="btn-group" role="group">
-              <button type="button" class="btn btn-outline-light btn-sm" data-action="eppo-page-prev" data-lookup-disable>
-                <i class="bi bi-chevron-left"></i>
-              </button>
-              <button type="button" class="btn btn-outline-light btn-sm" data-action="eppo-page-next" data-lookup-disable>
-                <i class="bi bi-chevron-right"></i>
-              </button>
-            </div>
-          </div>
+          <div class="d-flex justify-content-end mt-2" data-role="eppo-pager"></div>
         </div>
 
         <div data-role="lookup-panel" data-tab="bbch" class="d-none">
@@ -1073,17 +1076,7 @@ function createSection(): HTMLElement {
               </tbody>
             </table>
           </div>
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2">
-            <small class="text-muted" data-role="bbch-page-info">Noch keine Suche.</small>
-            <div class="btn-group" role="group">
-              <button type="button" class="btn btn-outline-light btn-sm" data-action="bbch-page-prev" data-lookup-disable>
-                <i class="bi bi-chevron-left"></i>
-              </button>
-              <button type="button" class="btn btn-outline-light btn-sm" data-action="bbch-page-next" data-lookup-disable>
-                <i class="bi bi-chevron-right"></i>
-              </button>
-            </div>
-          </div>
+          <div class="d-flex justify-content-end mt-2" data-role="bbch-pager"></div>
         </div>
       </div>
     </div>

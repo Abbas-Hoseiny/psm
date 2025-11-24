@@ -8,6 +8,10 @@ import {
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { saveDatabase } from "@scripts/core/storage";
 import { escapeHtml } from "@scripts/core/utils";
+import {
+  createPagerWidget,
+  type PagerWidget,
+} from "@scripts/features/shared/pagerWidget";
 
 interface Services {
   state: {
@@ -32,6 +36,13 @@ let profileSelectAllInput: HTMLInputElement | null = null;
 let profileDraftSelection = new Set<string>();
 let editingProfileId: string | null = null;
 let sanitizingProfiles = false;
+const MEDIUMS_PAGE_SIZE = 25;
+const mediumsNumberFormatter = new Intl.NumberFormat("de-DE");
+let mediumsPageIndex = 0;
+let mediumsPagerWidget: PagerWidget | null = null;
+let mediumsPagerTarget: HTMLElement | null = null;
+let settingsSectionRoot: HTMLElement | null = null;
+let settingsServices: Services | null = null;
 
 function createSection(): HTMLElement {
   const section = document.createElement("div");
@@ -69,6 +80,7 @@ function createSection(): HTMLElement {
             <tbody></tbody>
           </table>
         </div>
+        <div class="d-flex justify-content-end mt-3" data-role="mediums-pager"></div>
         <div class="mt-4">
           <h3 class="h5 text-info mb-2">Ausgewählte Mittel als Profil speichern</h3>
           <p class="text-muted mb-3">
@@ -331,6 +343,109 @@ function sanitizeMediumProfiles(state: AppState, services: Services): void {
   sanitizingProfiles = false;
 }
 
+function getMediumsPageBounds(total: number): {
+  start: number;
+  end: number;
+  total: number;
+} {
+  if (!total) {
+    mediumsPageIndex = 0;
+    return { start: 0, end: 0, total: 0 };
+  }
+  const totalPages = Math.max(Math.ceil(total / MEDIUMS_PAGE_SIZE), 1);
+  if (mediumsPageIndex >= totalPages) {
+    mediumsPageIndex = totalPages - 1;
+  }
+  if (mediumsPageIndex < 0) {
+    mediumsPageIndex = 0;
+  }
+  const start = mediumsPageIndex * MEDIUMS_PAGE_SIZE;
+  const end = Math.min(start + MEDIUMS_PAGE_SIZE, total);
+  return { start, end, total };
+}
+
+function ensureMediumsPager(): PagerWidget | null {
+  if (!settingsSectionRoot) {
+    return null;
+  }
+  const target = settingsSectionRoot.querySelector<HTMLElement>(
+    '[data-role="mediums-pager"]'
+  );
+  if (!target) {
+    return null;
+  }
+  if (!mediumsPagerWidget || mediumsPagerTarget !== target) {
+    mediumsPagerWidget?.destroy();
+    mediumsPagerWidget = createPagerWidget(target, {
+      onPrev: () => goToPrevMediumsPage(),
+      onNext: () => goToNextMediumsPage(),
+      labels: {
+        prev: "Zurück",
+        next: "Weiter",
+        loading: "Lade Mittel...",
+        empty: "Keine Mittel verfügbar",
+      },
+    });
+    mediumsPagerTarget = target;
+  }
+  return mediumsPagerWidget;
+}
+
+function updateMediumsPager(state: AppState): void {
+  const widget = ensureMediumsPager();
+  if (!widget) {
+    return;
+  }
+  const total = state.mediums.length;
+  if (!total) {
+    mediumsPageIndex = 0;
+    widget.update({
+      status: "disabled",
+      info: "Noch keine Mittel gespeichert.",
+    });
+    return;
+  }
+  const { start, end } = getMediumsPageBounds(total);
+  const info = `Mittel ${mediumsNumberFormatter.format(start + 1)}–${mediumsNumberFormatter.format(
+    end
+  )} von ${mediumsNumberFormatter.format(total)}`;
+  widget.update({
+    status: "ready",
+    info,
+    canPrev: mediumsPageIndex > 0,
+    canNext: end < total,
+  });
+}
+
+function goToPrevMediumsPage(): void {
+  if (mediumsPageIndex === 0) {
+    return;
+  }
+  const state = settingsServices?.state.getState();
+  if (!state) {
+    return;
+  }
+  mediumsPageIndex = Math.max(mediumsPageIndex - 1, 0);
+  renderMediumRows(state);
+}
+
+function goToNextMediumsPage(): void {
+  const state = settingsServices?.state.getState();
+  if (!state) {
+    return;
+  }
+  const total = state.mediums.length;
+  if (!total) {
+    return;
+  }
+  const maxPage = Math.max(Math.ceil(total / MEDIUMS_PAGE_SIZE) - 1, 0);
+  if (mediumsPageIndex >= maxPage) {
+    return;
+  }
+  mediumsPageIndex = Math.min(mediumsPageIndex + 1, maxPage);
+  renderMediumRows(state);
+}
+
 function renderMediumRows(state: AppState): void {
   if (!mediumsTableBody) {
     return;
@@ -340,18 +455,23 @@ function renderMediumRows(state: AppState): void {
     state.measurementMethods.map((method: any) => [method.id, method])
   );
 
-  if (!state.mediums.length) {
+  const total = state.mediums.length;
+  if (!total) {
     mediumsTableBody.innerHTML = `
       <tr>
         <td colspan="7" class="text-center text-muted">Noch keine Mittel gespeichert.</td>
       </tr>
     `;
     updateProfileSelectionSummary(state);
+    updateMediumsPager(state);
     return;
   }
 
+  const { start, end } = getMediumsPageBounds(total);
+  const visibleMediums = state.mediums.slice(start, end);
   mediumsTableBody.innerHTML = "";
-  state.mediums.forEach((medium: any, index: number) => {
+  visibleMediums.forEach((medium: any, index: number) => {
+    const globalIndex = start + index;
     const row = document.createElement("tr");
     const method = methodsById.get(medium.methodId);
     const approvalText =
@@ -371,12 +491,13 @@ function renderMediumRows(state: AppState): void {
       <td>${escapeHtml(medium.value != null ? String(medium.value) : "")}</td>
       <td>${approvalText}</td>
       <td>
-        <button class="btn btn-sm btn-danger" data-action="delete" data-index="${index}">Löschen</button>
+        <button class="btn btn-sm btn-danger" data-action="delete" data-index="${globalIndex}">Löschen</button>
       </td>
     `;
     mediumsTableBody?.appendChild(row);
   });
   updateProfileSelectionSummary(state);
+  updateMediumsPager(state);
 }
 
 function renderMethodSuggestions(state: AppState): void {
@@ -485,6 +606,12 @@ export function initSettings(
   host.innerHTML = "";
   const section = createSection();
   host.appendChild(section);
+  settingsSectionRoot = section;
+  settingsServices = services;
+  mediumsPageIndex = 0;
+  mediumsPagerWidget?.destroy();
+  mediumsPagerWidget = null;
+  mediumsPagerTarget = null;
 
   mediumsTableBody = section.querySelector<HTMLTableSectionElement>(
     "#settings-mediums-table tbody"
