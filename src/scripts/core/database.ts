@@ -14,6 +14,7 @@ import {
   deleteGpsPoint as workerDeleteGpsPoint,
   setActiveGpsPointId as workerSetActiveGpsPointId,
   getActiveGpsPointId as workerGetActiveGpsPointId,
+  persistSqliteDatabaseFile,
 } from "./storage/sqlite";
 
 function clone(obj: any): any {
@@ -250,6 +251,14 @@ function insertPointIntoList(points: GpsPoint[], point: GpsPoint): GpsPoint[] {
   return next;
 }
 
+async function persistGpsChanges(): Promise<void> {
+  try {
+    await persistSqliteDatabaseFile();
+  } catch (error) {
+    console.warn("GPS-Daten konnten nicht gespeichert werden", error);
+  }
+}
+
 export async function loadGpsPoints(): Promise<GpsPoint[]> {
   assertSqliteDriver("GPS-Punkte laden");
   updateGpsState({ pending: true, lastError: null });
@@ -320,6 +329,7 @@ export async function saveGpsPoint(
     if (options.activate) {
       await setActiveGpsPoint(point.id, { silent: true });
     }
+    await persistGpsChanges();
     return point;
   } catch (error) {
     console.error("GPS-Punkt konnte nicht gespeichert werden", error);
@@ -361,6 +371,7 @@ export async function deleteGpsPoint(id: string): Promise<void> {
     if (wasActive) {
       await workerSetActiveGpsPointId({ id: null });
     }
+    await persistGpsChanges();
   } catch (error) {
     console.error("GPS-Punkt konnte nicht gelöscht werden", error);
     updateGpsState({
@@ -383,6 +394,7 @@ export async function setActiveGpsPoint(
   const trimmedId = id ? String(id).trim() : "";
   await workerSetActiveGpsPointId({ id: trimmedId || null });
   updateGpsState({ activePointId: trimmedId || null });
+  await persistGpsChanges();
   if (!options.silent) {
     console.info(
       trimmedId
