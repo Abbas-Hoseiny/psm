@@ -9,10 +9,10 @@
   --color-navbar: #222;
   --color-card-shadow: rgba(0, 0, 0, 0.4);
   --color-footer-shadow: rgba(0, 0, 0, 0.2);
-  --color-bg-overlay-top: rgba(6, 9, 15, 0.92);
-  --color-bg-overlay-bottom: rgba(12, 18, 28, 0.88);
-  --color-bg-highlight: rgba(38, 118, 71, 0.35);
-  --color-bg-shadow: rgba(0, 0, 0, 0.55);
+  --color-bg-overlay-top: rgba(6, 9, 15, 0.82);
+  --color-bg-overlay-bottom: rgba(12, 18, 28, 0.72);
+  --color-bg-highlight: rgba(38, 118, 71, 0.28);
+  --color-bg-shadow: rgba(0, 0, 0, 0.42);
   --bg-photo-startup: url("/assets/img/fields.jpg");
   --bg-photo-app: url("/assets/img/fields2.jpg");
   --font-family-base: "Helvetica Neue", Arial, sans-serif;
