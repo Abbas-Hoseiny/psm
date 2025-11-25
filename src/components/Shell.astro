@@ -68,6 +68,14 @@
       </div>
       <div class="col text-end">
         <small id="app-version" class="text-muted"></small>
+        <button
+          type="button"
+          class="monitor-toggle"
+          data-action="debug-overlay-toggle"
+          title="Performance Monitor aktivieren"
+        >
+          <i class="bi bi-activity"></i>
+        </button>
       </div>
     </div>
   </div>
@@ -103,6 +111,28 @@
   .brand-logo {
     max-height: 40px;
     max-width: 40px;
+  }
+
+  .monitor-toggle {
+    margin-left: 0.5rem;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.75);
+    border-radius: 999px;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.85rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .monitor-toggle:hover,
+  .monitor-toggle[data-active="true"] {
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
   }
   
   @media print {
