@@ -1,4 +1,6 @@
 import {
+  ensureSliceWindow,
+  extractSliceItems,
   getState,
   subscribeState,
   updateSlice,
@@ -36,6 +38,8 @@ let profileSelectAllInput: HTMLInputElement | null = null;
 let profileDraftSelection = new Set<string>();
 let editingProfileId: string | null = null;
 let sanitizingProfiles = false;
+const getMediumItems = (state: AppState): any[] =>
+  extractSliceItems<any>(state.mediums);
 const MEDIUMS_PAGE_SIZE = 25;
 const mediumsNumberFormatter = new Intl.NumberFormat("de-DE");
 let mediumsPageIndex = 0;
@@ -175,7 +179,7 @@ function sanitizeDraftSelection(state: AppState): void {
     return;
   }
   const validMediumIds = new Set<string>(
-    state.mediums.map((medium: any) => medium.id)
+    getMediumItems(state).map((medium: any) => medium.id)
   );
   let changed = false;
   profileDraftSelection.forEach((id) => {
@@ -204,7 +208,7 @@ function syncProfileCheckboxes(): void {
 }
 
 function updateProfileSelectionSummary(state: AppState): void {
-  const total = state.mediums.length;
+  const total = getMediumItems(state).length;
   const selected = profileDraftSelection.size;
   let text = "Noch keine Mittel ausgewählt.";
   if (!total) {
@@ -275,7 +279,7 @@ function renderProfileList(state: AppState): void {
     return;
   }
   const mediumMap = new Map<string, any>(
-    state.mediums.map((medium: any) => [medium.id, medium])
+    getMediumItems(state).map((medium: any) => [medium.id, medium])
   );
   tableBody.innerHTML = "";
   profiles.forEach((profile) => {
@@ -310,7 +314,7 @@ function sanitizeMediumProfiles(state: AppState, services: Services): void {
     return;
   }
   const validMediumIds = new Set<string>(
-    state.mediums.map((medium: any) => medium.id)
+    getMediumItems(state).map((medium: any) => medium.id)
   );
   let changed = false;
   const sanitizedProfiles = state.mediumProfiles
@@ -396,7 +400,7 @@ function updateMediumsPager(state: AppState): void {
   if (!widget) {
     return;
   }
-  const total = state.mediums.length;
+  const total = getMediumItems(state).length;
   if (!total) {
     mediumsPageIndex = 0;
     widget.update({
@@ -434,7 +438,7 @@ function goToNextMediumsPage(): void {
   if (!state) {
     return;
   }
-  const total = state.mediums.length;
+  const total = getMediumItems(state).length;
   if (!total) {
     return;
   }
@@ -455,7 +459,7 @@ function renderMediumRows(state: AppState): void {
     state.measurementMethods.map((method: any) => [method.id, method])
   );
 
-  const total = state.mediums.length;
+  const total = getMediumItems(state).length;
   if (!total) {
     mediumsTableBody.innerHTML = `
       <tr>
@@ -468,7 +472,7 @@ function renderMediumRows(state: AppState): void {
   }
 
   const { start, end } = getMediumsPageBounds(total);
-  const visibleMediums = state.mediums.slice(start, end);
+  const visibleMediums = getMediumItems(state).slice(start, end);
   mediumsTableBody.innerHTML = "";
   visibleMediums.forEach((medium: any, index: number) => {
     const globalIndex = start + index;
@@ -674,10 +678,16 @@ export function initSettings(
       value,
       zulassungsnummer: approvalNumber || null,
     };
-    services.state.updateSlice("mediums", (mediums: any[]) => [
-      ...mediums,
-      medium,
-    ]);
+    services.state.updateSlice("mediums", (mediumsSlice) => {
+      const slice = ensureSliceWindow<any>(mediumsSlice as any);
+      const items = [...slice.items, medium];
+      return {
+        ...slice,
+        items,
+        totalCount: items.length,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+    });
     addForm?.reset();
     renderMethodSuggestions(services.state.getState());
   });
@@ -693,10 +703,16 @@ export function initSettings(
     if (Number.isNaN(index)) {
       return;
     }
-    services.state.updateSlice("mediums", (mediums: any[]) => {
-      const copy = mediums.slice();
-      copy.splice(index, 1);
-      return copy;
+    services.state.updateSlice("mediums", (mediumsSlice) => {
+      const slice = ensureSliceWindow<any>(mediumsSlice as any);
+      const items = slice.items.slice();
+      items.splice(index, 1);
+      return {
+        ...slice,
+        items,
+        totalCount: Math.min(slice.totalCount, items.length),
+        lastUpdatedAt: new Date().toISOString(),
+      };
     });
   });
 
@@ -732,7 +748,7 @@ export function initSettings(
     profileSelectAllInput.indeterminate = false;
     if (profileSelectAllInput.checked) {
       profileDraftSelection = new Set(
-        state.mediums.map((medium: any) => medium.id)
+        getMediumItems(state).map((medium: any) => medium.id)
       );
     } else {
       profileDraftSelection = new Set<string>();
@@ -767,7 +783,7 @@ export function initSettings(
       return;
     }
     const timestamp = new Date().toISOString();
-    const mediumIds = state.mediums
+    const mediumIds = getMediumItems(state)
       .filter((medium: any) => profileDraftSelection.has(medium.id))
       .map((medium: any) => medium.id);
     if (editingProfileId) {

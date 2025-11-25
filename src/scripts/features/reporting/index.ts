@@ -1,4 +1,9 @@
-import { getState, subscribeState, type AppState } from "@scripts/core/state";
+import {
+  extractSliceItems,
+  getState,
+  subscribeState,
+  type AppState,
+} from "@scripts/core/state";
 import { renderCalculationSnapshot } from "@scripts/features/shared/calculationSnapshot";
 import { initVirtualList } from "@scripts/core/virtualList";
 import { escapeHtml, parseIsoDate } from "@scripts/core/utils";
@@ -681,9 +686,7 @@ function applyFilter(
   state: AppState,
   filter: DateFilter | null
 ): void {
-  const source = Array.isArray(state.history)
-    ? (state.history as ReportingEntry[])
-    : [];
+  const source = extractSliceItems<ReportingEntry>(state.history);
   if (!filter) {
     renderTable(section, source, state.fieldLabels);
     return;

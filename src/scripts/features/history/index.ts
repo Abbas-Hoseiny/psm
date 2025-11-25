@@ -1,4 +1,6 @@
 import {
+  extractSliceItems,
+  ensureSliceWindow,
   getState,
   subscribeState,
   updateSlice,
@@ -182,7 +184,7 @@ function getEntriesSnapshot(state: AppState): HistoryEntry[] {
   if (dataMode === "sqlite") {
     return historyEntries;
   }
-  return Array.isArray(state.history) ? (state.history as HistoryEntry[]) : [];
+  return extractSliceItems<HistoryEntry>(state.history);
 }
 
 function getLoadedPageCount(): number {
@@ -204,9 +206,7 @@ function getSqlitePageOffset(): number {
 function getVisibleEntriesCount(): number {
   if (dataMode !== "sqlite") {
     const state = getState();
-    const entries = Array.isArray(state.history)
-      ? (state.history as HistoryEntry[])
-      : historyEntries;
+    const entries = extractSliceItems<HistoryEntry>(state.history);
     return entries.length;
   }
   const start = getSqlitePageOffset();
@@ -1254,10 +1254,16 @@ export function initHistory(
           }
         })();
       } else {
-        services.state.updateSlice("history", (history) => {
-          const copy = [...history];
-          copy.splice(index, 1);
-          return copy;
+        services.state.updateSlice("history", (historySlice) => {
+          const slice = ensureSliceWindow<HistoryEntry>(historySlice as any);
+          const items = slice.items.slice();
+          items.splice(index, 1);
+          return {
+            ...slice,
+            items,
+            totalCount: Math.max(slice.totalCount - 1, items.length),
+            lastUpdatedAt: new Date().toISOString(),
+          };
         });
         selectedIndexes.clear();
         updateSelectionUI(section);

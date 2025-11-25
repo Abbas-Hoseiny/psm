@@ -1,6 +1,6 @@
 import defaultsSource from "../../config/defaults.json";
 import { resolveFieldLabels } from "./labels";
-import { getState, patchState } from "./state";
+import { createSliceWindowFromArray, getState, patchState } from "./state";
 
 let cachedDefaults: any = null;
 
@@ -33,9 +33,9 @@ export async function loadDefaultsConfig(): Promise<any> {
     company: { ...current.company, ...(defaults.meta?.company ?? {}) },
     defaults: mergeDefaults(current.defaults, defaults.meta?.defaults ?? {}),
     measurementMethods: [...(defaults.meta?.measurementMethods ?? [])],
-    mediums: [...(defaults.mediums ?? [])],
+    mediums: createSliceWindowFromArray(defaults.mediums ?? []),
     mediumProfiles: [...(defaults.mediumProfiles ?? [])],
-    history: [...(defaults.history ?? [])],
+    history: createSliceWindowFromArray(defaults.history ?? []),
     fieldLabels: resolveFieldLabels(defaults.meta?.fieldLabels ?? {}),
   });
 
