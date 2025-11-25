@@ -343,9 +343,39 @@ interface DocumentationFocusContext {
   highlightEntryIds: Set<string>;
 }
 
+interface DocSeedConfig {
+  enabled: boolean;
+  count: number;
+}
+
+function resolveDocSeedConfig(): DocSeedConfig {
+  if (typeof window === "undefined") {
+    return { enabled: false, count: DEFAULT_SEED_COUNT };
+  }
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("seedHistory")) {
+      return { enabled: false, count: DEFAULT_SEED_COUNT };
+    }
+    const rawValue = params.get("seedHistory");
+    const numeric = rawValue ? Number(rawValue) : Number.NaN;
+    const normalized =
+      Number.isFinite(numeric) && numeric > 0
+        ? Math.min(Math.round(numeric), MAX_SEED_COUNT)
+        : DEFAULT_SEED_COUNT;
+    return { enabled: true, count: normalized };
+  } catch (error) {
+    console.warn("seedHistory Parameter konnte nicht gelesen werden", error);
+    return { enabled: false, count: DEFAULT_SEED_COUNT };
+  }
+}
+
 const PAGE_SIZE = 25;
 const DOC_PAGE_CACHE_LIMIT = 4;
 const numberFormatter = new Intl.NumberFormat("de-DE");
+const DEFAULT_SEED_COUNT = 200;
+const MAX_SEED_COUNT = 2000;
+const docSeedConfig = resolveDocSeedConfig();
 let initialized = false;
 let dataMode: DataMode = "memory";
 let currentFilters: DocumentationFilters = getDefaultFilters();
@@ -370,6 +400,7 @@ let archiveLogsLoading: Promise<void> | null = null;
 let docPagerWidget: PagerWidget | null = null;
 let docPagerTarget: HTMLElement | null = null;
 let docLoadError: string | null = null;
+let docSeedBusy = false;
 
 function resolveStorageDriver(state: AppState): string {
   return state.app?.storageDriver || getActiveDriverKey();
@@ -1118,6 +1149,22 @@ function updatePagerWidget(section: HTMLElement): void {
     canNext,
     loadingDirection: isLoadingEntries && hasNextPage ? "next" : null,
   });
+}
+
+function updateDocSeedButton(section: HTMLElement): void {
+  if (!docSeedConfig.enabled) {
+    return;
+  }
+  const button = section.querySelector<HTMLButtonElement>(
+    '[data-action="doc-seed"]'
+  );
+  if (!button) {
+    return;
+  }
+  button.disabled = docSeedBusy;
+  button.textContent = docSeedBusy
+    ? "Dummy-Daten werden erstellt..."
+    : `+ ${docSeedConfig.count} Dummy-Einträge`;
 }
 
 function goToPrevPage(section: HTMLElement): void {
@@ -2049,6 +2096,9 @@ function createSection(): HTMLElement {
     startDate: startValue,
     endDate: endValue,
   };
+  const devSeedButton = docSeedConfig.enabled
+    ? `<button class="btn btn-outline-info btn-sm" type="button" data-action="doc-seed">+ ${docSeedConfig.count} Dummy-Einträge</button>`
+    : "";
   wrapper.className = "section-inner";
   wrapper.innerHTML = `
     <h2 class="text-center mb-4">Dokumentation</h2>
@@ -2144,6 +2194,7 @@ function createSection(): HTMLElement {
             <button class="btn btn-outline-light btn-sm" data-action="export-zip" disabled>ZIP-Export</button>
             <button class="btn btn-outline-light btn-sm" data-action="delete-selection" disabled>Löschen</button>
           </div>
+          ${devSeedButton}
         </div>
       </div>
       <div class="doc-focus-banner d-none no-print" data-role="doc-focus-banner">
@@ -2367,6 +2418,41 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
       return;
     }
 
+    if (action === "doc-seed") {
+      if (!docSeedConfig.enabled || docSeedBusy) {
+        return;
+      }
+      const globalApi = (
+        window as typeof window & {
+          __PSL?: {
+            seedHistoryEntries?: (count?: number) => Promise<unknown>;
+          };
+        }
+      ).__PSL;
+      const seedFn = globalApi?.seedHistoryEntries;
+      if (typeof seedFn !== "function") {
+        window.alert(
+          "Seed-Funktion ist nicht verfügbar. Bitte Entwicklungsmodus verwenden."
+        );
+        return;
+      }
+      docSeedBusy = true;
+      updateDocSeedButton(section);
+      void (async () => {
+        try {
+          await seedFn(docSeedConfig.count);
+          await applyFilters(section, services.state.getState());
+        } catch (error) {
+          console.error("Dummy-Daten konnten nicht erstellt werden", error);
+          window.alert("Dummy-Daten konnten nicht erstellt werden.");
+        } finally {
+          docSeedBusy = false;
+          updateDocSeedButton(section);
+        }
+      })();
+      return;
+    }
+
     if (action === "detail-print") {
       const detailWrapper = section.querySelector<HTMLElement>("#doc-detail");
       const entryId = detailWrapper?.dataset.entryId;
@@ -2440,6 +2526,7 @@ export function initDocumentation(
   host.appendChild(section);
 
   wireEventHandlers(section, services);
+  updateDocSeedButton(section);
   updateArchiveAvailability(section, services.state.getState());
   updateArchiveFormDefaults(section);
   const initialLogs = services.state.getState().archives?.logs ?? [];
