@@ -36,7 +36,9 @@ Wer von diesen Grenzwerten abweichen will, dokumentiert das im PR-Template und l
 
 ## Debug-Hilfen
 
-- Dev-Build zeigt ein Overlay mit aktuellen Listen-Groessen, Cursor-Offsets und letzter Fetch-Zeit.
+- **Overlay-Metriken**: Anzeigen je Abschnitt (History, Reporting, Documentation, Settings, GPS, Lookup) von `items.length`, `totalCount`, aktivem Cursor und letzter Fetch-Zeit. Optional zeigt das Panel die geschaetzte Payload-Groesse (`JSON.stringify(items).length / 1024`) und hebt Werte auf Gelb (90 % Budget) bzw. Rot (>100 % Budget).
+- **Aktivierungs-Strategie**: Overlay erscheint automatisch im Dev-Build (`import.meta.env.DEV`). In allen anderen Umgebungen muss der Nutzer _zweistufig_ aktivieren: (1) `localStorage.setItem("pslDebugAccess", "allow")`, (2) Seitenaufruf mit `?debugOverlay=1`. Nach erfolgreichem Start entfernt Bootstrap den Query-Parameter wieder und merkt sich den Zustand fuer die Session (`sessionStorage`). Ohne beide Flags bleibt das Overlay komplett verborgen.
+- **UI-Verhalten**: Das Overlay dockt rechts unten als verschiebbares Panel an, laesst sich per Tastenkombination `Ctrl+Shift+D` ein-/ausblenden und konsumiert keine Pointer-Ereignisse im Content-Bereich, damit Anwender nicht gestoert werden.
 - Sobald eine Liste mehr als ihr Budget haelt, loggt `warnIfLargeState(sliceName, size)` eine Warnung mit Stacktrace.
 - Feature-Flag `__PSL_DEBUG_FETCHES` aktiviert Timing-Logs pro Worker-Antwort.
 - CLI-Hook `npm run perf:report` fasst die letzten Overlay-Messwerte zusammen und scheitert im CI, falls Grenzen ueberschritten wurden.

@@ -4,6 +4,7 @@ import { getState, patchState, subscribeState, updateSlice } from "./state";
 import { emit, subscribe as subscribeEvent } from "./eventBus";
 import { initStarfield } from "../features/starfield";
 import { registerHistorySeeder } from "../dev/historySeeder";
+import { shouldEnableDebugOverlay } from "../dev/debugOverlayGate";
 
 // Feature imports - to be migrated
 // import { initStarfield } from '../features/starfield/index';
@@ -76,6 +77,16 @@ export async function bootstrap() {
   // Feature initialization - to be implemented in Astro components
   initStarfield();
   registerHistorySeeder(services);
+
+  if (shouldEnableDebugOverlay()) {
+    void import("../dev/debugOverlay")
+      .then(({ initDebugOverlay }) => {
+        initDebugOverlay(services);
+      })
+      .catch((error) => {
+        console.error("Debug-Overlay konnte nicht geladen werden", error);
+      });
+  }
   // initShell({ shell: regions.shell, footer: regions.footer }, services);
   // initStartup(regions.startup, services);
   // initCalculation(regions.main, services);
