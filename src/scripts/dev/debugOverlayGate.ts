@@ -3,7 +3,12 @@ const ACCESS_FLAG_KEY = "pslDebugAccess";
 const ACCESS_FLAG_VALUE = "allow";
 const QUERY_PARAM = "debugOverlay";
 
-type DebugOverlayReason = "dev-build" | "session" | "flag" | "unknown";
+type DebugOverlayReason =
+  | "dev-build"
+  | "session"
+  | "flag"
+  | "manual"
+  | "unknown";
 
 function readStorage(
   storage: Storage | null | undefined,
@@ -73,11 +78,12 @@ function stripDebugOverlayQueryParam(): void {
   }
 }
 
-function hasSessionFlag(): boolean {
+function getSessionReason(): DebugOverlayReason | null {
   if (typeof window === "undefined") {
-    return false;
+    return null;
   }
-  return Boolean(readStorage(window.sessionStorage, SESSION_FLAG_KEY));
+  const value = readStorage(window.sessionStorage, SESSION_FLAG_KEY);
+  return value as DebugOverlayReason | null;
 }
 
 function hasAccessGrant(): boolean {
@@ -98,8 +104,9 @@ export function shouldEnableDebugOverlay(): boolean {
     return true;
   }
 
-  if (hasSessionFlag()) {
-    publishDebugOverlayState(true, "session");
+  const sessionReason = getSessionReason();
+  if (sessionReason) {
+    publishDebugOverlayState(true, sessionReason);
     return true;
   }
 
@@ -122,4 +129,8 @@ export function shouldEnableDebugOverlay(): boolean {
   markSession("flag");
   stripDebugOverlayQueryParam();
   return true;
+}
+
+export function markManualDebugOverlayAccess(): void {
+  markSession("manual");
 }

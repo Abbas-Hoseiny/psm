@@ -4,7 +4,10 @@ import { getState, patchState, subscribeState, updateSlice } from "./state";
 import { emit, subscribe as subscribeEvent } from "./eventBus";
 import { initStarfield } from "../features/starfield";
 import { registerHistorySeeder } from "../dev/historySeeder";
-import { shouldEnableDebugOverlay } from "../dev/debugOverlayGate";
+import {
+  shouldEnableDebugOverlay,
+  markManualDebugOverlayAccess,
+} from "../dev/debugOverlayGate";
 
 // Feature imports - to be migrated
 // import { initStarfield } from '../features/starfield/index';
@@ -78,15 +81,51 @@ export async function bootstrap() {
   initStarfield();
   registerHistorySeeder(services);
 
+  const overlayToggle = document.querySelector<HTMLButtonElement>(
+    "[data-action='debug-overlay-toggle']"
+  );
+
+  const markToggleActive = () => {
+    if (!overlayToggle) {
+      return;
+    }
+    overlayToggle.dataset.active = "true";
+    overlayToggle.setAttribute("aria-pressed", "true");
+  };
+
+  let debugOverlayInit: Promise<void> | null = null;
+  const loadDebugOverlay = (reason?: "manual") => {
+    if (reason === "manual") {
+      markManualDebugOverlayAccess();
+    }
+    if (!debugOverlayInit) {
+      debugOverlayInit = import("../dev/debugOverlay")
+        .then(({ initDebugOverlay }) => {
+          initDebugOverlay(services);
+          markToggleActive();
+        })
+        .catch((error) => {
+          debugOverlayInit = null;
+          console.error("Debug-Overlay konnte nicht geladen werden", error);
+        });
+    } else if (reason === "manual") {
+      markToggleActive();
+    }
+    return debugOverlayInit;
+  };
+
   if (shouldEnableDebugOverlay()) {
-    void import("../dev/debugOverlay")
-      .then(({ initDebugOverlay }) => {
-        initDebugOverlay(services);
-      })
-      .catch((error) => {
-        console.error("Debug-Overlay konnte nicht geladen werden", error);
-      });
+    void loadDebugOverlay();
   }
+
+  overlayToggle?.addEventListener("click", () => {
+    overlayToggle.dataset.active = "loading";
+    overlayToggle.disabled = true;
+    void loadDebugOverlay("manual").finally(() => {
+      overlayToggle.disabled = false;
+      markToggleActive();
+    });
+  });
   // initShell({ shell: regions.shell, footer: regions.footer }, services);
   // initStartup(regions.startup, services);
   // initCalculation(regions.main, services);
