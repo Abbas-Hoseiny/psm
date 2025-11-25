@@ -42,8 +42,8 @@ Keine UI darf mehr komplette Datenbestaende auf einmal laden oder im Arbeitsspei
 
 ### 5. Monitoring und Schutzmechanismen
 
-- [ ] Debug-Overlay anzeigen (aktuelle Items, Cursor-Status, letzte Fetch-Zeit).
-- [ ] Dev-Warnung ausgeben, sobald mehr als N Items oder M Megabyte gleichzeitig geladen werden.
+- [ ] Debug-Overlay anzeigen (aktuelle Items, Cursor-Status, letzte Fetch-Zeit). Aktivierung erfolgt standardmaessig nur im Dev-Build; fuer Staging/Pages gilt das zweistufige Flag (`localStorage.pslDebugAccess="allow"` + `?debugOverlay=1`), damit Endnutzer nichts sehen.
+- [x] Dev-Warnung ausgeben, sobald mehr als N Items oder M Megabyte gleichzeitig geladen werden (Debug-Overlay feuert `performance:budget-warning`).
 - [ ] Optionale Telemetrie-Hooks fuer Ladezeiten und RAM-Verbrauch im Dev-Mode aktivieren.
 - Tests: Manuelle Dev-Session plus automatisierte Checks, dass Warnungen beim Ueberschreiten feuern.
 
