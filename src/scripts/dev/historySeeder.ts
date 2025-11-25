@@ -89,7 +89,15 @@ interface SeedOptions {
 }
 
 export function registerHistorySeeder(services: Services): void {
-  if (import.meta.env.PROD || typeof window === "undefined") {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const hasSeedFlag = params.has("seedHistory");
+  const isDevBuild = !import.meta.env.PROD;
+
+  if (!isDevBuild && !hasSeedFlag) {
     return;
   }
 
@@ -106,17 +114,14 @@ export function registerHistorySeeder(services: Services): void {
     seedHistoryEntries(services, { count });
   api.resetHistorySeedFlag = () => localStorage.removeItem(SEED_FLAG_KEY);
 
-  const params = new URLSearchParams(window.location.search);
-  const requested = Number(params.get("seedHistory"));
-  const requestedCount =
-    Number.isFinite(requested) && requested > 0 ? requested : DEFAULT_COUNT;
   const shouldAutoSeed =
-    params.has("seedHistory") ||
-    (!localStorage.getItem(SEED_FLAG_KEY) && getActiveDriverKey() === "sqlite");
+    !hasSeedFlag &&
+    !localStorage.getItem(SEED_FLAG_KEY) &&
+    getActiveDriverKey() === "sqlite";
 
   if (shouldAutoSeed) {
     void seedHistoryEntries(services, {
-      count: requestedCount,
+      count: DEFAULT_COUNT,
       setFlag: true,
     }).catch((error) => {
       console.error("History seeding failed", error);
