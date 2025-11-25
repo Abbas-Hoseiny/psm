@@ -54,8 +54,16 @@ function initIndex(): void {
   const gpsContainer = document.querySelector('[data-feature="gps"]');
   initGps(gpsContainer, services);
 
+  const updateBodyBackground = (hasDatabase: boolean) => {
+    const bodyEl = document.body;
+    if (!bodyEl) return;
+    bodyEl.classList.toggle("bg-app", hasDatabase);
+    bodyEl.classList.toggle("bg-startup", !hasDatabase);
+  };
+
   const toggleRegions = (state: AppState) => {
     const hasDatabase = Boolean(state.app?.hasDatabase);
+    updateBodyBackground(hasDatabase);
     if (startupRegion instanceof HTMLElement) {
       startupRegion.classList.toggle("d-none", hasDatabase);
     }
