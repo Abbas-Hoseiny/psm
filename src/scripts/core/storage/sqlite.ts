@@ -222,8 +222,9 @@ async function persistFileHandleIfNeeded(): Promise<void> {
   pendingFilePersist = (async () => {
     try {
       const exported = await callWorker("exportDB");
+      const bytes = normalizeExportedData(exported?.data);
       const writable = await fileHandle.createWritable();
-      await writable.write(new Uint8Array(exported.data));
+      await writable.write(bytes);
       await writable.close();
     } finally {
       pendingFilePersist = null;
@@ -243,6 +244,37 @@ export async function persistSqliteDatabaseFile(): Promise<void> {
     console.error("SQLite-Datei konnte nicht gespeichert werden", error);
     throw error;
   }
+}
+
+function normalizeExportedData(data: unknown): Uint8Array {
+  if (data instanceof Uint8Array) {
+    return data;
+  }
+  if (data instanceof ArrayBuffer) {
+    return new Uint8Array(data);
+  }
+  if (Array.isArray(data)) {
+    return new Uint8Array(data);
+  }
+  if (
+    data &&
+    typeof data === "object" &&
+    "buffer" in data &&
+    (data as { buffer: unknown }).buffer instanceof ArrayBuffer
+  ) {
+    const view = data as {
+      byteOffset?: number;
+      byteLength?: number;
+      buffer: ArrayBuffer;
+    };
+    const offset = typeof view.byteOffset === "number" ? view.byteOffset : 0;
+    const length =
+      typeof view.byteLength === "number"
+        ? view.byteLength
+        : view.buffer.byteLength - offset;
+    return new Uint8Array(view.buffer.slice(offset, offset + length));
+  }
+  throw new Error("Unsupported export format");
 }
 
 export async function save(data: any): Promise<{ context: any }> {

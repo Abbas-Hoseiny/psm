@@ -4,6 +4,10 @@ import {
   subscribeState,
   type AppState,
 } from "@scripts/core/state";
+import {
+  registerAutoRefreshPolicy,
+  type AutoRefreshStatus,
+} from "@scripts/core/autoRefresh";
 import { renderCalculationSnapshot } from "@scripts/features/shared/calculationSnapshot";
 import { initVirtualList } from "@scripts/core/virtualList";
 import { escapeHtml, parseIsoDate } from "@scripts/core/utils";
@@ -75,7 +79,6 @@ let pendingReportReload: {
   section: HTMLElement;
   labels: AppState["fieldLabels"];
 } | null = null;
-let reportNeedsRefresh = false;
 let reportLoadError: string | null = null;
 let reportPageIndex = 0;
 let reportPendingAdvance: "next" | null = null;
@@ -83,6 +86,7 @@ let reportPagerWidget: PagerWidget | null = null;
 let reportPagerTarget: HTMLElement | null = null;
 let reportPendingScrollIndex: number | null = null;
 let reportPendingScrollFrame: number | null = null;
+let reportAutoRefreshCleanup: (() => void) | null = null;
 
 function createSection(): HTMLElement {
   const section = document.createElement("div");
@@ -112,6 +116,9 @@ function createSection(): HTMLElement {
         <button class="btn btn-outline-light btn-sm" data-action="print-report" disabled>Drucken</button>
       </div>
       <div class="card-body">
+        <div class="alert alert-warning py-2 px-3 small d-none" data-role="report-refresh-indicator">
+          Neue Daten verfügbar. Ansicht wird beim Öffnen aktualisiert.
+        </div>
         <div data-role="report-list" class="report-list"></div>
         <div data-role="report-load-more" class="mt-3"></div>
       </div>
@@ -197,6 +204,32 @@ function describeFilter(
     return `${prefix} (${infoEmpty})`;
   }
   return `${prefix} (${entryCount})`;
+}
+
+function updateReportRefreshIndicator(
+  section: HTMLElement,
+  status: AutoRefreshStatus
+): void {
+  const indicator = section.querySelector<HTMLElement>(
+    '[data-role="report-refresh-indicator"]'
+  );
+  if (!indicator) {
+    return;
+  }
+  indicator.classList.remove("alert-info", "alert-warning");
+  if (status === "idle") {
+    indicator.classList.add("d-none");
+    return;
+  }
+  indicator.classList.remove("d-none");
+  if (status === "stale") {
+    indicator.classList.add("alert-warning");
+    indicator.textContent =
+      "Neue Daten verfügbar. Ansicht wird beim Öffnen aktualisiert.";
+  } else {
+    indicator.classList.add("alert-info");
+    indicator.textContent = "Aktualisiere Auswertung...";
+  }
 }
 
 function resolveStorageDriver(state: AppState): string {
@@ -810,29 +843,20 @@ export function initReporting(
   const section = createSection();
   host.appendChild(section);
 
-  if (typeof services.events?.subscribe === "function") {
-    services.events.subscribe("history:data-changed", () => {
-      if (dataMode !== "sqlite") {
-        return;
-      }
-      reportNeedsRefresh = true;
-      if (isLoadingReport) {
-        pendingReportReload = {
-          section,
-          labels: services.state.getState().fieldLabels,
-        };
-        return;
-      }
-      if (section.classList.contains("d-none")) {
-        return;
-      }
-      reportNeedsRefresh = false;
+  reportAutoRefreshCleanup?.();
+  reportAutoRefreshCleanup = registerAutoRefreshPolicy({
+    section: "report",
+    event: "history:data-changed",
+    shouldHandleEvent: () => dataMode === "sqlite",
+    shouldRefresh: () => dataMode === "sqlite",
+    onRefresh: () => {
       reportFilters = buildHistoryFiltersFromDateFilter(activeFilter);
-      void loadReportEntries(section, services.state.getState().fieldLabels, {
+      return loadReportEntries(section, services.state.getState().fieldLabels, {
         reset: true,
       });
-    });
-  }
+    },
+    onStatusChange: (status) => updateReportRefreshIndicator(section, status),
+  });
 
   const filterForm = section.querySelector<HTMLFormElement>("#report-filter");
   filterForm?.addEventListener("submit", (event) => {
@@ -877,21 +901,12 @@ export function initReporting(
       clearReportCache();
       if (dataMode === "sqlite") {
         reportFilters = buildHistoryFiltersFromDateFilter(activeFilter);
-        reportNeedsRefresh = true;
       } else {
         reportFilters = null;
-        reportNeedsRefresh = false;
       }
     }
 
     if (!active) {
-      return;
-    }
-
-    if (dataMode === "sqlite" && reportNeedsRefresh && !isLoadingReport) {
-      reportNeedsRefresh = false;
-      reportFilters = buildHistoryFiltersFromDateFilter(activeFilter);
-      void loadReportEntries(section, nextState.fieldLabels, { reset: true });
       return;
     }
 

@@ -8,6 +8,7 @@ import {
   type GpsPoint,
   type AppState,
 } from "./state";
+import { emit } from "./eventBus";
 import { getActiveDriverKey } from "./storage";
 import {
   listGpsPoints as workerListGpsPoints,
@@ -341,6 +342,7 @@ export async function saveGpsPoint(
       await setActiveGpsPoint(point.id, { silent: true });
     }
     await persistGpsChanges();
+    emit("gps:data-changed", { action: "upsert", id: point.id });
     return point;
   } catch (error) {
     console.error("GPS-Punkt konnte nicht gespeichert werden", error);
@@ -389,6 +391,7 @@ export async function deleteGpsPoint(id: string): Promise<void> {
       await workerSetActiveGpsPointId({ id: null });
     }
     await persistGpsChanges();
+    emit("gps:data-changed", { action: "delete", id: trimmedId });
   } catch (error) {
     console.error("GPS-Punkt konnte nicht gelöscht werden", error);
     updateGpsState({
@@ -412,6 +415,7 @@ export async function setActiveGpsPoint(
   await workerSetActiveGpsPointId({ id: trimmedId || null });
   updateGpsState({ activePointId: trimmedId || null });
   await persistGpsChanges();
+  emit("gps:data-changed", { action: "activate", id: trimmedId || null });
   if (!options.silent) {
     console.info(
       trimmedId
@@ -428,4 +432,5 @@ export async function syncGpsStateFromStorage(): Promise<void> {
     activePointId:
       typeof activeId === "string" && activeId.trim() ? activeId.trim() : null,
   });
+  emit("gps:data-changed", { action: "sync-active", id: activeId ?? null });
 }

@@ -7,6 +7,10 @@ import {
   type AppState,
   type ArchiveLogEntry,
 } from "@scripts/core/state";
+import {
+  registerAutoRefreshPolicy,
+  type AutoRefreshStatus,
+} from "@scripts/core/autoRefresh";
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { getActiveDriverKey, saveDatabase } from "@scripts/core/storage";
 import {
@@ -236,6 +240,32 @@ function updateFocusBanner(section: HTMLElement): void {
   banner.classList.remove("d-none");
 }
 
+function updateDocRefreshIndicator(
+  section: HTMLElement,
+  status: AutoRefreshStatus
+): void {
+  const indicator = section.querySelector<HTMLElement>(
+    '[data-role="doc-refresh-indicator"]'
+  );
+  if (!indicator) {
+    return;
+  }
+  indicator.classList.remove("alert-info", "alert-warning");
+  if (status === "idle") {
+    indicator.classList.add("d-none");
+    return;
+  }
+  indicator.classList.remove("d-none");
+  if (status === "stale") {
+    indicator.classList.add("alert-warning");
+    indicator.textContent =
+      "Neue Dokumentationseinträge verfügbar. Ansicht aktualisiert sich beim Öffnen.";
+  } else {
+    indicator.classList.add("alert-info");
+    indicator.textContent = "Aktualisiere Dokumentation...";
+  }
+}
+
 function clearFocusContext(
   section: HTMLElement,
   services: Services,
@@ -407,6 +437,7 @@ let archiveLogPagerWidget: PagerWidget | null = null;
 let archiveLogPagerTarget: HTMLElement | null = null;
 let docLoadError: string | null = null;
 let docSeedBusy = false;
+let documentationAutoRefreshCleanup: (() => void) | null = null;
 
 function resolveStorageDriver(state: AppState): string {
   return state.app?.storageDriver || getActiveDriverKey();
@@ -2333,6 +2364,9 @@ function createSection(): HTMLElement {
           <button class="btn btn-sm btn-outline-warning" data-action="doc-focus-clear">Markierung entfernen</button>
         </div>
       </div>
+      <div class="alert alert-warning py-2 px-3 small d-none no-print" data-role="doc-refresh-indicator">
+        Neue Dokumentationseinträge verfügbar. Ansicht aktualisiert sich beim Öffnen.
+      </div>
       <div class="card-body p-0">
         <div class="row g-0">
           <div class="col-12 col-lg-4 border-end">
@@ -2678,21 +2712,22 @@ export function initDocumentation(
         );
       }
     );
-
-    services.events.subscribe("history:data-changed", () => {
-      if (dataMode !== "sqlite" || focusLock) {
-        return;
-      }
-      applyAndRender();
-    });
   }
 
   const resolveHistoryLength = (state: AppState): number =>
     extractSliceItems<HistoryEntry>(state.history).length;
 
-  const applyAndRender = () => {
-    void applyFilters(section, services.state.getState());
-  };
+  const applyAndRender = () => applyFilters(section, services.state.getState());
+
+  documentationAutoRefreshCleanup?.();
+  documentationAutoRefreshCleanup = registerAutoRefreshPolicy({
+    section: "documentation",
+    event: "history:data-changed",
+    shouldHandleEvent: () => dataMode === "sqlite",
+    shouldRefresh: () => dataMode === "sqlite",
+    onRefresh: () => applyAndRender(),
+    onStatusChange: (status) => updateDocRefreshIndicator(section, status),
+  });
 
   lastHistoryLength = resolveHistoryLength(services.state.getState());
 

@@ -23,7 +23,7 @@ Keine UI darf mehr komplette Datenbestaende auf einmal laden oder im Arbeitsspei
 
 - [x] Gemeinsamer Pager (Vor/Zurueck) inklusive Spinner, Fehlerzustand und Retry.
 - [x] Virtual-List-Helper anpassen, damit er Cursor-Callbacks aus Schritt 2 nutzt.
-- [ ] Module migrieren (History, Reporting, Documentation, Import-Vorschau, Settings, GPS-Liste, Lookup). Nach jedem Modul manuelles QA (Scroll + Reload + Filter).
+- [x] Module migrieren (History, Reporting, Documentation, Import-Vorschau, Settings, GPS-Liste, Lookup). Nach jedem Modul manuelles QA (Scroll + Reload + Filter).
   - [x] History: Virtual-List + Pager an SQLite-Cursor gekoppelt, Bulk-Selection angepasst (QA: Scroll/Reload/Filter bitte lokal nachziehen; Build ✅ `npm run build` 2025-11-25).
   - [x] Reporting: Kartenliste & Tabelle auf Pager/Virtual-List umgestellt (QA: Scroll+Filter bitte lokal verifizieren; Build ✅ `npm run build` 2025-11-25).
   - [x] Documentation: Archiv/Editor-Sichten getrennt testen, Fokuswechsel sicherstellen (QA: Scroll/Filter/Archiv bitte lokal prüfen).
@@ -35,9 +35,9 @@ Keine UI darf mehr komplette Datenbestaende auf einmal laden oder im Arbeitsspei
 
 ### 4. State- und Event-Synchronitaet absichern
 
-- [ ] State-Slices verschlanken: keine globalen Arrays mehr, nur `{ items, cursor, totalCount }` pro Domaene.
-- [ ] EventBus erweitern (z. B. `history:data-changed`, `gps:data-changed`), damit andere Module ihre Ausschnitte invalidieren.
-- [ ] Auto-Refresh-Policies definieren: wann Listen automatisch neu laden und wann ein Hinweis angezeigt wird.
+- [x] State-Slices verschlanken: keine globalen Arrays mehr, nur `{ items, cursor, totalCount }` pro Domaene.
+- [x] EventBus erweitern (z. B. `history:data-changed`, `gps:data-changed`, `mediums:data-changed`), damit andere Module ihre Ausschnitte invalidieren.
+- [x] Auto-Refresh-Policies definieren: wann Listen automatisch neu laden und wann ein Hinweis angezeigt wird.
 - Tests: Unit-Tests fuer Store/Reducer, manuelle UI-Checks (Mutationen in Modul A wirken in Modul B).
 
 ### 5. Monitoring und Schutzmechanismen

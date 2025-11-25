@@ -2509,7 +2509,11 @@ async function exportDB() {
   if (!db) throw new Error("Database not initialized");
 
   const exported = sqlite3.capi.sqlite3_js_db_export(db.pointer);
-  return { data: Array.from(exported) };
+  const buffer = exported.buffer.slice(
+    exported.byteOffset,
+    exported.byteOffset + exported.byteLength
+  );
+  return { data: buffer };
 }
 
 /**

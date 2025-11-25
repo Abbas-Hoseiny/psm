@@ -21,6 +21,9 @@ interface Services {
     subscribe: typeof subscribeState;
     updateSlice: typeof updateSlice;
   };
+  events?: {
+    emit?: (eventName: string, payload?: unknown) => void;
+  };
 }
 
 let initialized = false;
@@ -306,6 +309,9 @@ async function deleteMediumAtIndex(
   if (mediumSavePending) {
     return;
   }
+  const currentState = services.state.getState();
+  const targetMedium = getMediumItems(currentState)[index] ?? null;
+  const targetId = targetMedium?.id || null;
   mediumSavePending = true;
   setMediumFormBusy(true);
   const originalLabel = trigger?.textContent ?? null;
@@ -325,7 +331,13 @@ async function deleteMediumAtIndex(
         lastUpdatedAt: new Date().toISOString(),
       };
     });
-    await persistChanges({ silent: true });
+    const persisted = await persistChanges({ silent: true });
+    if (persisted && targetId) {
+      services.events?.emit?.("mediums:data-changed", {
+        action: "deleted",
+        id: targetId,
+      });
+    }
   } finally {
     mediumSavePending = false;
     setMediumFormBusy(false);
@@ -812,6 +824,10 @@ export function initSettings(
       });
       if (persisted) {
         addForm.reset();
+        services.events?.emit?.("mediums:data-changed", {
+          action: "created",
+          id,
+        });
       }
     } finally {
       mediumSavePending = false;

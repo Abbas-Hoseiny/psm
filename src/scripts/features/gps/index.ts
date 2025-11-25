@@ -18,6 +18,10 @@ import {
   createPagerWidget,
   type PagerWidget,
 } from "@scripts/features/shared/pagerWidget";
+import {
+  registerAutoRefreshPolicy,
+  type AutoRefreshStatus,
+} from "@scripts/core/autoRefresh";
 
 interface Services {
   state: {
@@ -44,6 +48,7 @@ const getGpsSliceItems = (gpsState: GpsState): GpsPoint[] =>
 type Refs = {
   root: HTMLElement;
   message: HTMLElement | null;
+  refreshIndicator: HTMLElement | null;
   availability: HTMLElement | null;
   tabButtons: HTMLButtonElement[];
   panels: HTMLElement[];
@@ -94,6 +99,7 @@ const gpsNumberFormatter = new Intl.NumberFormat("de-DE");
 let gpsPageIndex = 0;
 let gpsPagerWidget: PagerWidget | null = null;
 let gpsPagerTarget: HTMLElement | null = null;
+let gpsAutoRefreshCleanup: (() => void) | null = null;
 
 type HistoryActivationStatus = "success" | "error" | "pending";
 
@@ -156,6 +162,9 @@ function createSection(): HTMLElement {
     </div>
 
     <div class="alert d-none" data-role="gps-message"></div>
+    <div class="alert alert-warning py-2 px-3 small d-none" data-role="gps-refresh-indicator">
+      GPS-Daten wurden in einem anderen Bereich geändert. Ansicht aktualisiert sich beim Öffnen.
+    </div>
 
     <div class="card card-dark">
       <div class="card-header border-secondary">
@@ -310,6 +319,9 @@ function collectRefs(section: HTMLElement): Refs {
   return {
     root: section,
     message: section.querySelector('[data-role="gps-message"]'),
+    refreshIndicator: section.querySelector(
+      '[data-role="gps-refresh-indicator"]'
+    ),
     availability: section.querySelector('[data-role="gps-availability"]'),
     tabButtons: Array.from(
       section.querySelectorAll<HTMLButtonElement>('[data-role="gps-tab"]')
@@ -549,6 +561,27 @@ function setMessage(
     messageTimeout = window.setTimeout(() => {
       refs?.message?.classList.add("d-none");
     }, autoHideMs);
+  }
+}
+
+function updateGpsRefreshIndicator(status: AutoRefreshStatus): void {
+  const indicator = refs?.refreshIndicator;
+  if (!indicator) {
+    return;
+  }
+  indicator.classList.remove("alert-warning", "alert-info");
+  if (status === "idle") {
+    indicator.classList.add("d-none");
+    return;
+  }
+  indicator.classList.remove("d-none");
+  if (status === "stale") {
+    indicator.classList.add("alert-warning");
+    indicator.textContent =
+      "GPS-Daten wurden geändert. Ansicht aktualisiert sich beim Öffnen.";
+  } else {
+    indicator.classList.add("alert-info");
+    indicator.textContent = "GPS-Daten werden aktualisiert...";
   }
 }
 
@@ -1382,6 +1415,17 @@ export function initGps(container: Element | null, services: Services): void {
   const section = createSection();
   host.appendChild(section);
   refs = collectRefs(section);
+  gpsAutoRefreshCleanup?.();
+  gpsAutoRefreshCleanup = registerAutoRefreshPolicy({
+    section: "gps",
+    event: "gps:data-changed",
+    shouldHandleEvent: () =>
+      evaluateAvailability(services.state.getState().app) === "ok",
+    shouldRefresh: () =>
+      evaluateAvailability(services.state.getState().app) === "ok",
+    onRefresh: () => refreshPoints({ notify: false, reason: "auto" }),
+    onStatusChange: (status) => updateGpsRefreshIndicator(status),
+  });
   gpsPageIndex = 0;
   gpsPagerWidget?.destroy();
   gpsPagerWidget = null;
