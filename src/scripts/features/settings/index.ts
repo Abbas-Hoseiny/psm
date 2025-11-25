@@ -25,6 +25,7 @@ interface Services {
 
 let initialized = false;
 let mediumsTableBody: HTMLTableSectionElement | null = null;
+let mediumSubmitButton: HTMLButtonElement | null = null;
 let methodInput: HTMLInputElement | null = null;
 let methodDatalist: HTMLDataListElement | null = null;
 let addForm: HTMLFormElement | null = null;
@@ -38,6 +39,8 @@ let profileSelectAllInput: HTMLInputElement | null = null;
 let profileDraftSelection = new Set<string>();
 let editingProfileId: string | null = null;
 let sanitizingProfiles = false;
+let profileSavePending = false;
+let mediumSavePending = false;
 const getMediumItems = (state: AppState): any[] =>
   extractSliceItems<any>(state.mediums);
 const MEDIUMS_PAGE_SIZE = 25;
@@ -57,8 +60,8 @@ function createSection(): HTMLElement {
       <div class="card-body">
         <p class="mb-2"><strong>Was kann ich hier tun?</strong></p>
         <p class="text-muted mb-0">
-          Erfasse, bearbeite oder lösche deine Mittel. Trage Name, Einheit, Methode, Zulassungsnummer und den Faktor ein
-          und speichere die Änderungen anschließend in der Datenbank. Tippe bei der Methode einfach einen bestehenden Namen oder
+          Erfasse, bearbeite oder lösche deine Mittel. Trage Name, Einheit, Methode, Zulassungsnummer und den Faktor ein –
+          die Änderungen werden nach jedem Speichern sofort dauerhaft gesichert. Tippe bei der Methode einfach einen bestehenden Namen oder
           vergib einen neuen – neu erfasste Methoden stehen beim nächsten Mal automatisch zur Auswahl.
         </p>
       </div>
@@ -90,6 +93,9 @@ function createSection(): HTMLElement {
           <p class="text-muted mb-3">
             Setze links Häkchen bei den Mitteln, die gemeinsam verwendet werden sollen. Profilnamen erscheinen nur hier –
             Berechnung, Historie und Ausdruck enthalten ausschließlich die ausgewählten Mittel.
+          </p>
+          <p class="small text-muted mb-3">
+            Profile werden beim Speichern oder Aktualisieren sofort dauerhaft gesichert.
           </p>
           <form id="settings-profile-form" class="row g-3 align-items-end">
             <input type="hidden" name="profile-id" />
@@ -136,7 +142,7 @@ function createSection(): HTMLElement {
           </div>
         </form>
         <div class="mt-3 small text-muted">
-          Nach dem Hinzufügen kannst du Mittel jederzeit löschen. Änderungen werden erst mit dem Button unten dauerhaft gespeichert.
+          Nach dem Hinzufügen kannst du Mittel jederzeit löschen. Änderungen werden automatisch gespeichert.
         </div>
       </div>
     </div>
@@ -158,7 +164,9 @@ function createSection(): HTMLElement {
       </div>
     </div>
     <div class="mt-4 no-print">
-      <button class="btn btn-success" data-action="persist">Änderungen speichern</button>
+      <div class="alert alert-secondary mb-0 small text-muted">
+        Mittel-Änderungen werden sofort gespeichert.
+      </div>
     </div>
   `;
   return section;
@@ -262,6 +270,98 @@ function loadProfileIntoForm(profile: MediumProfile, state: AppState): void {
   profileDraftSelection = new Set(profile.mediumIds);
   syncProfileCheckboxes();
   updateProfileSelectionSummary(state);
+}
+
+function setProfileSubmitBusy(isBusy: boolean, busyLabel?: string): void {
+  if (!profileSubmitButton) {
+    return;
+  }
+  profileSubmitButton.disabled = isBusy;
+  if (isBusy) {
+    profileSubmitButton.textContent = busyLabel || "Speichert...";
+    return;
+  }
+  profileSubmitButton.textContent = editingProfileId
+    ? "Profil aktualisieren"
+    : "Profil speichern";
+}
+
+function setMediumFormBusy(isBusy: boolean, busyLabel?: string): void {
+  if (!mediumSubmitButton) {
+    return;
+  }
+  mediumSubmitButton.disabled = isBusy;
+  if (isBusy) {
+    mediumSubmitButton.textContent = busyLabel || "Speichert...";
+    return;
+  }
+  mediumSubmitButton.textContent = "Hinzufügen";
+}
+
+async function deleteMediumAtIndex(
+  index: number,
+  services: Services,
+  trigger?: HTMLButtonElement | null
+): Promise<void> {
+  if (mediumSavePending) {
+    return;
+  }
+  mediumSavePending = true;
+  setMediumFormBusy(true);
+  const originalLabel = trigger?.textContent ?? null;
+  if (trigger) {
+    trigger.disabled = true;
+    trigger.textContent = "Lösche...";
+  }
+  try {
+    services.state.updateSlice("mediums", (mediumsSlice) => {
+      const slice = ensureSliceWindow<any>(mediumsSlice as any);
+      const items = slice.items.slice();
+      items.splice(index, 1);
+      return {
+        ...slice,
+        items,
+        totalCount: Math.min(slice.totalCount, items.length),
+        lastUpdatedAt: new Date().toISOString(),
+      };
+    });
+    await persistChanges({ silent: true });
+  } finally {
+    mediumSavePending = false;
+    setMediumFormBusy(false);
+    if (trigger && trigger.isConnected) {
+      trigger.disabled = false;
+      trigger.textContent = originalLabel ?? "Löschen";
+    }
+  }
+}
+
+async function deleteProfileAndPersist(
+  profile: MediumProfile,
+  services: Services,
+  trigger?: HTMLButtonElement | null
+): Promise<void> {
+  const originalLabel = trigger?.textContent ?? null;
+  if (trigger) {
+    trigger.disabled = true;
+    trigger.textContent = "Lösche...";
+  }
+  try {
+    services.state.updateSlice(
+      "mediumProfiles",
+      (profiles: MediumProfile[] = []) =>
+        profiles.filter((item) => item.id !== profile.id)
+    );
+    if (editingProfileId === profile.id) {
+      resetProfileForm(services.state.getState());
+    }
+    await persistChanges({ successMessage: "Profil gelöscht." });
+  } finally {
+    if (trigger) {
+      trigger.disabled = false;
+      trigger.textContent = originalLabel || "Löschen";
+    }
+  }
 }
 
 function renderProfileList(state: AppState): void {
@@ -579,16 +679,25 @@ function ensureMethodExists(
   return id;
 }
 
-async function persistChanges(): Promise<void> {
+interface PersistOptions {
+  successMessage?: string;
+  silent?: boolean;
+}
+
+async function persistChanges(options?: PersistOptions): Promise<boolean> {
   try {
     const snapshot = getDatabaseSnapshot();
     await saveDatabase(snapshot);
-    window.alert("Änderungen wurden gespeichert.");
+    if (!options?.silent) {
+      window.alert(options?.successMessage ?? "Änderungen wurden gespeichert.");
+    }
+    return true;
   } catch (err) {
     console.error("Fehler beim Speichern", err);
     const message =
       err instanceof Error ? err.message : "Speichern fehlgeschlagen";
     window.alert(message);
+    return false;
   }
 }
 
@@ -627,6 +736,9 @@ export function initSettings(
     "#settings-method-options"
   );
   addForm = section.querySelector<HTMLFormElement>("#settings-medium-form");
+  mediumSubmitButton = addForm
+    ? addForm.querySelector<HTMLButtonElement>('button[type="submit"]')
+    : null;
   profileForm = section.querySelector<HTMLFormElement>(
     "#settings-profile-form"
   );
@@ -647,10 +759,12 @@ export function initSettings(
     '[data-role="profile-select-all"]'
   );
 
-  addForm?.addEventListener("submit", (event) => {
-    event.preventDefault();
+  async function handleMediumAdd(): Promise<void> {
+    if (!addForm || mediumSavePending) {
+      return;
+    }
     const state = services.state.getState();
-    const formData = new FormData(addForm!);
+    const formData = new FormData(addForm);
     const name = (formData.get("medium-name") || "").toString().trim();
     const unit = (formData.get("medium-unit") || "").toString().trim();
     const valueRaw = formData.get("medium-value");
@@ -678,18 +792,36 @@ export function initSettings(
       value,
       zulassungsnummer: approvalNumber || null,
     };
-    services.state.updateSlice("mediums", (mediumsSlice) => {
-      const slice = ensureSliceWindow<any>(mediumsSlice as any);
-      const items = [...slice.items, medium];
-      return {
-        ...slice,
-        items,
-        totalCount: items.length,
-        lastUpdatedAt: new Date().toISOString(),
-      };
-    });
-    addForm?.reset();
-    renderMethodSuggestions(services.state.getState());
+    mediumSavePending = true;
+    setMediumFormBusy(true, "Speichere...");
+    try {
+      services.state.updateSlice("mediums", (mediumsSlice) => {
+        const slice = ensureSliceWindow<any>(mediumsSlice as any);
+        const items = [...slice.items, medium];
+        return {
+          ...slice,
+          items,
+          totalCount: items.length,
+          lastUpdatedAt: new Date().toISOString(),
+        };
+      });
+      renderMethodSuggestions(services.state.getState());
+      const persisted = await persistChanges({
+        successMessage: "Mittel gespeichert.",
+        silent: true,
+      });
+      if (persisted) {
+        addForm.reset();
+      }
+    } finally {
+      mediumSavePending = false;
+      setMediumFormBusy(false);
+    }
+  }
+
+  addForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void handleMediumAdd();
   });
 
   mediumsTableBody?.addEventListener("click", (event) => {
@@ -703,17 +835,7 @@ export function initSettings(
     if (Number.isNaN(index)) {
       return;
     }
-    services.state.updateSlice("mediums", (mediumsSlice) => {
-      const slice = ensureSliceWindow<any>(mediumsSlice as any);
-      const items = slice.items.slice();
-      items.splice(index, 1);
-      return {
-        ...slice,
-        items,
-        totalCount: Math.min(slice.totalCount, items.length),
-        lastUpdatedAt: new Date().toISOString(),
-      };
-    });
+    void deleteMediumAtIndex(index, services, target);
   });
 
   mediumsTableBody?.addEventListener("change", (event) => {
@@ -734,12 +856,6 @@ export function initSettings(
     updateProfileSelectionSummary(state);
   });
 
-  section
-    .querySelector<HTMLButtonElement>('[data-action="persist"]')
-    ?.addEventListener("click", () => {
-      void persistChanges();
-    });
-
   profileSelectAllInput?.addEventListener("change", () => {
     const state = services.state.getState();
     if (!profileSelectAllInput) {
@@ -757,8 +873,7 @@ export function initSettings(
     updateProfileSelectionSummary(state);
   });
 
-  profileForm?.addEventListener("submit", (event) => {
-    event.preventDefault();
+  const handleProfileSubmit = async (): Promise<void> => {
     if (!profileNameInput) {
       return;
     }
@@ -782,34 +897,66 @@ export function initSettings(
       window.alert("Ein Profil mit diesem Namen existiert bereits.");
       return;
     }
-    const timestamp = new Date().toISOString();
     const mediumIds = getMediumItems(state)
       .filter((medium: any) => profileDraftSelection.has(medium.id))
       .map((medium: any) => medium.id);
-    if (editingProfileId) {
-      services.state.updateSlice(
-        "mediumProfiles",
-        (profiles: MediumProfile[] = []) =>
-          profiles.map((profile) =>
-            profile.id === editingProfileId
-              ? { ...profile, name, mediumIds, updatedAt: timestamp }
-              : profile
-          )
+    if (!mediumIds.length) {
+      window.alert(
+        "Ausgewählte Mittel sind nicht mehr verfügbar. Bitte Auswahl prüfen."
       );
-    } else {
-      const newProfile: MediumProfile = {
-        id: generateProfileId(),
-        name,
-        mediumIds,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-      services.state.updateSlice(
-        "mediumProfiles",
-        (profiles: MediumProfile[] = []) => [...profiles, newProfile]
-      );
+      sanitizeDraftSelection(state);
+      syncProfileCheckboxes();
+      updateProfileSelectionSummary(state);
+      return;
     }
-    resetProfileForm(services.state.getState());
+    if (profileSavePending) {
+      return;
+    }
+    const isUpdate = Boolean(editingProfileId);
+    profileSavePending = true;
+    setProfileSubmitBusy(true, isUpdate ? "Aktualisiere..." : "Speichere...");
+    const timestamp = new Date().toISOString();
+    try {
+      if (editingProfileId) {
+        services.state.updateSlice(
+          "mediumProfiles",
+          (profiles: MediumProfile[] = []) =>
+            profiles.map((profile) =>
+              profile.id === editingProfileId
+                ? { ...profile, name, mediumIds, updatedAt: timestamp }
+                : profile
+            )
+        );
+      } else {
+        const newProfile: MediumProfile = {
+          id: generateProfileId(),
+          name,
+          mediumIds,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        services.state.updateSlice(
+          "mediumProfiles",
+          (profiles: MediumProfile[] = []) => [...profiles, newProfile]
+        );
+      }
+      const persisted = await persistChanges({
+        successMessage: isUpdate
+          ? "Profil aktualisiert und gespeichert."
+          : "Profil gespeichert.",
+      });
+      if (persisted) {
+        resetProfileForm(services.state.getState());
+      }
+    } finally {
+      profileSavePending = false;
+      setProfileSubmitBusy(false);
+    }
+  };
+
+  profileForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void handleProfileSubmit();
   });
 
   profileTableBody?.addEventListener("click", (event) => {
@@ -839,14 +986,7 @@ export function initSettings(
       if (!window.confirm(`Profil "${profile.name}" wirklich löschen?`)) {
         return;
       }
-      services.state.updateSlice(
-        "mediumProfiles",
-        (profiles: MediumProfile[] = []) =>
-          profiles.filter((item) => item.id !== id)
-      );
-      if (editingProfileId === id) {
-        resetProfileForm(services.state.getState());
-      }
+      void deleteProfileAndPersist(profile, services, target);
     }
   });
 

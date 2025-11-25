@@ -100,6 +100,7 @@ type EntryDetailPayload = { entry: DocumentationEntry; detail: HistoryEntry };
 const ARCHIVE_ENTRY_LIMIT = 5000;
 const ARCHIVE_HIGHLIGHT_LIMIT = 50;
 const ARCHIVE_LOG_LIMIT = 50;
+const ARCHIVE_LOG_PAGE_SIZE = 3;
 
 function formatDateInputValue(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -401,6 +402,9 @@ let archiveLogsLoaded = false;
 let archiveLogsLoading: Promise<void> | null = null;
 let docPagerWidget: PagerWidget | null = null;
 let docPagerTarget: HTMLElement | null = null;
+let archiveLogPageIndex = 0;
+let archiveLogPagerWidget: PagerWidget | null = null;
+let archiveLogPagerTarget: HTMLElement | null = null;
 let docLoadError: string | null = null;
 let docSeedBusy = false;
 
@@ -741,7 +745,8 @@ function formatArchiveLogDate(value: string | undefined): string {
 
 function renderArchiveLogs(
   section: HTMLElement,
-  logs: ArchiveLogEntry[] | undefined | null
+  logs: ArchiveLogEntry[] | undefined | null,
+  options: { resetPage?: boolean } = {}
 ): void {
   const target = section.querySelector<HTMLElement>(
     '[data-role="archive-log-list"]'
@@ -750,12 +755,17 @@ function renderArchiveLogs(
     return;
   }
   const list = Array.isArray(logs) ? logs : [];
-  if (!list.length) {
+  if (options.resetPage !== false) {
+    archiveLogPageIndex = 0;
+  }
+  const meta = getArchiveLogPageMeta(list);
+  if (!meta.total) {
     target.innerHTML =
       '<div class="text-muted small">Noch keine Archive erstellt.</div>';
+    updateArchiveLogPager(section, meta);
     return;
   }
-  const items = list
+  const items = meta.items
     .map((log) => {
       const dateLabel = formatArchiveLogDate(log.archivedAt);
       const rangeLabel = `${log.startDate || "-"} – ${log.endDate || "-"}`;
@@ -789,6 +799,7 @@ function renderArchiveLogs(
     })
     .join("");
   target.innerHTML = `<div class="list-group list-group-flush">${items}</div>`;
+  updateArchiveLogPager(section, meta);
 }
 
 function getArchiveLogById(
@@ -1117,6 +1128,103 @@ function ensurePagerWidget(section: HTMLElement): PagerWidget | null {
     docPagerTarget = target;
   }
   return docPagerWidget;
+}
+
+function ensureArchiveLogPager(section: HTMLElement): PagerWidget | null {
+  const target = section.querySelector<HTMLElement>(
+    '[data-role="archive-log-pager"]'
+  );
+  if (!target) {
+    return null;
+  }
+  if (!archiveLogPagerWidget || archiveLogPagerTarget !== target) {
+    archiveLogPagerWidget?.destroy();
+    archiveLogPagerWidget = createPagerWidget(target, {
+      onPrev: () => goToPrevArchiveLogPage(section),
+      onNext: () => goToNextArchiveLogPage(section),
+      labels: {
+        prev: "Zurück",
+        next: "Weiter",
+        loading: "Archive werden geladen...",
+        empty: "Keine Einträge",
+      },
+    });
+    archiveLogPagerTarget = target;
+  }
+  return archiveLogPagerWidget;
+}
+
+interface ArchiveLogPageMeta {
+  total: number;
+  start: number;
+  end: number;
+  items: ArchiveLogEntry[];
+}
+
+function getArchiveLogPageMeta(logs: ArchiveLogEntry[]): ArchiveLogPageMeta {
+  const total = logs.length;
+  if (!total) {
+    archiveLogPageIndex = 0;
+    return { total: 0, start: 0, end: 0, items: [] };
+  }
+  const totalPages = Math.max(Math.ceil(total / ARCHIVE_LOG_PAGE_SIZE), 1);
+  if (archiveLogPageIndex >= totalPages) {
+    archiveLogPageIndex = totalPages - 1;
+  }
+  if (archiveLogPageIndex < 0) {
+    archiveLogPageIndex = 0;
+  }
+  const start = archiveLogPageIndex * ARCHIVE_LOG_PAGE_SIZE;
+  const end = Math.min(start + ARCHIVE_LOG_PAGE_SIZE, total);
+  return {
+    total,
+    start,
+    end,
+    items: logs.slice(start, end),
+  };
+}
+
+function updateArchiveLogPager(
+  section: HTMLElement,
+  meta: ArchiveLogPageMeta
+): void {
+  const widget = ensureArchiveLogPager(section);
+  if (!widget) {
+    return;
+  }
+  if (!meta.total) {
+    widget.update({ status: "disabled", info: "Noch keine Archive" });
+    return;
+  }
+  widget.update({
+    status: "ready",
+    info: `Einträge ${meta.start + 1}–${meta.end} von ${meta.total}`,
+    canPrev: archiveLogPageIndex > 0,
+    canNext: meta.end < meta.total,
+  });
+}
+
+function goToPrevArchiveLogPage(section: HTMLElement): void {
+  if (archiveLogPageIndex === 0) {
+    return;
+  }
+  archiveLogPageIndex = Math.max(archiveLogPageIndex - 1, 0);
+  const logs = getState().archives?.logs ?? [];
+  renderArchiveLogs(section, logs, { resetPage: false });
+}
+
+function goToNextArchiveLogPage(section: HTMLElement): void {
+  const logs = getState().archives?.logs ?? [];
+  const total = logs.length;
+  if (!total) {
+    return;
+  }
+  const totalPages = Math.max(Math.ceil(total / ARCHIVE_LOG_PAGE_SIZE), 1);
+  if (archiveLogPageIndex >= totalPages - 1) {
+    return;
+  }
+  archiveLogPageIndex = Math.min(archiveLogPageIndex + 1, totalPages - 1);
+  renderArchiveLogs(section, logs, { resetPage: false });
 }
 
 function updatePagerWidget(section: HTMLElement): void {
@@ -2200,6 +2308,7 @@ function createSection(): HTMLElement {
             <small class="text-muted">Letzte ${ARCHIVE_LOG_LIMIT}</small>
           </div>
           <div data-role="archive-log-list"></div>
+          <div class="d-flex justify-content-end mt-2" data-role="archive-log-pager"></div>
         </div>
       </div>
     </div>
