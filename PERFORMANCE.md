@@ -36,7 +36,7 @@ Wer von diesen Grenzwerten abweichen will, dokumentiert das im PR-Template und l
 
 ## Debug-Hilfen
 
-- **Overlay-Metriken**: Anzeigen je Abschnitt (History, Reporting, Documentation, Settings, GPS, Lookup) von `items.length`, `totalCount`, aktivem Cursor und letzter Fetch-Zeit. Optional zeigt das Panel die geschaetzte Payload-Groesse (`JSON.stringify(items).length / 1024`) und hebt Werte auf Gelb (90 % Budget) bzw. Rot (>100 % Budget).
+- **Overlay-Metriken**: Anzeigen je Abschnitt (History, Reporting, Documentation, Settings, GPS, Lookup, Import-Vorschau) von `items.length`, `totalCount`, aktivem Cursor und letzter Fetch-Zeit. Optional zeigt das Panel die geschaetzte Payload-Groesse (`JSON.stringify(items).length / 1024`) und hebt Werte auf Gelb (90 % Budget) bzw. Rot (>100 % Budget). Dokumentation, Reporting und Import liefern inzwischen Live-Daten; weitere Features koennen sich ueber `window.__PSL.debugOverlayApi.registerProvider()` einklinken (siehe `src/scripts/dev/debugOverlayClient.ts`).
 - **Aktivierungs-Strategie**: Das Overlay wird ausschliesslich ueber das Monitor-Icon neben der Versionsanzeige (`v1` im Footer) geladen. Erst nach einem Klick importiert Bootstrap den Debug-Code und merkt sich den Zustand fuer die laufende Session. Keine Flags oder Query-Parameter mehr – wer messen will, nutzt das Icon.
 - **UI-Verhalten**: Das Overlay dockt rechts unten als verschiebbares Panel an, laesst sich per Tastenkombination `Ctrl+Shift+D` ein-/ausblenden und konsumiert keine Pointer-Ereignisse im Content-Bereich, damit Anwender nicht gestoert werden.
 - Sobald eine Liste mehr als ihr Budget haelt, loggt `warnIfLargeState(sliceName, size)` eine Warnung mit Stacktrace.

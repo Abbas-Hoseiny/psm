@@ -24,6 +24,11 @@ import {
   createPagerWidget,
   type PagerWidget,
 } from "@scripts/features/shared/pagerWidget";
+import {
+  createDebugOverlayBinding,
+  pushDebugOverlayMetrics,
+  estimatePayloadKb as estimateOverlayPayloadKb,
+} from "@scripts/dev/debugOverlayClient";
 
 interface Services {
   state: {
@@ -87,6 +92,12 @@ let reportPagerTarget: HTMLElement | null = null;
 let reportPendingScrollIndex: number | null = null;
 let reportPendingScrollFrame: number | null = null;
 let reportAutoRefreshCleanup: (() => void) | null = null;
+const reportingOverlayBinding = createDebugOverlayBinding({
+  id: "reporting",
+  label: "Reporting",
+  budget: { initialLoad: 25, maxItems: 100 },
+});
+let reportingLastUpdatedAt: string | null = null;
 
 function createSection(): HTMLElement {
   const section = document.createElement("div");
@@ -322,6 +333,47 @@ function getEntryByIndex(index: number): ReportingEntry | null {
   }
   const entries = currentEntries;
   return entries[index] || null;
+}
+
+function getReportingTotalEstimate(): number | null {
+  if (dataMode === "sqlite") {
+    if (reportTotalCount > 0) {
+      return reportTotalCount;
+    }
+    const derived = reportPageIndex * REPORT_PAGE_SIZE + reportEntries.length;
+    return derived || null;
+  }
+  return currentEntries.length;
+}
+
+function buildReportingOverlayNote(): string | undefined {
+  const notes: string[] = [];
+  if (isLoadingReport) {
+    notes.push("Lädt …");
+  }
+  if (reportLoadError) {
+    notes.push("Fehler");
+  }
+  if (dataMode === "sqlite" && reportHasMore) {
+    notes.push("Weitere Seiten verfügbar");
+  }
+  if (!notes.length) {
+    return undefined;
+  }
+  return notes.join(" · ");
+}
+
+function publishReportingOverlayMetrics(): void {
+  const buffer = dataMode === "sqlite" ? reportEntries : currentEntries;
+  const metrics = {
+    items: buffer.length,
+    totalCount: getReportingTotalEstimate(),
+    cursor: dataMode === "sqlite" ? `Seite ${reportPageIndex + 1}` : null,
+    payloadKb: estimateOverlayPayloadKb(buffer.slice(0, REPORT_PAGE_SIZE)),
+    lastUpdated: reportingLastUpdatedAt,
+    note: buildReportingOverlayNote(),
+  };
+  pushDebugOverlayMetrics(reportingOverlayBinding, metrics);
 }
 
 function toDateBoundaryIso(
@@ -712,6 +764,9 @@ function renderTable(
   if (printButton) {
     printButton.disabled = entries.length === 0;
   }
+
+  reportingLastUpdatedAt = new Date().toISOString();
+  publishReportingOverlayMetrics();
 }
 
 function applyFilter(

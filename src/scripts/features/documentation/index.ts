@@ -45,6 +45,11 @@ import {
   createPagerWidget,
   type PagerWidget,
 } from "@scripts/features/shared/pagerWidget";
+import {
+  createDebugOverlayBinding,
+  pushDebugOverlayMetrics,
+  estimatePayloadKb as estimateOverlayPayloadKb,
+} from "@scripts/dev/debugOverlayClient";
 
 interface Services {
   state: {
@@ -438,6 +443,12 @@ let archiveLogPagerTarget: HTMLElement | null = null;
 let docLoadError: string | null = null;
 let docSeedBusy = false;
 let documentationAutoRefreshCleanup: (() => void) | null = null;
+const documentationOverlayBinding = createDebugOverlayBinding({
+  id: "documentation",
+  label: "Documentation",
+  budget: { initialLoad: 50, maxItems: 150 },
+});
+let documentationLastUpdatedAt: string | null = null;
 
 function resolveStorageDriver(state: AppState): string {
   return state.app?.storageDriver || getActiveDriverKey();
@@ -492,6 +503,51 @@ function mapSqliteHistoryEntry(
     source: "sqlite",
     ref: id,
   };
+}
+
+function getDocumentationTotalEstimate(): number | null {
+  if (dataMode === "memory") {
+    return allEntries.length;
+  }
+  if (totalEntries > 0) {
+    return totalEntries;
+  }
+  const derived = docPageIndex * PAGE_SIZE + allEntries.length;
+  return derived || null;
+}
+
+function buildDocumentationOverlayNote(): string | undefined {
+  const parts: string[] = [];
+  if (isLoadingEntries) {
+    parts.push("Lädt …");
+  }
+  if (docLoadError) {
+    parts.push("Fehler");
+  }
+  if (focusContext) {
+    parts.push("Fokus aktiv");
+  }
+  if (dataMode === "sqlite" && docPageCursors.get(docPageIndex + 1)) {
+    parts.push("Weitere Seiten verfügbar");
+  }
+  if (!parts.length) {
+    return undefined;
+  }
+  return parts.join(" · ");
+}
+
+function publishDocumentationOverlayMetrics(): void {
+  const metrics = {
+    items: allEntries.length,
+    totalCount: getDocumentationTotalEstimate(),
+    cursor: dataMode === "sqlite" ? `Seite ${docPageIndex + 1}` : null,
+    payloadKb: estimateOverlayPayloadKb(
+      visibleEntries.map((entry) => entry.entry)
+    ),
+    lastUpdated: documentationLastUpdatedAt,
+    note: buildDocumentationOverlayNote(),
+  };
+  pushDebugOverlayMetrics(documentationOverlayBinding, metrics);
 }
 
 function findEntryById(id: string): DocumentationEntry | undefined {
@@ -1615,6 +1671,8 @@ function renderList(
   markActiveListEntry(section, activeEntryId);
   attemptPendingSelection(section, labels);
   updatePagerWidget(section);
+  documentationLastUpdatedAt = new Date().toISOString();
+  publishDocumentationOverlayMetrics();
 }
 
 function updateInfo(

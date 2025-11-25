@@ -135,6 +135,11 @@ export function initDebugOverlay(services: DebugOverlayServices): void {
     refresh: () => refreshMetrics(),
   };
   globalWithPsl.__PSL.debugOverlayApi = api;
+  try {
+    window.dispatchEvent(new CustomEvent("psl:debug-overlay-ready"));
+  } catch {
+    // ignore dispatch failures
+  }
 
   registerBuiltInProviders(providerRegistry);
 
