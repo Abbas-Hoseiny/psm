@@ -37,7 +37,7 @@ Wer von diesen Grenzwerten abweichen will, dokumentiert das im PR-Template und l
 ## Debug-Hilfen
 
 - **Overlay-Metriken**: Anzeigen je Abschnitt (History, Reporting, Documentation, Settings, GPS, Lookup) von `items.length`, `totalCount`, aktivem Cursor und letzter Fetch-Zeit. Optional zeigt das Panel die geschaetzte Payload-Groesse (`JSON.stringify(items).length / 1024`) und hebt Werte auf Gelb (90 % Budget) bzw. Rot (>100 % Budget).
-- **Aktivierungs-Strategie**: Overlay erscheint automatisch im Dev-Build (`import.meta.env.DEV`). In Staging/Pages kann QA wahlweise das neue Monitor-Icon neben der Versionsanzeige (`v1` im Footer) klicken, um das Panel on-demand zu laden – der Status bleibt fuer die aktuelle Session erhalten. Alternativ funktioniert weiterhin der zweistufige Weg via `localStorage.setItem("pslDebugAccess", "allow")` + `?debugOverlay=1`, falls kein UI-Zugriff moeglich ist.
+- **Aktivierungs-Strategie**: Das Overlay wird ausschliesslich ueber das Monitor-Icon neben der Versionsanzeige (`v1` im Footer) geladen. Erst nach einem Klick importiert Bootstrap den Debug-Code und merkt sich den Zustand fuer die laufende Session. Keine Flags oder Query-Parameter mehr – wer messen will, nutzt das Icon.
 - **UI-Verhalten**: Das Overlay dockt rechts unten als verschiebbares Panel an, laesst sich per Tastenkombination `Ctrl+Shift+D` ein-/ausblenden und konsumiert keine Pointer-Ereignisse im Content-Bereich, damit Anwender nicht gestoert werden.
 - Sobald eine Liste mehr als ihr Budget haelt, loggt `warnIfLargeState(sliceName, size)` eine Warnung mit Stacktrace.
 - Feature-Flag `__PSL_DEBUG_FETCHES` aktiviert Timing-Logs pro Worker-Antwort.

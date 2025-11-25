@@ -1,14 +1,6 @@
 const SESSION_FLAG_KEY = "__psl_debug_overlay_session";
-const ACCESS_FLAG_KEY = "pslDebugAccess";
-const ACCESS_FLAG_VALUE = "allow";
-const QUERY_PARAM = "debugOverlay";
 
-type DebugOverlayReason =
-  | "dev-build"
-  | "session"
-  | "flag"
-  | "manual"
-  | "unknown";
+type DebugOverlayReason = "manual" | "unknown";
 
 function readStorage(
   storage: Storage | null | undefined,
@@ -63,21 +55,6 @@ function markSession(reason: DebugOverlayReason): void {
   publishDebugOverlayState(true, reason);
 }
 
-function stripDebugOverlayQueryParam(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  const url = new URL(window.location.href);
-  url.searchParams.delete(QUERY_PARAM);
-  const nextSearch = url.searchParams.toString();
-  const nextUrl = `${url.pathname}${nextSearch ? `?${nextSearch}` : ""}${url.hash}`;
-  try {
-    window.history.replaceState(null, document.title, nextUrl);
-  } catch {
-    // Ignore history errors silently
-  }
-}
-
 function getSessionReason(): DebugOverlayReason | null {
   if (typeof window === "undefined") {
     return null;
@@ -86,49 +63,17 @@ function getSessionReason(): DebugOverlayReason | null {
   return value as DebugOverlayReason | null;
 }
 
-function hasAccessGrant(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  const value = readStorage(window.localStorage, ACCESS_FLAG_KEY);
-  return value === ACCESS_FLAG_VALUE;
-}
-
 export function shouldEnableDebugOverlay(): boolean {
   if (typeof window === "undefined") {
     return false;
   }
-
-  if (!import.meta.env.PROD) {
-    markSession("dev-build");
-    return true;
-  }
-
   const sessionReason = getSessionReason();
-  if (sessionReason) {
+  if (sessionReason === "manual") {
     publishDebugOverlayState(true, sessionReason);
     return true;
   }
-
-  const params = new URLSearchParams(window.location.search);
-  const requested = params.has(QUERY_PARAM);
-
-  if (!requested) {
-    publishDebugOverlayState(false, "unknown");
-    return false;
-  }
-
-  if (!hasAccessGrant()) {
-    publishDebugOverlayState(false, "unknown");
-    console.warn(
-      "[PSL] Debug-Overlay-Anfrage ignoriert: localStorage.pslDebugAccess fehlt oder hat nicht den Wert 'allow'."
-    );
-    return false;
-  }
-
-  markSession("flag");
-  stripDebugOverlayQueryParam();
-  return true;
+  publishDebugOverlayState(false, "unknown");
+  return false;
 }
 
 export function markManualDebugOverlayAccess(): void {
