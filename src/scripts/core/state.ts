@@ -1,5 +1,59 @@
 import { getDefaultFieldLabels } from "./labels";
 
+export interface SliceWindow<T> {
+  items: T[];
+  cursor: string | number | null;
+  totalCount: number;
+  isComplete: boolean;
+  lastUpdatedAt: string | null;
+}
+
+export function createSliceWindow<T>(
+  overrides: Partial<SliceWindow<T>> = {}
+): SliceWindow<T> {
+  return {
+    items: [],
+    cursor: null,
+    totalCount: 0,
+    isComplete: true,
+    lastUpdatedAt: null,
+    ...overrides,
+  };
+}
+
+export function createSliceWindowFromArray<T>(items: T[] = []): SliceWindow<T> {
+  return createSliceWindow<T>({
+    items: [...items],
+    totalCount: items.length,
+    isComplete: true,
+    lastUpdatedAt: new Date().toISOString(),
+  });
+}
+
+export function extractSliceItems<T>(
+  slice: SliceWindow<T> | T[] | null | undefined
+): T[] {
+  if (!slice) {
+    return [];
+  }
+  if (Array.isArray(slice)) {
+    return slice;
+  }
+  return Array.isArray(slice.items) ? slice.items : [];
+}
+
+export function ensureSliceWindow<T>(
+  slice: SliceWindow<T> | T[] | null | undefined
+): SliceWindow<T> {
+  if (!slice) {
+    return createSliceWindow<T>();
+  }
+  if (Array.isArray(slice)) {
+    return createSliceWindowFromArray(slice);
+  }
+  return slice;
+}
+
 export interface ArchiveLogEntry {
   id: string;
   archivedAt: string;
@@ -27,7 +81,7 @@ export interface GpsPoint {
 }
 
 export interface GpsState {
-  points: GpsPoint[];
+  points: SliceWindow<GpsPoint>;
   activePointId: string | null;
   pending: boolean;
   lastError: string | null;
@@ -86,9 +140,9 @@ export interface AppState {
     };
   };
   measurementMethods: any[];
-  mediums: any[];
+  mediums: SliceWindow<any>;
   mediumProfiles: MediumProfile[];
-  history: any[];
+  history: SliceWindow<any>;
   archives: ArchiveState;
   fieldLabels: any;
   calcContext: any | null;
@@ -180,14 +234,14 @@ let state: AppState = {
     },
   },
   measurementMethods: [],
-  mediums: [],
+  mediums: createSliceWindow(),
   mediumProfiles: [],
-  history: [],
+  history: createSliceWindow(),
   archives: { logs: [] },
   fieldLabels: getDefaultFieldLabels(),
   calcContext: null,
   gps: {
-    points: [],
+    points: createSliceWindow(),
     activePointId: null,
     pending: false,
     lastError: null,
@@ -320,14 +374,14 @@ export function resetState(newState?: AppState): AppState {
       },
     },
     measurementMethods: [],
-    mediums: [],
+    mediums: createSliceWindow(),
     mediumProfiles: [],
-    history: [],
+    history: createSliceWindow(),
     archives: { logs: [] },
     fieldLabels: getDefaultFieldLabels(),
     calcContext: null,
     gps: {
-      points: [],
+      points: createSliceWindow(),
       activePointId: null,
       pending: false,
       lastError: null,

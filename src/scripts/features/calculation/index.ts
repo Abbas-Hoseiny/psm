@@ -6,6 +6,8 @@ import {
   formatDateFromIso,
 } from "@scripts/core/utils";
 import {
+  ensureSliceWindow,
+  extractSliceItems,
   getState,
   type GpsPoint,
   type AppState,
@@ -90,6 +92,8 @@ function resolveGpsDisplay(
 }
 
 let initialized = false;
+let calculationSavePending = false;
+let calculationSaveLocked = false;
 
 function escapeAttr(value: unknown): string {
   return escapeHtml(value);
@@ -803,6 +807,41 @@ export function initCalculation(
   );
   const resultsHead = resultsTable?.querySelector("thead");
   const resultsBody = resultsTable?.querySelector("tbody");
+  const saveButton = resultCard?.querySelector<HTMLButtonElement>(
+    '[data-action="save"]'
+  );
+  const refreshSaveButtonState = (): void => {
+    if (saveButton) {
+      saveButton.disabled = calculationSavePending || calculationSaveLocked;
+    }
+  };
+  refreshSaveButtonState();
+  const resetCalculationForm = (): void => {
+    if (form) {
+      form.reset();
+      form
+        .querySelectorAll<
+          HTMLInputElement | HTMLTextAreaElement
+        >("input:not([type='checkbox']):not([type='button']):not([type='submit']), textarea")
+        .forEach((field) => {
+          field.value = "";
+        });
+      form
+        .querySelectorAll<HTMLInputElement>("input[type='checkbox']")
+        .forEach((checkbox) => {
+          checkbox.checked = false;
+        });
+    }
+    clearGpsSelection(services.state.getState());
+    activeProfileId = null;
+    if (profileSelect) {
+      profileSelect.value = "";
+    }
+    updateProfileHint(services.state.getState());
+    services.state.updateSlice("calcContext", () => null);
+    calculationSaveLocked = false;
+    refreshSaveButtonState();
+  };
   const eppoInput = section.querySelector<HTMLInputElement>("#calc-eppo");
   const bbchInput = section.querySelector<HTMLInputElement>("#calc-bbch");
   const cropInput = section.querySelector<HTMLInputElement>("#calc-kultur");
@@ -849,15 +888,16 @@ export function initCalculation(
       return;
     }
     const profile = getProfileById(state, activeProfileId);
+    const mediums = extractSliceItems<any>(state.mediums);
     if (!profile) {
-      const total = state.mediums.length;
+      const total = mediums.length;
       profileHint.textContent = total
         ? `${total} Mittel aktiv.`
         : "Keine Mittel verfügbar.";
       return;
     }
     const mediumMap = new Map(
-      state.mediums.map((medium: any) => [medium.id, medium])
+      mediums.map((medium: any) => [medium.id, medium])
     );
     const validCount = profile.mediumIds.filter((id) =>
       mediumMap.has(id)
@@ -903,7 +943,11 @@ export function initCalculation(
     if (!id) {
       return null;
     }
-    return state.gps.points.find((point) => point.id === id) ?? null;
+    return (
+      extractSliceItems<GpsPoint>(state.gps.points).find(
+        (point) => point.id === id
+      ) ?? null
+    );
   };
 
   const updateGpsHint = (state: AppState): void => {
@@ -946,7 +990,7 @@ export function initCalculation(
     placeholder.value = "";
     placeholder.textContent = "Gespeicherten Punkt verknüpfen ...";
     gpsSelect.appendChild(placeholder);
-    state.gps.points.forEach((point) => {
+    extractSliceItems<GpsPoint>(state.gps.points).forEach((point) => {
       const option = document.createElement("option");
       option.value = point.id;
       const coordsLabel = formatGpsCoordinates(point, "");
@@ -959,7 +1003,9 @@ export function initCalculation(
     });
     if (
       preservedId &&
-      state.gps.points.some((point) => point.id === preservedId)
+      extractSliceItems<GpsPoint>(state.gps.points).some(
+        (point) => point.id === preservedId
+      )
     ) {
       gpsSelect.value = preservedId;
       updateGpsHint(state);
@@ -969,6 +1015,10 @@ export function initCalculation(
   };
 
   const setCalcContext = (calculation: CalculationResult | null) => {
+    if (calculation) {
+      calculationSaveLocked = false;
+      refreshSaveButtonState();
+    }
     renderResults(section, calculation, services.state.getState().fieldLabels);
   };
 
@@ -1136,7 +1186,10 @@ export function initCalculation(
       : "";
     const gpsDisplayValue = formattedGps || rawGps;
     const mediumMap = new Map(
-      state.mediums.map((medium: any) => [medium.id, medium])
+      extractSliceItems<any>(state.mediums).map((medium: any) => [
+        medium.id,
+        medium,
+      ])
     );
     const activeProfile = getProfileById(state, activeProfileId);
     let mediumsForCalculation: any[];
@@ -1152,7 +1205,7 @@ export function initCalculation(
       window.alert("Dieses Profil enthält keine Mittel.");
       return;
     } else {
-      mediumsForCalculation = state.mediums.slice();
+      mediumsForCalculation = extractSliceItems<any>(state.mediums).slice();
     }
     const measurementMethods = state.measurementMethods;
     const waterVolume = getWaterVolume(kisten, defaults);
@@ -1287,12 +1340,23 @@ export function initCalculation(
       });
       return;
     } else if (action === "save") {
+      if (calculationSavePending) {
+        return;
+      }
+      if (calculationSaveLocked) {
+        window.alert(
+          "Berechnung wurde bereits gespeichert. Bitte führen Sie zuerst eine neue Berechnung aus."
+        );
+        return;
+      }
       const calc = services.state.getState()
         .calcContext as CalculationResult | null;
       if (!calc) {
         window.alert("Keine Berechnung vorhanden.");
         return;
       }
+      calculationSavePending = true;
+      refreshSaveButtonState();
       const savedAt = new Date().toISOString();
       const entryForState = {
         ...calc.header,
@@ -1325,24 +1389,54 @@ export function initCalculation(
               scope: "history",
               driver: "sqlite",
             });
-            window.alert("Berechnung gespeichert! (Siehe Historie)");
+            calculationSaveLocked = true;
+            window.alert(
+              "Berechnung gespeichert! (Siehe Dokumentationsbereich)"
+            );
+            resetCalculationForm();
           } catch (error) {
             console.error("History konnte nicht gespeichert werden", error);
             window.alert(
               "Berechnung konnte nicht gespeichert werden. Bitte erneut versuchen."
             );
+          } finally {
+            calculationSavePending = false;
+            refreshSaveButtonState();
           }
         })();
         return;
       }
 
-      services.state.updateSlice("history", (history) => {
-        return [...history, entryForState];
-      });
-      void persistHistory(services).catch((err) => {
-        console.error("Persist history promise error", err);
-      });
-      window.alert("Berechnung gespeichert! (Siehe Historie)");
+      try {
+        services.state.updateSlice("history", (historySlice) => {
+          const slice = ensureSliceWindow<any>(historySlice as any);
+          const items = [...slice.items, entryForState];
+          return {
+            ...slice,
+            items,
+            totalCount: items.length,
+            lastUpdatedAt: new Date().toISOString(),
+          };
+        });
+        calculationSaveLocked = true;
+        window.alert("Berechnung gespeichert! (Siehe Dokumentationsbereich)");
+        resetCalculationForm();
+        void persistHistory(services)
+          .catch((err) => {
+            console.error("Persist history promise error", err);
+          })
+          .finally(() => {
+            calculationSavePending = false;
+            refreshSaveButtonState();
+          });
+      } catch (error) {
+        console.error("History konnte nicht gespeichert werden", error);
+        window.alert(
+          "Berechnung konnte nicht gespeichert werden. Bitte erneut versuchen."
+        );
+        calculationSavePending = false;
+        refreshSaveButtonState();
+      }
     }
   });
 

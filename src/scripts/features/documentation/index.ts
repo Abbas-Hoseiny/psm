@@ -1,4 +1,6 @@
 import {
+  ensureSliceWindow,
+  extractSliceItems,
   getState,
   subscribeState,
   updateSlice,
@@ -839,9 +841,9 @@ async function resolveEntryDetail(
       console.error("History entry fetch failed", error);
     }
   } else {
-    const stateEntry = getState().history?.[entry.ref] as
-      | HistoryEntry
-      | undefined;
+    const historyItems = extractSliceItems<HistoryEntry>(getState().history);
+    const stateEntry =
+      typeof entry.ref === "number" ? historyItems[entry.ref] : undefined;
     resolved = stateEntry || entry.entry;
   }
   if (resolved) {
@@ -986,12 +988,13 @@ function pruneStateHistoryBySignatures(signatures: Set<string>): void {
   if (!signatures.size) {
     return;
   }
-  updateSlice("history", (history = []) => {
-    if (!Array.isArray(history) || history.length === 0) {
-      return history;
+  updateSlice("history", (historySlice) => {
+    const slice = ensureSliceWindow<HistoryEntry>(historySlice as any);
+    if (!slice.items.length) {
+      return slice;
     }
     let changed = false;
-    const next = history.filter((entry) => {
+    const items = slice.items.filter((entry) => {
       const signature = buildHistorySignature(entry as HistoryEntry);
       if (signatures.has(signature)) {
         changed = true;
@@ -999,7 +1002,15 @@ function pruneStateHistoryBySignatures(signatures: Set<string>): void {
       }
       return true;
     });
-    return changed ? next : history;
+    if (!changed) {
+      return slice;
+    }
+    return {
+      ...slice,
+      items,
+      totalCount: Math.min(slice.totalCount, items.length),
+      lastUpdatedAt: new Date().toISOString(),
+    };
   });
 }
 
@@ -1613,7 +1624,7 @@ async function loadMemoryEntries(
   section: HTMLElement,
   state: AppState
 ): Promise<void> {
-  const entries = Array.isArray(state.history) ? state.history : [];
+  const entries = extractSliceItems<HistoryEntry>(state.history);
   allEntries = sortEntries(
     entries
       .map((entry, index) => mapStateHistoryEntry(entry as HistoryEntry, index))
@@ -1721,9 +1732,19 @@ async function deleteSelectedEntries(
   );
 
   if (memoryIndexes.size) {
-    updateSlice("history", (history) =>
-      history.filter((_, idx) => !memoryIndexes.has(idx))
-    );
+    updateSlice("history", (historySlice) => {
+      const slice = ensureSliceWindow<HistoryEntry>(historySlice as any);
+      const items = slice.items.filter((_, idx) => !memoryIndexes.has(idx));
+      if (items.length === slice.items.length) {
+        return slice;
+      }
+      return {
+        ...slice,
+        items,
+        totalCount: Math.min(slice.totalCount, items.length),
+        lastUpdatedAt: new Date().toISOString(),
+      };
+    });
     await persistHistoryChanges();
   }
 
@@ -2557,13 +2578,14 @@ export function initDocumentation(
     });
   }
 
+  const resolveHistoryLength = (state: AppState): number =>
+    extractSliceItems<HistoryEntry>(state.history).length;
+
   const applyAndRender = () => {
     void applyFilters(section, services.state.getState());
   };
 
-  lastHistoryLength = Array.isArray(services.state.getState().history)
-    ? services.state.getState().history.length
-    : 0;
+  lastHistoryLength = resolveHistoryLength(services.state.getState());
 
   applyAndRender();
 
@@ -2575,9 +2597,7 @@ export function initDocumentation(
       lastArchiveLogSignature = nextLogSignature;
       renderArchiveLogs(section, nextState.archives?.logs ?? []);
     }
-    const nextLength = Array.isArray(nextState.history)
-      ? nextState.history.length
-      : 0;
+    const nextLength = resolveHistoryLength(nextState);
     if (focusLock) {
       lastHistoryLength = nextLength;
       return;

@@ -6,7 +6,12 @@ import {
   persistSqliteDatabaseFile,
   type HistoryQueryFilters,
 } from "@scripts/core/storage/sqlite";
-import { updateSlice, type AppState } from "@scripts/core/state";
+import {
+  ensureSliceWindow,
+  extractSliceItems,
+  updateSlice,
+  type AppState,
+} from "@scripts/core/state";
 import { escapeHtml, formatDateFromIso } from "@scripts/core/utils";
 import {
   createPagerWidget,
@@ -331,7 +336,7 @@ async function loadExistingDuplicateKeys(
 ): Promise<Set<string>> {
   const driverKey = getActiveDriverKey();
   if (driverKey !== "sqlite") {
-    const existingHistory = Array.isArray(state.history) ? state.history : [];
+    const existingHistory = extractSliceItems<any>(state.history);
     return new Set(
       existingHistory
         .map((entry: any) => buildDuplicateKey(entry))
@@ -793,12 +798,20 @@ function appendEntriesToStateHistory(
       ? services.state.updateSlice
       : updateSlice;
   const refs: number[] = [];
-  updateStateSlice("history", (history = []) => {
-    const baseLength = Array.isArray(history) ? history.length : 0;
-    entries.forEach((_, idx) => {
+  updateStateSlice("history", (historySlice) => {
+    const slice = ensureSliceWindow<HistoryEntry>(historySlice as any);
+    const items = slice.items.slice();
+    const baseLength = items.length;
+    entries.forEach((entry, idx) => {
       refs.push(baseLength + idx);
+      items.push(entry);
     });
-    return Array.isArray(history) ? [...history, ...entries] : [...entries];
+    return {
+      ...slice,
+      items,
+      totalCount: items.length,
+      lastUpdatedAt: new Date().toISOString(),
+    };
   });
   return refs;
 }
@@ -820,11 +833,47 @@ async function runImport(
   isProcessing = true;
   updateActionButtons(section);
   setFeedback(section, "Import läuft ...");
+  const state = services.state.getState();
+  const range: ImportRange = {
+    startIso: currentSession.stats.startDateRaw,
+    endIso: currentSession.stats.endDateRaw,
+  };
+  let duplicateKeys: Set<string> = new Set();
+  try {
+    duplicateKeys = await loadExistingDuplicateKeys(state, range);
+  } catch (error) {
+    console.warn("Duplikatprüfung vor Import fehlgeschlagen", error);
+  }
+  const seenKeys = new Set(duplicateKeys);
+  const filteredEntries: HistoryEntry[] = [];
+  let duplicatesDuringImport = 0;
+  currentSession.importableEntries.forEach((entry) => {
+    const key = buildDuplicateKey(entry);
+    if (key && seenKeys.has(key)) {
+      duplicatesDuringImport += 1;
+      return;
+    }
+    if (key) {
+      seenKeys.add(key);
+    }
+    filteredEntries.push(entry);
+  });
+  if (!filteredEntries.length) {
+    setFeedback(section, "Keine neuen Einträge gefunden.");
+    setHint(
+      section,
+      "Alle Datensätze sind bereits importiert worden.",
+      "warning"
+    );
+    isProcessing = false;
+    updateActionButtons(section);
+    return;
+  }
 
   const driverKey = getActiveDriverKey();
   const importedRefs: DocumentationFocusEntryRef[] = [];
   const failed: string[] = [];
-  const entriesToImport = currentSession.importableEntries.map((entry) =>
+  const entriesToImport = filteredEntries.map((entry) =>
     ensureSavedAt({ ...entry })
   );
 
@@ -872,18 +921,33 @@ async function runImport(
       );
       currentSession.lastImportRefs = importedRefs;
       emitDocumentationFocus(services, currentSession, importedRefs);
+      currentSession.importableEntries = [];
+      currentSession.stats = {
+        ...currentSession.stats,
+        importableCount: 0,
+      };
+      renderSession(section);
     } else {
       setFeedback(section, "Keine Einträge wurden importiert.");
     }
+    const hintMessages: string[] = [];
+    let hintVariant: "success" | "warning" = "success";
     if (failed.length) {
-      setHint(
-        section,
-        `${failed.length} Einträge konnten nicht gespeichert werden. Details siehe Konsole.`,
-        "warning"
+      hintMessages.push(
+        `${failed.length} Einträge konnten nicht gespeichert werden. Details siehe Konsole.`
       );
-    } else {
-      setHint(section, "Import abgeschlossen.", "success");
+      hintVariant = "warning";
     }
+    if (duplicatesDuringImport) {
+      hintMessages.push(
+        `${duplicatesDuringImport} Einträge wurden während des Imports als Duplikat übersprungen.`
+      );
+      hintVariant = "warning";
+    }
+    if (!hintMessages.length) {
+      hintMessages.push("Import abgeschlossen.");
+    }
+    setHint(section, hintMessages.join(" "), hintVariant);
   } catch (error) {
     console.error("Import fehlgeschlagen", error);
     setFeedback(section, "Import fehlgeschlagen. Siehe Konsole für Details.");

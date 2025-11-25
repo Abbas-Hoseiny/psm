@@ -7,6 +7,7 @@ import {
 } from "@scripts/core/database";
 import {
   getState,
+  extractSliceItems,
   subscribeState,
   type AppState,
   type GpsPoint,
@@ -34,6 +35,11 @@ interface Services {
 
 type GpsTab = "list" | "capture" | "debug";
 type AvailabilityStatus = "ok" | "no-db" | "wrong-driver";
+
+const getGpsItems = (state: AppState): GpsPoint[] =>
+  extractSliceItems<GpsPoint>(state.gps.points);
+const getGpsSliceItems = (gpsState: GpsState): GpsPoint[] =>
+  extractSliceItems<GpsPoint>(gpsState.points);
 
 type Refs = {
   root: HTMLElement;
@@ -79,6 +85,7 @@ let activeTab: GpsTab = "list";
 let messageTimeout: number | null = null;
 let refs: Refs | null = null;
 let geolocationPending = false;
+let saveSubmissionPending = false;
 let lastActionNote = "";
 let lastActiveId: string | null = null;
 let lastAvailability: AvailabilityStatus | null = null;
@@ -347,6 +354,7 @@ function resolvePreferredMapTarget(state: AppState): {
   label: string;
 } {
   const gpsState = state.gps;
+  const gpsPoints = getGpsSliceItems(gpsState);
   const resolveFromPoint = (
     point: GpsPoint | null
   ): { url: string; label: string } | null => {
@@ -363,7 +371,7 @@ function resolvePreferredMapTarget(state: AppState): {
   };
 
   if (gpsState.activePointId) {
-    const activePoint = gpsState.points.find(
+    const activePoint = gpsPoints.find(
       (entry) => entry.id === gpsState.activePointId
     );
     const resolved = resolveFromPoint(activePoint || null);
@@ -372,8 +380,8 @@ function resolvePreferredMapTarget(state: AppState): {
     }
   }
 
-  if (gpsState.points.length > 0) {
-    const resolved = resolveFromPoint(gpsState.points[0]);
+  if (gpsPoints.length > 0) {
+    const resolved = resolveFromPoint(gpsPoints[0]);
     if (resolved) {
       return resolved;
     }
@@ -459,6 +467,21 @@ function getFormCoordinates(): { latitude: number; longitude: number } | null {
     return null;
   }
   return { latitude, longitude };
+}
+
+function normalizeCoordinateValue(value: number): string {
+  return Number(value).toFixed(6);
+}
+
+function hasDuplicateCoordinates(latitude: number, longitude: number): boolean {
+  const normalizedLat = normalizeCoordinateValue(latitude);
+  const normalizedLng = normalizeCoordinateValue(longitude);
+  return getGpsItems(getState()).some((point) => {
+    return (
+      normalizeCoordinateValue(point.latitude) === normalizedLat &&
+      normalizeCoordinateValue(point.longitude) === normalizedLng
+    );
+  });
 }
 
 function updateVerifyButtonState(): void {
@@ -578,7 +601,10 @@ function updateBusyUi(
     return;
   }
   const shouldDisable =
-    availability !== "ok" || gpsState.pending || geolocationPending;
+    availability !== "ok" ||
+    gpsState.pending ||
+    geolocationPending ||
+    saveSubmissionPending;
   refs.disableTargets.forEach((element) => {
     if (
       element instanceof HTMLButtonElement ||
@@ -677,7 +703,7 @@ function updateGpsPager(
     widget.update({ status: "disabled", info });
     return;
   }
-  const total = state.gps.points.length;
+  const total = getGpsItems(state).length;
   if (!total) {
     gpsPageIndex = 0;
     const info = state.gps.initialized
@@ -686,7 +712,7 @@ function updateGpsPager(
     widget.update({ status: "disabled", info });
     return;
   }
-  const { start, end } = getGpsPageMeta(state.gps.points);
+  const { start, end } = getGpsPageMeta(getGpsItems(state));
   widget.update({
     status: "ready",
     info: `Einträge ${gpsNumberFormatter.format(start + 1)}–${gpsNumberFormatter.format(
@@ -765,7 +791,7 @@ function updateListUi(state: AppState, availability: AvailabilityStatus): void {
   const mapTarget = resolvePreferredMapTarget(state);
   const canDisplay = availability === "ok";
   if (refs.summaryLabel) {
-    const count = gpsState.points.length;
+    const count = getGpsSliceItems(gpsState).length;
     refs.summaryLabel.textContent = canDisplay
       ? `${count} Punkt${count === 1 ? "" : "e"} gespeichert`
       : "Funktion derzeit nicht verfügbar";
@@ -792,11 +818,11 @@ function updateListUi(state: AppState, availability: AvailabilityStatus): void {
   }
 
   if (refs.listBody) {
-    const { items } = getGpsPageMeta(gpsState.points);
+    const { items } = getGpsPageMeta(getGpsSliceItems(gpsState));
     refs.listBody.innerHTML = renderPointRows(items, gpsState.activePointId);
   }
   if (refs.emptyState) {
-    const hasPoints = gpsState.points.length > 0;
+    const hasPoints = getGpsSliceItems(gpsState).length > 0;
     refs.emptyState.classList.toggle("d-none", hasPoints);
     if (!hasPoints && gpsState.initialized) {
       refs.emptyState.innerHTML = `
@@ -817,7 +843,7 @@ function updateListUi(state: AppState, availability: AvailabilityStatus): void {
   }
   if (refs.activeInfo) {
     if (gpsState.activePointId) {
-      const point = gpsState.points.find(
+      const point = getGpsSliceItems(gpsState).find(
         (entry) => entry.id === gpsState.activePointId
       );
       if (point) {
@@ -858,7 +884,7 @@ function goToPrevGpsPage(): void {
 
 function goToNextGpsPage(): void {
   const state = getState();
-  const total = state.gps.points.length;
+  const total = getGpsItems(state).length;
   if (!total) {
     return;
   }
@@ -896,7 +922,7 @@ function getPointById(id: string | null): GpsPoint | null {
     return null;
   }
   const state = getState();
-  return state.gps.points.find((point) => point.id === id) || null;
+  return getGpsItems(state).find((point) => point.id === id) || null;
 }
 
 async function copyToClipboard(payload: string): Promise<void> {
@@ -1169,8 +1195,22 @@ function readFormValues(): {
 
 async function handleFormSubmit(event: SubmitEvent): Promise<void> {
   event.preventDefault();
+  if (saveSubmissionPending) {
+    setMessage("Speichern läuft bereits ...", "info");
+    return;
+  }
   try {
     const values = readFormValues();
+    if (hasDuplicateCoordinates(values.latitude, values.longitude)) {
+      setMessage(
+        "Ein GPS-Punkt mit identischen Koordinaten ist bereits vorhanden.",
+        "warning",
+        6000
+      );
+      return;
+    }
+    saveSubmissionPending = true;
+    updateBusyUi(getState().gps, evaluateAvailability(getState().app));
     await saveGpsPoint(
       {
         name: values.name,
@@ -1193,6 +1233,9 @@ async function handleFormSubmit(event: SubmitEvent): Promise<void> {
         : "GPS-Punkt konnte nicht gespeichert werden.";
     setMessage(message, "danger", 7000);
     recordAction(`Speichern fehlgeschlagen: ${message}`);
+  } finally {
+    saveSubmissionPending = false;
+    updateBusyUi(getState().gps, evaluateAvailability(getState().app));
   }
 }
 

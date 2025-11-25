@@ -1,6 +1,7 @@
 import { getDefaultsConfig } from "./config";
 import { resolveFieldLabels } from "./labels";
 import {
+  createSliceWindowFromArray,
   getState,
   patchState,
   updateSlice,
@@ -83,9 +84,9 @@ export function applyDatabase(data: any): void {
     measurementMethods: [
       ...(data.meta?.measurementMethods ?? current.measurementMethods),
     ],
-    mediums: [...(data.mediums ?? [])],
+    mediums: createSliceWindowFromArray(data.mediums ?? []),
     mediumProfiles: [...(data.mediumProfiles ?? [])],
-    history: [...(data.history ?? [])],
+    history: createSliceWindowFromArray(data.history ?? []),
     archives: {
       logs: [...(data.archives?.logs ?? current.archives?.logs ?? [])],
     },
@@ -146,7 +147,7 @@ export function createInitialDatabase(overrides: any = {}): any {
       measurementMethods: [...state.measurementMethods],
       fieldLabels: { ...state.fieldLabels },
     },
-    mediums: [...state.mediums],
+    mediums: [...state.mediums.items],
     mediumProfiles: [...state.mediumProfiles],
     history: [],
     archives: { logs: [] },
@@ -173,9 +174,9 @@ export function getDatabaseSnapshot(): any {
       measurementMethods: [...state.measurementMethods],
       fieldLabels: { ...state.fieldLabels },
     },
-    mediums: [...state.mediums],
+    mediums: [...state.mediums.items],
     mediumProfiles: [...state.mediumProfiles],
-    history: [...state.history],
+    history: [...state.history.items],
     archives: { logs: [...(state.archives?.logs ?? [])] },
   };
 }
@@ -271,7 +272,7 @@ export async function loadGpsPoints(): Promise<GpsPoint[]> {
         ? result.activePointId.trim()
         : "";
     updateGpsState({
-      points: normalized,
+      points: createSliceWindowFromArray(normalized),
       activePointId: activeIdRaw || null,
       pending: false,
       lastError: null,
@@ -320,11 +321,21 @@ export async function saveGpsPoint(
   try {
     const stored = await workerUpsertGpsPoint(payload);
     const point = normalizeGpsPoint(stored);
-    updateGpsState({
-      points: insertPointIntoList(getState().gps.points, point),
-      pending: false,
-      lastError: null,
-      initialized: true,
+    updateGpsState((prev) => {
+      const items = insertPointIntoList(prev.points.items, point);
+      return {
+        ...prev,
+        points: {
+          ...prev.points,
+          items,
+          totalCount: items.length,
+          lastUpdatedAt: new Date().toISOString(),
+          isComplete: true,
+        },
+        pending: false,
+        lastError: null,
+        initialized: true,
+      };
     });
     if (options.activate) {
       await setActiveGpsPoint(point.id, { silent: true });
@@ -356,12 +367,18 @@ export async function deleteGpsPoint(id: string): Promise<void> {
   try {
     await workerDeleteGpsPoint({ id: trimmedId });
     updateGpsState((prev) => {
-      const points = prev.points.filter((point) => point.id !== trimmedId);
+      const items = prev.points.items.filter((point) => point.id !== trimmedId);
       const activePointId =
         prev.activePointId === trimmedId ? null : prev.activePointId;
       return {
         ...prev,
-        points,
+        points: {
+          ...prev.points,
+          items,
+          totalCount: items.length,
+          lastUpdatedAt: new Date().toISOString(),
+          isComplete: true,
+        },
         activePointId,
         pending: false,
         lastError: null,
