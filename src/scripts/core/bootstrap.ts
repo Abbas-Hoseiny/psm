@@ -3,6 +3,7 @@ import { detectPreferredDriver, setActiveDriver } from "./storage/index";
 import { getState, patchState, subscribeState, updateSlice } from "./state";
 import { emit, subscribe as subscribeEvent } from "./eventBus";
 import { initStarfield } from "../features/starfield";
+import { registerHistorySeeder } from "../dev/historySeeder";
 
 // Feature imports - to be migrated
 // import { initStarfield } from '../features/starfield/index';
@@ -74,6 +75,7 @@ export async function bootstrap() {
 
   // Feature initialization - to be implemented in Astro components
   initStarfield();
+  registerHistorySeeder(services);
   // initShell({ shell: regions.shell, footer: regions.footer }, services);
   // initStartup(regions.startup, services);
   // initCalculation(regions.main, services);

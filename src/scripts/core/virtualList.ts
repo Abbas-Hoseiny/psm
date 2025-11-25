@@ -15,7 +15,9 @@ interface VirtualListOptions {
     start: number;
     end: number;
     itemCount: number;
-  }) => void;
+  }) => void | Promise<void>;
+  canRequestMore?: () => boolean;
+  isRequestPending?: () => boolean;
 }
 
 interface VirtualListAPI {
@@ -26,22 +28,29 @@ interface VirtualListAPI {
 
 /**
  * Initializes a virtual list within a container element.
- * 
+ *
  * @param container - The scrollable container element
  * @param options - Configuration options
  * @returns API object with updateItemCount, scrollToIndex, destroy
  */
-export function initVirtualList(container: HTMLElement, {
-  itemCount,
-  estimatedItemHeight,
-  renderItem,
-  overscan = 6,
-  onRangeChange,
-  lazyLoadThreshold,
-  onRequestMore
-}: VirtualListOptions): VirtualListAPI {
-  if (!container || typeof renderItem !== 'function') {
-    throw new Error('initVirtualList requires a container and renderItem function');
+export function initVirtualList(
+  container: HTMLElement,
+  {
+    itemCount,
+    estimatedItemHeight,
+    renderItem,
+    overscan = 6,
+    onRangeChange,
+    lazyLoadThreshold,
+    onRequestMore,
+    canRequestMore,
+    isRequestPending,
+  }: VirtualListOptions
+): VirtualListAPI {
+  if (!container || typeof renderItem !== "function") {
+    throw new Error(
+      "initVirtualList requires a container and renderItem function"
+    );
   }
 
   // State
@@ -51,28 +60,56 @@ export function initVirtualList(container: HTMLElement, {
   let visibleEnd = 0;
   let isDestroyed = false;
   let lastRequestedMoreIndex = -1;
+  let pendingRequest: Promise<void> | null = null;
+
+  const shouldRequestMore =
+    typeof canRequestMore === "function"
+      ? () => {
+          try {
+            return Boolean(canRequestMore());
+          } catch (error) {
+            console.error("virtualList.canRequestMore failed", error);
+            return false;
+          }
+        }
+      : () => true;
+
+  const isExternalRequestPending =
+    typeof isRequestPending === "function"
+      ? () => {
+          try {
+            return Boolean(isRequestPending());
+          } catch (error) {
+            console.error("virtualList.isRequestPending failed", error);
+            return false;
+          }
+        }
+      : () => false;
 
   // Create inner structure
-  container.style.overflow = 'auto';
-  container.style.position = 'relative';
-  
-  const spacer = document.createElement('div');
-  spacer.style.position = 'absolute';
-  spacer.style.top = '0';
-  spacer.style.left = '0';
-  spacer.style.width = '1px';
+  container.style.overflow = "auto";
+  container.style.position = "relative";
+
+  const spacer = document.createElement("div");
+  spacer.style.position = "absolute";
+  spacer.style.top = "0";
+  spacer.style.left = "0";
+  spacer.style.width = "1px";
   spacer.style.height = `${currentItemCount * currentEstimatedHeight}px`;
-  spacer.style.pointerEvents = 'none';
+  spacer.style.pointerEvents = "none";
   container.appendChild(spacer);
 
-  const itemsContainer = document.createElement('div');
-  itemsContainer.style.position = 'relative';
-  itemsContainer.style.width = '100%';
+  const itemsContainer = document.createElement("div");
+  itemsContainer.style.position = "relative";
+  itemsContainer.style.width = "100%";
   container.appendChild(itemsContainer);
 
   // Pool of recycled nodes
   const nodePool = [];
-  const maxPoolSize = Math.ceil(container.clientHeight / currentEstimatedHeight) + overscan * 2 + 5;
+  const maxPoolSize =
+    Math.ceil(container.clientHeight / currentEstimatedHeight) +
+    overscan * 2 +
+    5;
 
   /**
    * Gets or creates a DOM node from the pool
@@ -81,11 +118,11 @@ export function initVirtualList(container: HTMLElement, {
     if (nodePool.length > 0) {
       return nodePool.pop();
     }
-    const node = document.createElement('div');
-    node.style.position = 'absolute';
-    node.style.top = '0';
-    node.style.left = '0';
-    node.style.width = '100%';
+    const node = document.createElement("div");
+    node.style.position = "absolute";
+    node.style.top = "0";
+    node.style.left = "0";
+    node.style.width = "100%";
     return node;
   }
 
@@ -94,9 +131,9 @@ export function initVirtualList(container: HTMLElement, {
    */
   function releaseNode(node) {
     if (nodePool.length < maxPoolSize * 2) {
-      node.innerHTML = '';
-      node.removeAttribute('data-index');
-      node.className = '';
+      node.innerHTML = "";
+      node.removeAttribute("data-index");
+      node.className = "";
       nodePool.push(node);
     } else {
       node.remove();
@@ -109,13 +146,15 @@ export function initVirtualList(container: HTMLElement, {
   function calculateVisibleRange() {
     const scrollTop = container.scrollTop;
     const viewportHeight = container.clientHeight;
-    
+
     const startIndex = Math.floor(scrollTop / currentEstimatedHeight);
-    const endIndex = Math.ceil((scrollTop + viewportHeight) / currentEstimatedHeight);
-    
+    const endIndex = Math.ceil(
+      (scrollTop + viewportHeight) / currentEstimatedHeight
+    );
+
     const start = Math.max(0, startIndex - overscan);
     const end = Math.min(currentItemCount, endIndex + overscan);
-    
+
     return { start, end };
   }
 
@@ -126,7 +165,7 @@ export function initVirtualList(container: HTMLElement, {
     if (isDestroyed) return;
 
     const { start, end } = calculateVisibleRange();
-    
+
     // Skip if range hasn't changed
     if (start === visibleStart && end === visibleEnd) {
       return;
@@ -141,7 +180,7 @@ export function initVirtualList(container: HTMLElement, {
     const nodesToRelease = [];
 
     // Identify which nodes to keep
-    existingNodes.forEach(node => {
+    existingNodes.forEach((node) => {
       const index = parseInt(node.dataset.index, 10);
       if (index >= start && index < end) {
         nodesToKeep.set(index, node);
@@ -151,7 +190,7 @@ export function initVirtualList(container: HTMLElement, {
     });
 
     // Release unused nodes
-    nodesToRelease.forEach(node => {
+    nodesToRelease.forEach((node) => {
       releaseNode(node);
       itemsContainer.removeChild(node);
     });
@@ -159,7 +198,7 @@ export function initVirtualList(container: HTMLElement, {
     // Render items in range
     for (let i = start; i < end; i++) {
       let node = nodesToKeep.get(i);
-      
+
       if (!node) {
         node = getNode();
         node.dataset.index = String(i);
@@ -168,7 +207,7 @@ export function initVirtualList(container: HTMLElement, {
 
       // Position the node
       node.style.transform = `translateY(${i * currentEstimatedHeight}px)`;
-      
+
       // Render content
       renderItem(node, i);
     }
@@ -202,28 +241,46 @@ export function initVirtualList(container: HTMLElement, {
   }
 
   function maybeRequestMore(renderedEnd: number) {
-    if (typeof onRequestMore !== 'function') {
+    if (typeof onRequestMore !== "function") {
       return;
     }
-    const threshold = typeof lazyLoadThreshold === 'number'
-      ? Math.max(1, Math.floor(lazyLoadThreshold))
-      : Math.max(overscan * 2, 6);
+    const threshold =
+      typeof lazyLoadThreshold === "number"
+        ? Math.max(1, Math.floor(lazyLoadThreshold))
+        : Math.max(overscan * 2, 6);
     if (
       currentItemCount > 0 &&
       renderedEnd >= currentItemCount - threshold &&
-      renderedEnd > lastRequestedMoreIndex
+      renderedEnd > lastRequestedMoreIndex &&
+      shouldRequestMore() &&
+      !pendingRequest &&
+      !isExternalRequestPending()
     ) {
       lastRequestedMoreIndex = renderedEnd;
-      onRequestMore({
-        start: visibleStart,
-        end: renderedEnd,
-        itemCount: currentItemCount,
-      });
+      let requestResult: void | Promise<void>;
+      try {
+        requestResult = onRequestMore({
+          start: visibleStart,
+          end: renderedEnd,
+          itemCount: currentItemCount,
+        });
+      } catch (error) {
+        console.error("virtualList.onRequestMore threw an error", error);
+        pendingRequest = null;
+        return;
+      }
+      pendingRequest = Promise.resolve(requestResult)
+        .catch((error) => {
+          console.error("virtualList.onRequestMore rejected", error);
+        })
+        .finally(() => {
+          pendingRequest = null;
+        });
     }
   }
 
   // Attach scroll listener
-  container.addEventListener('scroll', handleScroll);
+  container.addEventListener("scroll", handleScroll);
 
   // Initial render
   render();
@@ -264,20 +321,20 @@ export function initVirtualList(container: HTMLElement, {
     destroy() {
       if (isDestroyed) return;
       isDestroyed = true;
-      
-      container.removeEventListener('scroll', handleScroll);
+
+      container.removeEventListener("scroll", handleScroll);
       if (scrollTimeout) {
         clearTimeout(scrollTimeout);
       }
-      
+
       // Clean up all nodes
-      Array.from(itemsContainer.children).forEach(node => {
+      Array.from(itemsContainer.children).forEach((node) => {
         node.remove();
       });
-      
+
       spacer.remove();
       itemsContainer.remove();
       nodePool.length = 0;
-    }
+    },
   };
 }

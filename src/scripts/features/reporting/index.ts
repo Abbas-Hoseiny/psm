@@ -76,6 +76,8 @@ let reportPageIndex = 0;
 let reportPendingAdvance: "next" | null = null;
 let reportPagerWidget: PagerWidget | null = null;
 let reportPagerTarget: HTMLElement | null = null;
+let reportPendingScrollIndex: number | null = null;
+let reportPendingScrollFrame: number | null = null;
 
 function createSection(): HTMLElement {
   const section = document.createElement("div");
@@ -211,6 +213,42 @@ function clearReportCache(): void {
   reportLoadError = null;
   reportPageIndex = 0;
   reportPendingAdvance = null;
+  reportPendingScrollIndex = null;
+  if (reportPendingScrollFrame && typeof window !== "undefined") {
+    window.cancelAnimationFrame(reportPendingScrollFrame);
+    reportPendingScrollFrame = null;
+  }
+}
+
+function queueReportScroll(targetIndex: number, immediate = true): void {
+  reportPendingScrollIndex = Math.max(0, targetIndex);
+  if (immediate) {
+    flushPendingReportScroll();
+  }
+}
+
+function flushPendingReportScroll(): void {
+  if (
+    reportPendingScrollIndex == null ||
+    typeof window === "undefined" ||
+    !virtualListInstance
+  ) {
+    return;
+  }
+  const targetIndex = reportPendingScrollIndex;
+  reportPendingScrollIndex = null;
+  if (reportPendingScrollFrame) {
+    window.cancelAnimationFrame(reportPendingScrollFrame);
+    reportPendingScrollFrame = null;
+  }
+  reportPendingScrollFrame = window.requestAnimationFrame(() => {
+    reportPendingScrollFrame = null;
+    if (!virtualListInstance) {
+      reportPendingScrollIndex = targetIndex;
+      return;
+    }
+    virtualListInstance.scrollToIndex(targetIndex);
+  });
 }
 
 function getLoadedPageCount(): number {
@@ -235,6 +273,17 @@ function getVisibleEntriesCount(): number {
   }
   const start = getSqlitePageOffset();
   return Math.max(Math.min(reportEntries.length - start, REPORT_PAGE_SIZE), 0);
+}
+
+function getEntryByIndex(index: number): ReportingEntry | null {
+  if (Number.isNaN(index) || index < 0) {
+    return null;
+  }
+  if (dataMode === "sqlite") {
+    return reportEntries[index] || null;
+  }
+  const entries = currentEntries;
+  return entries[index] || null;
 }
 
 function toDateBoundaryIso(
@@ -326,19 +375,23 @@ async function loadReportEntries(
 
     if (reset) {
       reportPageIndex = 0;
+      queueReportScroll(0, false);
     }
     const maxPageIndex = Math.max(getLoadedPageCount() - 1, 0);
-    if (reportPendingAdvance === "next") {
-      if (reportPageIndex < maxPageIndex) {
-        reportPageIndex += 1;
+    if (reportPendingAdvance !== "next") {
+      reportPageIndex = Math.min(reportPageIndex, maxPageIndex);
+    } else {
+      const targetReady =
+        reportPendingScrollIndex != null &&
+        reportPendingScrollIndex < reportEntries.length;
+      if (targetReady || !reportHasMore) {
         reportPendingAdvance = null;
-      } else if (!reportHasMore) {
-        reportPendingAdvance = null;
+        if (!reportHasMore && !targetReady) {
+          reportPendingScrollIndex = null;
+        }
       } else {
         shouldQueueNextFetch = true;
       }
-    } else {
-      reportPageIndex = Math.min(reportPageIndex, maxPageIndex);
     }
     renderTable(section, reportEntries, labels);
   } catch (error) {
@@ -347,6 +400,7 @@ async function loadReportEntries(
       "Auswertung konnte nicht geladen werden. Bitte erneut versuchen.";
     window.alert(reportLoadError);
     reportPendingAdvance = null;
+    reportPendingScrollIndex = null;
   } finally {
     isLoadingReport = false;
     updatePagerWidget(section);
@@ -439,11 +493,13 @@ function updatePagerWidget(section: HTMLElement): void {
 }
 
 function goToPrevPage(section: HTMLElement): void {
-  if (dataMode !== "sqlite" || reportPageIndex === 0 || isLoadingReport) {
+  if (dataMode !== "sqlite" || reportPageIndex === 0) {
     return;
   }
-  reportPageIndex = Math.max(reportPageIndex - 1, 0);
-  renderTable(section, reportEntries, getState().fieldLabels);
+  const targetPage = Math.max(reportPageIndex - 1, 0);
+  reportPageIndex = targetPage;
+  const targetIndex = targetPage * REPORT_PAGE_SIZE;
+  queueReportScroll(targetIndex);
   updatePagerWidget(section);
 }
 
@@ -451,16 +507,17 @@ function goToNextPage(section: HTMLElement): void {
   if (dataMode !== "sqlite") {
     return;
   }
-  const loadedPages = getLoadedPageCount();
-  const hasBufferedNext = reportPageIndex + 1 < loadedPages;
-  if (hasBufferedNext && !isLoadingReport) {
-    reportPageIndex += 1;
-    renderTable(section, reportEntries, getState().fieldLabels);
+  const targetPage = reportPageIndex + 1;
+  const targetIndex = targetPage * REPORT_PAGE_SIZE;
+  if (targetIndex < reportEntries.length) {
+    reportPageIndex = targetPage;
+    queueReportScroll(targetIndex);
     updatePagerWidget(section);
     return;
   }
   if (isLoadingReport) {
     reportPendingAdvance = "next";
+    queueReportScroll(targetIndex, false);
     updatePagerWidget(section);
     return;
   }
@@ -468,75 +525,97 @@ function goToNextPage(section: HTMLElement): void {
     return;
   }
   reportPendingAdvance = "next";
+  queueReportScroll(targetIndex, false);
   updatePagerWidget(section);
   const labels = getState().fieldLabels;
   void loadReportEntries(section, labels);
 }
 
 function renderCardsList(
+  section: HTMLElement,
   listContainer: HTMLElement,
-  entries: ReportingEntry[],
   labels: AppState["fieldLabels"]
 ): void {
   const resolvedLabels = labels || getState().fieldLabels;
+  const entries = dataMode === "sqlite" ? reportEntries : currentEntries;
 
-  if (dataMode === "sqlite") {
-    if (virtualListInstance) {
-      virtualListInstance.destroy();
-      virtualListInstance = null;
-    }
-    const pageOffset = getSqlitePageOffset();
-    const visibleEntries = reportEntries.slice(
-      pageOffset,
-      Math.min(pageOffset + REPORT_PAGE_SIZE, reportEntries.length)
-    );
-    const fragment = document.createDocumentFragment();
-    visibleEntries.forEach((entry) => {
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = renderCalculationSnapshot(entry, resolvedLabels, {
+  const isSqliteMode = dataMode === "sqlite";
+  const shouldVirtualize =
+    isSqliteMode ||
+    (USE_VIRTUAL_SCROLLING && entries.length > INITIAL_LOAD_LIMIT);
+
+  if (shouldVirtualize) {
+    const estimatedItemHeight = 200;
+    const lazyThreshold = isSqliteMode
+      ? Math.max(10, Math.floor(REPORT_PAGE_SIZE / 2))
+      : undefined;
+
+    const renderVirtualItem = (node: HTMLElement, index: number) => {
+      const entry = getEntryByIndex(index);
+      if (!entry) {
+        node.innerHTML = "";
+        return;
+      }
+      node.innerHTML = renderCalculationSnapshot(entry, resolvedLabels, {
         showActions: false,
         includeCheckbox: false,
       });
-      if (wrapper.firstElementChild) {
-        fragment.appendChild(wrapper.firstElementChild);
+    };
+
+    const onRangeChange = (start: number, _end: number) => {
+      if (!isSqliteMode) {
+        return;
       }
-    });
-    listContainer.innerHTML = "";
-    listContainer.appendChild(fragment);
-    return;
-  }
+      const nextPage = Math.max(Math.floor(start / REPORT_PAGE_SIZE), 0);
+      if (nextPage !== reportPageIndex) {
+        reportPageIndex = nextPage;
+        updatePagerWidget(section);
+      }
+    };
 
-  const shouldVirtualize =
-    USE_VIRTUAL_SCROLLING && entries.length > INITIAL_LOAD_LIMIT;
+    const onRequestMore = isSqliteMode
+      ? () => {
+          if (!reportHasMore || isLoadingReport) {
+            return;
+          }
+          const latestLabels = getState().fieldLabels;
+          return loadReportEntries(section, latestLabels);
+        }
+      : undefined;
 
-  if (shouldVirtualize) {
+    const canRequestMore = isSqliteMode ? () => reportHasMore : undefined;
+    const isRequestPending = isSqliteMode ? () => isLoadingReport : undefined;
+
     if (!virtualListInstance) {
       listContainer.innerHTML = "";
       virtualListInstance = initVirtualList(listContainer, {
-        itemCount: currentEntries.length,
-        estimatedItemHeight: 200,
+        itemCount: entries.length,
+        estimatedItemHeight,
         overscan: 6,
-        renderItem: (node, index) => {
-          const entry = currentEntries[index];
-          if (!entry) {
-            node.innerHTML = "";
-            return;
-          }
-          node.innerHTML = renderCalculationSnapshot(entry, resolvedLabels, {
-            showActions: false,
-            includeCheckbox: false,
-          });
-        },
+        renderItem: renderVirtualItem,
+        lazyLoadThreshold: lazyThreshold,
+        onRangeChange,
+        onRequestMore,
+        canRequestMore,
+        isRequestPending,
       });
     } else {
-      virtualListInstance.updateItemCount(currentEntries.length);
+      virtualListInstance.updateItemCount(entries.length);
     }
+
+    flushPendingReportScroll();
     return;
   }
 
   if (virtualListInstance) {
     virtualListInstance.destroy();
     virtualListInstance = null;
+    listContainer.innerHTML = "";
+    if (reportPendingScrollFrame && typeof window !== "undefined") {
+      window.cancelAnimationFrame(reportPendingScrollFrame);
+      reportPendingScrollFrame = null;
+    }
+    reportPendingScrollIndex = null;
   }
 
   const limit = Math.min(entries.length, INITIAL_LOAD_LIMIT);
@@ -579,7 +658,7 @@ function renderTable(
     '[data-role="report-list"]'
   );
   if (listContainer) {
-    renderCardsList(listContainer, entries, labels);
+    renderCardsList(section, listContainer, labels);
   }
 
   updatePagerWidget(section);

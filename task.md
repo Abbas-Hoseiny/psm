@@ -21,9 +21,16 @@ Keine UI darf mehr komplette Datenbestaende auf einmal laden oder im Arbeitsspei
 
 ### 3. UI-Komponenten auf Paging umbauen
 
-- [ ] Gemeinsamer Pager (Vor/Zurueck) inklusive Spinner, Fehlerzustand und Retry.
-- [ ] Virtual-List-Helper anpassen, damit er Cursor-Callbacks aus Schritt 2 nutzt.
+- [x] Gemeinsamer Pager (Vor/Zurueck) inklusive Spinner, Fehlerzustand und Retry.
+- [x] Virtual-List-Helper anpassen, damit er Cursor-Callbacks aus Schritt 2 nutzt.
 - [ ] Module migrieren (History, Reporting, Documentation, Import-Vorschau, Settings, GPS-Liste, Lookup). Nach jedem Modul manuelles QA (Scroll + Reload + Filter).
+  - [x] History: Virtual-List + Pager an SQLite-Cursor gekoppelt, Bulk-Selection angepasst (QA: Scroll/Reload/Filter bitte lokal nachziehen; Build ✅ `npm run build` 2025-11-25).
+  - [x] Reporting: Kartenliste & Tabelle auf Pager/Virtual-List umgestellt (QA: Scroll+Filter bitte lokal verifizieren; Build ✅ `npm run build` 2025-11-25).
+  - [x] Documentation: Archiv/Editor-Sichten getrennt testen, Fokuswechsel sicherstellen (QA: Scroll/Filter/Archiv bitte lokal prüfen).
+  - [ ] Import-Vorschau: Konfliktliste chunked laden, Merge-Dialog verifizieren.
+  - [ ] Settings (Mediums): Suchfilter und Paging synchron halten, Debounce beobachten.
+  - [ ] GPS-Liste: Bounding-Box-Filter + Scroll-Laden, Kartenmarker aktualisieren.
+  - [ ] Lookup: Tabs mit separaten Cursors, Copy-to-Clipboard nachladen.
 - Tests: Komponententests, etwa mit Vitest + Testing Library, sowie manuelle Browser-Smoketests.
 
 ### 4. State- und Event-Synchronitaet absichern

@@ -343,7 +343,8 @@ interface DocumentationFocusContext {
   highlightEntryIds: Set<string>;
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
+const DOC_PAGE_CACHE_LIMIT = 4;
 const numberFormatter = new Intl.NumberFormat("de-DE");
 let initialized = false;
 let dataMode: DataMode = "memory";
@@ -352,6 +353,8 @@ let totalEntries = 0;
 let allEntries: DocumentationEntry[] = [];
 let visibleEntries: DocumentationEntry[] = [];
 let docPageIndex = 0;
+const docPageCache = new Map<number, DocumentationEntry[]>();
+const docPageCursors = new Map<number, HistoryCursor | null>([[0, null]]);
 const selectedEntryIds = new Set<string>();
 const entryDetailCache = new Map<string, HistoryEntry>();
 let isLoadingEntries = false;
@@ -364,9 +367,6 @@ let isArchiving = false;
 let lastArchiveLogSignature = "";
 let archiveLogsLoaded = false;
 let archiveLogsLoading: Promise<void> | null = null;
-let historyCursor: HistoryCursor | null = null;
-let sqliteHasMore = false;
-let docPendingAdvance: "next" | null = null;
 let docPagerWidget: PagerWidget | null = null;
 let docPagerTarget: HTMLElement | null = null;
 let docLoadError: string | null = null;
@@ -985,13 +985,29 @@ function sortEntries(entries: DocumentationEntry[]): DocumentationEntry[] {
 }
 
 function getLoadedPageCount(): number {
-  if (allEntries.length === 0) {
+  if (dataMode === "sqlite") {
+    if (totalEntries > 0) {
+      return Math.max(Math.ceil(totalEntries / PAGE_SIZE), 1);
+    }
+    return Math.max(docPageIndex + 1, docPageCache.size || 0);
+  }
+  if (!allEntries.length) {
     return 0;
   }
   return Math.max(Math.ceil(allEntries.length / PAGE_SIZE), 1);
 }
 
 function getPageOffset(): number {
+  if (dataMode === "sqlite") {
+    const maxPage = Math.max(getLoadedPageCount() - 1, 0);
+    if (docPageIndex > maxPage) {
+      docPageIndex = maxPage;
+    }
+    if (docPageIndex < 0) {
+      docPageIndex = 0;
+    }
+    return docPageIndex * PAGE_SIZE;
+  }
   if (!allEntries.length) {
     docPageIndex = 0;
     return 0;
@@ -1011,9 +1027,31 @@ function updateVisibleEntries(): void {
     visibleEntries = [];
     return;
   }
+  if (dataMode === "sqlite") {
+    visibleEntries = allEntries.slice();
+    return;
+  }
   const start = getPageOffset();
   const end = Math.min(start + PAGE_SIZE, allEntries.length);
   visibleEntries = allEntries.slice(start, end);
+}
+
+function pruneDocPageCache(currentPage: number): void {
+  if (docPageCache.size <= DOC_PAGE_CACHE_LIMIT) {
+    return;
+  }
+  const pages = Array.from(docPageCache.keys()).sort((a, b) => {
+    const diffA = Math.abs(a - currentPage);
+    const diffB = Math.abs(b - currentPage);
+    return diffB - diffA;
+  });
+  while (docPageCache.size > DOC_PAGE_CACHE_LIMIT && pages.length) {
+    const pageToRemove = pages.shift();
+    if (pageToRemove == null || pageToRemove === currentPage) {
+      continue;
+    }
+    docPageCache.delete(pageToRemove);
+  }
 }
 
 function ensurePagerWidget(section: HTMLElement): PagerWidget | null {
@@ -1050,38 +1088,27 @@ function updatePagerWidget(section: HTMLElement): void {
     return;
   }
 
-  const totalKnown =
-    totalEntries > 0 ? totalEntries : Math.max(allEntries.length, 0);
+  const totalKnown = dataMode === "memory" ? allEntries.length : totalEntries;
   const visibleCount = visibleEntries.length;
 
-  if (!visibleCount && !allEntries.length && !isLoadingEntries) {
-    widget.update({ status: "disabled", info: "Keine Einträge vorhanden." });
-    return;
-  }
-
-  if (!visibleCount && isLoadingEntries && !allEntries.length) {
-    widget.update({ status: "disabled", info: "Lade Dokumentation..." });
-    return;
-  }
-
-  const pageOffset = visibleCount ? getPageOffset() : 0;
-  const info = visibleCount
-    ? `Einträge ${numberFormatter.format(pageOffset + 1)}–${numberFormatter.format(
-        pageOffset + visibleCount
-      )}${totalKnown ? ` von ${numberFormatter.format(totalKnown)}` : ""}`
-    : isLoadingEntries
-      ? "Lade Dokumentation..."
-      : "Keine Einträge auf dieser Seite.";
-
   if (!visibleCount) {
-    widget.update({ status: "disabled", info });
+    const infoMessage = isLoadingEntries
+      ? "Lade Dokumentation..."
+      : "Keine Einträge vorhanden.";
+    widget.update({ status: "disabled", info: infoMessage });
     return;
   }
 
-  const hasBufferedNext = (docPageIndex + 1) * PAGE_SIZE < allEntries.length;
-  const canNext =
-    !isLoadingEntries &&
-    (hasBufferedNext || (dataMode === "sqlite" && sqliteHasMore));
+  const pageOffset =
+    dataMode === "sqlite" ? docPageIndex * PAGE_SIZE : getPageOffset();
+  const info = `Einträge ${numberFormatter.format(pageOffset + 1)}–${numberFormatter.format(
+    pageOffset + visibleCount
+  )}${totalKnown ? ` von ${numberFormatter.format(totalKnown)}` : ""}`;
+  const hasNextPage =
+    dataMode === "memory"
+      ? pageOffset + visibleCount < allEntries.length
+      : Boolean(docPageCursors.get(docPageIndex + 1));
+  const canNext = !isLoadingEntries && hasNextPage;
   const canPrev = docPageIndex > 0 && !isLoadingEntries;
 
   widget.update({
@@ -1089,7 +1116,7 @@ function updatePagerWidget(section: HTMLElement): void {
     info,
     canPrev,
     canNext,
-    loadingDirection: isLoadingEntries ? docPendingAdvance : null,
+    loadingDirection: isLoadingEntries && hasNextPage ? "next" : null,
   });
 }
 
@@ -1097,32 +1124,41 @@ function goToPrevPage(section: HTMLElement): void {
   if (docPageIndex === 0 || isLoadingEntries) {
     return;
   }
-  docPageIndex = Math.max(docPageIndex - 1, 0);
+  const targetPage = Math.max(docPageIndex - 1, 0);
+  if (dataMode === "sqlite") {
+    resetSelection(section);
+    void loadSqlitePage(section, getState().fieldLabels, targetPage);
+    return;
+  }
+  docPageIndex = targetPage;
   updateVisibleEntries();
   renderList(section, getState().fieldLabels);
   updateInfo(section, getState().fieldLabels);
 }
 
 function goToNextPage(section: HTMLElement): void {
-  const hasBufferedNext = (docPageIndex + 1) * PAGE_SIZE < allEntries.length;
-  if (hasBufferedNext && !isLoadingEntries) {
-    docPageIndex += 1;
-    updateVisibleEntries();
-    renderList(section, getState().fieldLabels);
-    updateInfo(section, getState().fieldLabels);
-    return;
-  }
   if (isLoadingEntries) {
-    docPendingAdvance = "next";
-    updatePagerWidget(section);
     return;
   }
-  if (dataMode !== "sqlite" || !sqliteHasMore) {
+  const targetPage = docPageIndex + 1;
+  if (dataMode === "sqlite") {
+    const hasCachedPage = docPageCache.has(targetPage);
+    const cursor = docPageCursors.get(targetPage);
+    if (!hasCachedPage && !cursor) {
+      return;
+    }
+    resetSelection(section);
+    void loadSqlitePage(section, getState().fieldLabels, targetPage);
     return;
   }
-  docPendingAdvance = "next";
-  updatePagerWidget(section);
-  void fetchSqliteEntries(section, getState().fieldLabels, { reset: false });
+  const hasBufferedNext = targetPage * PAGE_SIZE < allEntries.length;
+  if (!hasBufferedNext) {
+    return;
+  }
+  docPageIndex = targetPage;
+  updateVisibleEntries();
+  renderList(section, getState().fieldLabels);
+  updateInfo(section, getState().fieldLabels);
 }
 
 function resetSelection(section?: HTMLElement | null): void {
@@ -1437,38 +1473,53 @@ async function reopenDetailIfVisible(
   }
 }
 
-async function fetchSqliteEntries(
+async function loadSqlitePage(
   section: HTMLElement,
   labels: AppState["fieldLabels"],
-  { reset = false }: { reset?: boolean } = {}
+  requestedPage = docPageIndex,
+  options: { forceReload?: boolean } = {}
 ): Promise<void> {
+  const page = Math.max(0, requestedPage);
+  const forceReload = Boolean(options.forceReload);
+
+  if (forceReload) {
+    docPageCache.clear();
+    docPageCursors.clear();
+    docPageCursors.set(0, null);
+    totalEntries = 0;
+    allEntries = [];
+    visibleEntries = [];
+    docPageIndex = 0;
+    docLoadError = null;
+  }
+
+  const cachedEntries = !forceReload ? docPageCache.get(page) : undefined;
+  if (cachedEntries && !options.forceReload) {
+    docPageIndex = page;
+    allEntries = cachedEntries;
+    docLoadError = null;
+    renderList(section, labels);
+    updateInfo(section, labels);
+    updatePagerWidget(section);
+    return;
+  }
+
+  const cursor = docPageCursors.has(page)
+    ? (docPageCursors.get(page) ?? null)
+    : null;
   const token = Symbol("doc-load");
   currentLoadToken = token;
   isLoadingEntries = true;
   docLoadError = null;
   updatePagerWidget(section);
 
-  if (reset) {
-    historyCursor = null;
-    sqliteHasMore = false;
-    allEntries = [];
-    visibleEntries = [];
-    totalEntries = 0;
-    docPageIndex = 0;
-    docPendingAdvance = null;
-    updateVisibleEntries();
-    renderList(section, labels);
-    updateInfo(section, labels);
-  }
-
-  let shouldQueueNextFetch = false;
   try {
     const result = await listHistoryEntriesPaged({
-      cursor: reset ? null : historyCursor,
+      cursor,
       pageSize: PAGE_SIZE,
       filters: toHistoryQueryFilters(currentFilters),
       sortDirection: "desc",
-      includeTotal: reset || totalEntries === 0,
+      includeTotal: forceReload || page === 0 || totalEntries === 0,
     });
     if (currentLoadToken !== token) {
       return;
@@ -1476,54 +1527,37 @@ async function fetchSqliteEntries(
     const mapped = result.items.map((item: Record<string, unknown>) =>
       mapSqliteHistoryEntry(item)
     );
-    allEntries = reset ? mapped : [...allEntries, ...mapped];
-    historyCursor = result.nextCursor ?? null;
-    sqliteHasMore = Boolean(result.hasMore);
+    docPageCache.set(page, mapped);
+    pruneDocPageCache(page);
+    docPageCursors.set(page, cursor);
+    docPageCursors.set(page + 1, result.nextCursor ?? null);
+
     if (typeof result.totalCount === "number") {
       totalEntries = result.totalCount;
-    } else if (!totalEntries) {
-      totalEntries = allEntries.length;
+    } else {
+      const derived = page * PAGE_SIZE + mapped.length;
+      totalEntries = Math.max(totalEntries, derived);
     }
 
-    if (reset) {
-      docPageIndex = 0;
-    }
-    const maxPageIndex = Math.max(getLoadedPageCount() - 1, 0);
-    if (docPendingAdvance === "next") {
-      if (docPageIndex < maxPageIndex) {
-        docPageIndex += 1;
-        docPendingAdvance = null;
-      } else if (!sqliteHasMore) {
-        docPendingAdvance = null;
-      } else {
-        shouldQueueNextFetch = true;
-      }
-    } else {
-      docPageIndex = Math.min(docPageIndex, maxPageIndex);
-    }
-    updateVisibleEntries();
+    docPageIndex = page;
+    allEntries = mapped;
+    docLoadError = null;
+    renderList(section, labels);
+    updateInfo(section, labels);
   } catch (error) {
     if (currentLoadToken === token) {
       console.error("Dokumentation konnte nicht geladen werden", error);
+      docLoadError =
+        "Dokumentation konnte nicht geladen werden. Bitte erneut versuchen.";
       window.alert(
         "Dokumentation konnte nicht geladen werden. Bitte erneut versuchen."
       );
-      docLoadError =
-        "Dokumentation konnte nicht geladen werden. Bitte erneut versuchen.";
-      docPendingAdvance = null;
     }
   } finally {
     if (currentLoadToken === token) {
       isLoadingEntries = false;
       currentLoadToken = null;
-      renderList(section, labels);
-      updateInfo(section, labels);
-      if (shouldQueueNextFetch) {
-        docPendingAdvance = "next";
-        void fetchSqliteEntries(section, labels, { reset: false });
-      } else {
-        docPendingAdvance = null;
-      }
+      updatePagerWidget(section);
     }
   }
 }
@@ -1540,7 +1574,6 @@ async function loadMemoryEntries(
   );
   totalEntries = allEntries.length;
   docPageIndex = 0;
-  docPendingAdvance = null;
   docLoadError = null;
   updateVisibleEntries();
   renderList(section, state.fieldLabels);
@@ -1566,8 +1599,13 @@ async function applyFilters(
   dataMode = useSqlite ? "sqlite" : "memory";
   entryDetailCache.clear();
   docPageIndex = 0;
-  docPendingAdvance = null;
   docLoadError = null;
+  totalEntries = 0;
+  allEntries = [];
+  visibleEntries = [];
+  docPageCache.clear();
+  docPageCursors.clear();
+  docPageCursors.set(0, null);
   resetSelection(section);
   updateArchiveAvailability(section, state);
   updateArchiveFormDefaults(section);
@@ -1575,7 +1613,7 @@ async function applyFilters(
   lastArchiveLogSignature = computeArchiveLogSignature(state.archives?.logs);
 
   if (useSqlite) {
-    await fetchSqliteEntries(section, state.fieldLabels, { reset: true });
+    await loadSqlitePage(section, state.fieldLabels, 0, { forceReload: true });
     await reopenDetailIfVisible(section, state.fieldLabels);
     return;
   }

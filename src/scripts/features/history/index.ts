@@ -140,6 +140,42 @@ function clearHistoryCache(): void {
   historyLoadError = null;
   historyPageIndex = 0;
   historyPendingAdvance = null;
+  historyPendingScrollIndex = null;
+  if (historyPendingScrollFrame && typeof window !== "undefined") {
+    window.cancelAnimationFrame(historyPendingScrollFrame);
+    historyPendingScrollFrame = null;
+  }
+}
+
+function queuePageScroll(targetIndex: number, immediate = true): void {
+  historyPendingScrollIndex = Math.max(0, targetIndex);
+  if (immediate) {
+    flushPendingVirtualScroll();
+  }
+}
+
+function flushPendingVirtualScroll(): void {
+  if (
+    historyPendingScrollIndex == null ||
+    typeof window === "undefined" ||
+    !virtualListInstance
+  ) {
+    return;
+  }
+  const targetIndex = historyPendingScrollIndex;
+  historyPendingScrollIndex = null;
+  if (historyPendingScrollFrame) {
+    window.cancelAnimationFrame(historyPendingScrollFrame);
+    historyPendingScrollFrame = null;
+  }
+  historyPendingScrollFrame = window.requestAnimationFrame(() => {
+    historyPendingScrollFrame = null;
+    if (!virtualListInstance) {
+      historyPendingScrollIndex = targetIndex;
+      return;
+    }
+    virtualListInstance.scrollToIndex(targetIndex);
+  });
 }
 
 function getEntriesSnapshot(state: AppState): HistoryEntry[] {
@@ -239,19 +275,23 @@ async function loadHistoryEntries(
     }
     if (reset) {
       historyPageIndex = 0;
+      queuePageScroll(0, false);
     }
     const maxPageIndex = Math.max(getLoadedPageCount() - 1, 0);
-    if (historyPendingAdvance === "next") {
-      if (historyPageIndex < maxPageIndex) {
-        historyPageIndex += 1;
+    if (historyPendingAdvance !== "next") {
+      historyPageIndex = Math.min(historyPageIndex, maxPageIndex);
+    } else {
+      const targetReady =
+        historyPendingScrollIndex != null &&
+        historyPendingScrollIndex < historyEntries.length;
+      if (targetReady || !historyHasMore) {
         historyPendingAdvance = null;
-      } else if (!historyHasMore) {
-        historyPendingAdvance = null;
+        if (!historyHasMore && !targetReady) {
+          historyPendingScrollIndex = null;
+        }
       } else {
         shouldQueueNextFetch = true;
       }
-    } else {
-      historyPageIndex = Math.min(historyPageIndex, maxPageIndex);
     }
     renderHistoryTable(section, getState());
   } catch (error) {
@@ -261,6 +301,7 @@ async function loadHistoryEntries(
       "Historie konnte nicht geladen werden. Bitte erneut versuchen."
     );
     historyPendingAdvance = null;
+    historyPendingScrollIndex = null;
   } finally {
     isLoadingHistory = false;
     updatePagerWidget(section);
@@ -352,12 +393,17 @@ function updatePagerWidget(section: HTMLElement): void {
 }
 
 function goToPrevPage(section: HTMLElement): void {
-  if (dataMode !== "sqlite" || historyPageIndex === 0 || isLoadingHistory) {
+  if (
+    dataMode !== "sqlite" ||
+    historyPageIndex === 0 ||
+    historyPendingAdvance === "next"
+  ) {
     return;
   }
-  historyPageIndex = Math.max(historyPageIndex - 1, 0);
-  renderHistoryTable(section, getState());
-  updateSelectionUI(section);
+  const targetPage = Math.max(historyPageIndex - 1, 0);
+  historyPageIndex = targetPage;
+  const targetIndex = targetPage * HISTORY_PAGE_SIZE;
+  queuePageScroll(targetIndex);
   updatePagerWidget(section);
 }
 
@@ -365,16 +411,17 @@ function goToNextPage(section: HTMLElement): void {
   if (dataMode !== "sqlite") {
     return;
   }
-  const loadedPages = getLoadedPageCount();
-  const hasBufferedNext = historyPageIndex + 1 < loadedPages;
-  if (hasBufferedNext && !isLoadingHistory) {
-    historyPageIndex += 1;
-    renderHistoryTable(section, getState());
+  const targetPage = historyPageIndex + 1;
+  const targetIndex = targetPage * HISTORY_PAGE_SIZE;
+  if (targetIndex < historyEntries.length) {
+    historyPageIndex = targetPage;
+    queuePageScroll(targetIndex);
     updatePagerWidget(section);
     return;
   }
   if (isLoadingHistory) {
     historyPendingAdvance = "next";
+    queuePageScroll(targetIndex, false);
     updatePagerWidget(section);
     return;
   }
@@ -382,6 +429,7 @@ function goToNextPage(section: HTMLElement): void {
     return;
   }
   historyPendingAdvance = "next";
+  queuePageScroll(targetIndex, false);
   updatePagerWidget(section);
   const labels = getState().fieldLabels;
   void loadHistoryEntries(section, labels);
@@ -406,6 +454,8 @@ let historyPageIndex = 0;
 let historyPendingAdvance: "next" | null = null;
 let historyPagerWidget: PagerWidget | null = null;
 let historyPagerTarget: HTMLElement | null = null;
+let historyPendingScrollIndex: number | null = null;
+let historyPendingScrollFrame: number | null = null;
 
 let initialized = false;
 let virtualListInstance: ReturnType<typeof initVirtualList> | null = null;
@@ -475,6 +525,7 @@ function updateCardSelection(
 }
 
 function renderCardsList(
+  section: HTMLElement,
   state: AppState,
   listContainer: HTMLElement,
   labels: AppState["fieldLabels"]
@@ -488,73 +539,76 @@ function renderCardsList(
     }
   }
 
-  const pageOffset = dataMode === "sqlite" ? getSqlitePageOffset() : 0;
-  const visibleEntries =
-    dataMode === "sqlite"
-      ? entries.slice(
-          pageOffset,
-          Math.min(pageOffset + HISTORY_PAGE_SIZE, entries.length)
-        )
-      : entries;
-  if (dataMode === "sqlite") {
-    if (virtualListInstance) {
-      virtualListInstance.destroy();
-      virtualListInstance = null;
-    }
-    const fragment = document.createDocumentFragment();
-    visibleEntries.forEach((entry, idx) => {
-      const absoluteIndex = pageOffset + idx;
-      const selected = selectedIndexes.has(absoluteIndex);
-      const cardHtml = renderCalculationSnapshot(entry, resolvedLabels, {
+  const isSqliteMode = dataMode === "sqlite";
+  const shouldVirtualize =
+    isSqliteMode ||
+    (USE_VIRTUAL_SCROLLING && entries.length > INITIAL_LOAD_LIMIT);
+
+  if (shouldVirtualize) {
+    const estimatedItemHeight = 250;
+    const lazyThreshold = isSqliteMode
+      ? Math.max(10, Math.floor(HISTORY_PAGE_SIZE / 2))
+      : undefined;
+    const renderVirtualItem = (node: HTMLElement, index: number) => {
+      const currentState = getState();
+      const entry = getEntryByIndex(currentState, index);
+      if (!entry) {
+        node.innerHTML = "";
+        return;
+      }
+      const latestLabels = currentState.fieldLabels || resolvedLabels;
+      const selected = selectedIndexes.has(index);
+      node.innerHTML = renderCalculationSnapshot(entry, latestLabels, {
         showActions: true,
         includeCheckbox: true,
-        index: absoluteIndex,
+        index,
         selected,
         enableGpsActions: true,
       });
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = cardHtml;
-      if (wrapper.firstElementChild) {
-        fragment.appendChild(wrapper.firstElementChild);
+    };
+
+    const onRangeChange = (start: number, _end: number) => {
+      if (!isSqliteMode) {
+        return;
       }
-    });
-    listContainer.innerHTML = "";
-    listContainer.appendChild(fragment);
-    return;
-  }
+      const nextPage = Math.max(Math.floor(start / HISTORY_PAGE_SIZE), 0);
+      if (nextPage !== historyPageIndex) {
+        historyPageIndex = nextPage;
+        updatePagerWidget(section);
+      }
+    };
 
-  const shouldVirtualize =
-    USE_VIRTUAL_SCROLLING && entries.length > INITIAL_LOAD_LIMIT;
+    const onRequestMore = isSqliteMode
+      ? () => {
+          if (!historyHasMore || isLoadingHistory) {
+            return;
+          }
+          const latestLabels = getState().fieldLabels;
+          return loadHistoryEntries(section, latestLabels);
+        }
+      : undefined;
 
-  if (shouldVirtualize) {
+    const canRequestMore = isSqliteMode ? () => historyHasMore : undefined;
+    const isRequestPending = isSqliteMode ? () => isLoadingHistory : undefined;
+
     if (!virtualListInstance) {
       listContainer.innerHTML = "";
       virtualListInstance = initVirtualList(listContainer, {
         itemCount: entries.length,
-        estimatedItemHeight: 250,
+        estimatedItemHeight,
         overscan: 6,
-        lazyLoadThreshold: undefined,
-        renderItem: (node, index) => {
-          const currentState = getState();
-          const entry = getEntryByIndex(currentState, index);
-          if (!entry) {
-            node.innerHTML = "";
-            return;
-          }
-          const latestLabels = currentState.fieldLabels || resolvedLabels;
-          const selected = selectedIndexes.has(index);
-          node.innerHTML = renderCalculationSnapshot(entry, latestLabels, {
-            showActions: true,
-            includeCheckbox: true,
-            index,
-            selected,
-            enableGpsActions: true,
-          });
-        },
+        renderItem: renderVirtualItem,
+        lazyLoadThreshold: lazyThreshold,
+        onRangeChange,
+        onRequestMore,
+        canRequestMore,
+        isRequestPending,
       });
     } else {
       virtualListInstance.updateItemCount(entries.length);
     }
+
+    flushPendingVirtualScroll();
     return;
   }
 
@@ -562,6 +616,11 @@ function renderCardsList(
     virtualListInstance.destroy();
     virtualListInstance = null;
     listContainer.innerHTML = "";
+    if (historyPendingScrollFrame && typeof window !== "undefined") {
+      window.cancelAnimationFrame(historyPendingScrollFrame);
+      historyPendingScrollFrame = null;
+    }
+    historyPendingScrollIndex = null;
   }
 
   const limit = Math.min(entries.length, INITIAL_LOAD_LIMIT);
@@ -604,7 +663,7 @@ function renderHistoryTable(section: HTMLElement, state: AppState): void {
   if (!listContainer) {
     return;
   }
-  renderCardsList(state, listContainer, state.fieldLabels);
+  renderCardsList(section, state, listContainer, state.fieldLabels);
   updatePagerWidget(section);
 }
 
