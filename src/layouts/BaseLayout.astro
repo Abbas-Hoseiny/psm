@@ -5,9 +5,24 @@ import '../styles/components.css';
 
 interface Props {
   title?: string;
+  description?: string;
 }
 
-const { title = 'Pflanzenschutz' } = Astro.props;
+const baseTitle = 'Pflanzenschutz-Aufzeichnung';
+const {
+  title: pageTitle = 'Pflanzenschutz',
+  description =
+    'Digitale Berechnung, Dokumentation und Synchronisierung von Pflanzenschutz-Anwendungen inklusive BVL-Daten.',
+} = Astro.props as Props;
+const fullTitle = `${pageTitle} · ${baseTitle}`;
+const canonicalUrl = Astro.url?.href ??
+  (Astro.site ? new URL(Astro.site).href : 'https://abbas-hoseiny.github.io/pestalozzi/');
+const previewImagePath = '/assets/img/fields.jpg';
+const previewImageUrl = Astro.site
+  ? new URL(previewImagePath, Astro.site).href
+  : previewImagePath;
+const previewImageWidth = 1200;
+const previewImageHeight = 630;
 ---
 
 <!DOCTYPE html>
@@ -15,7 +30,23 @@ const { title = 'Pflanzenschutz' } = Astro.props;
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{title}</title>
+  <title>{fullTitle}</title>
+  <link rel="canonical" href={canonicalUrl} />
+  <meta name="description" content={description} />
+  <meta property="og:site_name" content={baseTitle} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={canonicalUrl} />
+  <meta property="og:title" content={fullTitle} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={previewImageUrl} />
+  <meta property="og:image:width" content={previewImageWidth.toString()} />
+  <meta property="og:image:height" content={previewImageHeight.toString()} />
+  <meta property="og:image:alt" content="Weitläufiges Feld als Hintergrundmotiv der Pflanzenschutz-App" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={fullTitle} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={previewImageUrl} />
+  <meta name="twitter:image:alt" content="Weitläufiges Feld als Hintergrundmotiv der Pflanzenschutz-App" />
   <link rel="icon" type="image/png" href="/assets/img/pestalozzi-logo.png" />
   <link rel="shortcut icon" href="/assets/img/pestalozzi-logo.png" />
   <link rel="apple-touch-icon" href="/assets/img/pestalozzi-logo.png" />
