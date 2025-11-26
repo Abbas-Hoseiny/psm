@@ -305,7 +305,7 @@ export function initStartup(
   function handleUseDefaults(button: HTMLButtonElement | null): void {
     void withButtonBusy(button, async () => {
       const initialData = createInitialDatabase();
-      const driverOrder = ["sqlite", "localstorage", "memory"] as const;
+      const driverOrder = ["localstorage", "sqlite", "memory"] as const;
       for (const preferred of driverOrder) {
         try {
           setActiveDriver(preferred);

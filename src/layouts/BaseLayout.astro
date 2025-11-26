@@ -17,7 +17,7 @@ const {
 const fullTitle = `${pageTitle} · ${baseTitle}`;
 const canonicalUrl = Astro.url?.href ??
   (Astro.site ? new URL(Astro.site).href : 'https://abbas-hoseiny.github.io/pestalozzi/');
-const previewImagePath = '/assets/img/fields.jpg';
+const previewImagePath = '/assets/img/preview.png';
 const previewImageUrl = Astro.site
   ? new URL(previewImagePath, Astro.site).href
   : previewImagePath;
@@ -41,12 +41,12 @@ const previewImageHeight = 630;
   <meta property="og:image" content={previewImageUrl} />
   <meta property="og:image:width" content={previewImageWidth.toString()} />
   <meta property="og:image:height" content={previewImageHeight.toString()} />
-  <meta property="og:image:alt" content="Weitläufiges Feld als Hintergrundmotiv der Pflanzenschutz-App" />
+  <meta property="og:image:alt" content="Anwendungs-Vorschau der Pflanzenschutz-Aufzeichnung" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={fullTitle} />
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image" content={previewImageUrl} />
-  <meta name="twitter:image:alt" content="Weitläufiges Feld als Hintergrundmotiv der Pflanzenschutz-App" />
+  <meta name="twitter:image:alt" content="Anwendungs-Vorschau der Pflanzenschutz-Aufzeichnung" />
   <link rel="icon" type="image/png" href="/assets/img/pestalozzi-logo.png" />
   <link rel="shortcut icon" href="/assets/img/pestalozzi-logo.png" />
   <link rel="apple-touch-icon" href="/assets/img/pestalozzi-logo.png" />
