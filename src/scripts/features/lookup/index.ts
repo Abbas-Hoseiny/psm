@@ -5,6 +5,11 @@ import {
   type PagerDirection,
 } from "@scripts/features/shared/pagerWidget";
 import {
+  createDebugOverlayBinding,
+  estimatePayloadKb as estimateOverlayPayloadKb,
+  pushDebugOverlayMetrics,
+} from "@scripts/dev/debugOverlayClient";
+import {
   ensureLookupData,
   getLookupStats,
   listLookupLanguages,
@@ -41,6 +46,8 @@ type SearchState = {
   page: number;
   currentCount: number;
   loading: boolean;
+  lastPayloadKb: number | null;
+  lastUpdated: string | null;
 };
 
 const numberFormatter = new Intl.NumberFormat("de-DE");
@@ -137,6 +144,11 @@ function writeLanguagePreference(value: string): void {
 }
 
 let initialized = false;
+const lookupOverlayBinding = createDebugOverlayBinding({
+  id: "lookup",
+  label: "Lookup (EPPO/BBCH)",
+  budget: { initialLoad: 25, maxItems: 75 },
+});
 
 export function initLookup(
   container: Element | null,
@@ -217,6 +229,8 @@ export function initLookup(
       page: 0,
       currentCount: 0,
       loading: false,
+      lastPayloadKb: null,
+      lastUpdated: null,
     },
     bbch: {
       query: "",
@@ -227,6 +241,8 @@ export function initLookup(
       page: 0,
       currentCount: 0,
       loading: false,
+      lastPayloadKb: null,
+      lastUpdated: null,
     },
   };
 
@@ -243,6 +259,50 @@ export function initLookup(
   const pagerLoadingDirections: Record<LookupTab, PagerDirection | null> = {
     eppo: null,
     bbch: null,
+  };
+
+  const describeTab = (tab: LookupTab): string =>
+    tab === "eppo" ? "EPPO" : "BBCH";
+
+  const buildLookupOverlayNote = (tab: LookupTab): string | undefined => {
+    const state = searchState[tab];
+    const parts: string[] = [`Tab: ${describeTab(tab)}`];
+    if (!databaseReady) {
+      parts.push("Keine Datenbank");
+    } else if (storageDriver !== "sqlite") {
+      parts.push("Nur mit SQLite verfügbar");
+    }
+    if (state.loading) {
+      parts.push("Suche läuft");
+    } else if (!state.executed) {
+      parts.push("Noch keine Suche");
+    } else if (!state.currentCount) {
+      parts.push("Keine Treffer");
+    }
+    return parts.length ? parts.join(" · ") : undefined;
+  };
+
+  const publishLookupOverlayMetrics = (tab: LookupTab = activeTab) => {
+    const state = searchState[tab];
+    const usable = Boolean(databaseReady && storageDriver === "sqlite");
+    const metrics = usable
+      ? {
+          items: state.executed ? state.currentCount : null,
+          totalCount: state.executed ? state.total || null : null,
+          cursor: state.executed ? `Seite ${state.page + 1}` : null,
+          payloadKb: state.executed ? (state.lastPayloadKb ?? null) : null,
+          lastUpdated: state.lastUpdated,
+          note: buildLookupOverlayNote(tab),
+        }
+      : {
+          items: null,
+          totalCount: null,
+          cursor: null,
+          payloadKb: null,
+          lastUpdated: null,
+          note: buildLookupOverlayNote(tab),
+        };
+    pushDebugOverlayMetrics(lookupOverlayBinding, metrics);
   };
 
   const ensurePager = (tab: LookupTab): PagerWidget | null => {
@@ -334,6 +394,7 @@ export function initLookup(
     }
     updatePaginationUi("eppo");
     updatePaginationUi("bbch");
+    publishLookupOverlayMetrics(activeTab);
   };
 
   const isLookupAvailable = (): boolean =>
@@ -358,8 +419,11 @@ export function initLookup(
     state.loading = false;
     state.page = 0;
     state.currentCount = 0;
+    state.lastPayloadKb = null;
+    state.lastUpdated = null;
     pagerLoadingDirections[tab] = null;
     updatePaginationUi(tab);
+    publishLookupOverlayMetrics(tab);
   };
 
   const updatePaginationUi = (tab: LookupTab) => {
@@ -667,6 +731,8 @@ export function initLookup(
 
       state.executed = true;
       state.currentCount = rows.length;
+      state.lastPayloadKb = estimateOverlayPayloadKb(rows);
+      state.lastUpdated = new Date().toISOString();
     } catch (error) {
       console.error("Lookup-Suche fehlgeschlagen", error);
       setMessage("Suche fehlgeschlagen.", "danger");
@@ -674,10 +740,13 @@ export function initLookup(
       state.executed = false;
       state.total = 0;
       state.currentCount = 0;
+      state.lastPayloadKb = null;
+      state.lastUpdated = new Date().toISOString();
     } finally {
       state.loading = false;
       pagerLoadingDirections[tab] = null;
       updatePaginationUi(tab);
+      publishLookupOverlayMetrics(tab);
     }
   };
 
@@ -691,6 +760,7 @@ export function initLookup(
       const isActive = panel.dataset.tab === tab;
       panel.classList.toggle("d-none", !isActive);
     });
+    publishLookupOverlayMetrics(tab);
   };
 
   refs.eppoForm?.addEventListener("submit", (event) => {
@@ -901,11 +971,13 @@ export function initLookup(
     } else if (nowAvailable) {
       updatePaginationUi(activeTab);
     }
+    publishLookupOverlayMetrics(activeTab);
   };
 
   services.state.subscribe(handleStateChange);
   setActiveTab("eppo");
   updateUiAvailability();
+  publishLookupOverlayMetrics("eppo");
   void refreshLanguageOptions();
   if (isLookupAvailable()) {
     void refreshStats();

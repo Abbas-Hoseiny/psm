@@ -78,7 +78,16 @@ const PROVIDER_TEMPLATES: ProviderConfig[] = [
     budget: { initialLoad: 50, maxItems: 100 },
   },
   { id: "gps", label: "GPS", budget: { initialLoad: 100, maxItems: 200 } },
-  { id: "lookup", label: "Lookup", budget: { initialLoad: 25, maxItems: 75 } },
+  {
+    id: "lookup",
+    label: "Lookup (EPPO/BBCH)",
+    budget: { initialLoad: 25, maxItems: 75 },
+  },
+  {
+    id: "zulassung",
+    label: "Zulassung",
+    budget: { initialLoad: 25, maxItems: 200 },
+  },
   {
     id: "import",
     label: "Import-Vorschau",
@@ -274,9 +283,14 @@ function registerBuiltInProviders(registry: Map<string, ProviderRecord>): void {
     },
     {
       id: "lookup",
-      label: "Lookup",
+      label: "Lookup (EPPO/BBCH)",
       budget: { initialLoad: 25, maxItems: 75 },
-      getMetrics: (state) => metricsFromLookup(state),
+    },
+    {
+      id: "zulassung",
+      label: "Zulassung",
+      budget: { initialLoad: 25, maxItems: 200 },
+      getMetrics: (state) => metricsFromZulassung(state),
     },
   ];
 
@@ -308,7 +322,7 @@ function metricsFromSlice(
   };
 }
 
-function metricsFromLookup(state: AppState): ProviderMetrics | null {
+function metricsFromZulassung(state: AppState): ProviderMetrics | null {
   const result = state.zulassung?.results;
   if (!result) {
     return null;
