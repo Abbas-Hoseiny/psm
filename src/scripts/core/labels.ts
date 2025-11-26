@@ -112,6 +112,53 @@ const DEFAULT_FIELD_LABELS = {
   },
 };
 
+const QUANTITY_LABEL_PRIMARY_PATH =
+  "calculation.fields.quantity.label" as const;
+const QUANTITY_LABEL_DEPENDENT_PATHS = [
+  "calculation.tableColumns.perQuantity",
+  "history.tableColumns.quantity",
+  "history.detail.quantity",
+  "reporting.tableColumns.quantity",
+] as const;
+
+function splitPath(path: string): string[] {
+  return path.split(".").filter(Boolean);
+}
+
+function getValueAtPath(source: any, path: string): any {
+  if (!source || typeof source !== "object") {
+    return undefined;
+  }
+  return splitPath(path).reduce<any>((cursor, segment) => {
+    if (cursor && typeof cursor === "object" && segment in cursor) {
+      return cursor[segment];
+    }
+    return undefined;
+  }, source);
+}
+
+function assignValueAtPath(target: any, path: string, value: any): void {
+  const segments = splitPath(path);
+  if (!segments.length) {
+    return;
+  }
+  let cursor = target;
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (index === segments.length - 1) {
+      cursor[segment] = value;
+      return;
+    }
+    const next = cursor[segment];
+    if (!next || typeof next !== "object" || Array.isArray(next)) {
+      cursor[segment] = {};
+    } else {
+      cursor[segment] = { ...next };
+    }
+    cursor = cursor[segment];
+  }
+}
+
 function deepMerge(target: any, source: any): any {
   const result = Array.isArray(target) ? [...target] : { ...target };
   if (!source || typeof source !== "object") {
@@ -137,7 +184,24 @@ export function getDefaultFieldLabels(): typeof DEFAULT_FIELD_LABELS {
 }
 
 export function resolveFieldLabels(custom: any = {}): any {
-  return deepMerge(getDefaultFieldLabels(), custom);
+  const defaults = getDefaultFieldLabels();
+  const merged = deepMerge(defaults, custom);
+  const quantityLabel = getValueAtPath(merged, QUANTITY_LABEL_PRIMARY_PATH);
+  if (quantityLabel) {
+    QUANTITY_LABEL_DEPENDENT_PATHS.forEach((path) => {
+      const currentValue = getValueAtPath(merged, path);
+      const defaultValue = getValueAtPath(defaults, path);
+      const customValue = getValueAtPath(custom, path);
+      if (
+        customValue === undefined ||
+        customValue === defaultValue ||
+        currentValue === defaultValue
+      ) {
+        assignValueAtPath(merged, path, quantityLabel);
+      }
+    });
+  }
+  return merged;
 }
 
 export function mergeFieldLabels(base: any, overrides: any = {}): any {
@@ -149,7 +213,7 @@ export function setFieldLabelByPath(
   path: string,
   value: any
 ): any {
-  const segments = path.split(".");
+  const segments = splitPath(path);
   const copy = cloneLabels(labels);
   let cursor = copy;
   for (let i = 0; i < segments.length; i += 1) {
@@ -163,6 +227,11 @@ export function setFieldLabelByPath(
           : {};
       cursor = cursor[segment];
     }
+  }
+  if (path === QUANTITY_LABEL_PRIMARY_PATH) {
+    QUANTITY_LABEL_DEPENDENT_PATHS.forEach((dependentPath) => {
+      assignValueAtPath(copy, dependentPath, value);
+    });
   }
   return resolveFieldLabels(copy);
 }
