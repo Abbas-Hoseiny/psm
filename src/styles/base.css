@@ -9,8 +9,8 @@
   --color-navbar: #222;
   --color-card-shadow: rgba(0, 0, 0, 0.4);
   --color-footer-shadow: rgba(0, 0, 0, 0.2);
-  --color-bg-overlay-top: rgba(6, 9, 15, 0.82);
-  --color-bg-overlay-bottom: rgba(12, 18, 28, 0.72);
+  --color-bg-overlay-top: rgba(10, 14, 22, 0.6);
+  --color-bg-overlay-bottom: rgba(18, 26, 38, 0.45);
   --color-bg-highlight: rgba(38, 118, 71, 0.28);
   --color-bg-shadow: rgba(0, 0, 0, 0.42);
   --bg-photo-startup: url("/assets/img/fields.jpg");
