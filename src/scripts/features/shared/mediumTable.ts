@@ -6,11 +6,38 @@ const COLUMN_FALLBACK_LABELS = {
   unit: "Einheit",
   method: "Methode",
   value: "Wert",
-  perQuantity: "Kisten",
+  perQuantity: "Fläche (ha)",
   areaAr: "Ar",
   areaSqm: "m²",
   total: "Gesamt",
 } as const;
+
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function resolveAreaHaFromInputs(inputs: any): number | null {
+  if (!inputs || typeof inputs !== "object") {
+    return null;
+  }
+  const direct = toNumber(inputs.areaHa);
+  if (direct !== null) {
+    return direct;
+  }
+  const areaAr = toNumber(inputs.areaAr);
+  if (areaAr !== null) {
+    return areaAr / 100;
+  }
+  const areaSqm = toNumber(inputs.areaSqm);
+  if (areaSqm !== null) {
+    return areaSqm / 10000;
+  }
+  return null;
+}
 
 type VariantKey = "calculation" | "detail" | "summary";
 
@@ -99,11 +126,14 @@ const COLUMN_DEFS: Record<keyof typeof COLUMN_FALLBACK_LABELS, ColumnRenderer> =
     },
     perQuantity: {
       cell: (item, config) => {
-        const raw = item?.inputs?.kisten;
-        if (raw === null || raw === undefined) {
-          return config.missingValue;
+        const areaHa = resolveAreaHaFromInputs(item?.inputs);
+        if (areaHa === null) {
+          const legacy = item?.inputs?.kisten;
+          return legacy === null || legacy === undefined
+            ? config.missingValue
+            : escapeHtml(String(legacy));
         }
-        return escapeHtml(String(raw));
+        return formatNumber(areaHa, 2, config.numberFallback);
       },
       className: "nowrap",
     },

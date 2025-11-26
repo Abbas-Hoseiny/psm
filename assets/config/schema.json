@@ -24,17 +24,16 @@
         },
         "defaults": {
           "type": "object",
-          "required": ["waterPerKisteL", "kistenProAr"],
+          "required": ["waterPerHaL"],
           "properties": {
-            "waterPerKisteL": { "type": "number", "minimum": 0 },
-            "kistenProAr": { "type": "number", "minimum": 0 },
+            "waterPerHaL": { "type": "number", "minimum": 0 },
             "form": {
               "type": "object",
               "properties": {
                 "creator": { "type": "string" },
                 "location": { "type": "string" },
                 "crop": { "type": "string" },
-                "quantity": { "type": "string" },
+                "areaHa": { "type": "string" },
                 "eppoCode": { "type": "string" },
                 "bbch": { "type": "string" },
                 "gps": { "type": "string" },

@@ -9,13 +9,12 @@
       "address": "Pestalozzi Gärtnerei\nPestalozzi-Kinderdorf 1\n78333 Stockach-Wahlwies"
     },
     "defaults": {
-      "waterPerKisteL": 5,
-      "kistenProAr": 300,
+      "waterPerHaL": 500,
       "form": {
         "creator": "",
         "location": "",
         "crop": "",
-        "quantity": "",
+        "areaHa": "",
         "eppoCode": "",
         "bbch": "",
         "gps": "",
@@ -26,13 +25,13 @@
     },
     "measurementMethods": [
       {
-        "id": "perKiste",
-        "label": "pro Kiste",
+        "id": "perHektar",
+        "label": "pro Hektar",
         "type": "factor",
-        "unit": "Kiste",
-        "requires": ["kisten"],
+        "unit": "ha",
+        "requires": ["areaHa"],
         "config": {
-          "sourceField": "kisten"
+          "sourceField": "areaHa"
         }
       },
       {
@@ -40,7 +39,7 @@
         "label": "% vom Wasser",
         "type": "percentOf",
         "unit": "Liter",
-        "requires": ["kisten", "waterVolume"],
+        "requires": ["areaHa", "waterVolume"],
         "config": {
           "baseField": "waterVolume"
         }
@@ -52,7 +51,7 @@
       "id": "water",
       "name": "Wasser",
       "unit": "L",
-      "methodId": "perKiste",
+      "methodId": "perHektar",
       "value": 0.0166,
       "zulassungsnummer": ""
     },
@@ -60,7 +59,7 @@
       "id": "elotVis",
       "name": "Elot-Vis",
       "unit": "ml",
-      "methodId": "perKiste",
+      "methodId": "perHektar",
       "value": 0.83,
       "zulassungsnummer": ""
     },
@@ -68,7 +67,7 @@
       "id": "schachtelhalm",
       "name": "Schachtelhalm",
       "unit": "ml",
-      "methodId": "perKiste",
+      "methodId": "perHektar",
       "value": 0.83,
       "zulassungsnummer": ""
     }

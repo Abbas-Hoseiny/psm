@@ -33,6 +33,7 @@ import {
   formatDateFromIso,
   formatGpsCoordinates,
   parseIsoDate,
+  formatNumber,
 } from "@scripts/core/utils";
 import {
   buildCompanyPrintHeader,
@@ -84,6 +85,10 @@ interface HistoryEntry {
   standort?: string;
   usageType?: string;
   kultur?: string;
+  areaHa?: number;
+  areaAr?: number;
+  areaSqm?: number;
+  waterVolume?: number;
   kisten?: number;
   eppoCode?: string;
   bbch?: string;
@@ -110,6 +115,41 @@ const ARCHIVE_ENTRY_LIMIT = 5000;
 const ARCHIVE_HIGHLIGHT_LIMIT = 50;
 const ARCHIVE_LOG_LIMIT = 50;
 const ARCHIVE_LOG_PAGE_SIZE = 3;
+
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resolveEntryAreaHa(entry: HistoryEntry | null): number | null {
+  if (!entry) {
+    return null;
+  }
+  const direct = toNumber(entry.areaHa);
+  if (direct !== null) {
+    return direct;
+  }
+  const areaAr = toNumber(entry.areaAr);
+  if (areaAr !== null) {
+    return areaAr / 100;
+  }
+  const areaSqm = toNumber(entry.areaSqm);
+  if (areaSqm !== null) {
+    return areaSqm / 10000;
+  }
+  return null;
+}
+
+function formatEntryArea(entry: HistoryEntry | null, fallback = "–"): string {
+  const area = resolveEntryAreaHa(entry);
+  if (area === null) {
+    return fallback;
+  }
+  return formatNumber(area, 2, fallback);
+}
 
 function formatDateInputValue(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -1077,6 +1117,9 @@ function buildHistorySignature(entry: HistoryEntry | null | undefined): string {
     bbch: normalize(entry.bbch),
     gps: normalize(entry.gps),
     gpsPointId: normalize(entry.gpsPointId),
+    areaHa: entry.areaHa ?? null,
+    areaAr: entry.areaAr ?? null,
+    areaSqm: entry.areaSqm ?? null,
     kisten: entry.kisten ?? null,
     itemHashes,
   });
@@ -1557,10 +1600,8 @@ function renderDetail(
         detailLabels.usageType || "Art der Verwendung"
       )}:</strong> ${escapeHtml(detailEntry.usageType || "")}<br />
       <strong>${escapeHtml(
-        detailLabels.quantity || "Kisten"
-      )}:</strong> ${escapeHtml(
-        detailEntry.kisten != null ? String(detailEntry.kisten) : ""
-      )}<br />
+        detailLabels.quantity || "Fläche (ha)"
+      )}:</strong> ${escapeHtml(formatEntryArea(detailEntry))}<br />
       <strong>${escapeHtml(
         detailLabels.eppoCode || "EPPO-Code"
       )}:</strong> ${escapeHtml(detailEntry.eppoCode || "")}<br />

@@ -12,6 +12,7 @@ import {
   formatGpsCoordinates,
   buildGoogleMapsUrl,
   formatDateFromIso,
+  formatNumber,
 } from "@scripts/core/utils";
 import { renderCalculationSnapshot } from "@scripts/features/shared/calculationSnapshot";
 import { initVirtualList } from "@scripts/core/virtualList";
@@ -58,6 +59,10 @@ interface HistoryEntry {
   standort?: string;
   kultur?: string;
   usageType?: string;
+  areaHa?: number;
+  areaAr?: number;
+  areaSqm?: number;
+  waterVolume?: number;
   kisten?: number;
   eppoCode?: string;
   bbch?: string;
@@ -102,6 +107,41 @@ function resolveHistoryMapUrl(entry: HistoryEntry | null): string | null {
     return null;
   }
   return buildGoogleMapsUrl(entry.gpsCoordinates);
+}
+
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function resolveHistoryAreaHa(entry: HistoryEntry | null): number | null {
+  if (!entry) {
+    return null;
+  }
+  const direct = toNumber(entry.areaHa);
+  if (direct !== null) {
+    return direct;
+  }
+  const areaAr = toNumber(entry.areaAr);
+  if (areaAr !== null) {
+    return areaAr / 100;
+  }
+  const areaSqm = toNumber(entry.areaSqm);
+  if (areaSqm !== null) {
+    return areaSqm / 10000;
+  }
+  return null;
+}
+
+function formatHistoryArea(entry: HistoryEntry | null, fallback = "–"): string {
+  const areaValue = resolveHistoryAreaHa(entry);
+  if (areaValue === null) {
+    return fallback;
+  }
+  return formatNumber(areaValue, 2, fallback);
 }
 
 function emitGpsActivationRequest(
@@ -766,12 +806,8 @@ function renderDetail(
         detailLabels.crop || "Kultur"
       )}:</strong> ${escapeHtml(entry.kultur || "")}<br />
       <strong>${escapeHtml(
-        detailLabels.quantity || "Kisten"
-      )}:</strong> ${escapeHtml(
-        entry.kisten !== undefined && entry.kisten !== null
-          ? String(entry.kisten)
-          : ""
-      )}<br />
+        detailLabels.quantity || "Fläche (ha)"
+      )}:</strong> ${escapeHtml(formatHistoryArea(entry))}<br />
       <strong>${escapeHtml(
         detailLabels.eppoCode || "EPPO-Code"
       )}:</strong> ${escapeHtml(entry.eppoCode || "")}<br />
@@ -926,12 +962,8 @@ function printDetail(
           detailLabels.crop || "Kultur"
         )}:</strong> ${escapeHtml(entry.kultur || "")}<br />
         <strong>${escapeHtml(
-          detailLabels.quantity || "Kisten"
-        )}:</strong> ${escapeHtml(
-          entry.kisten !== undefined && entry.kisten !== null
-            ? String(entry.kisten)
-            : ""
-        )}<br />
+          detailLabels.quantity || "Fläche (ha)"
+        )}:</strong> ${escapeHtml(formatHistoryArea(entry))}<br />
         <strong>${escapeHtml(
           detailLabels.eppoCode || "EPPO-Code"
         )}:</strong> ${escapeHtml(entry.eppoCode || "")}<br />

@@ -131,7 +131,7 @@ function createSection(): HTMLElement {
             <input class="form-control" name="medium-unit" placeholder="Einheit (z. B. ml, %)" required />
           </div>
           <div class="col-md-3">
-            <input class="form-control" name="medium-method" placeholder="Methode (z. B. perKiste)" list="settings-method-options" required />
+            <input class="form-control" name="medium-method" placeholder="Methode (z. B. perHektar)" list="settings-method-options" required />
             <datalist id="settings-method-options"></datalist>
           </div>
           <div class="col-md-2">
@@ -681,8 +681,8 @@ function ensureMethodExists(
     label: rawValue,
     type: "factor",
     unit: defaultUnit,
-    requires: ["kisten"],
-    config: { sourceField: "kisten" },
+    requires: ["areaHa"],
+    config: { sourceField: "areaHa" },
   };
   services.state.updateSlice("measurementMethods", (methods: any[]) => [
     ...methods,

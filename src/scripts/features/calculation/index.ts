@@ -108,7 +108,7 @@ function createSection(
     location: "",
     crop: "",
     usageType: "",
-    quantity: "",
+    areaHa: "",
     eppoCode: "",
     bbch: "",
     gps: "",
@@ -172,11 +172,11 @@ function createSection(
             )}" placeholder="${escapeAttr(
               labels.calculation.fields.quantity.label
             )}" aria-label="Bezeichnung für Feld" />
-            <input type="number" min="0" step="any" class="form-control" id="calc-kisten" name="calc-kisten" required data-placeholder-id="calc-form-quantity" placeholder="${escapeAttr(
+            <input type="number" min="0" step="any" class="form-control" id="calc-area-ha" name="calc-area-ha" required data-placeholder-id="calc-form-area" placeholder="${escapeAttr(
               labels.calculation.fields.quantity.placeholder
             )}" aria-label="${escapeAttr(
               labels.calculation.fields.quantity.label
-            )}" value="${escapeAttr(formDefaults.quantity || "")}" />
+            )}" value="${escapeAttr(formDefaults.areaHa || "")}" />
           </div>
           <div class="col-md-3">
             <label class="form-label mb-1">Mittelprofil</label>
@@ -543,7 +543,7 @@ function applyFieldLabels(section: HTMLElement, labels: Labels): void {
     "calc-form-location": labels.calculation.fields.location.label,
     "calc-form-crop": labels.calculation.fields.crop.label,
     "calc-form-usage": labels.calculation.fields.usageType.label,
-    "calc-form-quantity": labels.calculation.fields.quantity.label,
+    "calc-form-area": labels.calculation.fields.quantity.label,
     "calc-form-date": labels.calculation.fields.date?.label || "Datum",
     "calc-form-eppo": labels.calculation.fields.eppoCode.label,
     "calc-form-bbch": labels.calculation.fields.bbch.label,
@@ -600,7 +600,7 @@ function applyFieldLabels(section: HTMLElement, labels: Labels): void {
     "calc-form-location": labels.calculation.fields.location.placeholder,
     "calc-form-crop": labels.calculation.fields.crop.placeholder,
     "calc-form-usage": labels.calculation.fields.usageType.placeholder,
-    "calc-form-quantity": labels.calculation.fields.quantity.placeholder,
+    "calc-form-area": labels.calculation.fields.quantity.placeholder,
     "calc-form-eppo": labels.calculation.fields.eppoCode.placeholder,
     "calc-form-bbch": labels.calculation.fields.bbch.placeholder,
     "calc-form-invekos": labels.calculation.fields.invekos.placeholder,
@@ -645,9 +645,10 @@ async function persistHistory(services: Services): Promise<void> {
   }
 }
 
-function getWaterVolume(kisten: number, defaults: DefaultsState): number {
-  const arValue = kisten / (defaults.kistenProAr || 1);
-  return arValue * (defaults.waterPerKisteL || 0);
+function getWaterVolume(areaHa: number, defaults: DefaultsState): number {
+  const normalizedArea = Number(areaHa) || 0;
+  const waterPerHa = Number(defaults?.waterPerHaL) || 0;
+  return normalizedArea * waterPerHa;
 }
 
 function executeFormula(
@@ -661,7 +662,8 @@ function executeFormula(
   const value = Number(medium.value) || 0;
   switch (method.type) {
     case "factor": {
-      const base = inputs[method.config?.sourceField || "kisten"] || 0;
+      const baseField = method.config?.sourceField || "areaHa";
+      const base = inputs[baseField] ?? 0;
       return value * base;
     }
     case "percentOf": {
@@ -1140,7 +1142,9 @@ export function initCalculation(
       .trim();
     const rawStandort = (formData.get("calc-standort") || "").toString().trim();
     const rawKultur = (formData.get("calc-kultur") || "").toString().trim();
-    const rawKisten = (formData.get("calc-kisten") || "").toString().trim();
+    const rawAreaHa = (formData.get("calc-area-ha") || "")
+      .toString()
+      .trim();
     const rawEppo = (formData.get("calc-eppo") || "").toString().trim();
     const rawBbch = (formData.get("calc-bbch") || "").toString().trim();
     const rawInvekos = (formData.get("calc-invekos") || "").toString().trim();
@@ -1162,8 +1166,8 @@ export function initCalculation(
           hour: "2-digit",
           minute: "2-digit",
         });
-    const kisten = Number(rawKisten);
-    if (!ersteller || Number.isNaN(kisten)) {
+    const areaHa = Number(rawAreaHa);
+    if (!ersteller || Number.isNaN(areaHa)) {
       window.alert("Bitte Felder korrekt ausfüllen!");
       return;
     }
@@ -1208,12 +1212,12 @@ export function initCalculation(
       mediumsForCalculation = extractSliceItems<any>(state.mediums).slice();
     }
     const measurementMethods = state.measurementMethods;
-    const waterVolume = getWaterVolume(kisten, defaults);
-    const areaAr = defaults.kistenProAr ? kisten / defaults.kistenProAr : 0;
-    const areaSqm = areaAr * 100;
+    const waterVolume = getWaterVolume(areaHa, defaults);
+    const areaAr = areaHa * 100;
+    const areaSqm = areaHa * 10000;
 
     const inputs = {
-      kisten,
+      areaHa,
       waterVolume,
       areaAr,
       areaSqm,
@@ -1249,7 +1253,7 @@ export function initCalculation(
       invekos,
       usageType,
       uhrzeit,
-      kisten,
+      areaHa,
       datum: normalizedDate.display || "",
       dateIso: normalizedDate.iso,
       waterVolume,
@@ -1270,7 +1274,7 @@ export function initCalculation(
           location: "",
           crop: "",
           usageType: "",
-          quantity: "",
+          areaHa: "",
           eppoCode: "",
           bbch: "",
           gps: "",
@@ -1282,7 +1286,7 @@ export function initCalculation(
         location: rawStandort,
         crop: rawKultur,
         usageType: rawUsage,
-        quantity: rawKisten,
+        areaHa: rawAreaHa,
         eppoCode: rawEppo,
         bbch: rawBbch,
         gps: rawGps,
