@@ -2,6 +2,8 @@
 import '../styles/base.css';
 import '../styles/layout.css';
 import '../styles/components.css';
+import previewAsset from '../assets/img/preview.png';
+import { getImage } from 'astro:assets';
 
 interface Props {
   title?: string;
@@ -17,12 +19,19 @@ const {
 const fullTitle = `${pageTitle} · ${baseTitle}`;
 const canonicalUrl = Astro.url?.href ??
   (Astro.site ? new URL(Astro.site).href : 'https://abbas-hoseiny.github.io/pestalozzi/');
-const previewImagePath = '/assets/img/preview.png';
-const previewImageUrl = Astro.site
-  ? new URL(previewImagePath, Astro.site).href
-  : previewImagePath;
-const previewImageWidth = 1200;
-const previewImageHeight = 630;
+const {
+  src: previewImageUrl,
+  attributes: previewImageAttributes,
+} = await getImage({
+  src: previewAsset,
+  width: 1200,
+  height: 630,
+  format: 'png',
+  quality: 90,
+  fit: 'cover',
+});
+const previewImageWidth = previewImageAttributes.width ?? 1200;
+const previewImageHeight = previewImageAttributes.height ?? 630;
 ---
 
 <!DOCTYPE html>
