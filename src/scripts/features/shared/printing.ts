@@ -82,15 +82,33 @@ export function buildCompanyPrintHeader(
   const headingText = headline || companyName || "";
   const headingHtml = headingText ? `<h1>${escapeHtml(headingText)}</h1>` : "";
 
-  const addressParts: string[] = [];
-  if (headline && companyName) {
-    addressParts.push(escapeHtml(companyName));
+  const addressLines = company?.address
+    ? company.address
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+    : [];
+
+  const normalize = (value: string) =>
+    value
+      .normalize("NFKC")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
+  const hasDuplicateFirstLine = Boolean(
+    companyName &&
+      addressLines.length > 0 &&
+      normalize(addressLines[0]) === normalize(companyName)
+  );
+
+  const displayLines = [...addressLines];
+  if (companyName && !hasDuplicateFirstLine) {
+    displayLines.unshift(companyName);
   }
-  if (company?.address) {
-    addressParts.push(escapeHtml(company.address).replace(/\n/g, "<br />"));
-  }
-  const addressHtml = addressParts.length
-    ? `<p>${addressParts.join("<br />")}</p>`
+
+  const addressHtml = displayLines.length
+    ? `<p>${displayLines.map((line) => escapeHtml(line)).join("<br />")}</p>`
     : "";
 
   const email = company?.contactEmail
