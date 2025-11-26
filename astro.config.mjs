@@ -3,8 +3,8 @@ import { defineConfig } from "astro/config";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://abbas-hoseiny.github.io",
-  base: "/pflanzenschutzliste",
+  site: "https://abbas-hoseiny.github.io/pestalozzi",
+  base: "/pestalozzi",
   output: "static",
   build: {
     inlineStylesheets: "auto",
