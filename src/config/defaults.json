@@ -2,11 +2,11 @@
   "meta": {
     "version": 1,
     "company": {
-      "name": "Bio-Pflanzenschutz – All in One",
-      "headline": "Bio-Pflanzenschutz – All in One",
-      "logoUrl": "https://jungpflanzen.bio/wp-content/uploads/2024/01/Baerthele_Jungpflanzen_Markenzeichen.svg",
-      "contactEmail": "abbas.hoseiny@gmx.de",
-      "address": ""
+      "name": "Pestalozzi Gärtnerei",
+      "headline": "Bio Pflanzenschutz",
+      "logoUrl": "/assets/img/pestalozzi-logo.png",
+      "contactEmail": "",
+      "address": "Pestalozzi Gärtnerei\nPestalozzi-Kinderdorf 1\n78333 Stockach-Wahlwies"
     },
     "defaults": {
       "waterPerKisteL": 5,
