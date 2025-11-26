@@ -50,13 +50,15 @@ function deepMerge(target: any, source: any): any {
   return result;
 }
 
-function mergeDefaults(base: any = {}, incoming: any = {}): any {
-  const defaultForm = {
+const DEFAULT_WATER_PER_HA = 500;
+
+function normalizeDefaultForm(rawForm: any = {}): any {
+  const baseForm = {
     creator: "",
     location: "",
     crop: "",
     usageType: "",
-    quantity: "",
+    areaHa: "",
     eppoCode: "",
     bbch: "",
     gps: "",
@@ -64,13 +66,44 @@ function mergeDefaults(base: any = {}, incoming: any = {}): any {
     time: "",
     date: "",
   };
-  const merged = { ...base, ...incoming };
-  merged.form = {
-    ...defaultForm,
-    ...(base.form || {}),
-    ...(incoming.form || {}),
+  const form = { ...rawForm };
+  if (form.quantity !== undefined && form.areaHa === undefined) {
+    form.areaHa = form.quantity;
+  }
+  delete form.quantity;
+  return { ...baseForm, ...form };
+}
+
+function normalizeDefaults(source: any = {}): any {
+  const normalized: any = { ...source };
+  const legacyWaterPerKiste = normalized.waterPerKisteL;
+  const hasWaterPerHa = normalized.waterPerHaL != null;
+  if (!hasWaterPerHa) {
+    const perAr = Number(legacyWaterPerKiste);
+    if (Number.isFinite(perAr)) {
+      normalized.waterPerHaL = perAr * 100;
+    }
+  }
+  if (normalized.waterPerHaL == null) {
+    normalized.waterPerHaL = DEFAULT_WATER_PER_HA;
+  }
+  delete normalized.waterPerKisteL;
+  delete normalized.kistenProAr;
+  normalized.form = normalizeDefaultForm(normalized.form);
+  return normalized;
+}
+
+function mergeDefaults(base: any = {}, incoming: any = {}): any {
+  const normalizedBase = normalizeDefaults(base);
+  const normalizedIncoming = normalizeDefaults(incoming);
+  return {
+    ...normalizedBase,
+    ...normalizedIncoming,
+    form: normalizeDefaultForm({
+      ...normalizedBase.form,
+      ...normalizedIncoming.form,
+    }),
   };
-  return merged;
 }
 
 export function applyDatabase(data: any): void {
@@ -107,14 +140,13 @@ export function createInitialDatabase(overrides: any = {}): any {
     base.meta.fieldLabels = resolveFieldLabels(base.meta.fieldLabels ?? {});
     base.meta.defaults = mergeDefaults(
       {
-        waterPerKisteL: 5,
-        kistenProAr: 300,
+        waterPerHaL: DEFAULT_WATER_PER_HA,
         form: {
           creator: "",
           location: "",
           crop: "",
           usageType: "",
-          quantity: "",
+          areaHa: "",
           eppoCode: "",
           bbch: "",
           gps: "",

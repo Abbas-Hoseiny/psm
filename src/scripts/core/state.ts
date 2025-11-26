@@ -123,14 +123,13 @@ export interface AppState {
     accentColor: string;
   };
   defaults: {
-    waterPerKisteL: number;
-    kistenProAr: number;
+    waterPerHaL: number;
     form: {
       creator: string;
       location: string;
       crop: string;
       usageType: string;
-      quantity: string;
+      areaHa: string;
       eppoCode: string;
       bbch: string;
       gps: string;
@@ -217,14 +216,13 @@ let state: AppState = {
     accentColor: "",
   },
   defaults: {
-    waterPerKisteL: 5,
-    kistenProAr: 300,
+    waterPerHaL: 500,
     form: {
       creator: "",
       location: "",
       crop: "",
       usageType: "",
-      quantity: "",
+      areaHa: "",
       eppoCode: "",
       bbch: "",
       gps: "",
@@ -357,14 +355,13 @@ export function resetState(newState?: AppState): AppState {
       accentColor: "",
     },
     defaults: {
-      waterPerKisteL: 5,
-      kistenProAr: 300,
+      waterPerHaL: 500,
       form: {
         creator: "",
         location: "",
         crop: "",
         usageType: "",
-        quantity: "",
+        areaHa: "",
         eppoCode: "",
         bbch: "",
         gps: "",

@@ -57,6 +57,10 @@ type ReportingEntry = {
   ersteller?: string;
   standort?: string;
   kultur?: string;
+  areaHa?: number;
+  areaAr?: number;
+  areaSqm?: number;
+  waterVolume?: number;
   kisten?: number;
   items?: CalculationItem[];
   [key: string]: unknown;

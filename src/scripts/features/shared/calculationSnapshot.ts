@@ -3,6 +3,7 @@ import {
   formatGpsCoordinates,
   buildGoogleMapsUrl,
   formatDateFromIso,
+  formatNumber,
 } from "@scripts/core/utils";
 import { buildMediumTableHTML } from "./mediumTable";
 
@@ -22,6 +23,10 @@ export interface CalculationSnapshotEntry {
   standort?: string;
   kultur?: string;
   usageType?: string;
+  areaHa?: number;
+  areaAr?: number;
+  areaSqm?: number;
+  waterVolume?: number;
   kisten?: number;
   eppoCode?: string;
   bbch?: string;
@@ -32,6 +37,41 @@ export interface CalculationSnapshotEntry {
   uhrzeit?: string;
   items?: any[];
   [key: string]: unknown;
+}
+
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function resolveEntryAreaHa(entry: CalculationSnapshotEntry | null): number | null {
+  if (!entry) {
+    return null;
+  }
+  const direct = toNumber(entry.areaHa);
+  if (direct !== null) {
+    return direct;
+  }
+  const areaAr = toNumber(entry.areaAr);
+  if (areaAr !== null) {
+    return areaAr / 100;
+  }
+  const areaSqm = toNumber(entry.areaSqm);
+  if (areaSqm !== null) {
+    return areaSqm / 10000;
+  }
+  return null;
+}
+
+function formatAreaHa(entry: CalculationSnapshotEntry | null): string {
+  const areaValue = resolveEntryAreaHa(entry);
+  if (areaValue === null) {
+    return "–";
+  }
+  return formatNumber(areaValue, 2, "0.00");
 }
 
 function resolveSnapshotDate(
@@ -248,13 +288,9 @@ export function renderCalculationSnapshot(
           </div>
           <div class="calc-snapshot-card__info-item">
             <strong>${escapeHtml(
-              detailLabels.quantity || tableLabels.quantity || "Kisten"
+              detailLabels.quantity || tableLabels.quantity || "Fläche"
             )}:</strong>
-            ${escapeHtml(
-              entry?.kisten !== undefined && entry?.kisten !== null
-                ? String(entry.kisten)
-                : "–"
-            )}
+            ${escapeHtml(formatAreaHa(entry))}
           </div>
           <div class="calc-snapshot-card__info-item">
             <strong>${escapeHtml(
@@ -347,11 +383,8 @@ export function renderCalculationSnapshotForPrint(
       isHtml: true,
     },
     {
-      label: detailLabels.quantity || "Kisten",
-      value:
-        entry?.kisten !== undefined && entry?.kisten !== null
-          ? String(entry.kisten)
-          : null,
+      label: detailLabels.quantity || "Fläche (ha)",
+      value: formatAreaHa(entry),
     },
     {
       label: detailLabels.time || "Uhrzeit",
