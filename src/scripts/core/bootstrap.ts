@@ -2,7 +2,6 @@ import { loadDefaultsConfig } from "./config";
 import { detectPreferredDriver, setActiveDriver } from "./storage/index";
 import { getState, patchState, subscribeState, updateSlice } from "./state";
 import { emit, subscribe as subscribeEvent } from "./eventBus";
-import { initStarfield } from "../features/starfield";
 import { registerHistorySeeder } from "../dev/historySeeder";
 import {
   shouldEnableDebugOverlay,
@@ -78,7 +77,6 @@ export async function bootstrap() {
   };
 
   // Feature initialization - to be implemented in Astro components
-  initStarfield();
   registerHistorySeeder(services);
 
   const overlayToggle = document.querySelector<HTMLButtonElement>(
