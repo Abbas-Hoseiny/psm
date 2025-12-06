@@ -7,6 +7,7 @@ import {
   shouldEnableDebugOverlay,
   markManualDebugOverlayAccess,
 } from "../dev/debugOverlayGate";
+import { initQsMode } from "./qsMode";
 
 // Feature imports - to be migrated
 // import { initStarfield } from '../features/starfield/index';
@@ -55,6 +56,9 @@ function getRegions() {
 
 export async function bootstrap() {
   const regions = getRegions();
+
+  // QS-Modus initialisieren (prüft URL-Parameter)
+  initQsMode();
 
   const driverKey = detectPreferredDriver();
   if (driverKey !== "memory") {

@@ -136,6 +136,13 @@ export interface AppState {
       invekos: string;
       time: string;
       date: string;
+      // QS-Modus Felder
+      qsWartezeit: string;
+      qsMaschine: string;
+      qsSchaderreger: string;
+      qsVerantwortlicher: string;
+      qsWetter: string;
+      qsBehandlungsart: string;
     };
   };
   measurementMethods: any[];
@@ -229,6 +236,13 @@ let state: AppState = {
       invekos: "",
       time: "",
       date: "",
+      // QS-Modus Felder
+      qsWartezeit: "",
+      qsMaschine: "",
+      qsSchaderreger: "",
+      qsVerantwortlicher: "",
+      qsWetter: "",
+      qsBehandlungsart: "",
     },
   },
   measurementMethods: [],
@@ -368,6 +382,13 @@ export function resetState(newState?: AppState): AppState {
         invekos: "",
         time: "",
         date: "",
+        // QS-Modus Felder
+        qsWartezeit: "",
+        qsMaschine: "",
+        qsSchaderreger: "",
+        qsVerantwortlicher: "",
+        qsWetter: "",
+        qsBehandlungsart: "",
       },
     },
     measurementMethods: [],

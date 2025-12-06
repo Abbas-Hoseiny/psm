@@ -51,6 +51,7 @@ import {
   pushDebugOverlayMetrics,
   estimatePayloadKb as estimateOverlayPayloadKb,
 } from "@scripts/dev/debugOverlayClient";
+import { renderQsDetailHtml, hasAnyQsField } from "@scripts/features/shared/qsFields";
 
 interface Services {
   state: {
@@ -1619,6 +1620,14 @@ function renderDetail(
         detailLabels.time || "Uhrzeit"
       )}:</strong> ${escapeHtml(detailEntry.uhrzeit || "")}<br />
     </p>
+    ${renderQsDetailHtml({
+      wartezeit: (detailEntry as any).qsWartezeit,
+      maschine: (detailEntry as any).qsMaschine,
+      schaderreger: (detailEntry as any).qsSchaderreger,
+      verantwortlicher: (detailEntry as any).qsVerantwortlicher,
+      wetter: (detailEntry as any).qsWetter,
+      behandlungsart: (detailEntry as any).qsBehandlungsart,
+    })}
     <div class="table-responsive">
       ${snapshotTable}
     </div>
