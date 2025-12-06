@@ -1,13 +1,13 @@
 /**
- * QS-Formularfelder UI-Komponenten
- * 
- * Modulare Formularfelder für den QS-Modus, die in das Calculation-Formular
- * eingefügt werden können.
+ * QS-GAP Dokumentationsfelder UI-Komponenten
+ *
+ * Zusätzliche Formularfelder gemäß QS-GAP-Leitfaden 3.6.2
+ * für vollständige Pflanzenschutz-Dokumentation.
+ * Diese Felder sind immer sichtbar und optional.
  */
 
 import { escapeHtml } from "@scripts/core/utils";
 import {
-  isQsModeEnabled,
   getQsLabels,
   type QsFieldValues,
   type QsFieldLabels,
@@ -16,25 +16,19 @@ import {
 
 /**
  * Erzeugt das HTML für die QS-Zusatzfelder
- * Diese werden nur angezeigt wenn QS-Modus aktiv ist
+ * Diese Felder sind immer sichtbar und optional
  */
 export function renderQsFieldsHtml(
   formDefaults: Partial<QsFieldValues> = {}
 ): string {
-  if (!isQsModeEnabled()) {
-    return "";
-  }
-
   const labels = getQsLabels();
 
   return `
     <div class="${QS_CSS_CLASSES.container} qs-fields-section mt-3 pt-3 border-top">
       <div class="d-flex align-items-center mb-3">
-        <span class="badge bg-info me-2">QS</span>
-        <small class="text-muted">Zusätzliche QS-Pflichtfelder gemäß QS-GAP-Leitfaden 3.6.2</small>
+        <small class="text-muted">Zusätzliche Dokumentationsfelder gemäß QS-GAP-Leitfaden 3.6.2 (optional)</small>
       </div>
       <div class="row g-3">
-        ${renderWartezeitField(labels.wartezeit, formDefaults.wartezeit)}
         ${renderMaschineField(labels.maschine, formDefaults.maschine)}
         ${renderSchaderregerField(labels.schaderreger, formDefaults.schaderreger)}
         ${renderVerantwortlicherField(labels.verantwortlicher, formDefaults.verantwortlicher)}
@@ -45,43 +39,14 @@ export function renderQsFieldsHtml(
   `;
 }
 
-function renderWartezeitField(
-  labels: QsFieldLabels["wartezeit"],
+function renderMaschineField(
+  labels: QsFieldLabels["maschine"],
   value = ""
 ): string {
   return `
     <div class="col-md-3 ${QS_CSS_CLASSES.field}">
       <label class="form-label small text-muted mb-1">
         ${escapeHtml(labels.label)}
-        <span class="text-warning" title="Empfohlen">*</span>
-      </label>
-      <div class="input-group">
-        <input 
-          type="number" 
-          min="0" 
-          step="1"
-          class="form-control" 
-          id="calc-qs-wartezeit" 
-          name="calc-qs-wartezeit" 
-          placeholder="${escapeHtml(labels.placeholder)}"
-          title="${escapeHtml(labels.hint)}"
-          value="${escapeHtml(value)}"
-        />
-        <span class="input-group-text">Tage</span>
-      </div>
-    </div>
-  `;
-}
-
-function renderMaschineField(
-  labels: QsFieldLabels["maschine"],
-  value = ""
-): string {
-  return `
-    <div class="col-md-3 ${QS_CSS_CLASSES.field} ${QS_CSS_CLASSES.required}">
-      <label class="form-label small text-muted mb-1">
-        ${escapeHtml(labels.label)}
-        <span class="text-danger" title="Pflichtfeld für QS">*</span>
       </label>
       <input 
         type="text" 
@@ -111,10 +76,9 @@ function renderSchaderregerField(
   value = ""
 ): string {
   return `
-    <div class="col-md-3 ${QS_CSS_CLASSES.field} ${QS_CSS_CLASSES.required}">
+    <div class="col-md-3 ${QS_CSS_CLASSES.field}">
       <label class="form-label small text-muted mb-1">
         ${escapeHtml(labels.label)}
-        <span class="text-danger" title="Pflichtfeld für QS">*</span>
       </label>
       <input 
         type="text" 
@@ -137,7 +101,6 @@ function renderVerantwortlicherField(
     <div class="col-md-3 ${QS_CSS_CLASSES.field}">
       <label class="form-label small text-muted mb-1">
         ${escapeHtml(labels.label)}
-        <span class="text-warning" title="Bei Bedarf">*</span>
       </label>
       <input 
         type="text" 
@@ -165,7 +128,6 @@ function renderWetterField(
     <div class="col-md-3 ${QS_CSS_CLASSES.field}">
       <label class="form-label small text-muted mb-1">
         ${escapeHtml(labels.label)}
-        <span class="text-warning" title="Empfohlen">*</span>
       </label>
       <input 
         type="text" 
@@ -197,7 +159,6 @@ function renderBehandlungsartField(
     <div class="col-md-3 ${QS_CSS_CLASSES.field}">
       <label class="form-label small text-muted mb-1">
         ${escapeHtml(labels.label)}
-        <span class="text-warning" title="Bei Nachernte">*</span>
       </label>
       <input 
         type="text" 
@@ -222,12 +183,17 @@ function renderBehandlungsartField(
 export function extractQsFieldsFromForm(form: HTMLFormElement): QsFieldValues {
   const formData = new FormData(form);
   return {
-    wartezeit: (formData.get("calc-qs-wartezeit") || "").toString().trim(),
     maschine: (formData.get("calc-qs-maschine") || "").toString().trim(),
-    schaderreger: (formData.get("calc-qs-schaderreger") || "").toString().trim(),
-    verantwortlicher: (formData.get("calc-qs-verantwortlicher") || "").toString().trim(),
+    schaderreger: (formData.get("calc-qs-schaderreger") || "")
+      .toString()
+      .trim(),
+    verantwortlicher: (formData.get("calc-qs-verantwortlicher") || "")
+      .toString()
+      .trim(),
     wetter: (formData.get("calc-qs-wetter") || "").toString().trim(),
-    behandlungsart: (formData.get("calc-qs-behandlungsart") || "").toString().trim(),
+    behandlungsart: (formData.get("calc-qs-behandlungsart") || "")
+      .toString()
+      .trim(),
   };
 }
 
@@ -235,16 +201,9 @@ export function extractQsFieldsFromForm(form: HTMLFormElement): QsFieldValues {
  * Rendert QS-Felder für die Zusammenfassung/Anzeige
  */
 export function renderQsSummaryHtml(fields: Partial<QsFieldValues>): string {
-  if (!isQsModeEnabled()) {
-    return "";
-  }
-
   const labels = getQsLabels();
   const rows: string[] = [];
 
-  if (fields.wartezeit) {
-    rows.push(renderSummaryRow(labels.wartezeit.label, `${fields.wartezeit} Tage`));
-  }
   if (fields.maschine) {
     rows.push(renderSummaryRow(labels.maschine.label, fields.maschine));
   }
@@ -252,13 +211,17 @@ export function renderQsSummaryHtml(fields: Partial<QsFieldValues>): string {
     rows.push(renderSummaryRow(labels.schaderreger.label, fields.schaderreger));
   }
   if (fields.verantwortlicher) {
-    rows.push(renderSummaryRow(labels.verantwortlicher.label, fields.verantwortlicher));
+    rows.push(
+      renderSummaryRow(labels.verantwortlicher.label, fields.verantwortlicher)
+    );
   }
   if (fields.wetter) {
     rows.push(renderSummaryRow(labels.wetter.label, fields.wetter));
   }
   if (fields.behandlungsart) {
-    rows.push(renderSummaryRow(labels.behandlungsart.label, fields.behandlungsart));
+    rows.push(
+      renderSummaryRow(labels.behandlungsart.label, fields.behandlungsart)
+    );
   }
 
   if (!rows.length) {
@@ -268,7 +231,7 @@ export function renderQsSummaryHtml(fields: Partial<QsFieldValues>): string {
   return `
     <div class="calc-summary-column calc-summary-qs">
       <div class="calc-summary-row">
-        <span class="badge bg-info mb-2">QS-Felder</span>
+        <span class="badge bg-secondary mb-2">QS-Dokumentation</span>
       </div>
       ${rows.join("")}
     </div>
@@ -288,30 +251,37 @@ function renderSummaryRow(label: string, value: string): string {
  * Rendert QS-Felder für die Detail-Ansicht (Dokumentation)
  */
 export function renderQsDetailHtml(fields: Partial<QsFieldValues>): string {
-  if (!isQsModeEnabled() && !hasAnyQsField(fields)) {
+  if (!hasAnyQsField(fields)) {
     return "";
   }
 
   const labels = getQsLabels();
   const items: string[] = [];
 
-  if (fields.wartezeit) {
-    items.push(`<dt>${escapeHtml(labels.wartezeit.label)}</dt><dd>${escapeHtml(fields.wartezeit)} Tage</dd>`);
-  }
   if (fields.maschine) {
-    items.push(`<dt>${escapeHtml(labels.maschine.label)}</dt><dd>${escapeHtml(fields.maschine)}</dd>`);
+    items.push(
+      `<dt>${escapeHtml(labels.maschine.label)}</dt><dd>${escapeHtml(fields.maschine)}</dd>`
+    );
   }
   if (fields.schaderreger) {
-    items.push(`<dt>${escapeHtml(labels.schaderreger.label)}</dt><dd>${escapeHtml(fields.schaderreger)}</dd>`);
+    items.push(
+      `<dt>${escapeHtml(labels.schaderreger.label)}</dt><dd>${escapeHtml(fields.schaderreger)}</dd>`
+    );
   }
   if (fields.verantwortlicher) {
-    items.push(`<dt>${escapeHtml(labels.verantwortlicher.label)}</dt><dd>${escapeHtml(fields.verantwortlicher)}</dd>`);
+    items.push(
+      `<dt>${escapeHtml(labels.verantwortlicher.label)}</dt><dd>${escapeHtml(fields.verantwortlicher)}</dd>`
+    );
   }
   if (fields.wetter) {
-    items.push(`<dt>${escapeHtml(labels.wetter.label)}</dt><dd>${escapeHtml(fields.wetter)}</dd>`);
+    items.push(
+      `<dt>${escapeHtml(labels.wetter.label)}</dt><dd>${escapeHtml(fields.wetter)}</dd>`
+    );
   }
   if (fields.behandlungsart) {
-    items.push(`<dt>${escapeHtml(labels.behandlungsart.label)}</dt><dd>${escapeHtml(fields.behandlungsart)}</dd>`);
+    items.push(
+      `<dt>${escapeHtml(labels.behandlungsart.label)}</dt><dd>${escapeHtml(fields.behandlungsart)}</dd>`
+    );
   }
 
   if (!items.length) {
@@ -321,7 +291,6 @@ export function renderQsDetailHtml(fields: Partial<QsFieldValues>): string {
   return `
     <div class="qs-detail-section mt-3 pt-3 border-top">
       <h6 class="d-flex align-items-center">
-        <span class="badge bg-info me-2">QS</span>
         QS-Dokumentation
       </h6>
       <dl class="row mb-0">
@@ -334,10 +303,11 @@ export function renderQsDetailHtml(fields: Partial<QsFieldValues>): string {
 /**
  * Prüft ob mindestens ein QS-Feld ausgefüllt ist
  */
-export function hasAnyQsField(fields: Partial<QsFieldValues> | null | undefined): boolean {
+export function hasAnyQsField(
+  fields: Partial<QsFieldValues> | null | undefined
+): boolean {
   if (!fields) return false;
   return !!(
-    fields.wartezeit ||
     fields.maschine ||
     fields.schaderreger ||
     fields.verantwortlicher ||

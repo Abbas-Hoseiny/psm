@@ -151,6 +151,33 @@ function ensureMediumApprovalColumn(targetDb = db) {
   targetDb.exec("ALTER TABLE mediums ADD COLUMN zulassungsnummer TEXT");
 }
 
+/**
+ * Ensure QS columns (wartezeit, wirkstoff) exist on mediums table
+ */
+function ensureMediumColumns(targetDb = db) {
+  if (!targetDb) {
+    return;
+  }
+  // Add wartezeit column if missing
+  if (!hasColumn(targetDb, "mediums", "wartezeit")) {
+    try {
+      targetDb.exec("ALTER TABLE mediums ADD COLUMN wartezeit INTEGER");
+      console.log("[DB] Added wartezeit column to mediums");
+    } catch (e) {
+      console.warn("[DB] Could not add wartezeit column:", e.message);
+    }
+  }
+  // Add wirkstoff column if missing
+  if (!hasColumn(targetDb, "mediums", "wirkstoff")) {
+    try {
+      targetDb.exec("ALTER TABLE mediums ADD COLUMN wirkstoff TEXT");
+      console.log("[DB] Added wirkstoff column to mediums");
+    } catch (e) {
+      console.warn("[DB] Could not add wirkstoff column:", e.message);
+    }
+  }
+}
+
 function ensureLookupTables(targetDb = db) {
   if (!targetDb) {
     return;
@@ -1334,6 +1361,254 @@ async function applySchema() {
       throw error;
     }
   }
+
+  // Migration to version 9: Add QS columns (wartezeit, wirkstoff) to mediums
+  postMigrationVersion = db.selectValue("PRAGMA user_version") || 0;
+  const needsQsColumns =
+    !hasColumn(db, "mediums", "wartezeit") ||
+    !hasColumn(db, "mediums", "wirkstoff");
+  if (needsQsColumns || postMigrationVersion < 9) {
+    console.log("Migrating database to version 9 (QS columns)...");
+    db.exec("BEGIN TRANSACTION");
+    try {
+      ensureMediumColumns(db);
+      db.exec("PRAGMA user_version = 9");
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      console.error("Migration to version 9 failed:", error);
+      throw error;
+    }
+  }
+
+  // Migration to version 10: Normalize history tables for EU machine-readable compliance
+  // (DVO 2023/564 + 2025/2203)
+  postMigrationVersion = db.selectValue("PRAGMA user_version") || 0;
+  const historyNeedsNormalization = !hasColumn(db, "history", "ersteller");
+  if (historyNeedsNormalization || postMigrationVersion < 10) {
+    console.log("Migrating database to version 10 (normalized history)...");
+    db.exec("BEGIN TRANSACTION");
+    try {
+      // Add normalized columns to history table
+      const historyColumns = [
+        { name: "ersteller", type: "TEXT" },
+        { name: "standort", type: "TEXT" },
+        { name: "kultur", type: "TEXT" },
+        { name: "eppo_code", type: "TEXT" },
+        { name: "bbch", type: "TEXT" },
+        { name: "datum", type: "TEXT" },
+        { name: "date_iso", type: "TEXT" },
+        { name: "uhrzeit", type: "TEXT" },
+        { name: "usage_type", type: "TEXT" },
+        { name: "area_ha", type: "REAL" },
+        { name: "area_ar", type: "REAL" },
+        { name: "area_sqm", type: "REAL" },
+        { name: "water_volume", type: "REAL" },
+        { name: "invekos", type: "TEXT" },
+        { name: "gps", type: "TEXT" },
+        { name: "gps_latitude", type: "REAL" },
+        { name: "gps_longitude", type: "REAL" },
+        { name: "gps_point_id", type: "TEXT" },
+        { name: "qs_maschine", type: "TEXT" },
+        { name: "qs_schaderreger", type: "TEXT" },
+        { name: "qs_verantwortlicher", type: "TEXT" },
+        { name: "qs_wetter", type: "TEXT" },
+        { name: "qs_behandlungsart", type: "TEXT" },
+      ];
+
+      for (const col of historyColumns) {
+        if (!hasColumn(db, "history", col.name)) {
+          db.exec(`ALTER TABLE history ADD COLUMN ${col.name} ${col.type}`);
+        }
+      }
+
+      // Add normalized columns to history_items table
+      const itemColumns = [
+        { name: "medium_name", type: "TEXT" },
+        { name: "medium_unit", type: "TEXT" },
+        { name: "method_id", type: "TEXT" },
+        { name: "method_label", type: "TEXT" },
+        { name: "medium_value", type: "REAL" },
+        { name: "calculated_total", type: "REAL" },
+        { name: "zulassungsnummer", type: "TEXT" },
+        { name: "wartezeit", type: "INTEGER" },
+        { name: "wirkstoff", type: "TEXT" },
+        { name: "input_area_ha", type: "REAL" },
+        { name: "input_area_ar", type: "REAL" },
+        { name: "input_area_sqm", type: "REAL" },
+        { name: "input_water_volume", type: "REAL" },
+      ];
+
+      for (const col of itemColumns) {
+        if (!hasColumn(db, "history_items", col.name)) {
+          db.exec(
+            `ALTER TABLE history_items ADD COLUMN ${col.name} ${col.type}`
+          );
+        }
+      }
+
+      // Create indices for machine-readable queries
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_history_date_iso ON history(date_iso);
+        CREATE INDEX IF NOT EXISTS idx_history_eppo_code ON history(eppo_code);
+        CREATE INDEX IF NOT EXISTS idx_history_kultur ON history(kultur);
+        CREATE INDEX IF NOT EXISTS idx_history_standort ON history(standort);
+        CREATE INDEX IF NOT EXISTS idx_history_items_zulassungsnummer ON history_items(zulassungsnummer);
+        CREATE INDEX IF NOT EXISTS idx_history_items_wirkstoff ON history_items(wirkstoff);
+      `);
+
+      // Migrate existing JSON data to normalized columns
+      const existingEntries = [];
+      db.exec({
+        sql: "SELECT id, header_json FROM history WHERE header_json IS NOT NULL",
+        rowMode: "object",
+        callback: (row) => existingEntries.push(row),
+      });
+
+      if (existingEntries.length > 0) {
+        console.log(
+          `Migrating ${existingEntries.length} history entries to normalized format...`
+        );
+        const updateStmt = db.prepare(`
+          UPDATE history SET
+            ersteller = ?,
+            standort = ?,
+            kultur = ?,
+            eppo_code = ?,
+            bbch = ?,
+            datum = ?,
+            date_iso = ?,
+            uhrzeit = ?,
+            usage_type = ?,
+            area_ha = ?,
+            area_ar = ?,
+            area_sqm = ?,
+            water_volume = ?,
+            invekos = ?,
+            gps = ?,
+            gps_latitude = ?,
+            gps_longitude = ?,
+            gps_point_id = ?,
+            qs_maschine = ?,
+            qs_schaderreger = ?,
+            qs_verantwortlicher = ?,
+            qs_wetter = ?,
+            qs_behandlungsart = ?
+          WHERE id = ?
+        `);
+
+        for (const row of existingEntries) {
+          try {
+            const header = JSON.parse(row.header_json || "{}");
+            const coords = header.gpsCoordinates || {};
+            updateStmt
+              .bind([
+                header.ersteller || null,
+                header.standort || null,
+                header.kultur || null,
+                header.eppoCode || null,
+                header.bbch || null,
+                header.datum || null,
+                header.dateIso || null,
+                header.uhrzeit || null,
+                header.usageType || null,
+                header.areaHa ?? null,
+                header.areaAr ?? null,
+                header.areaSqm ?? null,
+                header.waterVolume ?? null,
+                header.invekos || null,
+                header.gps || null,
+                coords.latitude ?? null,
+                coords.longitude ?? null,
+                header.gpsPointId || null,
+                header.qsMaschine || null,
+                header.qsSchaderreger || null,
+                header.qsVerantwortlicher || null,
+                header.qsWetter || null,
+                header.qsBehandlungsart || null,
+                row.id,
+              ])
+              .step();
+            updateStmt.reset();
+          } catch (parseErr) {
+            console.warn(
+              `Could not migrate history entry ${row.id}:`,
+              parseErr
+            );
+          }
+        }
+        updateStmt.finalize();
+      }
+
+      // Migrate history_items
+      const existingItems = [];
+      db.exec({
+        sql: "SELECT id, payload_json FROM history_items WHERE payload_json IS NOT NULL",
+        rowMode: "object",
+        callback: (row) => existingItems.push(row),
+      });
+
+      if (existingItems.length > 0) {
+        console.log(
+          `Migrating ${existingItems.length} history items to normalized format...`
+        );
+        const itemUpdateStmt = db.prepare(`
+          UPDATE history_items SET
+            medium_name = ?,
+            medium_unit = ?,
+            method_id = ?,
+            method_label = ?,
+            medium_value = ?,
+            calculated_total = ?,
+            zulassungsnummer = ?,
+            wartezeit = ?,
+            wirkstoff = ?,
+            input_area_ha = ?,
+            input_area_ar = ?,
+            input_area_sqm = ?,
+            input_water_volume = ?
+          WHERE id = ?
+        `);
+
+        for (const row of existingItems) {
+          try {
+            const payload = JSON.parse(row.payload_json || "{}");
+            const inputs = payload.inputs || {};
+            itemUpdateStmt
+              .bind([
+                payload.name || null,
+                payload.unit || null,
+                payload.methodId || null,
+                payload.methodLabel || null,
+                payload.value ?? null,
+                payload.total ?? null,
+                payload.zulassungsnummer || null,
+                payload.wartezeit ?? null,
+                payload.wirkstoff || null,
+                inputs.areaHa ?? null,
+                inputs.areaAr ?? null,
+                inputs.areaSqm ?? null,
+                inputs.waterVolume ?? null,
+                row.id,
+              ])
+              .step();
+            itemUpdateStmt.reset();
+          } catch (parseErr) {
+            console.warn(`Could not migrate history item ${row.id}:`, parseErr);
+          }
+        }
+        itemUpdateStmt.finalize();
+      }
+
+      db.exec("PRAGMA user_version = 10");
+      db.exec("COMMIT");
+      console.log("Database migrated to version 10 successfully");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      console.error("Migration to version 10 failed:", error);
+      throw error;
+    }
+  }
 }
 
 /**
@@ -1414,8 +1689,9 @@ async function importSnapshot(snapshot) {
 
     // Import mediums
     if (snapshot.mediums && Array.isArray(snapshot.mediums)) {
+      ensureMediumColumns(db);
       const mediumStmt = db.prepare(
-        "INSERT OR REPLACE INTO mediums (id, name, unit, method_id, value, zulassungsnummer) VALUES (?, ?, ?, ?, ?, ?)"
+        "INSERT OR REPLACE INTO mediums (id, name, unit, method_id, value, zulassungsnummer, wartezeit, wirkstoff) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       );
       for (const medium of snapshot.mediums) {
         const approvalNumber =
@@ -1432,6 +1708,8 @@ async function importSnapshot(snapshot) {
             medium.methodId || medium.method_id,
             medium.value,
             approvalNumber,
+            medium.wartezeit != null ? Number(medium.wartezeit) : null,
+            medium.wirkstoff ?? null,
           ])
           .step();
         mediumStmt.reset();
@@ -1479,14 +1757,25 @@ async function importSnapshot(snapshot) {
       linkStmt.finalize();
     }
 
-    // Import history
+    // Import history (with normalized columns for EU compliance)
     if (snapshot.history && Array.isArray(snapshot.history)) {
-      const historyStmt = db.prepare(
-        "INSERT INTO history (created_at, header_json) VALUES (?, ?)"
-      );
-      const itemsStmt = db.prepare(
-        "INSERT INTO history_items (history_id, medium_id, payload_json) VALUES (?, ?, ?)"
-      );
+      const historyStmt = db.prepare(`
+        INSERT INTO history (
+          created_at, header_json,
+          ersteller, standort, kultur, eppo_code, bbch, datum, date_iso,
+          uhrzeit, usage_type, area_ha, area_ar, area_sqm, water_volume,
+          invekos, gps, gps_latitude, gps_longitude, gps_point_id,
+          qs_maschine, qs_schaderreger, qs_verantwortlicher, qs_wetter, qs_behandlungsart
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const itemsStmt = db.prepare(`
+        INSERT INTO history_items (
+          history_id, medium_id, payload_json,
+          medium_name, medium_unit, method_id, method_label, medium_value,
+          calculated_total, zulassungsnummer, wartezeit, wirkstoff,
+          input_area_ha, input_area_ar, input_area_sqm, input_water_volume
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
       for (const entry of snapshot.history) {
         const header = entry.header ? { ...entry.header } : { ...entry };
@@ -1500,18 +1789,61 @@ async function importSnapshot(snapshot) {
           header.createdAt = createdAt;
         }
 
-        historyStmt.bind([createdAt, JSON.stringify(header)]).step();
+        const gpsCoords = header.gpsCoordinates || {};
+        historyStmt
+          .bind([
+            createdAt,
+            JSON.stringify(header),
+            header.ersteller || null,
+            header.standort || null,
+            header.kultur || null,
+            header.eppoCode || null,
+            header.bbch || null,
+            header.datum || null,
+            header.dateIso || null,
+            header.uhrzeit || null,
+            header.usageType || null,
+            header.areaHa ?? null,
+            header.areaAr ?? null,
+            header.areaSqm ?? null,
+            header.waterVolume ?? null,
+            header.invekos || null,
+            header.gps || null,
+            gpsCoords.latitude ?? null,
+            gpsCoords.longitude ?? null,
+            header.gpsPointId || null,
+            header.qsMaschine || null,
+            header.qsSchaderreger || null,
+            header.qsVerantwortlicher || null,
+            header.qsWetter || null,
+            header.qsBehandlungsart || null,
+          ])
+          .step();
         const historyId = db.selectValue("SELECT last_insert_rowid()");
         historyStmt.reset();
 
         const items =
           entry.items && Array.isArray(entry.items) ? entry.items : [];
         for (const item of items) {
+          const inputs = item.inputs || {};
           itemsStmt
             .bind([
               historyId,
-              item.mediumId || item.medium_id || "",
+              item.mediumId || item.medium_id || item.id || "",
               JSON.stringify(item),
+              item.name || null,
+              item.unit || null,
+              item.methodId || null,
+              item.methodLabel || null,
+              item.value ?? null,
+              item.total ?? null,
+              item.zulassungsnummer || null,
+              item.wartezeit ?? null,
+              item.wirkstoff || null,
+              inputs.areaHa ?? null,
+              inputs.areaAr ?? null,
+              inputs.areaSqm ?? null,
+              inputs.waterVolume ?? null,
             ])
             .step();
           itemsStmt.reset();
@@ -1641,25 +1973,97 @@ async function exportSnapshot() {
     };
   }
 
-  // Export history
+  // Export history (using normalized columns for EU compliance)
   const historyMap = new Map();
   db.exec({
-    sql: "SELECT id, created_at, header_json FROM history ORDER BY created_at DESC",
+    sql: `SELECT id, created_at, header_json,
+            ersteller, standort, kultur, eppo_code, bbch, datum, date_iso,
+            uhrzeit, usage_type, area_ha, area_ar, area_sqm, water_volume,
+            invekos, gps, gps_latitude, gps_longitude, gps_point_id,
+            qs_maschine, qs_schaderreger, qs_verantwortlicher, qs_wetter, qs_behandlungsart
+          FROM history ORDER BY created_at DESC`,
+    rowMode: "object",
     callback: (row) => {
-      historyMap.set(row[0], {
-        header: JSON.parse(row[2] || "{}"),
+      // Prefer normalized columns, fall back to JSON for backward compatibility
+      let header = {};
+      try {
+        header = JSON.parse(row.header_json || "{}");
+      } catch (e) {
+        console.warn("Could not parse header_json", e);
+      }
+      historyMap.set(row.id, {
+        header: {
+          createdAt: row.created_at,
+          ersteller: row.ersteller ?? header.ersteller,
+          standort: row.standort ?? header.standort,
+          kultur: row.kultur ?? header.kultur,
+          eppoCode: row.eppo_code ?? header.eppoCode,
+          bbch: row.bbch ?? header.bbch,
+          datum: row.datum ?? header.datum,
+          dateIso: row.date_iso ?? header.dateIso,
+          uhrzeit: row.uhrzeit ?? header.uhrzeit,
+          usageType: row.usage_type ?? header.usageType,
+          areaHa: row.area_ha ?? header.areaHa,
+          areaAr: row.area_ar ?? header.areaAr,
+          areaSqm: row.area_sqm ?? header.areaSqm,
+          waterVolume: row.water_volume ?? header.waterVolume,
+          invekos: row.invekos ?? header.invekos,
+          gps: row.gps ?? header.gps,
+          gpsCoordinates:
+            row.gps_latitude != null && row.gps_longitude != null
+              ? { latitude: row.gps_latitude, longitude: row.gps_longitude }
+              : header.gpsCoordinates || null,
+          gpsPointId: row.gps_point_id ?? header.gpsPointId,
+          qsMaschine: row.qs_maschine ?? header.qsMaschine,
+          qsSchaderreger: row.qs_schaderreger ?? header.qsSchaderreger,
+          qsVerantwortlicher:
+            row.qs_verantwortlicher ?? header.qsVerantwortlicher,
+          qsWetter: row.qs_wetter ?? header.qsWetter,
+          qsBehandlungsart: row.qs_behandlungsart ?? header.qsBehandlungsart,
+          savedAt: header.savedAt || row.created_at,
+        },
         items: [],
       });
     },
   });
 
-  // Export history items
+  // Export history items (using normalized columns)
   db.exec({
-    sql: "SELECT history_id, medium_id, payload_json FROM history_items",
+    sql: `SELECT history_id, medium_id, payload_json,
+            medium_name, medium_unit, method_id, method_label, medium_value,
+            calculated_total, zulassungsnummer, wartezeit, wirkstoff,
+            input_area_ha, input_area_ar, input_area_sqm, input_water_volume
+          FROM history_items`,
+    rowMode: "object",
     callback: (row) => {
-      const historyId = row[0];
+      const historyId = row.history_id;
       if (historyMap.has(historyId)) {
-        historyMap.get(historyId).items.push(JSON.parse(row[2]));
+        // Prefer normalized columns, fall back to JSON
+        let payload = {};
+        try {
+          payload = JSON.parse(row.payload_json || "{}");
+        } catch (e) {
+          console.warn("Could not parse payload_json", e);
+        }
+        historyMap.get(historyId).items.push({
+          id: row.medium_id ?? payload.id,
+          mediumId: row.medium_id ?? payload.mediumId,
+          name: row.medium_name ?? payload.name,
+          unit: row.medium_unit ?? payload.unit,
+          methodId: row.method_id ?? payload.methodId,
+          methodLabel: row.method_label ?? payload.methodLabel,
+          value: row.medium_value ?? payload.value,
+          total: row.calculated_total ?? payload.total,
+          zulassungsnummer: row.zulassungsnummer ?? payload.zulassungsnummer,
+          wartezeit: row.wartezeit ?? payload.wartezeit,
+          wirkstoff: row.wirkstoff ?? payload.wirkstoff,
+          inputs: {
+            areaHa: row.input_area_ha ?? payload.inputs?.areaHa,
+            areaAr: row.input_area_ar ?? payload.inputs?.areaAr,
+            areaSqm: row.input_area_sqm ?? payload.inputs?.areaSqm,
+            waterVolume: row.input_water_volume ?? payload.inputs?.waterVolume,
+          },
+        });
       }
     },
   });
@@ -1677,8 +2081,11 @@ async function exportSnapshot() {
 async function upsertMedium(medium) {
   if (!db) throw new Error("Database not initialized");
 
+  // Ensure columns exist (for database migration)
+  ensureMediumColumns();
+
   const stmt = db.prepare(
-    "INSERT OR REPLACE INTO mediums (id, name, unit, method_id, value, zulassungsnummer) VALUES (?, ?, ?, ?, ?, ?)"
+    "INSERT OR REPLACE INTO mediums (id, name, unit, method_id, value, zulassungsnummer, wartezeit, wirkstoff) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   );
   stmt
     .bind([
@@ -1691,6 +2098,8 @@ async function upsertMedium(medium) {
         medium.approvalNumber ??
         medium.zulassung ??
         null,
+      medium.wartezeit != null ? Number(medium.wartezeit) : null,
+      medium.wirkstoff ?? null,
     ])
     .step();
   stmt.finalize();
@@ -1711,9 +2120,12 @@ async function deleteMedium(id) {
 async function listMediums() {
   if (!db) throw new Error("Database not initialized");
 
+  // Ensure columns exist (for database migration)
+  ensureMediumColumns();
+
   const mediums = [];
   db.exec({
-    sql: "SELECT id, name, unit, method_id, value, zulassungsnummer FROM mediums",
+    sql: "SELECT id, name, unit, method_id, value, zulassungsnummer, wartezeit, wirkstoff FROM mediums",
     callback: (row) => {
       mediums.push({
         id: row[0],
@@ -1722,6 +2134,8 @@ async function listMediums() {
         methodId: row[3],
         value: row[4],
         zulassungsnummer: row[5] || null,
+        wartezeit: row[6] != null ? Number(row[6]) : null,
+        wirkstoff: row[7] || null,
       });
     },
   });
@@ -1750,6 +2164,8 @@ function mapMediumRow(row) {
         : row.zulassung != null
           ? String(row.zulassung)
           : null,
+    wartezeit: row.wartezeit != null ? Number(row.wartezeit) : null,
+    wirkstoff: row.wirkstoff != null ? String(row.wirkstoff) : null,
   };
 }
 
@@ -2045,7 +2461,12 @@ async function listHistoryPaged({
         history.id AS id,
         history.header_json AS header_json,
         history.created_at AS created_at,
-        ${historyDateExpr} AS cursor_created_at
+        ${historyDateExpr} AS cursor_created_at,
+        history.ersteller, history.standort, history.kultur, history.eppo_code, history.bbch,
+        history.datum, history.date_iso, history.uhrzeit, history.usage_type,
+        history.area_ha, history.area_ar, history.area_sqm, history.water_volume,
+        history.invekos, history.gps, history.gps_latitude, history.gps_longitude, history.gps_point_id,
+        history.qs_maschine, history.qs_schaderreger, history.qs_verantwortlicher, history.qs_wetter, history.qs_behandlungsart
       FROM history
       ${combinedWhereSql}
       ORDER BY datetime(cursor_created_at) ${sanitizedDirection}, history.id ${sanitizedDirection}
@@ -2072,16 +2493,43 @@ async function listHistoryPaged({
   }
 
   const history = entries.map((row) => {
-    let header;
+    // Prefer normalized columns, fall back to JSON for backward compatibility
+    let header = {};
     try {
       header = JSON.parse(row.header_json || "{}");
     } catch (error) {
       console.warn("Konnte History-Header nicht parsen", error);
-      header = {};
     }
+    // Build entry from normalized columns where available
     const entry = {
       id: row.id,
-      ...header,
+      createdAt: row.created_at,
+      ersteller: row.ersteller ?? header.ersteller,
+      standort: row.standort ?? header.standort,
+      kultur: row.kultur ?? header.kultur,
+      eppoCode: row.eppo_code ?? header.eppoCode,
+      bbch: row.bbch ?? header.bbch,
+      datum: row.datum ?? header.datum,
+      dateIso: row.date_iso ?? header.dateIso,
+      uhrzeit: row.uhrzeit ?? header.uhrzeit,
+      usageType: row.usage_type ?? header.usageType,
+      areaHa: row.area_ha ?? header.areaHa,
+      areaAr: row.area_ar ?? header.areaAr,
+      areaSqm: row.area_sqm ?? header.areaSqm,
+      waterVolume: row.water_volume ?? header.waterVolume,
+      invekos: row.invekos ?? header.invekos,
+      gps: row.gps ?? header.gps,
+      gpsCoordinates:
+        row.gps_latitude != null && row.gps_longitude != null
+          ? { latitude: row.gps_latitude, longitude: row.gps_longitude }
+          : header.gpsCoordinates || null,
+      gpsPointId: row.gps_point_id ?? header.gpsPointId,
+      qsMaschine: row.qs_maschine ?? header.qsMaschine,
+      qsSchaderreger: row.qs_schaderreger ?? header.qsSchaderreger,
+      qsVerantwortlicher: row.qs_verantwortlicher ?? header.qsVerantwortlicher,
+      qsWetter: row.qs_wetter ?? header.qsWetter,
+      qsBehandlungsart: row.qs_behandlungsart ?? header.qsBehandlungsart,
+      savedAt: header.savedAt || row.created_at,
     };
     if (includeItems) {
       entry.items = [];
@@ -2096,23 +2544,47 @@ async function listHistoryPaged({
 
     db.exec({
       sql: `
-        SELECT history_id, payload_json
+        SELECT history_id, medium_id, payload_json,
+          medium_name, medium_unit, method_id, method_label, medium_value,
+          calculated_total, zulassungsnummer, wartezeit, wirkstoff,
+          input_area_ha, input_area_ar, input_area_sqm, input_water_volume
         FROM history_items
         WHERE history_id IN (${placeholders})
         ORDER BY history_id, rowid
       `,
       bind: historyIds,
+      rowMode: "object",
       callback: (row) => {
-        const historyId = row[0];
-        const rawPayload = row[1];
+        const historyId = row.history_id;
         if (!itemsMap.has(historyId)) {
           itemsMap.set(historyId, []);
         }
+        // Prefer normalized columns, fall back to JSON
+        let payload = {};
         try {
-          itemsMap.get(historyId).push(JSON.parse(rawPayload || "{}"));
+          payload = JSON.parse(row.payload_json || "{}");
         } catch (error) {
           console.warn("Konnte History-Item nicht parsen", error);
         }
+        itemsMap.get(historyId).push({
+          id: row.medium_id ?? payload.id,
+          mediumId: row.medium_id ?? payload.mediumId,
+          name: row.medium_name ?? payload.name,
+          unit: row.medium_unit ?? payload.unit,
+          methodId: row.method_id ?? payload.methodId,
+          methodLabel: row.method_label ?? payload.methodLabel,
+          value: row.medium_value ?? payload.value,
+          total: row.calculated_total ?? payload.total,
+          zulassungsnummer: row.zulassungsnummer ?? payload.zulassungsnummer,
+          wartezeit: row.wartezeit ?? payload.wartezeit,
+          wirkstoff: row.wirkstoff ?? payload.wirkstoff,
+          inputs: {
+            areaHa: row.input_area_ha ?? payload.inputs?.areaHa,
+            areaAr: row.input_area_ar ?? payload.inputs?.areaAr,
+            areaSqm: row.input_area_sqm ?? payload.inputs?.areaSqm,
+            waterVolume: row.input_water_volume ?? payload.inputs?.waterVolume,
+          },
+        });
       },
     });
 
@@ -2414,13 +2886,55 @@ async function getHistoryEntry(id) {
   let entry = null;
 
   db.exec({
-    sql: "SELECT id, created_at, header_json FROM history WHERE id = ?",
+    sql: `SELECT id, created_at, header_json,
+            ersteller, standort, kultur, eppo_code, bbch, datum, date_iso,
+            uhrzeit, usage_type, area_ha, area_ar, area_sqm, water_volume,
+            invekos, gps, gps_latitude, gps_longitude, gps_point_id,
+            qs_maschine, qs_schaderreger, qs_verantwortlicher, qs_wetter, qs_behandlungsart
+          FROM history WHERE id = ?`,
     bind: [id],
+    rowMode: "object",
     callback: (row) => {
-      const header = JSON.parse(row[2] || "{}");
+      // Prefer normalized columns, fall back to JSON for backward compatibility
+      let header = {};
+      if (row.header_json) {
+        try {
+          header = JSON.parse(row.header_json);
+        } catch (e) {
+          console.warn("Could not parse header_json", e);
+        }
+      }
+      // Build entry from normalized columns (override JSON if columns are populated)
       entry = {
-        id: row[0],
-        ...header,
+        id: row.id,
+        createdAt: row.created_at,
+        ersteller: row.ersteller ?? header.ersteller,
+        standort: row.standort ?? header.standort,
+        kultur: row.kultur ?? header.kultur,
+        eppoCode: row.eppo_code ?? header.eppoCode,
+        bbch: row.bbch ?? header.bbch,
+        datum: row.datum ?? header.datum,
+        dateIso: row.date_iso ?? header.dateIso,
+        uhrzeit: row.uhrzeit ?? header.uhrzeit,
+        usageType: row.usage_type ?? header.usageType,
+        areaHa: row.area_ha ?? header.areaHa,
+        areaAr: row.area_ar ?? header.areaAr,
+        areaSqm: row.area_sqm ?? header.areaSqm,
+        waterVolume: row.water_volume ?? header.waterVolume,
+        invekos: row.invekos ?? header.invekos,
+        gps: row.gps ?? header.gps,
+        gpsCoordinates:
+          row.gps_latitude != null && row.gps_longitude != null
+            ? { latitude: row.gps_latitude, longitude: row.gps_longitude }
+            : header.gpsCoordinates || null,
+        gpsPointId: row.gps_point_id ?? header.gpsPointId,
+        qsMaschine: row.qs_maschine ?? header.qsMaschine,
+        qsSchaderreger: row.qs_schaderreger ?? header.qsSchaderreger,
+        qsVerantwortlicher:
+          row.qs_verantwortlicher ?? header.qsVerantwortlicher,
+        qsWetter: row.qs_wetter ?? header.qsWetter,
+        qsBehandlungsart: row.qs_behandlungsart ?? header.qsBehandlungsart,
+        savedAt: header.savedAt || row.created_at,
         items: [],
       };
     },
@@ -2431,10 +2945,42 @@ async function getHistoryEntry(id) {
   }
 
   db.exec({
-    sql: "SELECT medium_id, payload_json FROM history_items WHERE history_id = ?",
+    sql: `SELECT id, medium_id, payload_json,
+            medium_name, medium_unit, method_id, method_label, medium_value,
+            calculated_total, zulassungsnummer, wartezeit, wirkstoff,
+            input_area_ha, input_area_ar, input_area_sqm, input_water_volume
+          FROM history_items WHERE history_id = ?`,
     bind: [id],
+    rowMode: "object",
     callback: (row) => {
-      entry.items.push(JSON.parse(row[1]));
+      // Prefer normalized columns, fall back to JSON
+      let payload = {};
+      if (row.payload_json) {
+        try {
+          payload = JSON.parse(row.payload_json);
+        } catch (e) {
+          console.warn("Could not parse payload_json", e);
+        }
+      }
+      entry.items.push({
+        id: row.medium_id ?? payload.id,
+        mediumId: row.medium_id ?? payload.mediumId,
+        name: row.medium_name ?? payload.name,
+        unit: row.medium_unit ?? payload.unit,
+        methodId: row.method_id ?? payload.methodId,
+        methodLabel: row.method_label ?? payload.methodLabel,
+        value: row.medium_value ?? payload.value,
+        total: row.calculated_total ?? payload.total,
+        zulassungsnummer: row.zulassungsnummer ?? payload.zulassungsnummer,
+        wartezeit: row.wartezeit ?? payload.wartezeit,
+        wirkstoff: row.wirkstoff ?? payload.wirkstoff,
+        inputs: {
+          areaHa: row.input_area_ha ?? payload.inputs?.areaHa,
+          areaAr: row.input_area_ar ?? payload.inputs?.areaAr,
+          areaSqm: row.input_area_sqm ?? payload.inputs?.areaSqm,
+          waterVolume: row.input_water_volume ?? payload.inputs?.waterVolume,
+        },
+      });
     },
   });
 
@@ -2458,24 +3004,81 @@ async function appendHistoryEntry(entry) {
       header.createdAt = createdAt;
     }
 
-    const stmt = db.prepare(
-      "INSERT INTO history (created_at, header_json) VALUES (?, ?)"
-    );
-    stmt.bind([createdAt, JSON.stringify(header)]).step();
+    // Extract GPS coordinates
+    const gpsCoords = header.gpsCoordinates || {};
+
+    // Insert with both normalized columns AND legacy JSON for backward compatibility
+    const stmt = db.prepare(`
+      INSERT INTO history (
+        created_at, header_json,
+        ersteller, standort, kultur, eppo_code, bbch, datum, date_iso,
+        uhrzeit, usage_type, area_ha, area_ar, area_sqm, water_volume,
+        invekos, gps, gps_latitude, gps_longitude, gps_point_id,
+        qs_maschine, qs_schaderreger, qs_verantwortlicher, qs_wetter, qs_behandlungsart
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt
+      .bind([
+        createdAt,
+        JSON.stringify(header), // Keep JSON for backward compatibility
+        header.ersteller || null,
+        header.standort || null,
+        header.kultur || null,
+        header.eppoCode || null,
+        header.bbch || null,
+        header.datum || null,
+        header.dateIso || null,
+        header.uhrzeit || null,
+        header.usageType || null,
+        header.areaHa ?? null,
+        header.areaAr ?? null,
+        header.areaSqm ?? null,
+        header.waterVolume ?? null,
+        header.invekos || null,
+        header.gps || null,
+        gpsCoords.latitude ?? null,
+        gpsCoords.longitude ?? null,
+        header.gpsPointId || null,
+        header.qsMaschine || null,
+        header.qsSchaderreger || null,
+        header.qsVerantwortlicher || null,
+        header.qsWetter || null,
+        header.qsBehandlungsart || null,
+      ])
+      .step();
     const historyId = db.selectValue("SELECT last_insert_rowid()");
     stmt.finalize();
 
     const items = entry.items && Array.isArray(entry.items) ? entry.items : [];
     if (items.length) {
-      const itemStmt = db.prepare(
-        "INSERT INTO history_items (history_id, medium_id, payload_json) VALUES (?, ?, ?)"
-      );
+      const itemStmt = db.prepare(`
+        INSERT INTO history_items (
+          history_id, medium_id, payload_json,
+          medium_name, medium_unit, method_id, method_label, medium_value,
+          calculated_total, zulassungsnummer, wartezeit, wirkstoff,
+          input_area_ha, input_area_ar, input_area_sqm, input_water_volume
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
       for (const item of items) {
+        const inputs = item.inputs || {};
         itemStmt
           .bind([
             historyId,
-            item.mediumId || item.medium_id || "",
-            JSON.stringify(item),
+            item.mediumId || item.medium_id || item.id || "",
+            JSON.stringify(item), // Keep JSON for backward compatibility
+            item.name || null,
+            item.unit || null,
+            item.methodId || null,
+            item.methodLabel || null,
+            item.value ?? null,
+            item.total ?? null,
+            item.zulassungsnummer || null,
+            item.wartezeit ?? null,
+            item.wirkstoff || null,
+            inputs.areaHa ?? null,
+            inputs.areaAr ?? null,
+            inputs.areaSqm ?? null,
+            inputs.waterVolume ?? null,
           ])
           .step();
         itemStmt.reset();

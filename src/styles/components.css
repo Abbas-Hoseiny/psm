@@ -552,7 +552,9 @@
 
 /* QS-Modus Indikator im HTML-Root */
 html.qs-mode .card-dark {
-  box-shadow: 0 0 15px var(--color-card-shadow), 0 0 3px rgba(13, 202, 240, 0.2);
+  box-shadow:
+    0 0 15px var(--color-card-shadow),
+    0 0 3px rgba(13, 202, 240, 0.2);
 }
 
 /* QS-Modus Summary-Spalte */
@@ -572,7 +574,7 @@ html.qs-mode .card-dark {
     background-color: #f8f9fa !important;
     border: 1px solid #dee2e6;
   }
-  
+
   .qs-detail-section h6 .badge {
     background-color: #17a2b8 !important;
     color: white !important;
@@ -580,4 +582,3 @@ html.qs-mode .card-dark {
     print-color-adjust: exact;
   }
 }
-

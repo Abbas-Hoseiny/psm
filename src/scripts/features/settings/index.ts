@@ -84,6 +84,8 @@ function createSection(): HTMLElement {
                 <th>Methode</th>
                 <th>Wert</th>
                 <th>Zulassungsnr.</th>
+                <th>Wartezeit</th>
+                <th>Wirkstoff</th>
                 <th>Aktion</th>
               </tr>
             </thead>
@@ -122,25 +124,38 @@ function createSection(): HTMLElement {
     <div class="card card-dark">
       <div class="card-body">
         <h3 class="h5 text-success mb-3">Neues Mittel hinzufügen</h3>
-        <p class="text-muted">Trage alle Pflichtfelder aus. Die Zulassungsnummer ist optional, der Wert beschreibt den Faktor, der bei der Berechnung angewendet wird.</p>
+        <p class="text-muted">Trage alle Pflichtfelder aus. Zulassungsnummer, Wartezeit und Wirkstoff sind optional (wichtig für QS-Dokumentation).</p>
         <form id="settings-medium-form" class="row g-3">
           <div class="col-md-3">
-            <input class="form-control" name="medium-name" placeholder="Name (z. B. Elot-Vis)" required />
+            <label class="form-label small text-muted">Name *</label>
+            <input class="form-control" name="medium-name" placeholder="z. B. Elot-Vis" required />
           </div>
           <div class="col-md-2">
-            <input class="form-control" name="medium-unit" placeholder="Einheit (z. B. ml, %)" required />
+            <label class="form-label small text-muted">Einheit *</label>
+            <input class="form-control" name="medium-unit" placeholder="z. B. ml, %" required />
           </div>
-          <div class="col-md-3">
-            <input class="form-control" name="medium-method" placeholder="Methode (z. B. perHektar)" list="settings-method-options" required />
+          <div class="col-md-2">
+            <label class="form-label small text-muted">Methode *</label>
+            <input class="form-control" name="medium-method" placeholder="z. B. perHektar" list="settings-method-options" required />
             <datalist id="settings-method-options"></datalist>
           </div>
           <div class="col-md-2">
-            <input type="number" step="any" class="form-control" name="medium-value" placeholder="Wert" required />
+            <label class="form-label small text-muted">Wert (Faktor) *</label>
+            <input type="number" step="any" class="form-control" name="medium-value" placeholder="z. B. 0.83" required />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Zulassungsnr.</label>
+            <input class="form-control" name="medium-approval" placeholder="optional" />
           </div>
           <div class="col-md-2">
-            <input class="form-control" name="medium-approval" placeholder="Zulassungsnr. (optional)" />
+            <label class="form-label small text-muted">Wartezeit (Tage)</label>
+            <input type="number" min="0" step="1" class="form-control" name="medium-wartezeit" placeholder="z. B. 14" />
           </div>
-          <div class="col-md-2 d-grid">
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Wirkstoff</label>
+            <input class="form-control" name="medium-wirkstoff" placeholder="z. B. Azoxystrobin" />
+          </div>
+          <div class="col-md-2 d-grid align-items-end">
             <button class="btn btn-success" type="submit">Hinzufügen</button>
           </div>
         </form>
@@ -575,7 +590,7 @@ function renderMediumRows(state: AppState): void {
   if (!total) {
     mediumsTableBody.innerHTML = `
       <tr>
-        <td colspan="7" class="text-center text-muted">Noch keine Mittel gespeichert.</td>
+        <td colspan="9" class="text-center text-muted">Noch keine Mittel gespeichert.</td>
       </tr>
     `;
     updateProfileSelectionSummary(state);
@@ -595,6 +610,12 @@ function renderMediumRows(state: AppState): void {
       medium.zulassungsnummer.trim().length
         ? escapeHtml(medium.zulassungsnummer)
         : "-";
+    const wartezeitText =
+      typeof medium.wartezeit === "number" ? `${medium.wartezeit} Tage` : "-";
+    const wirkstoffText =
+      typeof medium.wirkstoff === "string" && medium.wirkstoff.trim().length
+        ? escapeHtml(medium.wirkstoff)
+        : "-";
     row.innerHTML = `
       <td class="text-center">
         <input type="checkbox" class="form-check-input" data-role="profile-select" data-medium-id="${escapeHtml(
@@ -606,6 +627,8 @@ function renderMediumRows(state: AppState): void {
       <td>${escapeHtml(method ? method.label : medium.methodId)}</td>
       <td>${escapeHtml(medium.value != null ? String(medium.value) : "")}</td>
       <td>${approvalText}</td>
+      <td>${wartezeitText}</td>
+      <td>${wirkstoffText}</td>
       <td>
         <button class="btn btn-sm btn-danger" data-action="delete" data-index="${globalIndex}">Löschen</button>
       </td>
@@ -784,6 +807,10 @@ export function initSettings(
     const approvalNumber = (formData.get("medium-approval") || "")
       .toString()
       .trim();
+    const wartezeitRaw = formData.get("medium-wartezeit");
+    const wartezeit = wartezeitRaw ? Number(wartezeitRaw) : null;
+    const wirkstoff =
+      (formData.get("medium-wirkstoff") || "").toString().trim() || null;
     if (!name || !unit || Number.isNaN(value)) {
       window.alert("Bitte alle Felder korrekt ausfüllen.");
       return;
@@ -803,6 +830,9 @@ export function initSettings(
       methodId,
       value,
       zulassungsnummer: approvalNumber || null,
+      wartezeit:
+        wartezeit != null && !Number.isNaN(wartezeit) ? wartezeit : null,
+      wirkstoff,
     };
     mediumSavePending = true;
     setMediumFormBusy(true, "Speichere...");

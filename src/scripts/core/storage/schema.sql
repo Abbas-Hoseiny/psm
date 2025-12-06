@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS mediums (
   method_id TEXT NOT NULL,
   value REAL NOT NULL,
   zulassungsnummer TEXT,
+  wartezeit INTEGER,
+  wirkstoff TEXT,
   FOREIGN KEY(method_id) REFERENCES measurement_methods(id)
 );
 
@@ -79,25 +81,73 @@ CREATE TABLE IF NOT EXISTS lookup_bbch_stages (
 CREATE INDEX IF NOT EXISTS idx_lookup_bbch_label ON lookup_bbch_stages(label COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_lookup_bbch_principal ON lookup_bbch_stages(principal_stage);
 
--- History entries
+-- History entries (normalized for EU machine-readable compliance DVO 2023/564 + 2025/2203)
 CREATE TABLE IF NOT EXISTS history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL,
-  header_json TEXT NOT NULL -- JSON object containing header fields
+  -- Header fields (normalized columns for machine-readable export)
+  ersteller TEXT,                   -- Person responsible for application
+  standort TEXT,                    -- Location/field name
+  kultur TEXT,                      -- Crop (human readable)
+  eppo_code TEXT,                   -- EPPO code for crop
+  bbch TEXT,                        -- BBCH growth stage
+  datum TEXT,                       -- Application date (display format)
+  date_iso TEXT,                    -- Application date (ISO format)
+  uhrzeit TEXT,                     -- Application time
+  usage_type TEXT,                  -- Usage type (Obstbau, Ackerbau, etc.)
+  area_ha REAL,                     -- Treated area in hectares
+  area_ar REAL,                     -- Treated area in ar
+  area_sqm REAL,                    -- Treated area in square meters
+  water_volume REAL,                -- Water volume used
+  invekos TEXT,                     -- INVEKOS field ID
+  gps TEXT,                         -- GPS coordinates (display format)
+  gps_latitude REAL,                -- GPS latitude
+  gps_longitude REAL,               -- GPS longitude
+  gps_point_id TEXT,                -- Reference to GPS point
+  -- QS-GAP fields (Leitfaden 3.6.2)
+  qs_maschine TEXT,                 -- Application equipment
+  qs_schaderreger TEXT,             -- Target pest/disease
+  qs_verantwortlicher TEXT,         -- Responsible person (QS)
+  qs_wetter TEXT,                   -- Weather conditions
+  qs_behandlungsart TEXT,           -- Treatment type
+  -- Legacy JSON for backward compatibility (will be removed in future)
+  header_json TEXT                  -- Deprecated: JSON blob for migration
 );
 
--- History items (calculation results)
+-- History items (calculation results - normalized for EU compliance)
 CREATE TABLE IF NOT EXISTS history_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   history_id INTEGER NOT NULL,
   medium_id TEXT NOT NULL,
-  payload_json TEXT NOT NULL, -- JSON object with calculation details
+  -- Normalized product/medium fields
+  medium_name TEXT,                 -- Product name
+  medium_unit TEXT,                 -- Unit of measure
+  method_id TEXT,                   -- Calculation method ID
+  method_label TEXT,                -- Calculation method label
+  medium_value REAL,                -- Dosage value per unit
+  calculated_total REAL,            -- Calculated total amount
+  zulassungsnummer TEXT,            -- Authorization number (BVL)
+  wartezeit INTEGER,                -- Waiting period in days
+  wirkstoff TEXT,                   -- Active substance(s)
+  -- Input values used for calculation
+  input_area_ha REAL,
+  input_area_ar REAL,
+  input_area_sqm REAL,
+  input_water_volume REAL,
+  -- Legacy JSON for backward compatibility
+  payload_json TEXT,                -- Deprecated: JSON blob for migration
   FOREIGN KEY(history_id) REFERENCES history(id) ON DELETE CASCADE
 );
 
--- Indices for performance
+-- Indices for performance and machine-readable queries
 CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_history_date_iso ON history(date_iso);
+CREATE INDEX IF NOT EXISTS idx_history_eppo_code ON history(eppo_code);
+CREATE INDEX IF NOT EXISTS idx_history_kultur ON history(kultur);
+CREATE INDEX IF NOT EXISTS idx_history_standort ON history(standort);
 CREATE INDEX IF NOT EXISTS idx_history_items_history_id ON history_items(history_id);
+CREATE INDEX IF NOT EXISTS idx_history_items_zulassungsnummer ON history_items(zulassungsnummer);
+CREATE INDEX IF NOT EXISTS idx_history_items_wirkstoff ON history_items(wirkstoff);
 CREATE INDEX IF NOT EXISTS idx_mediums_method_id ON mediums(method_id);
 
 CREATE TABLE IF NOT EXISTS gps_points (
