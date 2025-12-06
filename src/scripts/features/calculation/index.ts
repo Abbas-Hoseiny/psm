@@ -33,6 +33,16 @@ import {
   searchEppoSuggestions,
   searchBbchSuggestions,
 } from "@scripts/core/lookups";
+import {
+  isQsModeEnabled,
+  validateQsFields,
+  renderQsBadge,
+} from "@scripts/core/qsMode";
+import {
+  renderQsFieldsHtml,
+  extractQsFieldsFromForm,
+  renderQsSummaryHtml,
+} from "../shared/qsFields";
 
 interface Services {
   state: {
@@ -115,6 +125,13 @@ function createSection(
     invekos: "",
     time: "",
     date: "",
+    // QS-Felder
+    qsWartezeit: "",
+    qsMaschine: "",
+    qsSchaderreger: "",
+    qsVerantwortlicher: "",
+    qsWetter: "",
+    qsBehandlungsart: "",
   };
   const section = document.createElement("section");
   section.className = "section-inner";
@@ -295,8 +312,16 @@ function createSection(
               labels.calculation.fields.time.label
             )}" value="${escapeAttr(formDefaults.time || "")}" />
           </div>
+          ${renderQsFieldsHtml({
+            wartezeit: formDefaults.qsWartezeit || "",
+            maschine: formDefaults.qsMaschine || "",
+            schaderreger: formDefaults.qsSchaderreger || "",
+            verantwortlicher: formDefaults.qsVerantwortlicher || "",
+            wetter: formDefaults.qsWetter || "",
+            behandlungsart: formDefaults.qsBehandlungsart || "",
+          })}
           <div class="col-12 text-center">
-            <button type="submit" class="btn btn-success px-4">Berechnen</button>
+            <button type="submit" class="btn btn-success px-4">Berechnen ${renderQsBadge()}</button>
           </div>
         </form>
       </div>
@@ -1152,6 +1177,10 @@ export function initCalculation(
     const rawGps = (formData.get("calc-gps") || "").toString().trim();
     const rawTime = (formData.get("calc-uhrzeit") || "").toString().trim();
     const rawDate = (formData.get("calc-datum") || "").toString().trim();
+    
+    // QS-Felder extrahieren
+    const qsFields = extractQsFieldsFromForm(form);
+    
     const ersteller = rawErsteller;
     const standort = rawStandort || "-";
     const kultur = rawKultur || "-";
@@ -1174,6 +1203,15 @@ export function initCalculation(
     if (!usageType) {
       window.alert("Bitte die Art der Verwendung angeben.");
       return;
+    }
+    
+    // QS-Validierung
+    if (isQsModeEnabled()) {
+      const qsErrors = validateQsFields(qsFields);
+      if (qsErrors.length > 0) {
+        window.alert("QS-Pflichtfelder:\n\n" + qsErrors.join("\n"));
+        return;
+      }
     }
 
     const state = services.state.getState();
@@ -1259,6 +1297,17 @@ export function initCalculation(
       waterVolume,
       areaAr,
       areaSqm,
+      // QS-Felder (nur wenn QS-Modus aktiv oder Werte vorhanden)
+      ...(isQsModeEnabled() || qsFields.wartezeit || qsFields.maschine || qsFields.schaderreger
+        ? {
+            qsWartezeit: qsFields.wartezeit,
+            qsMaschine: qsFields.maschine,
+            qsSchaderreger: qsFields.schaderreger,
+            qsVerantwortlicher: qsFields.verantwortlicher,
+            qsWetter: qsFields.wetter,
+            qsBehandlungsart: qsFields.behandlungsart,
+          }
+        : {}),
     };
 
     const calculation: CalculationResult = {
@@ -1281,6 +1330,12 @@ export function initCalculation(
           invekos: "",
           time: "",
           date: "",
+          qsWartezeit: "",
+          qsMaschine: "",
+          qsSchaderreger: "",
+          qsVerantwortlicher: "",
+          qsWetter: "",
+          qsBehandlungsart: "",
         }),
         creator: rawErsteller,
         location: rawStandort,
@@ -1293,6 +1348,13 @@ export function initCalculation(
         invekos: rawInvekos,
         time: rawTime,
         date: rawDate,
+        // QS-Felder
+        qsWartezeit: qsFields.wartezeit,
+        qsMaschine: qsFields.maschine,
+        qsSchaderreger: qsFields.schaderreger,
+        qsVerantwortlicher: qsFields.verantwortlicher,
+        qsWetter: qsFields.wetter,
+        qsBehandlungsart: qsFields.behandlungsart,
       },
     }));
 

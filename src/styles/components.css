@@ -492,3 +492,92 @@
     font-size: 0.85rem;
   }
 }
+
+/* ============================================
+   QS-Modus Styles
+   ============================================ */
+
+/* QS-Felder Container */
+.qs-fields-container {
+  background-color: rgba(13, 202, 240, 0.05);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.qs-fields-section {
+  border-top-color: rgba(13, 202, 240, 0.3) !important;
+}
+
+/* QS-Pflichtfeld Markierung */
+.qs-required input:invalid,
+.qs-required input:placeholder-shown:not(:focus) {
+  border-color: rgba(255, 193, 7, 0.5);
+}
+
+.qs-required input:valid {
+  border-color: rgba(25, 135, 84, 0.5);
+}
+
+/* QS-Badge im Header */
+.qs-badge {
+  font-size: 0.7rem;
+  vertical-align: middle;
+}
+
+/* QS-Detail-Section in Dokumentation */
+.qs-detail-section {
+  background-color: rgba(13, 202, 240, 0.05);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  border-top-color: rgba(13, 202, 240, 0.3) !important;
+}
+
+.qs-detail-section dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+}
+
+.qs-detail-section dt {
+  color: var(--color-text-muted);
+  font-weight: normal;
+  font-size: 0.875rem;
+}
+
+.qs-detail-section dd {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+/* QS-Modus Indikator im HTML-Root */
+html.qs-mode .card-dark {
+  box-shadow: 0 0 15px var(--color-card-shadow), 0 0 3px rgba(13, 202, 240, 0.2);
+}
+
+/* QS-Modus Summary-Spalte */
+.calc-summary-qs {
+  background-color: rgba(13, 202, 240, 0.08);
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+}
+
+.calc-summary-qs .badge {
+  font-size: 0.65rem;
+}
+
+@media print {
+  .qs-fields-container,
+  .qs-detail-section {
+    background-color: #f8f9fa !important;
+    border: 1px solid #dee2e6;
+  }
+  
+  .qs-detail-section h6 .badge {
+    background-color: #17a2b8 !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
