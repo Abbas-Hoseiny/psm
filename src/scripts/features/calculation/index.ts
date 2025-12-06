@@ -33,15 +33,10 @@ import {
   searchEppoSuggestions,
   searchBbchSuggestions,
 } from "@scripts/core/lookups";
-import {
-  isQsModeEnabled,
-  validateQsFields,
-  renderQsBadge,
-} from "@scripts/core/qsMode";
+import { renderQsBadge } from "@scripts/core/qsMode";
 import {
   renderQsFieldsHtml,
   extractQsFieldsFromForm,
-  renderQsSummaryHtml,
 } from "../shared/qsFields";
 
 interface Services {
@@ -125,8 +120,7 @@ function createSection(
     invekos: "",
     time: "",
     date: "",
-    // QS-Felder
-    qsWartezeit: "",
+    // QS-Felder (Wartezeit/Wirkstoff sind pro Medium in Einstellungen gepflegt)
     qsMaschine: "",
     qsSchaderreger: "",
     qsVerantwortlicher: "",
@@ -313,7 +307,6 @@ function createSection(
             )}" value="${escapeAttr(formDefaults.time || "")}" />
           </div>
           ${renderQsFieldsHtml({
-            wartezeit: formDefaults.qsWartezeit || "",
             maschine: formDefaults.qsMaschine || "",
             schaderreger: formDefaults.qsSchaderreger || "",
             verantwortlicher: formDefaults.qsVerantwortlicher || "",
@@ -1167,9 +1160,7 @@ export function initCalculation(
       .trim();
     const rawStandort = (formData.get("calc-standort") || "").toString().trim();
     const rawKultur = (formData.get("calc-kultur") || "").toString().trim();
-    const rawAreaHa = (formData.get("calc-area-ha") || "")
-      .toString()
-      .trim();
+    const rawAreaHa = (formData.get("calc-area-ha") || "").toString().trim();
     const rawEppo = (formData.get("calc-eppo") || "").toString().trim();
     const rawBbch = (formData.get("calc-bbch") || "").toString().trim();
     const rawInvekos = (formData.get("calc-invekos") || "").toString().trim();
@@ -1177,10 +1168,10 @@ export function initCalculation(
     const rawGps = (formData.get("calc-gps") || "").toString().trim();
     const rawTime = (formData.get("calc-uhrzeit") || "").toString().trim();
     const rawDate = (formData.get("calc-datum") || "").toString().trim();
-    
+
     // QS-Felder extrahieren
     const qsFields = extractQsFieldsFromForm(form);
-    
+
     const ersteller = rawErsteller;
     const standort = rawStandort || "-";
     const kultur = rawKultur || "-";
@@ -1204,15 +1195,8 @@ export function initCalculation(
       window.alert("Bitte die Art der Verwendung angeben.");
       return;
     }
-    
-    // QS-Validierung
-    if (isQsModeEnabled()) {
-      const qsErrors = validateQsFields(qsFields);
-      if (qsErrors.length > 0) {
-        window.alert("QS-Pflichtfelder:\n\n" + qsErrors.join("\n"));
-        return;
-      }
-    }
+
+    // QS-Felder sind optional - keine Pflichtvalidierung
 
     const state = services.state.getState();
     const defaults = state.defaults;
@@ -1276,6 +1260,9 @@ export function initCalculation(
         total,
         inputs,
         zulassungsnummer: medium.zulassungsnummer ?? null,
+        // QS-Felder pro Medium
+        wartezeit: medium.wartezeit ?? null,
+        wirkstoff: medium.wirkstoff ?? null,
       };
     });
 
@@ -1297,17 +1284,13 @@ export function initCalculation(
       waterVolume,
       areaAr,
       areaSqm,
-      // QS-Felder (nur wenn QS-Modus aktiv oder Werte vorhanden)
-      ...(isQsModeEnabled() || qsFields.wartezeit || qsFields.maschine || qsFields.schaderreger
-        ? {
-            qsWartezeit: qsFields.wartezeit,
-            qsMaschine: qsFields.maschine,
-            qsSchaderreger: qsFields.schaderreger,
-            qsVerantwortlicher: qsFields.verantwortlicher,
-            qsWetter: qsFields.wetter,
-            qsBehandlungsart: qsFields.behandlungsart,
-          }
-        : {}),
+      // QS-Felder gemäß QS-GAP-Leitfaden 3.6.2 (immer speichern wenn ausgefüllt)
+      // Wartezeit/Wirkstoff werden über das Medium gepflegt (nicht pro Anwendung)
+      qsMaschine: qsFields.maschine || null,
+      qsSchaderreger: qsFields.schaderreger || null,
+      qsVerantwortlicher: qsFields.verantwortlicher || null,
+      qsWetter: qsFields.wetter || null,
+      qsBehandlungsart: qsFields.behandlungsart || null,
     };
 
     const calculation: CalculationResult = {
@@ -1330,7 +1313,6 @@ export function initCalculation(
           invekos: "",
           time: "",
           date: "",
-          qsWartezeit: "",
           qsMaschine: "",
           qsSchaderreger: "",
           qsVerantwortlicher: "",
@@ -1348,8 +1330,7 @@ export function initCalculation(
         invekos: rawInvekos,
         time: rawTime,
         date: rawDate,
-        // QS-Felder
-        qsWartezeit: qsFields.wartezeit,
+        // QS-Felder (Wartezeit/Wirkstoff über Medium)
         qsMaschine: qsFields.maschine,
         qsSchaderreger: qsFields.schaderreger,
         qsVerantwortlicher: qsFields.verantwortlicher,

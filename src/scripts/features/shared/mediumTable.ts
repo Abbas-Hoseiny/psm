@@ -3,6 +3,8 @@ import { escapeHtml, formatNumber } from "@scripts/core/utils";
 const COLUMN_FALLBACK_LABELS = {
   medium: "Mittel",
   approval: "Zulassungsnr.",
+  wartezeit: "Wartezeit",
+  wirkstoff: "Wirkstoff",
   unit: "Einheit",
   method: "Methode",
   value: "Wert",
@@ -75,8 +77,31 @@ const VARIANT_CONFIG: Record<VariantKey, VariantConfig> = {
   },
 };
 
-function resolveVariant(variant: VariantKey): VariantConfig {
-  return VARIANT_CONFIG[variant] || VARIANT_CONFIG.calculation;
+/**
+ * Erweitert die Spalten um Wartezeit und Wirkstoff
+ * Diese Spalten werden immer angezeigt (QS-GAP-Leitfaden 3.6.1)
+ */
+function expandColumnsForQsMode(
+  columns: Array<keyof typeof COLUMN_FALLBACK_LABELS>,
+  _items?: any[]
+): Array<keyof typeof COLUMN_FALLBACK_LABELS> {
+  // Wartezeit und Wirkstoff immer anzeigen (QS-Standard)
+  // Füge Wartezeit und Wirkstoff nach approval ein
+  const approvalIndex = columns.indexOf("approval");
+  if (approvalIndex === -1) {
+    return [...columns, "wartezeit", "wirkstoff"];
+  }
+  const result = [...columns];
+  result.splice(approvalIndex + 1, 0, "wartezeit", "wirkstoff");
+  return result;
+}
+
+function resolveVariant(variant: VariantKey, items?: any[]): VariantConfig {
+  const base = VARIANT_CONFIG[variant] || VARIANT_CONFIG.calculation;
+  return {
+    ...base,
+    columns: expandColumnsForQsMode(base.columns, items),
+  };
 }
 
 function resolveLabel(
@@ -113,6 +138,22 @@ const COLUMN_DEFS: Record<keyof typeof COLUMN_FALLBACK_LABELS, ColumnRenderer> =
         return value ? escapeHtml(value) : config.missingValue;
       },
       className: "nowrap",
+    },
+    wartezeit: {
+      cell: (item, config) => {
+        const value = item?.wartezeit;
+        if (value === null || value === undefined) {
+          return config.missingValue;
+        }
+        return `${escapeHtml(String(value))} Tage`;
+      },
+      className: "nowrap",
+    },
+    wirkstoff: {
+      cell: (item, config) => {
+        const value = item?.wirkstoff;
+        return value ? escapeHtml(value) : config.missingValue;
+      },
     },
     method: {
       cell: (item, config) => {
@@ -187,9 +228,10 @@ function renderRowCells(
 
 export function buildMediumTableHead(
   labels: any,
-  variant: VariantKey = "calculation"
+  variant: VariantKey = "calculation",
+  items?: any[]
 ): string {
-  const config = resolveVariant(variant);
+  const config = resolveVariant(variant, items);
   return `<tr>${renderHeadCells(config.columns, labels)}</tr>`;
 }
 
@@ -197,7 +239,7 @@ export function buildMediumTableRows(
   items: any[] = [],
   variant: VariantKey = "calculation"
 ): string {
-  const config = resolveVariant(variant);
+  const config = resolveVariant(variant, items);
   if (!Array.isArray(items) || !items.length) {
     return "";
   }
@@ -215,8 +257,11 @@ export function buildMediumTableHTML(
   const {
     classes = "table table-dark table-striped align-middle calc-medium-table",
   } = options;
-  const head = buildMediumTableHead(labels, variant);
-  const body = buildMediumTableRows(items, variant);
+  const config = resolveVariant(variant, items);
+  const head = `<tr>${renderHeadCells(config.columns, labels)}</tr>`;
+  const body = items
+    .map((item) => `<tr>${renderRowCells(item, config.columns, config)}</tr>`)
+    .join("");
   return `<table class="${classes}"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 
@@ -224,7 +269,7 @@ export function buildMediumSummaryLines(items: any[] = []): string[] {
   if (!Array.isArray(items) || !items.length) {
     return [];
   }
-  const config = resolveVariant("summary");
+  const config = resolveVariant("summary", items);
   return items.map((item) => {
     const name = item?.name ? escapeHtml(item.name) : config.missingValue;
     if (!item || !item.name) {

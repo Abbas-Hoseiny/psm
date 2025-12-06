@@ -1,32 +1,28 @@
 /**
- * QS-Modus Konfiguration
- * 
- * Der QS-Modus erweitert Pestalozzi um zusätzliche Pflichtfelder gemäß
- * QS-GAP-Leitfaden (Kapitel 3.6.1 + 3.6.2) für Pflanzenschutz-Dokumentation.
- * 
- * Aktivierung: ?mode=qs in der URL
- * 
- * Zusätzliche QS-Pflichtfelder:
- * - Wartezeit (Tage gemäß Hersteller)
+ * QS-GAP Dokumentationsfelder
+ *
+ * Pestalozzi enthält alle Felder gemäß QS-GAP-Leitfaden (Kapitel 3.6.1 + 3.6.2)
+ * für vollständige Pflanzenschutz-Dokumentation.
+ *
+ * Zusätzliche QS-Felder (optional, aber empfohlen):
  * - Maschine/Gerät (verwendete Spritztechnik)
  * - Schaderreger/Grund (Krankheit, Schädling, Unkraut)
  * - Verantwortliche Person (wenn ≠ Anwender)
  * - Wetterbedingungen (bei Einfluss auf Wirksamkeit/Abdrift)
  * - Behandlungsart (bei Nachernte: sprühen, nebeln, etc.)
+ *
+ * HINWEIS: Wartezeit und Wirkstoff sind Eigenschaften des Pflanzenschutzmittels
+ * und werden in den Einstellungen pro Mittel gepflegt (nicht pro Anwendung).
  */
 
 export interface QsConfig {
-  /** QS-Modus aktiv */
+  /** QS-Felder sind immer verfügbar */
   enabled: boolean;
-  /** URL-Parameter für Aktivierung */
-  urlParam: string;
-  /** QS-Pflichtfelder sind required */
+  /** Strenge Validierung (Pflichtfelder) - standardmäßig aus */
   strictValidation: boolean;
 }
 
 export interface QsFieldValues {
-  /** Wartezeit in Tagen */
-  wartezeit: string;
   /** Maschine/Gerät */
   maschine: string;
   /** Schaderreger/Krankheit/Unkraut (Grund der Behandlung) */
@@ -40,11 +36,6 @@ export interface QsFieldValues {
 }
 
 export interface QsFieldLabels {
-  wartezeit: {
-    label: string;
-    placeholder: string;
-    hint: string;
-  };
   maschine: {
     label: string;
     placeholder: string;
@@ -75,11 +66,6 @@ export interface QsFieldLabels {
 }
 
 const DEFAULT_QS_LABELS: QsFieldLabels = {
-  wartezeit: {
-    label: "Wartezeit (Tage)",
-    placeholder: "z. B. 14",
-    hint: "Wartezeit gemäß Herstellerangabe in Tagen",
-  },
   maschine: {
     label: "Maschine / Gerät",
     placeholder: "z. B. Anhängespritze 1000L",
@@ -126,25 +112,20 @@ const DEFAULT_QS_LABELS: QsFieldLabels = {
 };
 
 let qsConfig: QsConfig = {
-  enabled: false,
-  urlParam: "mode",
-  strictValidation: true,
+  enabled: true, // QS-Felder immer verfügbar
+  strictValidation: false, // Felder optional, nicht Pflicht
 };
 
 let qsLabels: QsFieldLabels = { ...DEFAULT_QS_LABELS };
 
 /**
- * Initialisiert den QS-Modus basierend auf URL-Parameter
+ * Initialisiert die QS-Felder (immer aktiv)
  */
 export function initQsMode(): void {
-  const params = new URLSearchParams(window.location.search);
-  const modeValue = params.get(qsConfig.urlParam);
-  qsConfig.enabled = modeValue === "qs";
-  
-  if (qsConfig.enabled) {
-    console.log("[QS-Modus] Aktiviert – zusätzliche Pflichtfelder aktiv");
-    document.documentElement.classList.add("qs-mode");
-  }
+  // QS-Felder sind immer verfügbar
+  qsConfig.enabled = true;
+  document.documentElement.classList.add("qs-mode");
+  console.log("[QS] Dokumentationsfelder gemäß QS-GAP-Leitfaden verfügbar");
 }
 
 /**
@@ -183,7 +164,6 @@ export function setQsLabels(customLabels: Partial<QsFieldLabels>): void {
  */
 export function createEmptyQsFields(): QsFieldValues {
   return {
-    wartezeit: "",
     maschine: "",
     schaderreger: "",
     verantwortlicher: "",
@@ -193,69 +173,62 @@ export function createEmptyQsFields(): QsFieldValues {
 }
 
 /**
- * Validiert QS-Pflichtfelder
- * @returns Array von Fehlermeldungen (leer wenn alles ok)
+ * Validiert QS-Felder (optional - nur bei strictValidation)
+ * @returns Array von Fehlermeldungen (leer wenn alles ok oder Validierung aus)
  */
 export function validateQsFields(
   fields: Partial<QsFieldValues>,
-  strict = true
+  strict = false
 ): string[] {
-  if (!qsConfig.enabled) {
+  // Keine Pflichtvalidierung - alle Felder sind optional
+  if (!strict && !qsConfig.strictValidation) {
     return [];
   }
-  
+
   const errors: string[] = [];
-  
+
+  // Nur bei explizit aktivierter strenger Validierung
   if (strict || qsConfig.strictValidation) {
-    // QS-Pflichtfelder gemäß Leitfaden 3.6.2
     if (!fields.maschine?.trim()) {
-      errors.push("Maschine/Gerät ist für QS erforderlich");
+      errors.push(
+        "Maschine/Gerät ist für vollständige QS-Dokumentation empfohlen"
+      );
     }
     if (!fields.schaderreger?.trim()) {
-      errors.push("Schaderreger/Grund ist für QS erforderlich");
-    }
-    // Wartezeit, Wetter, Verantwortlicher sind empfohlen aber nicht K.O.
-  }
-  
-  // Wartezeit muss numerisch sein wenn angegeben
-  if (fields.wartezeit?.trim()) {
-    const wartezeitNum = parseInt(fields.wartezeit, 10);
-    if (isNaN(wartezeitNum) || wartezeitNum < 0) {
-      errors.push("Wartezeit muss eine positive Zahl sein");
+      errors.push(
+        "Schaderreger/Grund ist für vollständige QS-Dokumentation empfohlen"
+      );
     }
   }
-  
+
   return errors;
 }
 
 /**
- * Generiert die URL mit QS-Modus Parameter
+ * Generiert die URL (QS ist jetzt immer aktiv)
+ * @deprecated QS-Felder sind jetzt immer verfügbar
  */
 export function getQsModeUrl(baseUrl?: string): string {
   const base = baseUrl || window.location.origin + window.location.pathname;
-  const url = new URL(base);
-  url.searchParams.set(qsConfig.urlParam, "qs");
-  return url.toString();
+  return base;
 }
 
 /**
- * Generiert die URL ohne QS-Modus
+ * Generiert die Standard-URL
+ * @deprecated QS-Felder sind jetzt immer verfügbar
  */
 export function getStandardModeUrl(baseUrl?: string): string {
   const base = baseUrl || window.location.origin + window.location.pathname;
-  const url = new URL(base);
-  url.searchParams.delete(qsConfig.urlParam);
-  return url.toString();
+  return base;
 }
 
 /**
  * Hilfsfunktion zum Erstellen eines QS-Badge HTML
+ * (Wird nicht mehr angezeigt, da QS-Felder jetzt Standard sind)
  */
 export function renderQsBadge(): string {
-  if (!qsConfig.enabled) {
-    return "";
-  }
-  return `<span class="badge bg-info ms-2" title="QS-Modus aktiv – erweiterte Dokumentation">QS</span>`;
+  // QS-Badge nicht mehr nötig - Felder sind jetzt Standard
+  return "";
 }
 
 /**
