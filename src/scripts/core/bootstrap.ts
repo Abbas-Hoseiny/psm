@@ -8,6 +8,7 @@ import {
   markManualDebugOverlayAccess,
 } from "../dev/debugOverlayGate";
 import { initQsMode } from "./qsMode";
+import { initInfos } from "../features/infos/infosClient";
 
 // Feature imports - to be migrated
 // import { initStarfield } from '../features/starfield/index';
@@ -135,6 +136,13 @@ export async function bootstrap() {
   // initSettings(regions.main, services);
   // initReporting(regions.main, services);
   // initZulassung(regions.main, services);
+
+  // Infos-Feature initialisieren
+  const infosContainer = document.querySelector('[data-feature="infos"]');
+  if (infosContainer instanceof HTMLElement) {
+    initInfos(services);
+  }
+
   setupUnloadWarning(services.state);
 
   patchState({

@@ -190,12 +190,10 @@ function toDateBoundaryIso(
 }
 
 function getDefaultFilters(): DocumentationFilters {
-  const end = new Date();
-  const start = new Date(end);
-  start.setDate(start.getDate() - 30);
+  // Standardmäßig KEIN Filter - zeigt die letzten 50 Einträge
   return {
-    startDate: formatDateInputValue(start),
-    endDate: formatDateInputValue(end),
+    startDate: "",
+    endDate: "",
   };
 }
 
@@ -898,29 +896,14 @@ function renderArchiveLogs(
       const dateLabel = formatArchiveLogDate(log.archivedAt);
       const rangeLabel = `${log.startDate || "-"} – ${log.endDate || "-"}`;
       const entryLabel = log.entryCount === 1 ? "Eintrag" : "Einträge";
-      const storage = log.storageHint
-        ? `<div class="small">Ablage: ${escapeHtml(log.storageHint)}</div>`
-        : "";
-      const note = log.note
-        ? `<div class="small text-muted">Notiz: ${escapeHtml(log.note)}</div>`
-        : "";
-      const copyButton = log.storageHint
-        ? `<button class="btn btn-sm btn-outline-secondary" data-action="archive-log-copy-hint" data-log-id="${log.id}">Hinweis kopieren</button>`
-        : "";
       return `
-        <div class="list-group-item border rounded mb-2">
-          <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+        <div class="list-group-item border rounded mb-2 p-3" data-action="archive-log-focus" data-log-id="${log.id}" style="cursor: pointer;">
+          <div class="d-flex justify-content-between align-items-center">
             <div>
-              <div class="fw-bold">${escapeHtml(dateLabel)}</div>
-              <div class="small text-muted">${escapeHtml(rangeLabel)} · ${log.entryCount} ${entryLabel}</div>
-              <div class="small">Datei: ${escapeHtml(log.fileName || "unbenannt")}</div>
-              ${storage}
-              ${note}
+              <div class="fs-5 fw-bold mb-1">${escapeHtml(rangeLabel)}</div>
+              <div class="text-muted">${log.entryCount} ${entryLabel} · Erstellt ${escapeHtml(dateLabel)}</div>
             </div>
-            <div class="d-flex flex-wrap gap-2 align-items-start">
-              <button class="btn btn-sm btn-outline-primary" data-action="archive-log-focus" data-log-id="${log.id}">Dokumentation anzeigen</button>
-              ${copyButton}
-            </div>
+            <i class="bi bi-chevron-right text-muted fs-4"></i>
           </div>
         </div>
       `;
@@ -1689,16 +1672,10 @@ function renderList(
               item.entry.standort || "-"
             )}
           </div>
-          <div class="small">
-            <div><strong>${escapeHtml(usageLabel)}:</strong> ${escapeHtml(
-              item.entry.usageType || "-"
-            )}</div>
-            <div><strong>EPPO:</strong> ${escapeHtml(
+          <div class="small text-muted">
+            ${escapeHtml(item.entry.usageType || "-")} · ${escapeHtml(
               item.entry.eppoCode || "-"
-            )}</div>
-            <div><strong>Schlag:</strong> ${escapeHtml(
-              item.entry.invekos || "-"
-            )}</div>
+            )} · ${escapeHtml(item.entry.invekos || "-")}
           </div>
         </div>
         <div class="d-flex align-items-center justify-content-between mt-2 gap-2 no-print">
@@ -1737,18 +1714,16 @@ function updateInfo(
     currentFilters.crop || currentFilters.creator
   );
   if (!total && !isLoadingEntries) {
-    info.textContent = hasOptionalFilters
-      ? "Keine Einträge für diese Filter im Zeitraum"
-      : "Keine Einträge im ausgewählten Zeitraum";
+    info.textContent = hasOptionalFilters ? "Keine Einträge" : "Keine Einträge";
     return;
   }
   if (!total && isLoadingEntries) {
-    info.textContent = "Lade Einträge ...";
+    info.textContent = "Lädt...";
     return;
   }
   if (currentFilters.startDate && currentFilters.endDate) {
-    const base = `Zeitraum ${currentFilters.startDate} - ${currentFilters.endDate} (${total})`;
-    info.textContent = hasOptionalFilters ? `${base} – Filter aktiv` : base;
+    const base = `${currentFilters.startDate} - ${currentFilters.endDate} (${total})`;
+    info.textContent = hasOptionalFilters ? `${base} + Filter` : base;
     return;
   }
   info.textContent = `Alle Einträge (${total})`;
@@ -1889,14 +1864,8 @@ async function applyFilters(
   section: HTMLElement,
   state: AppState
 ): Promise<void> {
-  if (!currentFilters.startDate || !currentFilters.endDate) {
-    currentFilters = {
-      ...currentFilters,
-      ...getDefaultFilters(),
-    };
-    const form = section.querySelector<HTMLFormElement>("#doc-filter");
-    applyDateFiltersToForm(form, currentFilters);
-  }
+  // Kein automatisches Setzen von Datums-Filtern
+  // Ohne Filter werden die letzten 50 Einträge geladen
   const driverKey = resolveStorageDriver(state);
   const hasDatabase = Boolean(state.app?.hasDatabase);
   const useSqlite = driverKey === "sqlite" && hasDatabase;
@@ -2389,9 +2358,8 @@ function createSection(): HTMLElement {
             <input type="text" class="form-control" id="doc-creator" name="doc-creator" placeholder="Name" value="${currentFilters.creator || ""}" />
           </div>
           <div class="col-12 d-flex gap-2 justify-content-end">
-            <span class="text-muted small me-auto">* Pflichtfelder</span>
             <button class="btn btn-outline-secondary" type="reset" data-action="reset-filters">Zurücksetzen</button>
-            <button class="btn btn-success" type="submit">Filter anwenden</button>
+            <button class="btn btn-success" type="submit">Filtern</button>
           </div>
         </form>
       </div>
@@ -2404,7 +2372,7 @@ function createSection(): HTMLElement {
       </div>
       <div class="card-body">
         <p class="text-muted small mb-3">
-          Exportiere einen Zeitraum als ZIP-Backup und lösche die Einträge optional endgültig aus der Datenbank.
+          ZIP-Backup erstellen und Einträge löschen.
         </p>
         <div class="alert alert-info d-none" data-role="archive-status"></div>
         <form class="row g-3 d-none" data-role="archive-form">
@@ -2417,24 +2385,24 @@ function createSection(): HTMLElement {
             <input type="date" class="form-control" id="archive-end" name="archive-end" required value="${endValue}" />
           </div>
           <div class="col-md-3">
-            <label class="form-label" for="archive-storage">Speicherort / Hinweis (optional)</label>
-            <input type="text" class="form-control" id="archive-storage" name="archive-storage" placeholder="z. B. NAS-Ordner" />
+            <label class="form-label" for="archive-storage">Ablage (optional)</label>
+            <input type="text" class="form-control" id="archive-storage" name="archive-storage" placeholder="z.B. NAS" />
           </div>
           <div class="col-12">
             <label class="form-label" for="archive-note">Notiz (optional)</label>
-            <textarea class="form-control" id="archive-note" name="archive-note" rows="2" placeholder="Zusätzliche Hinweise"></textarea>
+            <textarea class="form-control" id="archive-note" name="archive-note" rows="1" placeholder=""></textarea>
           </div>
           <div class="col-12">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="archive-remove" name="archive-remove" checked />
               <label class="form-check-label" for="archive-remove">
-                Nach erfolgreichem Export aus Datenbank entfernen (inkl. VACUUM)
+                Nach Export löschen
               </label>
             </div>
           </div>
           <div class="col-12 d-flex flex-wrap gap-2">
             <button class="btn btn-outline-secondary" type="button" data-action="archive-cancel">Abbrechen</button>
-            <button class="btn btn-primary" type="submit" data-action="archive-submit">Archiv jetzt erstellen</button>
+            <button class="btn btn-primary" type="submit" data-action="archive-submit">Erstellen</button>
           </div>
         </form>
         <div class="d-flex flex-wrap gap-2">
@@ -2458,8 +2426,8 @@ function createSection(): HTMLElement {
           <div class="small text-muted" data-role="doc-selection-info">Keine Einträge ausgewählt</div>
           <div class="btn-group">
             <button class="btn btn-outline-light btn-sm" data-action="print-selection" disabled>Drucken</button>
-            <button class="btn btn-outline-light btn-sm" data-action="export-selection" disabled>JSON-Export</button>
-            <button class="btn btn-outline-light btn-sm" data-action="export-zip" disabled>ZIP-Export</button>
+            <button class="btn btn-outline-light btn-sm" data-action="export-selection" disabled>JSON</button>
+            <button class="btn btn-outline-light btn-sm" data-action="export-zip" disabled>ZIP</button>
             <button class="btn btn-outline-light btn-sm" data-action="delete-selection" disabled>Löschen</button>
           </div>
           ${devSeedButton}
@@ -2467,12 +2435,12 @@ function createSection(): HTMLElement {
       </div>
       <div class="doc-focus-banner d-none no-print" data-role="doc-focus-banner">
         <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
-          <span data-role="doc-focus-text">Importierter Zeitraum aktiv.</span>
-          <button class="btn btn-sm btn-outline-warning" data-action="doc-focus-clear">Markierung entfernen</button>
+          <span data-role="doc-focus-text">Filter aktiv</span>
+          <button class="btn btn-sm btn-outline-warning" data-action="doc-focus-clear">Entfernen</button>
         </div>
       </div>
       <div class="alert alert-warning py-2 px-3 small d-none no-print" data-role="doc-refresh-indicator">
-        Neue Dokumentationseinträge verfügbar. Ansicht aktualisiert sich beim Öffnen.
+        Neue Einträge vorhanden.
       </div>
       <div class="card-body p-0">
         <div class="row g-0">
@@ -2487,7 +2455,7 @@ function createSection(): HTMLElement {
           <div class="col-12 col-lg-8">
             <div id="doc-detail" class="h-100 d-flex flex-column">
               <div data-role="doc-detail-empty" class="flex-grow-1 d-flex align-items-center justify-content-center text-muted text-center p-4">
-                Bitte einen Eintrag in der Liste auswählen, um die Details zu sehen.
+                Eintrag auswählen
               </div>
               <div data-role="doc-detail-card" class="d-none h-100 d-flex flex-column">
                 <div class="flex-grow-1 overflow-auto p-3" id="doc-detail-body"></div>

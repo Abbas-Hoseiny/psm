@@ -36,6 +36,12 @@ export interface CalculationSnapshotEntry {
   invekos?: string;
   uhrzeit?: string;
   items?: any[];
+  // QS-GAP Dokumentationsfelder
+  qsMaschine?: string | null;
+  qsSchaderreger?: string | null;
+  qsVerantwortlicher?: string | null;
+  qsWetter?: string | null;
+  qsBehandlungsart?: string | null;
   [key: string]: unknown;
 }
 
@@ -47,7 +53,9 @@ function toNumber(value: unknown): number | null {
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
-function resolveEntryAreaHa(entry: CalculationSnapshotEntry | null): number | null {
+function resolveEntryAreaHa(
+  entry: CalculationSnapshotEntry | null
+): number | null {
   if (!entry) {
     return null;
   }
@@ -298,6 +306,46 @@ export function renderCalculationSnapshot(
             )}:</strong>
             ${escapeHtml(entry?.uhrzeit || "–")}
           </div>
+          ${
+            entry?.qsMaschine
+              ? `<div class="calc-snapshot-card__info-item">
+            <strong>Maschine / Gerät:</strong>
+            ${escapeHtml(entry.qsMaschine)}
+          </div>`
+              : ""
+          }
+          ${
+            entry?.qsSchaderreger
+              ? `<div class="calc-snapshot-card__info-item">
+            <strong>Schaderreger / Grund:</strong>
+            ${escapeHtml(entry.qsSchaderreger)}
+          </div>`
+              : ""
+          }
+          ${
+            entry?.qsVerantwortlicher
+              ? `<div class="calc-snapshot-card__info-item">
+            <strong>Verantwortliche Person:</strong>
+            ${escapeHtml(entry.qsVerantwortlicher)}
+          </div>`
+              : ""
+          }
+          ${
+            entry?.qsWetter
+              ? `<div class="calc-snapshot-card__info-item">
+            <strong>Wetterbedingungen:</strong>
+            ${escapeHtml(entry.qsWetter)}
+          </div>`
+              : ""
+          }
+          ${
+            entry?.qsBehandlungsart
+              ? `<div class="calc-snapshot-card__info-item">
+            <strong>Behandlungsart:</strong>
+            ${escapeHtml(entry.qsBehandlungsart)}
+          </div>`
+              : ""
+          }
         </div>
         <div class="calc-snapshot-card__mediums">
           ${mediumTable}
@@ -390,6 +438,22 @@ export function renderCalculationSnapshotForPrint(
       label: detailLabels.time || "Uhrzeit",
       value: entry?.uhrzeit || null,
     },
+    // QS-GAP Dokumentationsfelder (nur anzeigen wenn ausgefüllt)
+    ...(entry?.qsMaschine
+      ? [{ label: "Maschine / Gerät", value: entry.qsMaschine }]
+      : []),
+    ...(entry?.qsSchaderreger
+      ? [{ label: "Schaderreger / Grund", value: entry.qsSchaderreger }]
+      : []),
+    ...(entry?.qsVerantwortlicher
+      ? [{ label: "Verantwortliche Person", value: entry.qsVerantwortlicher }]
+      : []),
+    ...(entry?.qsWetter
+      ? [{ label: "Wetterbedingungen", value: entry.qsWetter }]
+      : []),
+    ...(entry?.qsBehandlungsart
+      ? [{ label: "Behandlungsart", value: entry.qsBehandlungsart }]
+      : []),
   ];
 
   const metaBlockHtml = metaItems

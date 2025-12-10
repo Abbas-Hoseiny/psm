@@ -1,0 +1,235 @@
+/**
+ * Styles für die geführte Eingabehilfe
+ * 
+ * Design-Prinzipien:
+ * - Klare visuelle Hervorhebung
+ * - Nicht ablenkend aber deutlich sichtbar
+ * - Gute Lesbarkeit
+ * - Professionelles Aussehen
+ */
+
+/* Toggle-Button Styling */
+.guided-input-toggle {
+  background: linear-gradient(135deg, #1e3a2f 0%, #2d4a3e 100%) !important;
+  border: 2px solid #48bb78 !important;
+  transition: all 0.3s ease;
+}
+
+.guided-input-toggle:hover {
+  border-color: #68d391 !important;
+  box-shadow: 0 0 15px rgba(72, 187, 120, 0.3);
+}
+
+.guided-input-toggle .form-check-input:checked {
+  background-color: #48bb78;
+  border-color: #48bb78;
+}
+
+.guided-input-toggle .form-check-input {
+  width: 1.5em;
+  height: 1.5em;
+  margin-top: 0.1em;
+}
+
+.guided-input-toggle label {
+  cursor: pointer;
+  margin-left: 0.5rem;
+}
+
+.guided-input-toggle label strong {
+  color: #68d391;
+  font-size: 1.1rem;
+}
+
+/* Overlay für Fokus-Effekt - DEAKTIVIERT für bessere Bedienbarkeit */
+.guided-overlay {
+  display: none !important;
+  /* Overlay wird nicht mehr angezeigt, damit Benutzer frei navigieren können */
+}
+
+/* Hervorgehobenes Feld */
+.guided-highlight {
+  position: relative;
+  z-index: 10;
+  background: #1a202c;
+  border-radius: 8px;
+  padding: 8px !important;
+  margin: -8px;
+  box-shadow:
+    0 0 0 4px rgba(72, 187, 120, 0.4),
+    0 0 20px rgba(72, 187, 120, 0.3),
+    0 4px 20px rgba(0, 0, 0, 0.3);
+  animation: pulse-highlight 2s ease-in-out infinite;
+}
+
+@keyframes pulse-highlight {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(72, 187, 120, 0.4),
+      0 0 20px rgba(72, 187, 120, 0.3),
+      0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(72, 187, 120, 0.6),
+      0 0 30px rgba(72, 187, 120, 0.4),
+      0 4px 30px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Aktives Eingabefeld */
+.guided-active {
+  border-color: #48bb78 !important;
+  box-shadow: 0 0 0 3px rgba(72, 187, 120, 0.3) !important;
+  background: #1a202c !important;
+}
+
+.guided-active:focus {
+  border-color: #68d391 !important;
+  box-shadow: 0 0 0 4px rgba(72, 187, 120, 0.4) !important;
+}
+
+/* Tooltip */
+.guided-tooltip {
+  position: fixed;
+  z-index: 9999;
+  width: 320px;
+  max-width: calc(100vw - 40px);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.guided-tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.guided-tooltip-content {
+  background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+  border: 2px solid #48bb78;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(72, 187, 120, 0.2);
+}
+
+.guided-tooltip-arrow {
+  position: absolute;
+  top: -8px;
+  left: 30px;
+  width: 16px;
+  height: 16px;
+  background: #2d3748;
+  border-left: 2px solid #48bb78;
+  border-top: 2px solid #48bb78;
+  transform: rotate(45deg);
+}
+
+.guided-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #4a5568;
+}
+
+.guided-tooltip-step {
+  background: #48bb78;
+  color: #1a202c;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.guided-tooltip-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.guided-tooltip-hint {
+  color: #e2e8f0;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.guided-tooltip-example {
+  color: #a0aec0;
+  font-size: 13px;
+  font-style: italic;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.guided-tooltip-nav {
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px solid #4a5568;
+}
+
+.guided-tooltip-nav kbd {
+  background: #4a5568;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  box-shadow: 0 2px 0 #2d3748;
+}
+
+/* Submit-Button Animation wenn alle Felder fertig */
+.guided-submit-ready {
+  animation: submit-pulse 0.5s ease-in-out 3;
+}
+
+@keyframes submit-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(72, 187, 120, 0.6);
+  }
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 576px) {
+  .guided-tooltip {
+    width: calc(100vw - 30px);
+    left: 15px !important;
+  }
+
+  .guided-tooltip-arrow {
+    display: none;
+  }
+
+  .guided-highlight {
+    margin: -4px;
+    padding: 4px !important;
+  }
+}
+
+/* Drucken: Hilfe-Elemente ausblenden */
+@media print {
+  .guided-input-toggle,
+  .guided-tooltip,
+  .guided-overlay {
+    display: none !important;
+  }
+}

@@ -37,7 +37,7 @@ interface Services {
   };
 }
 
-type GpsTab = "list" | "capture" | "debug";
+type GpsTab = "list" | "capture";
 type AvailabilityStatus = "ok" | "no-db" | "wrong-driver";
 
 const getGpsItems = (state: AppState): GpsPoint[] =>
@@ -57,8 +57,6 @@ type Refs = {
   activeInfo: HTMLElement | null;
   summaryLabel: HTMLElement | null;
   statusBadge: HTMLElement | null;
-  debugState: HTMLElement | null;
-  lastAction: HTMLElement | null;
   form: HTMLFormElement | null;
   formFields: {
     name: HTMLInputElement | null;
@@ -141,29 +139,16 @@ function createSection(): HTMLElement {
           <i class="bi bi-geo-alt-fill text-success me-2"></i>
           GPS-Standorte
         </h2>
-        <p class="text-muted mb-0">
-          Erfassen, aktivieren und debuggen Sie gespeicherte Koordinatenpunkte.
-        </p>
+        <p class="text-muted mb-0">GPS-Punkte verwalten</p>
       </div>
-      <div class="btn-group" role="group">
-        <button class="btn btn-outline-light" data-action="reload-points" data-gps-disable>
-          <i class="bi bi-arrow-clockwise me-1"></i>
-          Aktualisieren
-        </button>
-        <button class="btn btn-outline-light" data-action="sync-active" data-gps-disable>
-          <i class="bi bi-bullseye me-1"></i>
-          Aktiven Punkt prüfen
-        </button>
-        <a class="btn btn-outline-success" data-role="gps-open-maps" href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">
-          <i class="bi bi-map me-1"></i>
-          Google Maps
-        </a>
-      </div>
+      <button class="btn btn-outline-light btn-sm" data-action="reload-points" data-gps-disable>
+        <i class="bi bi-arrow-clockwise"></i>
+      </button>
     </div>
 
     <div class="alert d-none" data-role="gps-message"></div>
     <div class="alert alert-warning py-2 px-3 small d-none" data-role="gps-refresh-indicator">
-      GPS-Daten wurden in einem anderen Bereich geändert. Ansicht aktualisiert sich beim Öffnen.
+      Daten wurden geändert.
     </div>
 
     <div class="card card-dark">
@@ -173,10 +158,7 @@ function createSection(): HTMLElement {
             <i class="bi bi-list-ul me-1"></i> Liste
           </button>
           <button class="btn btn-outline-light" data-role="gps-tab" data-tab="capture">
-            <i class="bi bi-plus-circle me-1"></i> Neuer Punkt
-          </button>
-          <button class="btn btn-outline-light" data-role="gps-tab" data-tab="debug">
-            <i class="bi bi-bug me-1"></i> Debug
+            <i class="bi bi-plus-circle me-1"></i> Neu
           </button>
         </div>
       </div>
@@ -208,12 +190,7 @@ function createSection(): HTMLElement {
           </div>
           <div class="d-flex justify-content-end mt-3" data-role="gps-pager"></div>
           <div class="text-center text-muted py-4" data-role="gps-empty">
-            <p class="mb-2">Noch keine GPS-Punkte vorhanden.</p>
-            <p class="small text-muted mb-3">Nutzen Sie "Neuer Punkt" oder öffnen Sie Google Maps, um Koordinaten zu ermitteln.</p>
-            <a class="btn btn-outline-info btn-sm" data-role="gps-empty-map-link" href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">
-              <i class="bi bi-box-arrow-up-right me-1"></i>
-              Google Maps öffnen
-            </a>
+            <p class="mb-0">Keine GPS-Punkte vorhanden.</p>
           </div>
         </div>
 
@@ -246,68 +223,38 @@ function createSection(): HTMLElement {
                 <textarea class="form-control" rows="2" name="gps-description" data-gps-disable></textarea>
               </div>
               <div class="col-md-6">
-                <label class="form-label">Breitengrad (Latitude) *</label>
+                <label class="form-label">Breitengrad *</label>
                 <input type="number" step="0.000001" class="form-control" name="gps-latitude" required data-gps-disable />
               </div>
               <div class="col-md-6">
-                <label class="form-label">Längengrad (Longitude) *</label>
+                <label class="form-label">Längengrad *</label>
                 <input type="number" step="0.000001" class="form-control" name="gps-longitude" required data-gps-disable />
               </div>
               <div class="col-12 d-flex flex-column flex-md-row gap-2">
                 <button type="button" class="btn btn-outline-info btn-sm" data-action="verify-coords" data-gps-disable disabled>
-                  <i class="bi bi-box-arrow-up-right me-1"></i>
-                  Koordinaten in Google Maps prüfen
+                  <i class="bi bi-map me-1"></i>
+                  Prüfen
                 </button>
               </div>
-              <div class="col-12 d-flex flex-column flex-lg-row align-items-lg-center gap-3">
-                <div class="form-check">
+              <div class="col-12 d-flex flex-wrap align-items-center gap-2">
+                <button type="button" class="btn btn-outline-info btn-sm" data-action="use-geolocation" data-gps-disable>
+                  <i class="bi bi-crosshair me-1"></i>
+                  Browser-GPS
+                </button>
+                <div class="form-check ms-3">
                   <input class="form-check-input" type="checkbox" id="gps-activate" name="gps-activate" data-gps-disable />
-                  <label class="form-check-label" for="gps-activate">Punkt nach dem Speichern sofort aktiv setzen</label>
+                  <label class="form-check-label" for="gps-activate">Sofort aktivieren</label>
                 </div>
-                <div class="ms-lg-auto">
-                  <button type="button" class="btn btn-outline-info btn-sm" data-action="use-geolocation" data-gps-disable>
-                    <i class="bi bi-crosshair me-1"></i>
-                    Browser-Position übernehmen
-                  </button>
-                </div>
-              </div>
-              <div class="col-12 d-flex flex-column flex-md-row gap-2">
-                <button type="submit" class="btn btn-success" data-gps-disable>
+                <button type="submit" class="btn btn-success ms-auto" data-gps-disable>
                   <i class="bi bi-save me-1"></i>
                   Speichern
                 </button>
                 <button type="reset" class="btn btn-outline-light">
-                  Formular leeren
+                  Leeren
                 </button>
               </div>
             </div>
           </form>
-          <p class="small text-muted mt-3">
-            Hinweis: Koordinaten werden lokal in der SQLite-Datenbank gespeichert. Für Browser-Geolocation
-            muss der Benutzer den Zugriff erlauben.
-          </p>
-        </div>
-
-        <div class="d-none" data-role="gps-panel" data-panel="debug">
-          <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2 mb-3">
-            <div class="text-muted">
-              Rohdaten des GPS-State zur Fehlersuche.
-            </div>
-            <div class="btn-group btn-group-sm">
-              <button class="btn btn-outline-light" data-action="copy-debug">
-                <i class="bi bi-clipboard me-1"></i>
-                JSON kopieren
-              </button>
-              <button class="btn btn-outline-light" data-action="reload-points" data-gps-disable>
-                <i class="bi bi-arrow-clockwise me-1"></i>
-                Neu synchronisieren
-              </button>
-            </div>
-          </div>
-          <pre class="bg-black text-success rounded p-3 small" style="min-height: 200px; overflow:auto;" data-role="gps-debug"></pre>
-          <p class="small text-muted mt-2">
-            Letzte Aktion: <span data-role="gps-last-action">Noch keine Aktion aufgezeichnet.</span>
-          </p>
         </div>
       </div>
     </div>
@@ -334,8 +281,6 @@ function collectRefs(section: HTMLElement): Refs {
     activeInfo: section.querySelector('[data-role="gps-active-info"]'),
     summaryLabel: section.querySelector('[data-role="gps-summary"]'),
     statusBadge: section.querySelector('[data-role="gps-status"]'),
-    debugState: section.querySelector('[data-role="gps-debug"]'),
-    lastAction: section.querySelector('[data-role="gps-last-action"]'),
     form: section.querySelector('[data-role="gps-form"]'),
     formFields: {
       name: section.querySelector('[name="gps-name"]'),
@@ -930,24 +875,8 @@ function goToNextGpsPage(): void {
   updateListUi(state, availability);
 }
 
-function updateDebugPanel(gpsState: GpsState): void {
-  if (!refs) {
-    return;
-  }
-  if (refs.debugState) {
-    refs.debugState.textContent = JSON.stringify(gpsState, null, 2);
-  }
-  if (refs.lastAction) {
-    refs.lastAction.textContent =
-      lastActionNote || "Noch keine Aktion aufgezeichnet.";
-  }
-}
-
 function recordAction(note: string): void {
   lastActionNote = `${new Date().toLocaleString("de-DE")}: ${note}`;
-  if (refs?.lastAction) {
-    refs.lastAction.textContent = lastActionNote;
-  }
 }
 
 function getPointById(id: string | null): GpsPoint | null {
@@ -1369,19 +1298,6 @@ function attachEventListeners(): void {
       case "verify-coords":
         handleVerifyCoordinates();
         break;
-      case "copy-debug":
-        if (refs?.debugState?.textContent) {
-          void copyToClipboard(refs.debugState.textContent)
-            .then(() => setMessage("Debug-Daten kopiert.", "success"))
-            .catch(() =>
-              setMessage(
-                "Debug-Daten konnten nicht kopiert werden.",
-                "danger",
-                6000
-              )
-            );
-        }
-        break;
       default:
         break;
     }
@@ -1463,7 +1379,6 @@ export function initGps(container: Element | null, services: Services): void {
     updateAvailabilityUi(availability);
     updateListUi(state, availability);
     updateBusyUi(gpsState, availability);
-    updateDebugPanel(gpsState);
     updateMapEntryPoints(state);
 
     if (availability === "ok" && !gpsState.initialized && !gpsState.pending) {

@@ -59,131 +59,105 @@ function createSection(): HTMLElement {
   section.className = "section-inner";
   section.innerHTML = `
     <h2 class="text-center mb-4">Mittel-Verwaltung</h2>
-    <div class="card card-dark mb-4">
+    
+    <div class="card card-dark">
       <div class="card-body">
-        <p class="mb-2"><strong>Was kann ich hier tun?</strong></p>
-        <p class="text-muted mb-0">
-          Erfasse, bearbeite oder lösche deine Mittel. Trage Name, Einheit, Methode, Zulassungsnummer und den Faktor ein –
-          die Änderungen werden nach jedem Speichern sofort dauerhaft gesichert. Tippe bei der Methode einfach einen bestehenden Namen oder
-          vergib einen neuen – neu erfasste Methoden stehen beim nächsten Mal automatisch zur Auswahl.
-        </p>
-      </div>
-    </div>
-    <div class="card card-dark mb-4">
-      <div class="card-body">
-        <div class="table-responsive">
-          <table class="table table-dark table-bordered" id="settings-mediums-table">
+        <!-- Mittel-Tabelle -->
+        <div class="table-responsive mb-4">
+          <table class="table table-dark table-hover mb-0" id="settings-mediums-table">
             <thead>
               <tr>
-                <th class="text-center" style="width:3.5rem">
-                  <span class="visually-hidden">Auswahl</span>
-                  <input type="checkbox" class="form-check-input" data-role="profile-select-all" aria-label="Alle Mittel auswählen" />
+                <th class="text-center" style="width:40px">
+                  <input type="checkbox" class="form-check-input" data-role="profile-select-all" title="Alle auswählen" />
                 </th>
                 <th>Name</th>
                 <th>Einheit</th>
                 <th>Methode</th>
                 <th>Wert</th>
-                <th>Zulassungsnr.</th>
+                <th>Zulassung</th>
                 <th>Wartezeit</th>
                 <th>Wirkstoff</th>
-                <th>Aktion</th>
+                <th style="width:80px"></th>
               </tr>
             </thead>
             <tbody></tbody>
           </table>
         </div>
-        <div class="d-flex justify-content-end mt-3" data-role="mediums-pager"></div>
-        <div class="mt-4">
-          <h3 class="h5 text-info mb-2">Ausgewählte Mittel als Profil speichern</h3>
-          <p class="text-muted mb-3">
-            Setze links Häkchen bei den Mitteln, die gemeinsam verwendet werden sollen. Profilnamen erscheinen nur hier –
-            Berechnung, Historie und Ausdruck enthalten ausschließlich die ausgewählten Mittel.
-          </p>
-          <p class="small text-muted mb-3">
-            Profile werden beim Speichern oder Aktualisieren sofort dauerhaft gesichert.
-          </p>
-          <form id="settings-profile-form" class="row g-3 align-items-end">
-            <input type="hidden" name="profile-id" />
-            <div class="col-lg-5">
-              <label class="form-label" for="profile-name">Profilname</label>
-              <input id="profile-name" class="form-control" name="profile-name" placeholder="z. B. Salat-Gewächshaus" required />
-            </div>
-            <div class="col-lg-4">
-              <div class="small text-muted" data-role="profile-selection-summary">
-                Noch keine Mittel ausgewählt.
-              </div>
-            </div>
-            <div class="col-lg-3 d-flex flex-wrap gap-2 justify-content-lg-end">
-              <button class="btn btn-success" type="submit" data-role="profile-submit">Profil speichern</button>
-              <button class="btn btn-outline-secondary" type="button" data-action="profile-reset">Auswahl löschen</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-    <div class="card card-dark">
-      <div class="card-body">
-        <h3 class="h5 text-success mb-3">Neues Mittel hinzufügen</h3>
-        <p class="text-muted">Trage alle Pflichtfelder aus. Zulassungsnummer, Wartezeit und Wirkstoff sind optional (wichtig für QS-Dokumentation).</p>
-        <form id="settings-medium-form" class="row g-3">
-          <div class="col-md-3">
-            <label class="form-label small text-muted">Name *</label>
-            <input class="form-control" name="medium-name" placeholder="z. B. Elot-Vis" required />
+        <div class="d-flex justify-content-end mb-4" data-role="mediums-pager"></div>
+
+        <hr class="border-secondary my-4" />
+
+        <!-- Neues Mittel hinzufügen -->
+        <h5 class="text-success mb-3">+ Neues Mittel</h5>
+        <form id="settings-medium-form" class="row g-2 align-items-end mb-4">
+          <div class="col-6 col-md-2">
+            <label class="form-label small">Name *</label>
+            <input class="form-control form-control-sm" name="medium-name" placeholder="Elot-Vis" required />
           </div>
-          <div class="col-md-2">
-            <label class="form-label small text-muted">Einheit *</label>
-            <input class="form-control" name="medium-unit" placeholder="z. B. ml, %" required />
+          <div class="col-6 col-md-1">
+            <label class="form-label small">Einheit *</label>
+            <input class="form-control form-control-sm" name="medium-unit" placeholder="ml" required />
           </div>
-          <div class="col-md-2">
-            <label class="form-label small text-muted">Methode *</label>
-            <input class="form-control" name="medium-method" placeholder="z. B. perHektar" list="settings-method-options" required />
+          <div class="col-6 col-md-2">
+            <label class="form-label small">Methode *</label>
+            <input class="form-control form-control-sm" name="medium-method" placeholder="perHektar" list="settings-method-options" required />
             <datalist id="settings-method-options"></datalist>
           </div>
-          <div class="col-md-2">
-            <label class="form-label small text-muted">Wert (Faktor) *</label>
-            <input type="number" step="any" class="form-control" name="medium-value" placeholder="z. B. 0.83" required />
+          <div class="col-6 col-md-1">
+            <label class="form-label small">Wert *</label>
+            <input type="number" step="any" class="form-control form-control-sm" name="medium-value" placeholder="0.83" required />
           </div>
-          <div class="col-md-3">
-            <label class="form-label small text-muted">Zulassungsnr.</label>
-            <input class="form-control" name="medium-approval" placeholder="optional" />
+          <div class="col-6 col-md-2">
+            <label class="form-label small">Zulassung</label>
+            <input class="form-control form-control-sm" name="medium-approval" placeholder="optional" />
           </div>
-          <div class="col-md-2">
-            <label class="form-label small text-muted">Wartezeit (Tage)</label>
-            <input type="number" min="0" step="1" class="form-control" name="medium-wartezeit" placeholder="z. B. 14" />
+          <div class="col-3 col-md-1">
+            <label class="form-label small">Wartetage</label>
+            <input type="number" min="0" class="form-control form-control-sm" name="medium-wartezeit" placeholder="14" />
           </div>
-          <div class="col-md-3">
-            <label class="form-label small text-muted">Wirkstoff</label>
-            <input class="form-control" name="medium-wirkstoff" placeholder="z. B. Azoxystrobin" />
+          <div class="col-6 col-md-2">
+            <label class="form-label small">Wirkstoff</label>
+            <input class="form-control form-control-sm" name="medium-wirkstoff" placeholder="optional" />
           </div>
-          <div class="col-md-2 d-grid align-items-end">
-            <button class="btn btn-success" type="submit">Hinzufügen</button>
+          <div class="col-3 col-md-1">
+            <button class="btn btn-success btn-sm w-100" type="submit">+</button>
           </div>
         </form>
-        <div class="mt-3 small text-muted">
-          Nach dem Hinzufügen kannst du Mittel jederzeit löschen. Änderungen werden automatisch gespeichert.
+
+        <hr class="border-secondary my-4" />
+
+        <!-- Profile -->
+        <div class="row g-4">
+          <div class="col-lg-5">
+            <h5 class="text-info mb-3">Profil erstellen</h5>
+            <form id="settings-profile-form">
+              <input type="hidden" name="profile-id" />
+              <div class="input-group mb-2">
+                <input id="profile-name" class="form-control" name="profile-name" placeholder="Profilname" required />
+                <button class="btn btn-success" type="submit" data-role="profile-submit">Speichern</button>
+              </div>
+              <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted" data-role="profile-selection-summary">Keine Mittel ausgewählt</small>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-action="profile-reset">Zurücksetzen</button>
+              </div>
+            </form>
+          </div>
+          <div class="col-lg-7">
+            <h5 class="mb-3">Gespeicherte Profile</h5>
+            <div class="table-responsive">
+              <table class="table table-dark table-hover table-sm mb-0" id="settings-profile-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Mittel</th>
+                    <th style="width:120px"></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-    <div class="card card-dark">
-      <div class="card-body">
-        <h3 class="h5 text-info mb-3">Gespeicherte Profile</h3>
-        <div class="table-responsive">
-          <table class="table table-dark table-bordered" id="settings-profile-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Ausgewählte Mittel</th>
-                <th>Aktionen</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    <div class="mt-4 no-print">
-      <div class="alert alert-secondary mb-0 small text-muted">
-        Mittel-Änderungen werden sofort gespeichert.
       </div>
     </div>
   `;
@@ -537,9 +511,11 @@ function updateMediumsPager(state: AppState): void {
     return;
   }
   const { start, end } = getMediumsPageBounds(total);
-  const info = `Mittel ${mediumsNumberFormatter.format(start + 1)}–${mediumsNumberFormatter.format(
-    end
-  )} von ${mediumsNumberFormatter.format(total)}`;
+  const info = `Mittel ${mediumsNumberFormatter.format(
+    start + 1
+  )}–${mediumsNumberFormatter.format(end)} von ${mediumsNumberFormatter.format(
+    total
+  )}`;
   widget.update({
     status: "ready",
     info,
