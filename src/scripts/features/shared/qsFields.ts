@@ -3,7 +3,9 @@
  *
  * Zusätzliche Formularfelder gemäß QS-GAP-Leitfaden 3.6.2
  * für vollständige Pflanzenschutz-Dokumentation.
- * Diese Felder sind immer sichtbar und optional.
+ *
+ * WICHTIG: Diese Felder sind standardmäßig AUSGEBLENDET für eine
+ * übersichtliche Benutzeroberfläche. Nur bei Bedarf per Checkbox aktivierbar.
  */
 
 import { escapeHtml } from "@scripts/core/utils";
@@ -12,31 +14,96 @@ import {
   type QsFieldValues,
   type QsFieldLabels,
   QS_CSS_CLASSES,
+  isQsFieldsVisible,
+  setQsFieldsVisible,
 } from "@scripts/core/qsMode";
 
 /**
  * Erzeugt das HTML für die QS-Zusatzfelder
- * Diese Felder sind immer sichtbar und optional
+ * Standardmäßig ausgeblendet - per Checkbox aktivierbar
  */
 export function renderQsFieldsHtml(
   formDefaults: Partial<QsFieldValues> = {}
 ): string {
   const labels = getQsLabels();
+  const isVisible = isQsFieldsVisible();
 
   return `
     <div class="${QS_CSS_CLASSES.container} qs-fields-section mt-3 pt-3 border-top">
-      <div class="d-flex align-items-center mb-3">
-        <small class="text-muted">Zusätzliche Dokumentationsfelder gemäß QS-GAP-Leitfaden 3.6.2 (optional)</small>
+      <div class="d-flex align-items-center mb-2">
+        <div class="form-check">
+          <input 
+            type="checkbox" 
+            class="form-check-input" 
+            id="qs-fields-toggle" 
+            ${isVisible ? "checked" : ""}
+          />
+          <label class="form-check-label small text-muted" for="qs-fields-toggle">
+            QS-Zertifizierungsfelder anzeigen
+          </label>
+        </div>
       </div>
-      <div class="row g-3">
-        ${renderMaschineField(labels.maschine, formDefaults.maschine)}
-        ${renderSchaderregerField(labels.schaderreger, formDefaults.schaderreger)}
-        ${renderVerantwortlicherField(labels.verantwortlicher, formDefaults.verantwortlicher)}
-        ${renderWetterField(labels.wetter, formDefaults.wetter)}
-        ${renderBehandlungsartField(labels.behandlungsart, formDefaults.behandlungsart)}
+      <div class="qs-fields-content" style="display: ${isVisible ? "block" : "none"};">
+        <small class="text-muted d-block mb-3">Zusätzliche Dokumentationsfelder gemäß QS-GAP-Leitfaden 3.6.2 (optional)</small>
+        <div class="row g-3">
+          ${renderMaschineField(labels.maschine, formDefaults.maschine)}
+          ${renderSchaderregerField(labels.schaderreger, formDefaults.schaderreger)}
+          ${renderVerantwortlicherField(labels.verantwortlicher, formDefaults.verantwortlicher)}
+          ${renderWetterField(labels.wetter, formDefaults.wetter)}
+          ${renderBehandlungsartField(labels.behandlungsart, formDefaults.behandlungsart)}
+        </div>
       </div>
     </div>
   `;
+}
+
+/**
+ * Initialisiert die Toggle-Logik für QS-Felder
+ * Muss nach dem Rendern aufgerufen werden
+ */
+export function initQsFieldsToggle(): void {
+  const toggle = document.getElementById(
+    "qs-fields-toggle"
+  ) as HTMLInputElement | null;
+  const content = document.querySelector(
+    ".qs-fields-content"
+  ) as HTMLElement | null;
+
+  if (!toggle || !content) return;
+
+  toggle.addEventListener("change", () => {
+    const isVisible = toggle.checked;
+    content.style.display = isVisible ? "block" : "none";
+    setQsFieldsVisible(isVisible);
+
+    // Wenn ausgeblendet, Felder leeren (optional - für saubere Daten)
+    if (!isVisible) {
+      clearQsFields();
+    }
+  });
+}
+
+/**
+ * Leert alle QS-Felder
+ */
+function clearQsFields(): void {
+  const fields = [
+    "calc-qs-maschine",
+    "calc-qs-schaderreger",
+    "calc-qs-verantwortlicher",
+    "calc-qs-wetter",
+    "calc-qs-behandlungsart",
+  ];
+
+  fields.forEach((id) => {
+    const field = document.getElementById(id) as
+      | HTMLInputElement
+      | HTMLSelectElement
+      | null;
+    if (field) {
+      field.value = "";
+    }
+  });
 }
 
 function renderMaschineField(
@@ -178,9 +245,31 @@ function renderBehandlungsartField(
 }
 
 /**
+ * Prüft ob die QS-Felder Checkbox aktiviert ist
+ */
+export function isQsFieldsToggleChecked(): boolean {
+  const toggle = document.getElementById(
+    "qs-fields-toggle"
+  ) as HTMLInputElement | null;
+  return toggle?.checked ?? false;
+}
+
+/**
  * Liest QS-Feldwerte aus einem Formular
+ * Gibt nur Werte zurück wenn die Checkbox aktiviert ist
  */
 export function extractQsFieldsFromForm(form: HTMLFormElement): QsFieldValues {
+  // Nur Werte extrahieren wenn QS-Felder aktiviert sind
+  if (!isQsFieldsToggleChecked()) {
+    return {
+      maschine: "",
+      schaderreger: "",
+      verantwortlicher: "",
+      wetter: "",
+      behandlungsart: "",
+    };
+  }
+
   const formData = new FormData(form);
   return {
     maschine: (formData.get("calc-qs-maschine") || "").toString().trim(),

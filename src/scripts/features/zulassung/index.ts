@@ -24,6 +24,15 @@ declare const bootstrap:
         show?: () => void;
         hide?: () => void;
       };
+      Modal: new (
+        element: Element,
+        options?: unknown
+      ) => {
+        show?: () => void;
+        hide?: () => void;
+      } & {
+        getInstance?: (element: Element) => { hide?: () => void } | null;
+      };
     }
   | undefined;
 
@@ -923,11 +932,39 @@ function renderResultItem(result: ReportingResult): string {
     ? safeParseJson<Record<string, any>>(result.status_json) || {}
     : {};
 
+  // Daten für "Zu Mitteln hinzufügen" Button vorbereiten
+  const wirkstoff =
+    Array.isArray(result.wirkstoffe) && result.wirkstoffe.length > 0
+      ? result.wirkstoffe[0].wirkstoff_name ||
+        result.wirkstoffe[0].wirkstoff ||
+        ""
+      : "";
+  const wartezeit =
+    Array.isArray(result.wartezeiten) && result.wartezeiten.length > 0
+      ? String(result.wartezeiten[0].tage || "")
+      : "";
+
+  // JSON für data-Attribut - Base64 encodiert um Escaping-Probleme zu vermeiden
+  const addToMediumDataObj = {
+    name: result.name || "",
+    kennr: result.kennr || "",
+    wirkstoff: wirkstoff,
+    wartezeit: wartezeit,
+  };
+  const addToMediumData = btoa(
+    encodeURIComponent(JSON.stringify(addToMediumDataObj))
+  );
+
   return `
     <div class="list-group-item">
       <div class="d-flex w-100 justify-content-between align-items-start">
         <h6 class="mb-1">${escapeHtml(result.name)}</h6>
-        <small class="text-muted">AWG: ${escapeHtml(result.awg_id || "-")}</small>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-success btn-sm" data-action="add-to-mediums" data-medium-info="${addToMediumData}" title="Zu Mitteln hinzufügen">
+            <i class="bi bi-plus-lg"></i>
+          </button>
+          <small class="text-muted">AWG: ${escapeHtml(result.awg_id || "-")}</small>
+        </div>
       </div>
       <div class="mb-2">
         <strong>Zulassungsnummer:</strong> ${escapeHtml(result.kennr || "-")}<br>
@@ -2388,6 +2425,217 @@ function renderDebugSection(zulassungState: ZulassungState): string {
   `;
 }
 
+// Dialog für "Zu Mitteln hinzufügen"
+let addMediumDialog: HTMLElement | null = null;
+
+function createAddMediumDialog(): HTMLElement {
+  if (addMediumDialog && document.body.contains(addMediumDialog)) {
+    return addMediumDialog;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.id = "addMediumDialog";
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  `;
+
+  overlay.innerHTML = `
+    <div style="background: #2d2d2d; border-radius: 8px; width: 100%; max-width: 450px; margin: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+      <div style="padding: 16px 20px; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
+        <h5 style="margin: 0; color: #fff; font-size: 18px;">
+          <i class="bi bi-plus-circle text-success me-2"></i>Mittel hinzufügen
+        </h5>
+        <button type="button" id="btn-close-dialog" style="background: none; border: none; color: #888; font-size: 24px; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+      </div>
+      <div style="padding: 20px;">
+        <form id="add-medium-modal-form">
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; margin-bottom: 6px; color: #aaa; font-size: 14px;">Name</label>
+            <input type="text" name="modal-name" readonly style="width: 100%; padding: 8px 12px; border: 1px solid #555; border-radius: 4px; background: #444; color: #888; font-size: 14px;" />
+          </div>
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; margin-bottom: 6px; color: #aaa; font-size: 14px;">Zulassungsnummer</label>
+            <input type="text" name="modal-approval" readonly style="width: 100%; padding: 8px 12px; border: 1px solid #555; border-radius: 4px; background: #444; color: #888; font-size: 14px;" />
+          </div>
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; margin-bottom: 6px; color: #aaa; font-size: 14px;">Wirkstoff</label>
+            <input type="text" name="modal-wirkstoff" readonly style="width: 100%; padding: 8px 12px; border: 1px solid #555; border-radius: 4px; background: #444; color: #888; font-size: 14px;" />
+          </div>
+          <hr style="border: none; border-top: 1px solid #444; margin: 20px 0;" />
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; margin-bottom: 6px; color: #fff; font-size: 14px;">Einheit *</label>
+              <input type="text" name="modal-unit" placeholder="ml, %" required style="width: 100%; padding: 8px 12px; border: 1px solid #666; border-radius: 4px; background: #333; color: #fff; font-size: 14px;" />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 6px; color: #fff; font-size: 14px;">Methode *</label>
+              <input type="text" name="modal-method" placeholder="perHektar" required style="width: 100%; padding: 8px 12px; border: 1px solid #666; border-radius: 4px; background: #333; color: #fff; font-size: 14px;" />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 6px; color: #fff; font-size: 14px;">Wert *</label>
+              <input type="number" step="any" name="modal-value" placeholder="1" required style="width: 100%; padding: 8px 12px; border: 1px solid #666; border-radius: 4px; background: #333; color: #fff; font-size: 14px;" />
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 6px; color: #fff; font-size: 14px;">Wartetage</label>
+              <input type="number" min="0" name="modal-wartezeit" placeholder="14" style="width: 100%; padding: 8px 12px; border: 1px solid #666; border-radius: 4px; background: #333; color: #fff; font-size: 14px;" />
+            </div>
+          </div>
+        </form>
+      </div>
+      <div style="padding: 16px 20px; border-top: 1px solid #444; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" id="btn-cancel-dialog" style="padding: 8px 16px; border: 1px solid #666; border-radius: 4px; background: transparent; color: #aaa; cursor: pointer; font-size: 14px;">Abbrechen</button>
+        <button type="button" id="btn-save-medium" style="padding: 8px 16px; border: none; border-radius: 4px; background: #28a745; color: #fff; cursor: pointer; font-size: 14px;">
+          <i class="bi bi-save me-1"></i>Speichern
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  addMediumDialog = overlay;
+
+  // Event-Listener
+  overlay
+    .querySelector("#btn-close-dialog")
+    ?.addEventListener("click", closeAddMediumDialog);
+  overlay
+    .querySelector("#btn-cancel-dialog")
+    ?.addEventListener("click", closeAddMediumDialog);
+  overlay
+    .querySelector("#btn-save-medium")
+    ?.addEventListener("click", handleSaveMediumFromModal);
+
+  // Klick außerhalb schließt Dialog
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      closeAddMediumDialog();
+    }
+  });
+
+  return overlay;
+}
+
+function closeAddMediumDialog(): void {
+  if (addMediumDialog) {
+    addMediumDialog.remove();
+    addMediumDialog = null;
+  }
+}
+
+function showAddMediumModal(data: {
+  name: string;
+  kennr: string;
+  wirkstoff: string;
+  wartezeit: string;
+}): void {
+  const dialog = createAddMediumDialog();
+  const form = dialog.querySelector<HTMLFormElement>("#add-medium-modal-form");
+
+  if (form) {
+    (form.querySelector('[name="modal-name"]') as HTMLInputElement).value =
+      data.name;
+    (form.querySelector('[name="modal-approval"]') as HTMLInputElement).value =
+      data.kennr;
+    (form.querySelector('[name="modal-wirkstoff"]') as HTMLInputElement).value =
+      data.wirkstoff;
+    (form.querySelector('[name="modal-wartezeit"]') as HTMLInputElement).value =
+      data.wartezeit;
+    (form.querySelector('[name="modal-unit"]') as HTMLInputElement).value = "";
+    (form.querySelector('[name="modal-method"]') as HTMLInputElement).value =
+      "";
+    (form.querySelector('[name="modal-value"]') as HTMLInputElement).value = "";
+
+    // Fokus auf erstes editierbares Feld
+    setTimeout(() => {
+      (form.querySelector('[name="modal-unit"]') as HTMLInputElement)?.focus();
+    }, 100);
+  }
+}
+
+function handleSaveMediumFromModal(): void {
+  const dialog = addMediumDialog;
+  if (!dialog || !services) return;
+
+  const form = dialog.querySelector<HTMLFormElement>("#add-medium-modal-form");
+  if (!form) return;
+
+  const name = (
+    form.querySelector('[name="modal-name"]') as HTMLInputElement
+  ).value.trim();
+  const unit = (
+    form.querySelector('[name="modal-unit"]') as HTMLInputElement
+  ).value.trim();
+  const method = (
+    form.querySelector('[name="modal-method"]') as HTMLInputElement
+  ).value.trim();
+  const valueStr = (
+    form.querySelector('[name="modal-value"]') as HTMLInputElement
+  ).value.trim();
+  const approval = (
+    form.querySelector('[name="modal-approval"]') as HTMLInputElement
+  ).value.trim();
+  const wartezeitStr = (
+    form.querySelector('[name="modal-wartezeit"]') as HTMLInputElement
+  ).value.trim();
+  const wirkstoff = (
+    form.querySelector('[name="modal-wirkstoff"]') as HTMLInputElement
+  ).value.trim();
+
+  if (!name || !unit || !method || !valueStr) {
+    alert("Bitte alle Pflichtfelder ausfüllen (Einheit, Methode, Wert)");
+    return;
+  }
+
+  const value = parseFloat(valueStr);
+  if (isNaN(value)) {
+    alert("Wert muss eine Zahl sein");
+    return;
+  }
+
+  const wartezeit = wartezeitStr ? parseInt(wartezeitStr, 10) : null;
+
+  // Neues Mittel erstellen
+  const newMedium = {
+    id: `medium-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    name,
+    unit,
+    method,
+    value,
+    approval: approval || null,
+    wartezeit: wartezeit,
+    wirkstoff: wirkstoff || null,
+  };
+
+  // Zum State hinzufügen
+  services.state.updateSlice("mediums", (prev) => {
+    const items = Array.isArray(prev.items) ? prev.items : [];
+    return {
+      ...prev,
+      items: [...items, newMedium],
+    };
+  });
+
+  // Event emittieren für Persistierung
+  if (services.events?.emit) {
+    services.events.emit("mediums:changed");
+  }
+
+  // Dialog schließen
+  closeAddMediumDialog();
+
+  // Erfolgs-Feedback
+  alert(`"${name}" wurde zu deinen Mitteln hinzugefügt!`);
+}
+
 function attachEventHandlers(section: HTMLElement): void {
   const btnSync = section.querySelector<HTMLButtonElement>("#btn-sync");
   const btnSearch = section.querySelector<HTMLButtonElement>("#btn-search");
@@ -2421,6 +2669,26 @@ function attachEventHandlers(section: HTMLElement): void {
       }
     });
   }
+
+  // Event-Delegation für "Zu Mitteln hinzufügen" Buttons
+  section.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    const btn = target.closest<HTMLButtonElement>(
+      '[data-action="add-to-mediums"]'
+    );
+    if (btn) {
+      const dataStr = btn.dataset.mediumInfo;
+      if (dataStr) {
+        try {
+          // Base64 + URI-encoded JSON decodieren
+          const data = JSON.parse(decodeURIComponent(atob(dataStr)));
+          showAddMediumModal(data);
+        } catch (e) {
+          console.error("Failed to parse medium data", e);
+        }
+      }
+    }
+  });
 
   const filterCulture =
     section.querySelector<HTMLSelectElement>("#filter-culture");

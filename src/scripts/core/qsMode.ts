@@ -118,6 +118,9 @@ let qsConfig: QsConfig = {
 
 let qsLabels: QsFieldLabels = { ...DEFAULT_QS_LABELS };
 
+// localStorage Key für QS-Felder Sichtbarkeit
+const QS_FIELDS_VISIBLE_KEY = "pestalozzi_qs_fields_visible";
+
 /**
  * Initialisiert die QS-Felder (immer aktiv)
  */
@@ -126,6 +129,34 @@ export function initQsMode(): void {
   qsConfig.enabled = true;
   document.documentElement.classList.add("qs-mode");
   console.log("[QS] Dokumentationsfelder gemäß QS-GAP-Leitfaden verfügbar");
+}
+
+/**
+ * Prüft ob QS-Felder aktuell sichtbar sein sollen
+ * Standardmäßig AUSGEBLENDET für übersichtliche UI
+ */
+export function isQsFieldsVisible(): boolean {
+  try {
+    const stored = localStorage.getItem(QS_FIELDS_VISIBLE_KEY);
+    // Standardmäßig false (ausgeblendet) für saubere UI
+    return stored === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Setzt die Sichtbarkeit der QS-Felder
+ */
+export function setQsFieldsVisible(visible: boolean): void {
+  try {
+    localStorage.setItem(QS_FIELDS_VISIBLE_KEY, visible ? "true" : "false");
+    console.log(
+      `[QS] Felder-Sichtbarkeit: ${visible ? "angezeigt" : "ausgeblendet"}`
+    );
+  } catch {
+    console.warn("[QS] localStorage nicht verfügbar");
+  }
 }
 
 /**

@@ -37,7 +37,9 @@ import { renderQsBadge } from "@scripts/core/qsMode";
 import {
   renderQsFieldsHtml,
   extractQsFieldsFromForm,
+  initQsFieldsToggle,
 } from "../shared/qsFields";
+import { renderGuidedInputToggle, initGuidedInput } from "./guidedInput";
 
 interface Services {
   state: {
@@ -132,6 +134,7 @@ function createSection(
   section.innerHTML = `
     <div class="card card-dark mb-4 no-print">
       <div class="card-body">
+        ${renderGuidedInputToggle()}
         <form id="calculationForm" class="row g-3 no-print">
           <div class="col-md-3">
             <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.creator.label" data-default-label="${escapeAttr(
@@ -816,6 +819,12 @@ export function initCalculation(
     initialState.defaults
   );
   host.appendChild(section);
+
+  // QS-Felder Toggle initialisieren (standardmäßig ausgeblendet)
+  initQsFieldsToggle();
+
+  // Geführte Eingabehilfe initialisieren
+  initGuidedInput();
 
   applyFieldLabels(section, initialState.fieldLabels);
   setupLookupAutocompletes(section);
