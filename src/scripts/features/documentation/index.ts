@@ -52,6 +52,7 @@ import {
   estimatePayloadKb as estimateOverlayPayloadKb,
 } from "@scripts/dev/debugOverlayClient";
 import { renderQsDetailHtml } from "@scripts/features/shared/qsFields";
+import { initImportMerge } from "@scripts/features/importMerge";
 
 interface Services {
   state: {
@@ -2337,7 +2338,32 @@ function createSection(): HTMLElement {
     : "";
   wrapper.className = "section-inner";
   wrapper.innerHTML = `
-    <h2 class="text-center mb-4">Dokumentation</h2>
+    <h2 class="text-center mb-4">
+      <i class="bi bi-journal-text me-2"></i>Dokumentation
+    </h2>
+    
+    <!-- Documentation Tab Navigation -->
+    <div class="settings-tabs mb-4">
+      <ul class="nav nav-pills nav-fill" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" data-doc-tab="entries" type="button">
+            <i class="bi bi-list-ul me-1"></i>
+            <span>Einträge</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-doc-tab="import" type="button">
+            <i class="bi bi-cloud-upload me-1"></i>
+            <span>Import</span>
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Tab Contents -->
+    <div class="doc-tab-content">
+      <!-- Entries Tab -->
+      <div class="doc-pane" data-pane="entries" style="display: block;">
     <div class="card card-dark mb-4 no-print">
       <div class="card-body">
         <form id="doc-filter" class="row g-3">
@@ -2468,6 +2494,13 @@ function createSection(): HTMLElement {
         </div>
       </div>
     </div>
+      </div>
+
+      <!-- Import Tab -->
+      <div class="doc-pane" data-pane="import" style="display: none;">
+        <div data-feature="import-embed"></div>
+      </div>
+    </div>
   `;
   return wrapper;
 }
@@ -2497,7 +2530,35 @@ function parseFilters(form: HTMLFormElement | null): DocumentationFilters {
   };
 }
 
+let activeDocTab: string = "entries";
+
+function switchDocTab(section: HTMLElement, tabName: string): void {
+  if (activeDocTab === tabName) return;
+  activeDocTab = tabName;
+
+  // Update tab buttons
+  section.querySelectorAll<HTMLElement>("[data-doc-tab]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.docTab === tabName);
+  });
+
+  // Update panes
+  section.querySelectorAll<HTMLElement>("[data-pane]").forEach((pane) => {
+    pane.style.display = pane.dataset.pane === tabName ? "block" : "none";
+  });
+}
+
 function wireEventHandlers(section: HTMLElement, services: Services): void {
+  // Tab switching
+  section.addEventListener("click", (event) => {
+    const tabBtn = (event.target as HTMLElement).closest<HTMLElement>(
+      "[data-doc-tab]"
+    );
+    if (tabBtn && tabBtn.dataset.docTab) {
+      switchDocTab(section, tabBtn.dataset.docTab);
+      return;
+    }
+  });
+
   section.addEventListener("submit", (event) => {
     if (!(event.target instanceof HTMLFormElement)) {
       return;
@@ -2763,6 +2824,20 @@ export function initDocumentation(
   host.innerHTML = "";
   const section = createSection();
   host.appendChild(section);
+
+  // Mount Import feature in the import tab
+  const importContainer = section.querySelector(
+    '[data-feature="import-embed"]'
+  );
+  if (importContainer) {
+    initImportMerge(importContainer, {
+      state: {
+        getState: services.state.getState,
+        updateSlice,
+      },
+      events: services.events,
+    });
+  }
 
   wireEventHandlers(section, services);
   updateDocSeedButton(section);

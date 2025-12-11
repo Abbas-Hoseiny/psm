@@ -15,7 +15,11 @@ import {
   type PagerWidget,
 } from "@scripts/features/shared/pagerWidget";
 import { initGps } from "@scripts/features/gps";
-import { initZulassung, resetZulassungInit } from "@scripts/features/zulassung";
+import {
+  initZulassung,
+  resetZulassungInit,
+  type InitZulassungOptions,
+} from "@scripts/features/zulassung";
 
 interface Services {
   state: {
@@ -861,12 +865,6 @@ export function initSettings(
       const bvlContainer = section.querySelector(
         '[data-feature="bvl-embedded"]'
       );
-      console.log("[Settings BVL] Container found:", !!bvlContainer);
-      console.log("[Settings BVL] services.events:", services.events);
-      console.log(
-        "[Settings BVL] services.events?.emit:",
-        services.events?.emit
-      );
 
       if (bvlContainer) {
         // Reset Zulassung init state to allow embedding
@@ -895,10 +893,9 @@ export function initSettings(
               : undefined,
           },
         };
-        console.log("[Settings BVL] Calling initZulassung");
-        initZulassung(bvlContainer, zulassungServices);
+        // Initialize in embedded mode - always visible
+        initZulassung(bvlContainer, zulassungServices, { embedded: true });
         bvlInitialized = true;
-        console.log("[Settings BVL] initZulassung completed");
       }
     }
   }

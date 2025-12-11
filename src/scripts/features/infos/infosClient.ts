@@ -425,7 +425,7 @@ function getSourceIcon(iconName: string): string {
   // Christian Bärthele Logo
   if (iconName === "baerthele") {
     return `<img 
-      src="/pestalozzi/assets/img/baerthele-logo.svg" 
+      src="https://jungpflanzen.bio/wp-content/uploads/2024/01/Baerthele_Jungpflanzen_Markenzeichen.svg" 
       alt="Christian Bärthele" 
       class="infos-source-logo"
     />`;

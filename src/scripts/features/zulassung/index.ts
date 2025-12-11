@@ -98,6 +98,7 @@ const RESULTS_PAGE_SIZE = 25;
 const pagerNumberFormatter = new Intl.NumberFormat("de-DE");
 
 let initialized = false;
+let embeddedMode = false;
 let container: HTMLElement | null = null;
 let services: Services | null = null;
 let isSectionVisible = false;
@@ -429,8 +430,11 @@ function toggleVisibility(state: AppState): void {
     return;
   }
 
-  const shouldShow =
-    state.app.activeSection === "zulassung" && state.app.hasDatabase;
+  // In embedded mode, always show when container is visible
+  // Otherwise, check for activeSection
+  const shouldShow = embeddedMode
+    ? true
+    : state.app.activeSection === "zulassung" && state.app.hasDatabase;
   section.classList.toggle("d-none", !shouldShow);
 
   if (shouldShow && !isSectionVisible) {
@@ -519,41 +523,95 @@ function render(): void {
 
   const state = services.state.getState();
   const zulassungState = state.zulassung;
+  const hasDatabase = state.app.hasDatabase;
   const activeTab =
     (section.dataset.activeTab as "zulassung" | "codes") || "zulassung";
 
+  // Show helpful intro for users without database
+  const noDatabaseHint = !hasDatabase
+    ? `
+    <div class="alert alert-warning mb-4">
+      <div class="d-flex align-items-start">
+        <i class="bi bi-exclamation-triangle-fill me-3 fs-4"></i>
+        <div>
+          <strong>Keine Datenbank verbunden</strong>
+          <p class="mb-2 mt-1">Um BVL-Daten herunterzuladen und zu durchsuchen, verbinde zuerst eine Datenbank.</p>
+          <small class="text-muted">
+            <i class="bi bi-lightbulb me-1"></i>
+            Gehe zu <strong>Berechnung</strong> und klicke auf "Neue DB erstellen" oder "Datenbank öffnen".
+          </small>
+        </div>
+      </div>
+    </div>
+  `
+    : "";
+
   section.innerHTML = `
-    <div class="container py-4">
-      <h2 class="mb-4">
-        <i class="bi bi-file-earmark-check me-2"></i>
-        Zulassung & Codes
-      </h2>
+    <div class="${embeddedMode ? "" : "container"} py-3">
+      ${
+        !embeddedMode
+          ? `
+        <h2 class="mb-4">
+          <i class="bi bi-database me-2"></i>
+          BVL & Codes
+        </h2>
+      `
+          : ""
+      }
+
+      ${noDatabaseHint}
       
-      <!-- Tab Navigation -->
-      <ul class="nav nav-tabs mb-4" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link ${activeTab === "zulassung" ? "active" : ""}" 
-                  data-tab="zulassung" type="button" role="tab">
-            <i class="bi bi-file-text me-1"></i>BVL Zulassung
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link ${activeTab === "codes" ? "active" : ""}" 
-                  data-tab="codes" type="button" role="tab">
-            <i class="bi bi-bookmark-star me-1"></i>EPPO & BBCH Codes
-          </button>
-        </li>
-      </ul>
+      <!-- Tab Navigation - Benutzerfreundliche Karten -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-6">
+          <div class="card h-100 ${activeTab === "zulassung" ? "border-success" : ""}" 
+               style="cursor: pointer; background: ${activeTab === "zulassung" ? "#1a3d1a" : "#2d2d2d"};" data-tab="zulassung">
+            <div class="card-body d-flex align-items-center">
+              <div class="rounded-circle p-3 me-3" style="background: ${activeTab === "zulassung" ? "#2f9e44" : "#4a4a4a"};">
+                <i class="bi bi-search fs-4 text-white"></i>
+              </div>
+              <div>
+                <h5 class="card-title mb-1">
+                  <i class="bi bi-file-earmark-check me-1"></i>
+                  Pflanzenschutzmittel suchen
+                </h5>
+                <p class="card-text text-muted small mb-0">
+                  Offizielle BVL-Zulassungsdaten durchsuchen und Mittel zu deiner Liste hinzufügen
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card h-100 ${activeTab === "codes" ? "border-success" : ""}" 
+               style="cursor: pointer; background: ${activeTab === "codes" ? "#1a3d1a" : "#2d2d2d"};" data-tab="codes">
+            <div class="card-body d-flex align-items-center">
+              <div class="rounded-circle p-3 me-3" style="background: ${activeTab === "codes" ? "#2f9e44" : "#4a4a4a"};">
+                <i class="bi bi-bookmark-star fs-4 text-white"></i>
+              </div>
+              <div>
+                <h5 class="card-title mb-1">
+                  <i class="bi bi-tags me-1"></i>
+                  EPPO & BBCH Codes
+                </h5>
+                <p class="card-text text-muted small mb-0">
+                  Kultur- und Wachstumsstadium-Codes für die Dokumentation verwalten
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       
-      <!-- Zulassung Tab Content -->
+      <!-- Tab Content -->
       <div class="tab-content">
         <div class="tab-pane ${
           activeTab === "zulassung" ? "show active" : "d-none"
         }" data-tab-content="zulassung">
           ${renderStatusSection(zulassungState)}
           ${renderSyncSection(zulassungState)}
-          ${renderFilterSection(zulassungState)}
-          ${renderResultsSection(zulassungState)}
+          ${hasDatabase ? renderFilterSection(zulassungState) : ""}
+          ${hasDatabase ? renderResultsSection(zulassungState) : ""}
           ${renderDebugSection(zulassungState)}
         </div>
         
@@ -575,9 +633,28 @@ function render(): void {
 function renderStatusSection(zulassungState: ZulassungState): string {
   if (!zulassungState.lastSync) {
     return `
-      <div class="alert alert-info mb-3">
-        <i class="bi bi-info-circle-fill me-2"></i>
-        <strong>Keine Daten vorhanden.</strong> Bitte führen Sie eine Synchronisation durch, um BVL-Daten zu laden.
+      <div class="card mb-3 border-info" style="background: #1a2a3a;">
+        <div class="card-body">
+          <div class="d-flex align-items-start">
+            <div class="rounded-circle p-3 me-3" style="background: #0d6efd;">
+              <i class="bi bi-cloud-download fs-4 text-white"></i>
+            </div>
+            <div>
+              <h5 class="mb-2">
+                <i class="bi bi-database me-2"></i>
+                BVL-Daten herunterladen
+              </h5>
+              <p class="mb-2">
+                Lade die offizielle Pflanzenschutzmittel-Datenbank vom Bundesamt für Verbraucherschutz (BVL) herunter.
+              </p>
+              <ul class="list-unstyled small text-muted mb-0">
+                <li><i class="bi bi-check-circle text-success me-1"></i> Über 1.500 zugelassene Pflanzenschutzmittel</li>
+                <li><i class="bi bi-check-circle text-success me-1"></i> Kulturen, Schadorganismen & Wartezeiten</li>
+                <li><i class="bi bi-check-circle text-success me-1"></i> Automatische Updates verfügbar</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -586,46 +663,52 @@ function renderStatusSection(zulassungState: ZulassungState): string {
     "de-DE"
   );
   const counts = zulassungState.lastResultCounts || {};
-  const dataSource = zulassungState.dataSource || "BVL API";
-  const apiStand = zulassungState.apiStand || null;
-  const manifestVersion = zulassungState.manifestVersion || null;
-  const lastSyncHash = zulassungState.lastSyncHash || null;
   const totalMittel = counts.mittel || counts.bvl_mittel || 0;
+  const totalAwg = counts.awg || counts.bvl_awg || 0;
 
   return `
-    <div class="alert alert-success mb-3">
-      <div class="d-flex justify-content-between align-items-start">
-        <div>
-          <i class="bi bi-check-circle-fill me-2"></i>
-          <strong>Letzte Synchronisation:</strong> ${escapeHtml(
-            lastSyncDate
-          )}<br>
-          <strong>Datenquelle:</strong> ${escapeHtml(dataSource)}<br>
-          ${
-            manifestVersion
-              ? `<strong>Version:</strong> ${escapeHtml(manifestVersion)}<br>`
-              : ""
-          }
-          ${
-            apiStand
-              ? `<strong>API-Stand:</strong> ${escapeHtml(apiStand)}<br>`
-              : ""
-          }
-          ${
-            lastSyncHash
-              ? `<small class="text-muted">Hash: ${escapeHtml(
-                  lastSyncHash.substring(0, 12)
-                )}...</small><br>`
-              : ""
-          }
-          <small class="mt-1 d-block">
-            <i class="bi bi-database me-1"></i>
-            Mittel: ${totalMittel}, Anwendungen: ${
-              counts.awg || counts.bvl_awg || 0
-            }, Kulturen: ${
-              counts.awg_kultur || counts.bvl_awg_kultur || 0
-            }, Schadorganismen: ${counts.awg_schadorg || counts.bvl_awg_schadorg || 0}
-          </small>
+    <div class="card mb-3 border-success" style="background: #1a2e1a;">
+      <div class="card-body">
+        <div class="d-flex align-items-start">
+          <div class="rounded-circle p-3 me-3" style="background: #2f9e44;">
+            <i class="bi bi-check-circle-fill fs-4 text-white"></i>
+          </div>
+          <div class="flex-grow-1">
+            <h5 class="mb-2 text-success">
+              <i class="bi bi-database-fill-check me-2"></i>
+              Daten geladen
+            </h5>
+            <div class="row g-3">
+              <div class="col-6 col-md-3">
+                <div class="text-center p-2 rounded" style="background: #1e1e1e;">
+                  <div class="fs-4 fw-bold text-success">${totalMittel.toLocaleString("de-DE")}</div>
+                  <small class="text-muted">Mittel</small>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="text-center p-2 rounded" style="background: #1e1e1e;">
+                  <div class="fs-4 fw-bold text-info">${totalAwg.toLocaleString("de-DE")}</div>
+                  <small class="text-muted">Anwendungen</small>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="text-center p-2 rounded" style="background: #1e1e1e;">
+                  <div class="fs-4 fw-bold text-warning">${(counts.awg_kultur || counts.bvl_awg_kultur || 0).toLocaleString("de-DE")}</div>
+                  <small class="text-muted">Kulturen</small>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="text-center p-2 rounded" style="background: #1e1e1e;">
+                  <div class="fs-4 fw-bold text-danger">${(counts.awg_schadorg || counts.bvl_awg_schadorg || 0).toLocaleString("de-DE")}</div>
+                  <small class="text-muted">Schädlinge</small>
+                </div>
+              </div>
+            </div>
+            <small class="text-muted d-block mt-2">
+              <i class="bi bi-clock me-1"></i>
+              Letzte Aktualisierung: ${escapeHtml(lastSyncDate)}
+            </small>
+          </div>
         </div>
       </div>
     </div>
@@ -636,28 +719,47 @@ function renderSyncSection(zulassungState: ZulassungState): string {
   const isBusy = zulassungState.busy;
   const progress = zulassungState.progress;
   const error = zulassungState.error;
+  const hasData = Boolean(zulassungState.lastSync);
 
   const stepInfo: Record<
     string,
-    { icon: string; color: string; label: string }
+    { icon: string; color: string; label: string; description: string }
   > = {
     manifest: {
       icon: "bi-cloud-download",
       color: "bg-info",
-      label: "Manifest",
+      label: "Manifest laden",
+      description: "Prüfe verfügbare Daten...",
     },
     download: {
       icon: "bi-cloud-arrow-down",
       color: "bg-info",
-      label: "Download",
+      label: "Herunterladen",
+      description: "Lade BVL-Datenbank herunter...",
     },
-    decompress: { icon: "bi-archive", color: "bg-primary", label: "Entpacken" },
-    import: { icon: "bi-cpu", color: "bg-warning", label: "Import" },
-    verify: { icon: "bi-check2", color: "bg-success", label: "Verifizierung" },
+    decompress: {
+      icon: "bi-archive",
+      color: "bg-primary",
+      label: "Entpacken",
+      description: "Entpacke Datenbank...",
+    },
+    import: {
+      icon: "bi-cpu",
+      color: "bg-warning",
+      label: "Importieren",
+      description: "Importiere Daten in lokale Datenbank...",
+    },
+    verify: {
+      icon: "bi-check2",
+      color: "bg-success",
+      label: "Prüfen",
+      description: "Überprüfe importierte Daten...",
+    },
     done: {
       icon: "bi-check-circle-fill",
       color: "bg-success",
       label: "Fertig",
+      description: "Import abgeschlossen!",
     },
   };
 
@@ -665,78 +767,98 @@ function renderSyncSection(zulassungState: ZulassungState): string {
     ? stepInfo[progress.step] || stepInfo.done
     : null;
 
+  // Show different button text based on state
+  const buttonText = hasData ? "Aktualisieren" : "Jetzt herunterladen";
+  const buttonIcon = hasData ? "bi-arrow-clockwise" : "bi-cloud-download";
+
   return `
-    <div class="card mb-3">
+    <div class="card mb-3" style="background: #2d2d2d;">
       <div class="card-body">
-        <h5 class="card-title"><i class="bi bi-arrow-repeat me-2"></i>Synchronisation</h5>
         ${
           zulassungState.autoUpdateAvailable
             ? `
-          <div class="alert alert-warning d-flex align-items-center" role="alert">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+            <div class="rounded-circle bg-warning bg-opacity-25 p-2 me-3">
+              <i class="bi bi-bell-fill text-warning"></i>
+            </div>
             <div class="flex-grow-1">
               <strong>Neue Daten verfügbar!</strong><br>
               <small>Version ${escapeHtml(
                 zulassungState.autoUpdateVersion || "unbekannt"
-              )} ist verfügbar.</small>
+              )} steht zum Download bereit.</small>
             </div>
-            <button class="btn btn-warning btn-sm ms-2" id="btn-apply-update">
+            <button class="btn btn-warning" id="btn-apply-update">
               <i class="bi bi-download me-1"></i>Jetzt aktualisieren
             </button>
           </div>
         `
             : ""
         }
-        <button id="btn-sync" class="btn btn-primary" ${
-          isBusy ? "disabled" : ""
-        }>
-          ${
-            isBusy
-              ? `<span class="spinner-border spinner-border-sm me-2"></span><i class="${
-                  currentStep?.icon || "bi-arrow-repeat"
-                } me-1"></i>`
-              : '<i class="bi bi-arrow-repeat me-1"></i>'
-          }
-          ${isBusy ? "Synchronisiere..." : "Daten aktualisieren"}
-        </button>
+        
         ${
-          progress.step && isBusy
+          isBusy
             ? `
-          <div class="mt-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <small class="text-muted">
-                <i class="${currentStep?.icon || "bi-arrow-repeat"} me-1"></i>
-                ${escapeHtml(currentStep?.label || "Verarbeite")}: ${escapeHtml(
-                  progress.message
-                )}
-              </small>
-              <small class="text-muted">${progress.percent}%</small>
+          <div class="text-center py-4">
+            <div class="spinner-border text-success mb-3" style="width: 3rem; height: 3rem;" role="status">
+              <span class="visually-hidden">Lädt...</span>
             </div>
-            <div class="progress" style="height: 20px;" role="progressbar" aria-valuenow="${
-              progress.percent
-            }" aria-valuemin="0" aria-valuemax="100" title="${escapeHtml(
-              progress.message
-            )}">
+            <h5 class="mb-2">
+              <i class="${currentStep?.icon || "bi-arrow-repeat"} me-2"></i>
+              ${escapeHtml(currentStep?.label || "Verarbeite...")}
+            </h5>
+            <p class="text-muted mb-3">${escapeHtml(currentStep?.description || progress.message)}</p>
+            <div class="progress mx-auto" style="height: 24px; max-width: 400px;" role="progressbar" 
+                 aria-valuenow="${progress.percent}" aria-valuemin="0" aria-valuemax="100">
               <div class="progress-bar progress-bar-striped progress-bar-animated ${
-                currentStep?.color || "bg-primary"
+                currentStep?.color || "bg-success"
               }" style="width: ${progress.percent}%">
-                ${progress.percent}%
+                <strong>${progress.percent}%</strong>
               </div>
             </div>
+            <small class="text-muted d-block mt-2">
+              <i class="bi bi-hourglass-split me-1"></i>
+              Bitte warten – dies kann einige Minuten dauern...
+            </small>
           </div>
         `
-            : ""
+            : `
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <h5 class="mb-1">
+                <i class="bi bi-cloud-arrow-down me-2"></i>
+                BVL-Daten ${hasData ? "aktualisieren" : "herunterladen"}
+              </h5>
+              <small class="text-muted">
+                ${
+                  hasData
+                    ? "Prüfe auf neue Pflanzenschutzmittel-Daten vom BVL"
+                    : "Lade die komplette Zulassungsdatenbank herunter (~15 MB)"
+                }
+              </small>
+            </div>
+            <button id="btn-sync" class="btn ${hasData ? "btn-outline-success" : "btn-success"} btn-lg">
+              <i class="${buttonIcon} me-2"></i>
+              ${buttonText}
+            </button>
+          </div>
+        `
         }
+        
         ${
           error
             ? `
           <div class="alert alert-danger mt-3 d-flex align-items-start">
-            <i class="bi bi-exclamation-triangle-fill me-2 mt-1"></i>
+            <i class="bi bi-exclamation-triangle-fill me-2 mt-1 fs-4"></i>
             <div class="flex-grow-1">
-              <strong>Fehler:</strong> ${escapeHtml(error)}
+              <strong>Download fehlgeschlagen</strong>
+              <p class="mb-2 small">${escapeHtml(error)}</p>
+              <small class="text-muted">
+                <i class="bi bi-lightbulb me-1"></i>
+                Prüfe deine Internetverbindung und versuche es erneut.
+              </small>
             </div>
             <button class="btn btn-sm btn-outline-danger ms-2" id="btn-show-debug">
-              <i class="bi bi-bug me-1"></i>Debug anzeigen
+              <i class="bi bi-bug me-1"></i>Details
             </button>
           </div>
         `
@@ -753,77 +875,125 @@ function renderFilterSection(zulassungState: ZulassungState): string {
     zulassungState.busy || zulassungState.resultStatus === "loading";
   const cultures = Array.isArray(lookups.cultures) ? lookups.cultures : [];
   const pests = Array.isArray(lookups.pests) ? lookups.pests : [];
+  const hasCultures = cultures.length > 0;
+  const hasPests = pests.length > 0;
 
   return `
-    <div class="card mb-3 filter-section">
+    <div class="card mb-3" style="background: #2d2d2d;">
       <div class="card-body">
-        <h5 class="card-title"><i class="bi bi-funnel me-2"></i>Filter</h5>
-        <div class="row g-3">
-          <div class="col-12">
-            <label for="filter-text" class="form-label">Schnellsuche</label>
-            <input type="search" id="filter-text" class="form-control" placeholder="Mittel, Kultur- oder Schaderreger-Name" value="${escapeHtml(
-              filters.text || ""
-            )}">
-            <small class="form-text text-muted">Durchsucht Mittelname, Kennnummer sowie Klartexte der Kulturen und Schadorganismen.</small>
+        <h5 class="card-title mb-3">
+          <i class="bi bi-search me-2"></i>
+          Pflanzenschutzmittel suchen
+        </h5>
+        
+        <!-- Schnellsuche - prominent -->
+        <div class="mb-4">
+          <div class="input-group input-group-lg">
+            <span class="input-group-text bg-dark border-secondary">
+              <i class="bi bi-search text-muted"></i>
+            </span>
+            <input type="search" id="filter-text" class="form-control form-control-lg" 
+                   placeholder="Mittelname eingeben, z.B. 'Neem', 'Kupfer', 'Rapsöl'..." 
+                   value="${escapeHtml(filters.text || "")}"
+                   autofocus>
+            <button id="btn-search" class="btn btn-success btn-lg px-4" ${disableSearch ? "disabled" : ""}>
+              ${
+                disableSearch
+                  ? '<span class="spinner-border spinner-border-sm me-2"></span>Suche...'
+                  : '<i class="bi bi-search me-2"></i>Suchen'
+              }
+            </button>
           </div>
-          <div class="col-md-4">
-            <label for="filter-culture" class="form-label">
-              <i class="bi bi-flower1 me-1"></i>Kultur
-            </label>
-            <select id="filter-culture" class="form-select">
-              <option value="">Alle Kulturen</option>
-              ${cultures
-                .map(
-                  (culture: any) =>
-                    `<option value="${escapeHtml(culture.code)}" ${
-                      filters.culture === culture.code ? "selected" : ""
-                    }>${escapeHtml(
-                      culture.label || culture.code
-                    )} (${escapeHtml(culture.code)})</option>`
-                )
-                .join("")}
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label for="filter-pest" class="form-label">
-              <i class="bi bi-bug me-1"></i>Schadorganismus
-            </label>
-            <select id="filter-pest" class="form-select">
-              <option value="">Alle Schadorganismen</option>
-              ${pests
-                .map(
-                  (pest: any) =>
-                    `<option value="${escapeHtml(pest.code)}" ${
-                      filters.pest === pest.code ? "selected" : ""
-                    }>${escapeHtml(pest.label || pest.code)} (${escapeHtml(
-                      pest.code
-                    )})</option>`
-                )
-                .join("")}
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label d-block">&nbsp;</label>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="filter-expired" ${
-                filters.includeExpired ? "checked" : ""
-              }>
-              <label class="form-check-label" for="filter-expired">
-                <i class="bi bi-clock-history me-1"></i>
-                Abgelaufene Zulassungen einschließen
-              </label>
+          <small class="form-text text-muted mt-1 d-block">
+            <i class="bi bi-lightbulb me-1"></i>
+            Tipp: Du kannst auch nach Zulassungsnummer oder Wirkstoff suchen
+          </small>
+        </div>
+
+        <!-- Erweiterte Filter - einklappbar -->
+        <div class="border-top border-secondary pt-3">
+          <button class="btn btn-sm btn-link text-decoration-none p-0 mb-3" type="button" 
+                  data-bs-toggle="collapse" data-bs-target="#advanced-filters" 
+                  aria-expanded="false" aria-controls="advanced-filters">
+            <i class="bi bi-sliders me-1"></i>
+            Erweiterte Filter anzeigen
+            <i class="bi bi-chevron-down ms-1"></i>
+          </button>
+          
+          <div class="collapse" id="advanced-filters">
+            <div class="row g-3">
+              ${
+                hasCultures
+                  ? `
+                <div class="col-md-6">
+                  <label for="filter-culture" class="form-label">
+                    <i class="bi bi-flower1 me-1 text-success"></i>Kultur
+                  </label>
+                  <select id="filter-culture" class="form-select">
+                    <option value="">Alle Kulturen</option>
+                    ${cultures
+                      .map(
+                        (culture: any) =>
+                          `<option value="${escapeHtml(culture.code)}" ${
+                            filters.culture === culture.code ? "selected" : ""
+                          }>${escapeHtml(culture.label || culture.code)}</option>`
+                      )
+                      .join("")}
+                  </select>
+                </div>
+              `
+                  : `
+                <div class="col-md-6">
+                  <label class="form-label text-muted">
+                    <i class="bi bi-flower1 me-1"></i>Kultur
+                  </label>
+                  <p class="text-muted small mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Lade zuerst BVL-Daten herunter
+                  </p>
+                </div>
+              `
+              }
+              ${
+                hasPests
+                  ? `
+                <div class="col-md-6">
+                  <label for="filter-pest" class="form-label">
+                    <i class="bi bi-bug me-1 text-danger"></i>Schadorganismus
+                  </label>
+                  <select id="filter-pest" class="form-select">
+                    <option value="">Alle Schadorganismen</option>
+                    ${pests
+                      .map(
+                        (pest: any) =>
+                          `<option value="${escapeHtml(pest.code)}" ${
+                            filters.pest === pest.code ? "selected" : ""
+                          }>${escapeHtml(pest.label || pest.code)}</option>`
+                      )
+                      .join("")}
+                  </select>
+                </div>
+              `
+                  : ""
+              }
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="filter-expired" ${
+                    filters.includeExpired ? "checked" : ""
+                  }>
+                  <label class="form-check-label" for="filter-expired">
+                    <i class="bi bi-clock-history me-1"></i>
+                    Auch abgelaufene Zulassungen anzeigen
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3">
+              <button id="btn-clear-filters" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-x-circle me-1"></i>Alle Filter zurücksetzen
+              </button>
             </div>
           </div>
-        </div>
-        <div class="mt-3">
-          <button id="btn-search" class="btn btn-primary" ${
-            disableSearch ? "disabled" : ""
-          }>
-            <i class="bi bi-search me-1"></i>Suchen
-          </button>
-          <button id="btn-clear-filters" class="btn btn-secondary ms-2">
-            <i class="bi bi-x-circle me-1"></i>Filter zurücksetzen
-          </button>
         </div>
       </div>
     </div>
@@ -847,20 +1017,44 @@ function renderResultsSection(zulassungState: ZulassungState): string {
     `;
   } else if (resultStatus === "loading" && !hasItems) {
     content = `
-      <div class="d-flex align-items-center text-muted">
-        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-        Suche läuft...
+      <div class="text-center py-5">
+        <div class="spinner-border text-success mb-3" role="status">
+          <span class="visually-hidden">Suche läuft...</span>
+        </div>
+        <p class="text-muted mb-0">Suche in der Datenbank...</p>
       </div>
     `;
   } else if (!hasItems) {
-    const message =
-      resultStatus === "idle"
-        ? 'Keine Ergebnisse. Bitte wählen Sie Filter aus und klicken Sie auf "Suchen".'
-        : "Keine Treffer für die aktuellen Filter.";
-    content = `<p class="text-muted mb-0">${escapeHtml(message)}</p>`;
+    const isIdle = resultStatus === "idle";
+    content = isIdle
+      ? `
+      <div class="text-center py-5">
+        <div class="rounded-circle bg-secondary bg-opacity-25 p-4 d-inline-block mb-3">
+          <i class="bi bi-search fs-1 text-muted"></i>
+        </div>
+        <h5 class="text-muted mb-2">Bereit zum Suchen</h5>
+        <p class="text-muted mb-0">
+          Gib oben einen Suchbegriff ein, um Pflanzenschutzmittel zu finden.
+        </p>
+      </div>
+    `
+      : `
+      <div class="text-center py-5">
+        <div class="rounded-circle bg-warning bg-opacity-25 p-4 d-inline-block mb-3">
+          <i class="bi bi-emoji-frown fs-1 text-warning"></i>
+        </div>
+        <h5 class="text-muted mb-2">Keine Treffer gefunden</h5>
+        <p class="text-muted mb-3">
+          Versuche es mit einem anderen Suchbegriff oder weniger Filtern.
+        </p>
+        <button id="btn-clear-filters-inline" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-x-circle me-1"></i>Filter zurücksetzen
+        </button>
+      </div>
+    `;
   } else {
     content = `
-      <div class="list-group">
+      <div class="list-group list-group-flush">
         ${items
           .map((result) => renderResultItem(result as ReportingResult))
           .join("")}
@@ -871,15 +1065,24 @@ function renderResultsSection(zulassungState: ZulassungState): string {
   const summary = hasItems ? formatResultRange(results) : null;
 
   return `
-    <div class="card mb-3">
-      <div class="card-body">
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
-          <h5 class="card-title mb-0">Ergebnisse</h5>
-          ${summary ? `<small class="text-muted">${summary}</small>` : ""}
-        </div>
-        ${content}
-        <div class="d-flex justify-content-end mt-3" data-role="zulassung-pager"></div>
+    <div class="card mb-3" style="background: #2d2d2d;">
+      <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2" style="background: #252525;">
+        <h5 class="mb-0">
+          <i class="bi bi-list-ul me-2"></i>
+          Suchergebnisse
+        </h5>
+        ${summary ? `<span class="badge bg-success">${summary}</span>` : ""}
       </div>
+      <div class="card-body p-0">
+        ${content}
+      </div>
+      ${
+        hasItems
+          ? `
+        <div class="card-footer bg-dark d-flex justify-content-end" data-role="zulassung-pager"></div>
+      `
+          : ""
+      }
     </div>
   `;
 }
@@ -2517,7 +2720,7 @@ function renderDebugSection(zulassungState: ZulassungState): string {
     : "";
 
   return `
-    <div class="card mb-3">
+    <div class="card mb-3" style="background: #2a2a2a;">
       <div class="card-body">
         <h5 class="card-title">
           <button class="btn btn-sm btn-link text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#debug-panel">
@@ -2777,6 +2980,9 @@ function attachEventHandlers(section: HTMLElement): void {
   const btnSearch = section.querySelector<HTMLButtonElement>("#btn-search");
   const btnClearFilters =
     section.querySelector<HTMLButtonElement>("#btn-clear-filters");
+  const btnClearFiltersInline = section.querySelector<HTMLButtonElement>(
+    "#btn-clear-filters-inline"
+  );
   const btnShowDebug =
     section.querySelector<HTMLButtonElement>("#btn-show-debug");
 
@@ -2792,6 +2998,10 @@ function attachEventHandlers(section: HTMLElement): void {
     btnClearFilters.addEventListener("click", handleClearFilters);
   }
 
+  if (btnClearFiltersInline) {
+    btnClearFiltersInline.addEventListener("click", handleClearFilters);
+  }
+
   if (btnShowDebug) {
     btnShowDebug.addEventListener("click", () => {
       const debugPanel = section.querySelector<HTMLElement>("#debug-panel");
@@ -2805,6 +3015,17 @@ function attachEventHandlers(section: HTMLElement): void {
       }
     });
   }
+
+  // Tab-Wechsel für die Karten-Navigation
+  section.querySelectorAll<HTMLElement>("[data-tab]").forEach((card) => {
+    card.addEventListener("click", () => {
+      const tabName = card.dataset.tab;
+      if (tabName && (tabName === "zulassung" || tabName === "codes")) {
+        section.dataset.activeTab = tabName;
+        render();
+      }
+    });
+  });
 
   // Event-Delegation für "Zu Mitteln hinzufügen" Buttons
   section.addEventListener("click", (event) => {
@@ -3142,148 +3363,196 @@ async function loadSavedCodes(): Promise<void> {
 }
 
 function renderCodesManagerSection(): string {
+  const hasEppo = savedEppoList.length > 0;
+  const hasBbch = savedBbchList.length > 0;
+
   return `
+    <!-- Einführungstext für Gärtner -->
+    <div class="alert alert-success mb-4">
+      <div class="d-flex align-items-start">
+        <i class="bi bi-lightbulb-fill me-3 fs-4"></i>
+        <div>
+          <strong>Was sind EPPO- und BBCH-Codes?</strong>
+          <p class="mb-2 mt-1">
+            <strong>EPPO-Codes</strong> = Internationale Abkürzungen für Pflanzen/Kulturen (z.B. SOLLY = Tomate)<br>
+            <strong>BBCH-Stadien</strong> = Wachstumsphasen der Pflanze (z.B. 65 = Vollblüte)
+          </p>
+          <small class="text-muted">
+            <i class="bi bi-check-circle me-1"></i>
+            Diese Codes werden für die EU-konforme Dokumentation benötigt und erscheinen als Schnellauswahl bei der Berechnung.
+          </small>
+        </div>
+      </div>
+    </div>
+
     <div class="row g-4">
       <!-- EPPO Codes Section -->
       <div class="col-lg-6">
-        <div class="card card-dark h-100">
-          <div class="card-header bg-success bg-opacity-25">
-            <h5 class="mb-0">
+        <div class="card h-100" style="background: #2d2d2d;">
+          <div class="card-header d-flex justify-content-between align-items-center" style="background: #1a3d1a;">
+            <h5 class="mb-0 text-success">
               <i class="bi bi-flower1 me-2"></i>
-              EPPO-Codes (Pflanzen/Kulturen)
+              Kulturen (EPPO-Codes)
             </h5>
+            <span class="badge bg-success">${savedEppoList.length} gespeichert</span>
           </div>
           <div class="card-body">
-            <!-- Add new EPPO -->
-            <div class="mb-4 p-3 bg-dark rounded">
-              <h6 class="text-success mb-3">
-                <i class="bi bi-plus-circle me-1"></i>
-                Neuen EPPO-Code speichern
-              </h6>
-              <form data-form="add-eppo" class="row g-2">
-                <div class="col-12">
-                  <label class="form-label small">EPPO-Code suchen</label>
-                  <input type="text" class="form-control form-control-lg" 
-                         data-input="eppo-search" 
-                         placeholder="🔍 Suchen: z.B. Tomate, SOLLY, Apfel..."
-                         autocomplete="off" />
-                  <div class="form-text">Tippen Sie mindestens 2 Zeichen um zu suchen</div>
-                </div>
-                <div class="col-12">
-                  <div data-role="eppo-search-results" class="list-group mt-2" style="max-height: 200px; overflow-y: auto;"></div>
-                </div>
-                <div class="col-6">
-                  <label class="form-label small">Code</label>
-                  <input type="text" class="form-control" data-input="eppo-code" placeholder="SOLLY" readonly />
-                </div>
-                <div class="col-6">
-                  <label class="form-label small">Name</label>
-                  <input type="text" class="form-control" data-input="eppo-name" placeholder="Tomate" />
-                </div>
-                <div class="col-12">
-                  <div class="form-check">
-                    <input type="checkbox" class="form-check-input" data-input="eppo-favorite" id="eppo-favorite" />
-                    <label class="form-check-label" for="eppo-favorite">
-                      <i class="bi bi-star-fill text-warning me-1"></i>Als Favorit markieren
-                    </label>
+            <!-- Suchfeld für EPPO - prominent -->
+            <div class="mb-4">
+              <label class="form-label">
+                <i class="bi bi-search me-1"></i>
+                Kultur suchen und speichern
+              </label>
+              <input type="text" class="form-control form-control-lg" 
+                     data-input="eppo-search" 
+                     placeholder="z.B. Tomate, Apfel, Salat, Gurke..."
+                     autocomplete="off" />
+              <small class="form-text text-muted">Tippe mindestens 2 Buchstaben</small>
+              <div data-role="eppo-search-results" class="list-group mt-2" style="max-height: 250px; overflow-y: auto;"></div>
+            </div>
+            
+            <!-- Oder manuell eingeben -->
+            <div class="border-top border-secondary pt-3 mb-3">
+              <button class="btn btn-sm btn-link text-decoration-none p-0" type="button" 
+                      data-bs-toggle="collapse" data-bs-target="#eppo-manual-form" 
+                      aria-expanded="false">
+                <i class="bi bi-pencil me-1"></i>
+                Manuell eingeben
+                <i class="bi bi-chevron-down ms-1"></i>
+              </button>
+              
+              <div class="collapse mt-3" id="eppo-manual-form">
+                <form data-form="add-eppo" class="row g-2">
+                  <div class="col-5">
+                    <input type="text" class="form-control form-control-sm" data-input="eppo-code" placeholder="Code (z.B. SOLLY)" />
                   </div>
-                </div>
-                <div class="col-12">
-                  <button type="submit" class="btn btn-success w-100">
-                    <i class="bi bi-plus-lg me-1"></i>EPPO-Code speichern
-                  </button>
-                </div>
-              </form>
+                  <div class="col-5">
+                    <input type="text" class="form-control form-control-sm" data-input="eppo-name" placeholder="Name (z.B. Tomate)" />
+                  </div>
+                  <div class="col-2">
+                    <button type="submit" class="btn btn-success btn-sm w-100">
+                      <i class="bi bi-plus-lg"></i>
+                    </button>
+                  </div>
+                  <div class="col-12">
+                    <div class="form-check form-check-inline">
+                      <input type="checkbox" class="form-check-input" data-input="eppo-favorite" id="eppo-favorite" />
+                      <label class="form-check-label small" for="eppo-favorite">
+                        <i class="bi bi-star text-warning me-1"></i>Favorit
+                      </label>
+                    </div>
+                  </div>
+                </form>
+              </div>
             </div>
             
             <!-- Saved EPPO List -->
-            <h6 class="mb-3">
-              <i class="bi bi-list-ul me-1"></i>
-              Gespeicherte EPPO-Codes
-              <span class="badge bg-secondary ms-2" data-count="eppo">${
-                savedEppoList.length
-              }</span>
-            </h6>
-            <div data-role="saved-eppo-list" class="list-group" style="max-height: 400px; overflow-y: auto;">
-              ${renderSavedEppoList()}
-            </div>
+            ${
+              hasEppo
+                ? `
+              <h6 class="mb-2 text-muted small text-uppercase">
+                <i class="bi bi-bookmark-star me-1"></i>
+                Meine Kulturen
+              </h6>
+              <div data-role="saved-eppo-list" class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
+                ${renderSavedEppoList()}
+              </div>
+            `
+                : `
+              <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
+                <p class="mb-1">Noch keine Kulturen gespeichert</p>
+                <small>Suche oben nach einer Kultur und klicke zum Speichern</small>
+              </div>
+            `
+            }
           </div>
         </div>
       </div>
       
       <!-- BBCH Codes Section -->
       <div class="col-lg-6">
-        <div class="card card-dark h-100">
-          <div class="card-header bg-info bg-opacity-25">
-            <h5 class="mb-0">
+        <div class="card h-100" style="background: #2d2d2d;">
+          <div class="card-header d-flex justify-content-between align-items-center" style="background: #1a2a3a;">
+            <h5 class="mb-0 text-info">
               <i class="bi bi-bar-chart-steps me-2"></i>
-              BBCH-Stadien (Wachstum)
+              Wachstumsstadien (BBCH)
             </h5>
+            <span class="badge bg-info">${savedBbchList.length} gespeichert</span>
           </div>
           <div class="card-body">
-            <!-- Add new BBCH -->
-            <div class="mb-4 p-3 bg-dark rounded">
-              <h6 class="text-info mb-3">
-                <i class="bi bi-plus-circle me-1"></i>
-                Neues BBCH-Stadium speichern
-              </h6>
-              <form data-form="add-bbch" class="row g-2">
-                <div class="col-12">
-                  <label class="form-label small">BBCH-Stadium suchen</label>
-                  <input type="text" class="form-control form-control-lg" 
-                         data-input="bbch-search" 
-                         placeholder="🔍 Suchen: z.B. Blüte, 65, Ernte..."
-                         autocomplete="off" />
-                  <div class="form-text">Tippen Sie mindestens 1 Zeichen um zu suchen</div>
-                </div>
-                <div class="col-12">
-                  <div data-role="bbch-search-results" class="list-group mt-2" style="max-height: 200px; overflow-y: auto;"></div>
-                </div>
-                <div class="col-4">
-                  <label class="form-label small">Code</label>
-                  <input type="text" class="form-control" data-input="bbch-code" placeholder="65" />
-                </div>
-                <div class="col-8">
-                  <label class="form-label small">Bezeichnung</label>
-                  <input type="text" class="form-control" data-input="bbch-label" placeholder="Vollblüte" />
-                </div>
-                <div class="col-12">
-                  <div class="form-check">
-                    <input type="checkbox" class="form-check-input" data-input="bbch-favorite" id="bbch-favorite" />
-                    <label class="form-check-label" for="bbch-favorite">
-                      <i class="bi bi-star-fill text-warning me-1"></i>Als Favorit markieren
-                    </label>
+            <!-- Suchfeld für BBCH - prominent -->
+            <div class="mb-4">
+              <label class="form-label">
+                <i class="bi bi-search me-1"></i>
+                Stadium suchen und speichern
+              </label>
+              <input type="text" class="form-control form-control-lg" 
+                     data-input="bbch-search" 
+                     placeholder="z.B. Blüte, Ernte, 65, Keimung..."
+                     autocomplete="off" />
+              <small class="form-text text-muted">Tippe einen Begriff oder eine Nummer</small>
+              <div data-role="bbch-search-results" class="list-group mt-2" style="max-height: 250px; overflow-y: auto;"></div>
+            </div>
+            
+            <!-- Oder manuell eingeben -->
+            <div class="border-top border-secondary pt-3 mb-3">
+              <button class="btn btn-sm btn-link text-decoration-none p-0" type="button" 
+                      data-bs-toggle="collapse" data-bs-target="#bbch-manual-form" 
+                      aria-expanded="false">
+                <i class="bi bi-pencil me-1"></i>
+                Manuell eingeben
+                <i class="bi bi-chevron-down ms-1"></i>
+              </button>
+              
+              <div class="collapse mt-3" id="bbch-manual-form">
+                <form data-form="add-bbch" class="row g-2">
+                  <div class="col-3">
+                    <input type="text" class="form-control form-control-sm" data-input="bbch-code" placeholder="Code" />
                   </div>
-                </div>
-                <div class="col-12">
-                  <button type="submit" class="btn btn-info w-100">
-                    <i class="bi bi-plus-lg me-1"></i>BBCH-Stadium speichern
-                  </button>
-                </div>
-              </form>
+                  <div class="col-7">
+                    <input type="text" class="form-control form-control-sm" data-input="bbch-label" placeholder="Bezeichnung" />
+                  </div>
+                  <div class="col-2">
+                    <button type="submit" class="btn btn-info btn-sm w-100">
+                      <i class="bi bi-plus-lg"></i>
+                    </button>
+                  </div>
+                  <div class="col-12">
+                    <div class="form-check form-check-inline">
+                      <input type="checkbox" class="form-check-input" data-input="bbch-favorite" id="bbch-favorite" />
+                      <label class="form-check-label small" for="bbch-favorite">
+                        <i class="bi bi-star text-warning me-1"></i>Favorit
+                      </label>
+                    </div>
+                  </div>
+                </form>
+              </div>
             </div>
             
             <!-- Saved BBCH List -->
-            <h6 class="mb-3">
-              <i class="bi bi-list-ul me-1"></i>
-              Gespeicherte BBCH-Stadien
-              <span class="badge bg-secondary ms-2" data-count="bbch">${
-                savedBbchList.length
-              }</span>
-            </h6>
-            <div data-role="saved-bbch-list" class="list-group" style="max-height: 400px; overflow-y: auto;">
-              ${renderSavedBbchList()}
-            </div>
+            ${
+              hasBbch
+                ? `
+              <h6 class="mb-2 text-muted small text-uppercase">
+                <i class="bi bi-bookmark-star me-1"></i>
+                Meine Stadien
+              </h6>
+              <div data-role="saved-bbch-list" class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
+                ${renderSavedBbchList()}
+              </div>
+            `
+                : `
+              <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
+                <p class="mb-1">Noch keine Stadien gespeichert</p>
+                <small>Suche oben nach einem Stadium und klicke zum Speichern</small>
+              </div>
+            `
+            }
           </div>
         </div>
       </div>
-    </div>
-    
-    <!-- Info Banner -->
-    <div class="alert alert-info mt-4">
-      <i class="bi bi-lightbulb me-2"></i>
-      <strong>Tipp:</strong> Gespeicherte Codes erscheinen als Schnellauswahl im Berechnungs-Formular. 
-      Häufig verwendete Codes werden automatisch gespeichert und oben angezeigt.
     </div>
   `;
 }
@@ -3747,9 +4016,14 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
 
 // ============================================
 
+export interface InitZulassungOptions {
+  embedded?: boolean;
+}
+
 export function initZulassung(
   target: Element | null,
-  providedServices: Services
+  providedServices: Services,
+  options: InitZulassungOptions = {}
 ): void {
   if (!target || initialized) {
     return;
@@ -3758,6 +4032,10 @@ export function initZulassung(
   container = target as HTMLElement;
   services = providedServices;
   initialized = true;
+  embeddedMode = options.embedded === true;
+
+  // Force visibility in embedded mode
+  isSectionVisible = embeddedMode;
 
   render();
 
@@ -3791,6 +4069,7 @@ export function initZulassung(
  */
 export function resetZulassungInit(): void {
   initialized = false;
+  embeddedMode = false;
   container = null;
   services = null;
 }

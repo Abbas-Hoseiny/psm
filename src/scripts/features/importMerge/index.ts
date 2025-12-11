@@ -108,25 +108,26 @@ function createSection(): HTMLElement {
   const wrapper = document.createElement("div");
   wrapper.className = "section-inner";
   wrapper.innerHTML = `
-    <h2 class="text-center mb-4">Import & Merge</h2>
-    <div class="card card-dark mb-4">
+    <div class="card card-dark">
+      <div class="card-header bg-info bg-opacity-25">
+        <h5 class="mb-0"><i class="bi bi-cloud-upload me-2"></i>Backup importieren</h5>
+      </div>
       <div class="card-body">
-        <p class="text-muted mb-3">
-          Lade hier ZIP- oder JSON-Backups hoch, prüfe die Inhalte und führe sie in deine lokale Datenbank zusammen.
-          Du kannst nach erfolgreichem Import automatisch zur passenden Stelle in der Dokumentation springen.
+        <p class="text-muted small mb-3">
+          ZIP- oder JSON-Backup hochladen und in die Datenbank übernehmen.
         </p>
         <div class="mb-3">
-          <label class="form-label">Backup-Datei (ZIP oder JSON)</label>
+          <label class="form-label">Datei auswählen</label>
           <input type="file" class="form-control" accept=".zip,.json,application/zip,application/json" data-role="import-file" />
         </div>
         <div class="d-flex gap-2 flex-wrap">
-          <button class="btn btn-outline-secondary" data-action="clear-import" disabled>Zurücksetzen</button>
+          <button class="btn btn-outline-secondary btn-sm" data-action="clear-import" disabled>Zurücksetzen</button>
         </div>
         <div class="alert alert-info small mt-3 d-none" data-role="import-hint"></div>
       </div>
     </div>
 
-    <div class="card card-dark d-none" data-role="import-summary-card">
+    <div class="card card-dark mt-4 d-none" data-role="import-summary-card">
       <div class="card-header d-flex flex-column flex-lg-row justify-content-between gap-3">
         <div>
           <strong>Datei:</strong> <span data-role="import-file-name">-</span>
@@ -152,7 +153,7 @@ function createSection(): HTMLElement {
         </div>
         <div class="d-flex justify-content-end mt-3" data-role="import-pager"></div>
         <div class="d-flex flex-wrap gap-2 mt-3">
-          <button class="btn btn-outline-info" data-action="focus-import" disabled>Dokumentation markieren</button>
+          <button class="btn btn-outline-info btn-sm" data-action="focus-import" disabled>Einträge anzeigen</button>
           <button class="btn btn-success" data-action="run-import" disabled>Import starten</button>
         </div>
         <p class="small text-muted mt-2" data-role="import-feedback"></p>
