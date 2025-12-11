@@ -19,6 +19,12 @@ import { saveDatabase, getActiveDriverKey } from "@scripts/core/storage";
 import {
   appendHistoryEntry,
   persistSqliteDatabaseFile,
+  listSavedEppo,
+  listSavedBbch,
+  incrementEppoUsage,
+  incrementBbchUsage,
+  getFrequentEppo,
+  getFrequentBbch,
 } from "@scripts/core/storage/sqlite";
 import {
   buildMediumTableHead,
@@ -40,6 +46,19 @@ import {
   initQsFieldsToggle,
 } from "../shared/qsFields";
 import { renderGuidedInputToggle, initGuidedInput } from "./guidedInput";
+
+// Cached quick select data
+let cachedEppoQuickSelect: Array<{
+  code: string;
+  name: string;
+  isFavorite: boolean;
+}> = [];
+let cachedBbchQuickSelect: Array<{
+  code: string;
+  label: string;
+  isFavorite: boolean;
+}> = [];
+let quickSelectLoaded = false;
 
 interface Services {
   state: {
@@ -213,6 +232,7 @@ function createSection(
               labels.calculation.fields.eppoCode.label
             )}" value="${escapeAttr(formDefaults.eppoCode || "")}" />
             <datalist id="calc-eppo-options"></datalist>
+            <div class="code-dropdown" data-dropdown="eppo" style="display:none;"></div>
           </div>
           <div class="col-md-3">
             <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.bbch.label" data-default-label="${escapeAttr(
@@ -228,6 +248,7 @@ function createSection(
               labels.calculation.fields.bbch.label
             )}" value="${escapeAttr(formDefaults.bbch || "")}" />
             <datalist id="calc-bbch-options"></datalist>
+            <div class="code-dropdown" data-dropdown="bbch" style="display:none;"></div>
           </div>
           <div class="col-md-3">
             <input type="text" class="form-control form-control-sm label-editor mb-2" data-label-editor="calculation.fields.invekos.label" data-default-label="${escapeAttr(
@@ -558,6 +579,289 @@ function setupLookupAutocompletes(section: HTMLElement): void {
   }
 }
 
+// ============================================
+// EPPO/BBCH Quick Select Functions
+// ============================================
+
+async function loadQuickSelectData(forceReload = false): Promise<void> {
+  if (quickSelectLoaded && !forceReload) return;
+
+  try {
+    const [savedEppo, savedBbch, frequentEppo, frequentBbch] =
+      await Promise.all([
+        listSavedEppo({ favoritesOnly: false, limit: 20 }).catch((err) => {
+          console.warn("listSavedEppo failed:", err);
+          return { items: [] };
+        }),
+        listSavedBbch({ favoritesOnly: false, limit: 20 }).catch((err) => {
+          console.warn("listSavedBbch failed:", err);
+          return { items: [] };
+        }),
+        getFrequentEppo({ limit: 5 }).catch(() => ({ items: [] })),
+        getFrequentBbch({ limit: 5 }).catch(() => ({ items: [] })),
+      ]);
+
+    // Combine saved (favorites first) with frequent
+    const eppoMap = new Map<
+      string,
+      { code: string; name: string; isFavorite: boolean }
+    >();
+
+    // Add favorites first
+    for (const item of savedEppo.items.filter((i) => i.isFavorite)) {
+      eppoMap.set(item.code, {
+        code: item.code,
+        name: item.name,
+        isFavorite: true,
+      });
+    }
+    // Add frequent
+    for (const item of frequentEppo.items) {
+      if (!eppoMap.has(item.code)) {
+        eppoMap.set(item.code, {
+          code: item.code,
+          name: item.name,
+          isFavorite: item.isFavorite,
+        });
+      }
+    }
+    // Add remaining saved
+    for (const item of savedEppo.items.filter((i) => !i.isFavorite)) {
+      if (!eppoMap.has(item.code)) {
+        eppoMap.set(item.code, {
+          code: item.code,
+          name: item.name,
+          isFavorite: false,
+        });
+      }
+    }
+    cachedEppoQuickSelect = Array.from(eppoMap.values()).slice(0, 10);
+
+    // Same for BBCH
+    const bbchMap = new Map<
+      string,
+      { code: string; label: string; isFavorite: boolean }
+    >();
+    for (const item of savedBbch.items.filter((i) => i.isFavorite)) {
+      bbchMap.set(item.code, {
+        code: item.code,
+        label: item.label,
+        isFavorite: true,
+      });
+    }
+    for (const item of frequentBbch.items) {
+      if (!bbchMap.has(item.code)) {
+        bbchMap.set(item.code, {
+          code: item.code,
+          label: item.label,
+          isFavorite: item.isFavorite,
+        });
+      }
+    }
+    for (const item of savedBbch.items.filter((i) => !i.isFavorite)) {
+      if (!bbchMap.has(item.code)) {
+        bbchMap.set(item.code, {
+          code: item.code,
+          label: item.label,
+          isFavorite: false,
+        });
+      }
+    }
+    cachedBbchQuickSelect = Array.from(bbchMap.values()).slice(0, 10);
+
+    quickSelectLoaded = true;
+  } catch (error) {
+    console.warn("Failed to load quick select data:", error);
+  }
+}
+
+// ============================================
+// Clean Dropdown System for EPPO/BBCH
+// Shows dropdown on focus, hides on blur/selection
+// ============================================
+
+function renderDropdownContent(type: "eppo" | "bbch"): string {
+  const items = type === "eppo" ? cachedEppoQuickSelect : cachedBbchQuickSelect;
+
+  if (!items.length) {
+    return `
+      <div class="dropdown-empty">
+        <small class="text-muted">
+          <i class="bi bi-info-circle me-1"></i>
+          ${type === "eppo" ? "Keine gespeicherten EPPO-Codes" : "Keine gespeicherten BBCH-Stadien"}
+        </small>
+        <div class="mt-1">
+          <small class="text-muted">Tippen Sie zum Suchen oder speichern Sie Codes unter "Zulassung & Codes"</small>
+        </div>
+      </div>
+    `;
+  }
+
+  const listItems = items
+    .map((item, index) => {
+      const code = item.code;
+      const label = type === "eppo" ? (item as any).name : (item as any).label;
+      const isFav = item.isFavorite;
+
+      return `
+      <button type="button" class="dropdown-item" data-code="${escapeHtml(code)}" data-index="${index}">
+        ${isFav ? '<i class="bi bi-star-fill text-warning me-2"></i>' : '<i class="bi bi-clock-history text-muted me-2"></i>'}
+        <strong>${escapeHtml(code)}</strong>
+        <span class="text-muted ms-2">${escapeHtml(label)}</span>
+      </button>
+    `;
+    })
+    .join("");
+
+  return `
+    <div class="dropdown-header">
+      <small><i class="bi bi-bookmark-star me-1"></i>Gespeicherte ${type === "eppo" ? "Codes" : "Stadien"}</small>
+    </div>
+    ${listItems}
+  `;
+}
+
+function setupCodeDropdowns(section: HTMLElement): void {
+  const eppoInput = section.querySelector<HTMLInputElement>("#calc-eppo");
+  const bbchInput = section.querySelector<HTMLInputElement>("#calc-bbch");
+  const eppoDropdown = section.querySelector<HTMLElement>(
+    '[data-dropdown="eppo"]'
+  );
+  const bbchDropdown = section.querySelector<HTMLElement>(
+    '[data-dropdown="bbch"]'
+  );
+
+  let activeDropdown: HTMLElement | null = null;
+
+  const showDropdown = (dropdown: HTMLElement, type: "eppo" | "bbch") => {
+    if (!dropdown) return;
+    dropdown.innerHTML = renderDropdownContent(type);
+    dropdown.style.display = "block";
+    activeDropdown = dropdown;
+  };
+
+  const hideDropdown = (dropdown: HTMLElement | null) => {
+    if (dropdown) {
+      dropdown.style.display = "none";
+    }
+    if (activeDropdown === dropdown) {
+      activeDropdown = null;
+    }
+  };
+
+  const hideAllDropdowns = () => {
+    hideDropdown(eppoDropdown);
+    hideDropdown(bbchDropdown);
+  };
+
+  // EPPO Input handlers
+  if (eppoInput && eppoDropdown) {
+    eppoInput.addEventListener("focus", () => {
+      if (!eppoInput.value.trim()) {
+        showDropdown(eppoDropdown, "eppo");
+      }
+    });
+
+    eppoInput.addEventListener("input", () => {
+      // Hide dropdown when user starts typing (autocomplete takes over)
+      if (eppoInput.value.trim().length > 0) {
+        hideDropdown(eppoDropdown);
+      } else {
+        showDropdown(eppoDropdown, "eppo");
+      }
+    });
+
+    eppoDropdown.addEventListener("mousedown", (e) => {
+      // Prevent blur from firing before click
+      e.preventDefault();
+    });
+
+    eppoDropdown.addEventListener("click", (e) => {
+      const item = (e.target as HTMLElement).closest<HTMLElement>(
+        ".dropdown-item"
+      );
+      if (item && item.dataset.code) {
+        eppoInput.value = item.dataset.code;
+        eppoInput.dispatchEvent(new Event("change", { bubbles: true }));
+        hideDropdown(eppoDropdown);
+        eppoInput.blur();
+      }
+    });
+  }
+
+  // BBCH Input handlers
+  if (bbchInput && bbchDropdown) {
+    bbchInput.addEventListener("focus", () => {
+      if (!bbchInput.value.trim()) {
+        showDropdown(bbchDropdown, "bbch");
+      }
+    });
+
+    bbchInput.addEventListener("input", () => {
+      if (bbchInput.value.trim().length > 0) {
+        hideDropdown(bbchDropdown);
+      } else {
+        showDropdown(bbchDropdown, "bbch");
+      }
+    });
+
+    bbchDropdown.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+    });
+
+    bbchDropdown.addEventListener("click", (e) => {
+      const item = (e.target as HTMLElement).closest<HTMLElement>(
+        ".dropdown-item"
+      );
+      if (item && item.dataset.code) {
+        bbchInput.value = item.dataset.code;
+        bbchInput.dispatchEvent(new Event("change", { bubbles: true }));
+        hideDropdown(bbchDropdown);
+        bbchInput.blur();
+      }
+    });
+  }
+
+  // Hide dropdowns on blur (with small delay to allow click)
+  const handleBlur = (dropdown: HTMLElement | null) => {
+    setTimeout(() => {
+      if (
+        document.activeElement !== eppoInput &&
+        document.activeElement !== bbchInput
+      ) {
+        hideDropdown(dropdown);
+      }
+    }, 150);
+  };
+
+  eppoInput?.addEventListener("blur", () => handleBlur(eppoDropdown));
+  bbchInput?.addEventListener("blur", () => handleBlur(bbchDropdown));
+
+  // Close on outside click
+  document.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    if (
+      !target.closest("#calc-eppo") &&
+      !target.closest('[data-dropdown="eppo"]')
+    ) {
+      hideDropdown(eppoDropdown);
+    }
+    if (
+      !target.closest("#calc-bbch") &&
+      !target.closest('[data-dropdown="bbch"]')
+    ) {
+      hideDropdown(bbchDropdown);
+    }
+  });
+
+  // Load data
+  void loadQuickSelectData().then(() => {
+    // Data ready for dropdowns
+  });
+}
+
+// ============================================
+
 function applyFieldLabels(section: HTMLElement, labels: Labels): void {
   const labelMap: Record<string, string> = {
     "calc-form-creator": labels.calculation.fields.creator.label,
@@ -828,6 +1132,7 @@ export function initCalculation(
 
   applyFieldLabels(section, initialState.fieldLabels);
   setupLookupAutocompletes(section);
+  setupCodeDropdowns(section);
 
   const form = section.querySelector<HTMLFormElement>("#calculationForm");
   const resultCard = section.querySelector<HTMLDivElement>("#calc-result");
@@ -1137,6 +1442,13 @@ export function initCalculation(
     }
   );
 
+  // Listen for saved codes changes (from Zulassung & Codes tab)
+  services.events.subscribe("savedCodes:changed", async () => {
+    quickSelectLoaded = false;
+    await loadQuickSelectData(true);
+    // Dropdown content will be refreshed on next focus
+  });
+
   section
     .querySelectorAll<HTMLInputElement>(".label-editor")
     .forEach((input) => {
@@ -1349,6 +1661,18 @@ export function initCalculation(
     }));
 
     services.state.updateSlice("calcContext", () => calculation);
+
+    // Track EPPO/BBCH usage for frequently used suggestions
+    if (rawEppo) {
+      incrementEppoUsage({ code: rawEppo }).catch(() => {
+        // Ignore errors - usage tracking is non-critical
+      });
+    }
+    if (rawBbch) {
+      incrementBbchUsage({ code: rawBbch }).catch(() => {
+        // Ignore errors - usage tracking is non-critical
+      });
+    }
   });
 
   function mapCalculationToSnapshotEntry(

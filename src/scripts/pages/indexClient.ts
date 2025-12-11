@@ -9,9 +9,6 @@ import { initStartup } from "@scripts/features/startup";
 import { initDocumentation } from "@scripts/features/documentation";
 import { initImportMerge } from "@scripts/features/importMerge";
 import { initSettings } from "@scripts/features/settings";
-import { initZulassung } from "@scripts/features/zulassung";
-import { initLookup } from "@scripts/features/lookup";
-import { initGps } from "@scripts/features/gps";
 import type { AppState } from "@scripts/core/state";
 
 function initIndex(): void {
@@ -45,14 +42,6 @@ function initIndex(): void {
   initImportMerge(importMergeContainer, services);
   const settingsContainer = document.querySelector('[data-feature="settings"]');
   initSettings(settingsContainer, services);
-  const zulassungContainer = document.querySelector(
-    '[data-feature="zulassung"]'
-  );
-  initZulassung(zulassungContainer, services);
-  const lookupContainer = document.querySelector('[data-feature="lookup"]');
-  initLookup(lookupContainer, services);
-  const gpsContainer = document.querySelector('[data-feature="gps"]');
-  initGps(gpsContainer, services);
 
   const updateBodyBackground = (hasDatabase: boolean) => {
     const bodyEl = document.body;

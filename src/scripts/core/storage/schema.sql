@@ -179,3 +179,37 @@ CREATE TABLE IF NOT EXISTS archive_logs (
 
 CREATE INDEX IF NOT EXISTS idx_archive_logs_archived_at
   ON archive_logs(archived_at DESC, id DESC);
+
+-- Saved EPPO codes (user favorites for quick selection)
+CREATE TABLE IF NOT EXISTS saved_eppo_codes (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  language TEXT,
+  dtcode TEXT,
+  usage_count INTEGER NOT NULL DEFAULT 0,
+  is_favorite INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_eppo_code ON saved_eppo_codes(code);
+CREATE INDEX IF NOT EXISTS idx_saved_eppo_favorite ON saved_eppo_codes(is_favorite DESC, usage_count DESC);
+CREATE INDEX IF NOT EXISTS idx_saved_eppo_usage ON saved_eppo_codes(usage_count DESC);
+
+-- Saved BBCH stages (user favorites for quick selection)
+CREATE TABLE IF NOT EXISTS saved_bbch_stages (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  label TEXT NOT NULL,
+  principal_stage INTEGER,
+  secondary_stage INTEGER,
+  usage_count INTEGER NOT NULL DEFAULT 0,
+  is_favorite INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_bbch_code ON saved_bbch_stages(code);
+CREATE INDEX IF NOT EXISTS idx_saved_bbch_favorite ON saved_bbch_stages(is_favorite DESC, usage_count DESC);
+CREATE INDEX IF NOT EXISTS idx_saved_bbch_usage ON saved_bbch_stages(usage_count DESC);

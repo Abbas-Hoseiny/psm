@@ -7,12 +7,21 @@ import {
 import { syncBvlData } from "@scripts/core/bvlSync";
 import { checkForUpdates } from "@scripts/core/bvlDataset";
 import * as storage from "@scripts/core/storage/sqlite";
-import { escapeHtml } from "@scripts/core/utils";
+import { escapeHtml, debounce } from "@scripts/core/utils";
 import {
   createPagerWidget,
   type PagerDirection,
   type PagerWidget,
 } from "@scripts/features/shared/pagerWidget";
+import {
+  searchEppoSuggestions,
+  searchBbchSuggestions,
+} from "@scripts/core/lookups";
+
+// Saved EPPO/BBCH state for the codes manager
+let savedEppoList: storage.SavedEppoRecord[] = [];
+let savedBbchList: storage.SavedBbchRecord[] = [];
+let codesManagerInitialized = false;
 
 declare const bootstrap:
   | {
@@ -235,7 +244,9 @@ function formatAddressDetails(
     const email = String(adresse.e_mail).trim();
     if (email) {
       contactParts.push(
-        `E-Mail: <a href="mailto:${encodeURIComponent(email)}" class="text-decoration-none">${escapeHtml(email)}</a>`
+        `E-Mail: <a href="mailto:${encodeURIComponent(
+          email
+        )}" class="text-decoration-none">${escapeHtml(email)}</a>`
       );
     }
   }
@@ -245,7 +256,9 @@ function formatAddressDetails(
     const url = String(website).trim();
     if (url) {
       contactParts.push(
-        `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>Website</a>`
+        `<a href="${escapeHtml(
+          url
+        )}" target="_blank" rel="noopener" class="text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>Website</a>`
       );
     }
   }
@@ -506,19 +519,56 @@ function render(): void {
 
   const state = services.state.getState();
   const zulassungState = state.zulassung;
+  const activeTab =
+    (section.dataset.activeTab as "zulassung" | "codes") || "zulassung";
 
   section.innerHTML = `
     <div class="container py-4">
-      <h2>BVL Zulassungsdaten</h2>
-      ${renderStatusSection(zulassungState)}
-      ${renderSyncSection(zulassungState)}
-      ${renderFilterSection(zulassungState)}
-      ${renderResultsSection(zulassungState)}
-      ${renderDebugSection(zulassungState)}
+      <h2 class="mb-4">
+        <i class="bi bi-file-earmark-check me-2"></i>
+        Zulassung & Codes
+      </h2>
+      
+      <!-- Tab Navigation -->
+      <ul class="nav nav-tabs mb-4" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link ${activeTab === "zulassung" ? "active" : ""}" 
+                  data-tab="zulassung" type="button" role="tab">
+            <i class="bi bi-file-text me-1"></i>BVL Zulassung
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link ${activeTab === "codes" ? "active" : ""}" 
+                  data-tab="codes" type="button" role="tab">
+            <i class="bi bi-bookmark-star me-1"></i>EPPO & BBCH Codes
+          </button>
+        </li>
+      </ul>
+      
+      <!-- Zulassung Tab Content -->
+      <div class="tab-content">
+        <div class="tab-pane ${
+          activeTab === "zulassung" ? "show active" : "d-none"
+        }" data-tab-content="zulassung">
+          ${renderStatusSection(zulassungState)}
+          ${renderSyncSection(zulassungState)}
+          ${renderFilterSection(zulassungState)}
+          ${renderResultsSection(zulassungState)}
+          ${renderDebugSection(zulassungState)}
+        </div>
+        
+        <!-- EPPO/BBCH Codes Tab Content -->
+        <div class="tab-pane ${
+          activeTab === "codes" ? "show active" : "d-none"
+        }" data-tab-content="codes">
+          ${renderCodesManagerSection()}
+        </div>
+      </div>
     </div>
   `;
 
   attachEventHandlers(section);
+  attachCodesManagerHandlers(section);
   updateResultsPager(section);
 }
 
@@ -547,18 +597,34 @@ function renderStatusSection(zulassungState: ZulassungState): string {
       <div class="d-flex justify-content-between align-items-start">
         <div>
           <i class="bi bi-check-circle-fill me-2"></i>
-          <strong>Letzte Synchronisation:</strong> ${escapeHtml(lastSyncDate)}<br>
+          <strong>Letzte Synchronisation:</strong> ${escapeHtml(
+            lastSyncDate
+          )}<br>
           <strong>Datenquelle:</strong> ${escapeHtml(dataSource)}<br>
-          ${manifestVersion ? `<strong>Version:</strong> ${escapeHtml(manifestVersion)}<br>` : ""}
-          ${apiStand ? `<strong>API-Stand:</strong> ${escapeHtml(apiStand)}<br>` : ""}
-          ${lastSyncHash ? `<small class="text-muted">Hash: ${escapeHtml(lastSyncHash.substring(0, 12))}...</small><br>` : ""}
+          ${
+            manifestVersion
+              ? `<strong>Version:</strong> ${escapeHtml(manifestVersion)}<br>`
+              : ""
+          }
+          ${
+            apiStand
+              ? `<strong>API-Stand:</strong> ${escapeHtml(apiStand)}<br>`
+              : ""
+          }
+          ${
+            lastSyncHash
+              ? `<small class="text-muted">Hash: ${escapeHtml(
+                  lastSyncHash.substring(0, 12)
+                )}...</small><br>`
+              : ""
+          }
           <small class="mt-1 d-block">
             <i class="bi bi-database me-1"></i>
-            Mittel: ${totalMittel}, Anwendungen: ${counts.awg || counts.bvl_awg || 0}, Kulturen: ${
+            Mittel: ${totalMittel}, Anwendungen: ${
+              counts.awg || counts.bvl_awg || 0
+            }, Kulturen: ${
               counts.awg_kultur || counts.bvl_awg_kultur || 0
-            }, Schadorganismen: ${
-              counts.awg_schadorg || counts.bvl_awg_schadorg || 0
-            }
+            }, Schadorganismen: ${counts.awg_schadorg || counts.bvl_awg_schadorg || 0}
           </small>
         </div>
       </div>
@@ -610,7 +676,9 @@ function renderSyncSection(zulassungState: ZulassungState): string {
             <i class="bi bi-exclamation-triangle-fill me-2"></i>
             <div class="flex-grow-1">
               <strong>Neue Daten verfügbar!</strong><br>
-              <small>Version ${escapeHtml(zulassungState.autoUpdateVersion || "unbekannt")} ist verfügbar.</small>
+              <small>Version ${escapeHtml(
+                zulassungState.autoUpdateVersion || "unbekannt"
+              )} ist verfügbar.</small>
             </div>
             <button class="btn btn-warning btn-sm ms-2" id="btn-apply-update">
               <i class="bi bi-download me-1"></i>Jetzt aktualisieren
@@ -619,7 +687,9 @@ function renderSyncSection(zulassungState: ZulassungState): string {
         `
             : ""
         }
-        <button id="btn-sync" class="btn btn-primary" ${isBusy ? "disabled" : ""}>
+        <button id="btn-sync" class="btn btn-primary" ${
+          isBusy ? "disabled" : ""
+        }>
           ${
             isBusy
               ? `<span class="spinner-border spinner-border-sm me-2"></span><i class="${
@@ -636,11 +706,17 @@ function renderSyncSection(zulassungState: ZulassungState): string {
             <div class="d-flex justify-content-between align-items-center mb-2">
               <small class="text-muted">
                 <i class="${currentStep?.icon || "bi-arrow-repeat"} me-1"></i>
-                ${escapeHtml(currentStep?.label || "Verarbeite")}: ${escapeHtml(progress.message)}
+                ${escapeHtml(currentStep?.label || "Verarbeite")}: ${escapeHtml(
+                  progress.message
+                )}
               </small>
               <small class="text-muted">${progress.percent}%</small>
             </div>
-            <div class="progress" style="height: 20px;" role="progressbar" aria-valuenow="${progress.percent}" aria-valuemin="0" aria-valuemax="100" title="${escapeHtml(progress.message)}">
+            <div class="progress" style="height: 20px;" role="progressbar" aria-valuenow="${
+              progress.percent
+            }" aria-valuemin="0" aria-valuemax="100" title="${escapeHtml(
+              progress.message
+            )}">
               <div class="progress-bar progress-bar-striped progress-bar-animated ${
                 currentStep?.color || "bg-primary"
               }" style="width: ${progress.percent}%">
@@ -685,7 +761,9 @@ function renderFilterSection(zulassungState: ZulassungState): string {
         <div class="row g-3">
           <div class="col-12">
             <label for="filter-text" class="form-label">Schnellsuche</label>
-            <input type="search" id="filter-text" class="form-control" placeholder="Mittel, Kultur- oder Schaderreger-Name" value="${escapeHtml(filters.text || "")}">
+            <input type="search" id="filter-text" class="form-control" placeholder="Mittel, Kultur- oder Schaderreger-Name" value="${escapeHtml(
+              filters.text || ""
+            )}">
             <small class="form-text text-muted">Durchsucht Mittelname, Kennnummer sowie Klartexte der Kulturen und Schadorganismen.</small>
           </div>
           <div class="col-md-4">
@@ -699,7 +777,9 @@ function renderFilterSection(zulassungState: ZulassungState): string {
                   (culture: any) =>
                     `<option value="${escapeHtml(culture.code)}" ${
                       filters.culture === culture.code ? "selected" : ""
-                    }>${escapeHtml(culture.label || culture.code)} (${escapeHtml(culture.code)})</option>`
+                    }>${escapeHtml(
+                      culture.label || culture.code
+                    )} (${escapeHtml(culture.code)})</option>`
                 )
                 .join("")}
             </select>
@@ -715,7 +795,9 @@ function renderFilterSection(zulassungState: ZulassungState): string {
                   (pest: any) =>
                     `<option value="${escapeHtml(pest.code)}" ${
                       filters.pest === pest.code ? "selected" : ""
-                    }>${escapeHtml(pest.label || pest.code)} (${escapeHtml(pest.code)})</option>`
+                    }>${escapeHtml(pest.label || pest.code)} (${escapeHtml(
+                      pest.code
+                    )})</option>`
                 )
                 .join("")}
             </select>
@@ -723,7 +805,9 @@ function renderFilterSection(zulassungState: ZulassungState): string {
           <div class="col-md-4">
             <label class="form-label d-block">&nbsp;</label>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="filter-expired" ${filters.includeExpired ? "checked" : ""}>
+              <input class="form-check-input" type="checkbox" id="filter-expired" ${
+                filters.includeExpired ? "checked" : ""
+              }>
               <label class="form-check-label" for="filter-expired">
                 <i class="bi bi-clock-history me-1"></i>
                 Abgelaufene Zulassungen einschließen
@@ -732,7 +816,9 @@ function renderFilterSection(zulassungState: ZulassungState): string {
           </div>
         </div>
         <div class="mt-3">
-          <button id="btn-search" class="btn btn-primary" ${disableSearch ? "disabled" : ""}>
+          <button id="btn-search" class="btn btn-primary" ${
+            disableSearch ? "disabled" : ""
+          }>
             <i class="bi bi-search me-1"></i>Suchen
           </button>
           <button id="btn-clear-filters" class="btn btn-secondary ms-2">
@@ -754,7 +840,9 @@ function renderResultsSection(zulassungState: ZulassungState): string {
     content = `
       <div class="alert alert-danger mb-0">
         <i class="bi bi-exclamation-triangle-fill me-2"></i>
-        ${escapeHtml(resultError || "Suche fehlgeschlagen. Bitte erneut versuchen.")}
+        ${escapeHtml(
+          resultError || "Suche fehlgeschlagen. Bitte erneut versuchen."
+        )}
       </div>
     `;
   } else if (resultStatus === "loading" && !hasItems) {
@@ -773,7 +861,9 @@ function renderResultsSection(zulassungState: ZulassungState): string {
   } else {
     content = `
       <div class="list-group">
-        ${items.map((result) => renderResultItem(result as ReportingResult)).join("")}
+        ${items
+          .map((result) => renderResultItem(result as ReportingResult))
+          .join("")}
       </div>
     `;
   }
@@ -805,9 +895,9 @@ function formatResultRange(results: ZulassungState["results"]): string | null {
     typeof results.totalCount === "number"
       ? ` von ${pagerNumberFormatter.format(results.totalCount)}`
       : "";
-  return `Einträge ${pagerNumberFormatter.format(startIndex)}–${pagerNumberFormatter.format(
-    endIndex
-  )}${totalText}`;
+  return `Einträge ${pagerNumberFormatter.format(
+    startIndex
+  )}–${pagerNumberFormatter.format(endIndex)}${totalText}`;
 }
 
 function ensureResultsPager(section: HTMLElement): PagerWidget | null {
@@ -963,24 +1053,38 @@ function renderResultItem(result: ReportingResult): string {
           <button class="btn btn-success btn-sm" data-action="add-to-mediums" data-medium-info="${addToMediumData}" title="Zu Mitteln hinzufügen">
             <i class="bi bi-plus-lg"></i>
           </button>
-          <small class="text-muted">AWG: ${escapeHtml(result.awg_id || "-")}</small>
+          <small class="text-muted">AWG: ${escapeHtml(
+            result.awg_id || "-"
+          )}</small>
         </div>
       </div>
       <div class="mb-2">
-        <strong>Zulassungsnummer:</strong> ${escapeHtml(result.kennr || "-")}<br>
-        <strong>Formulierung:</strong> ${escapeHtml(result.formulierung || "-")}<br>
+        <strong>Zulassungsnummer:</strong> ${escapeHtml(
+          result.kennr || "-"
+        )}<br>
+        <strong>Formulierung:</strong> ${escapeHtml(
+          result.formulierung || "-"
+        )}<br>
         <strong>Status:</strong> ${escapeHtml(status.status || "-")}
       </div>
       <div class="mb-2">
-        ${result.geringes_risiko ? '<span class="badge bg-success me-1"><i class="bi bi-shield-check me-1"></i>Geringes Risiko</span>' : ""}
+        ${
+          result.geringes_risiko
+            ? '<span class="badge bg-success me-1"><i class="bi bi-shield-check me-1"></i>Geringes Risiko</span>'
+            : ""
+        }
         ${
           result.zul_ende
-            ? `<span class="badge bg-warning text-dark me-1"><i class="bi bi-calendar-event me-1"></i>Gültig bis: ${escapeHtml(result.zul_ende)}</span>`
+            ? `<span class="badge bg-warning text-dark me-1"><i class="bi bi-calendar-event me-1"></i>Gültig bis: ${escapeHtml(
+                result.zul_ende
+              )}</span>`
             : ""
         }
         ${
           result.zulassungsende
-            ? `<span class="badge bg-info text-dark me-1"><i class="bi bi-calendar-range me-1"></i>Anwendung gültig bis: ${escapeHtml(result.zulassungsende)}</span>`
+            ? `<span class="badge bg-info text-dark me-1"><i class="bi bi-calendar-range me-1"></i>Anwendung gültig bis: ${escapeHtml(
+                result.zulassungsende
+              )}</span>`
             : ""
         }
       </div>
@@ -1029,7 +1133,11 @@ function renderResultWirkstoffe(result: ReportingResult): string {
       return `
         <li>
           ${escapeHtml(entry.wirkstoff_name || entry.wirkstoff || "-")}
-          ${entry.gehalt ? ` - ${escapeHtml(gehaltStr)} ${escapeHtml(entry.einheit || "")}` : ""}
+          ${
+            entry.gehalt
+              ? ` - ${escapeHtml(gehaltStr)} ${escapeHtml(entry.einheit || "")}`
+              : ""
+          }
         </li>
       `;
     })
@@ -1084,16 +1192,22 @@ function renderResultVertrieb(result: ReportingResult): string {
       );
       const websiteLink =
         websiteSource && String(websiteSource).trim()
-          ? ` <a href="${escapeHtml(String(websiteSource).trim())}" target="_blank" rel="noopener" class="text-decoration-none"><i class="bi bi-box-arrow-up-right"></i></a>`
+          ? ` <a href="${escapeHtml(
+              String(websiteSource).trim()
+            )}" target="_blank" rel="noopener" class="text-decoration-none"><i class="bi bi-box-arrow-up-right"></i></a>`
           : "";
 
       const addressDetails = formatAddressDetails(adresse);
       const fallbackReference =
         !addressDetails && keyCandidate
-          ? `<div class="text-muted small mt-1">Nr.: ${escapeHtml(String(keyCandidate))}</div>`
+          ? `<div class="text-muted small mt-1">Nr.: ${escapeHtml(
+              String(keyCandidate)
+            )}</div>`
           : "";
 
-      return `<div class="mb-2"><div class="small fw-semibold">${escapeHtml(displayName)}${websiteLink}</div>${addressDetails || fallbackReference}</div>`;
+      return `<div class="mb-2"><div class="small fw-semibold">${escapeHtml(
+        displayName
+      )}${websiteLink}</div>${addressDetails || fallbackReference}</div>`;
     })
     .filter((entry): entry is string => Boolean(entry))
     .join("");
@@ -1123,8 +1237,12 @@ function renderResultGefahrhinweise(result: ReportingResult): string {
       const code = hint.hinweis_kode || hint.h_code || hint.h_saetze || "";
       const text = hint.hinweis_text || hint.text || "";
       return `
-        <span class="badge bg-danger" title="${escapeHtml(text)}" data-bs-toggle="tooltip">
-          ${escapeHtml(code)}${text ? ' <i class="bi bi-info-circle-fill ms-1"></i>' : ""}
+        <span class="badge bg-danger" title="${escapeHtml(
+          text
+        )}" data-bs-toggle="tooltip">
+          ${escapeHtml(code)}${
+            text ? ' <i class="bi bi-info-circle-fill ms-1"></i>' : ""
+          }
         </span>
       `;
     })
@@ -1241,9 +1359,9 @@ function renderResultZusatzstoffe(result: ReportingResult): string {
         metaParts.push(`Nr.: ${escapeHtml(applicantNr)}`);
       }
 
-      return `<li><span class="fw-semibold">${escapeHtml(
-        name || "-"
-      )}</span>${metaParts.length ? ` – ${metaParts.join(" · ")}` : ""}</li>`;
+      return `<li><span class="fw-semibold">${escapeHtml(name || "-")}</span>${
+        metaParts.length ? ` – ${metaParts.join(" · ")}` : ""
+      }</li>`;
     })
     .filter((entry): entry is string => Boolean(entry))
     .join("");
@@ -1340,9 +1458,9 @@ function renderResultStaerkung(result: ReportingResult): string {
         metaParts.push(`Nr.: ${escapeHtml(applicantNr)}`);
       }
 
-      return `<li><span class="fw-semibold">${escapeHtml(
-        name || "-"
-      )}</span>${metaParts.length ? ` – ${metaParts.join(" · ")}` : ""}</li>`;
+      return `<li><span class="fw-semibold">${escapeHtml(name || "-")}</span>${
+        metaParts.length ? ` – ${metaParts.join(" · ")}` : ""
+      }</li>`;
     })
     .filter((entry): entry is string => Boolean(entry))
     .join("");
@@ -1549,7 +1667,9 @@ function renderResultGefahrensymbole(result: ReportingResult): string {
   const badges = unique
     .map(
       (code) =>
-        `<span class="badge bg-dark text-light border border-light">${escapeHtml(code)}</span>`
+        `<span class="badge bg-dark text-light border border-light">${escapeHtml(
+          code
+        )}</span>`
     )
     .join(" ");
 
@@ -1822,7 +1942,9 @@ function renderResultAuflagen(result: ReportingResult): string {
                 if (!parts.length) {
                   return null;
                 }
-                return `<span class="badge bg-light text-dark border">${parts.join(" – ")}</span>`;
+                return `<span class="badge bg-light text-dark border">${parts.join(
+                  " – "
+                )}</span>`;
               })
               .filter((redu: string | null): redu is string => Boolean(redu))
               .join(" ")
@@ -2217,7 +2339,9 @@ function renderResultKulturen(result: ReportingResult): string {
   const badges = result.kulturen
     .map(
       (entry) =>
-        `<span class="badge ${entry.ausgenommen ? "bg-danger" : "bg-info"}" title="${escapeHtml(entry.kultur)}">${escapeHtml(
+        `<span class="badge ${
+          entry.ausgenommen ? "bg-danger" : "bg-info"
+        }" title="${escapeHtml(entry.kultur)}">${escapeHtml(
           entry.label || entry.kultur
         )}${entry.ausgenommen ? " (ausgenommen)" : ""}</span>`
     )
@@ -2242,7 +2366,9 @@ function renderResultSchadorganismen(result: ReportingResult): string {
   const badges = result.schadorganismen
     .map(
       (entry) =>
-        `<span class="badge ${entry.ausgenommen ? "bg-danger" : "bg-secondary"}" title="${escapeHtml(entry.schadorg)}">${escapeHtml(
+        `<span class="badge ${
+          entry.ausgenommen ? "bg-danger" : "bg-secondary"
+        }" title="${escapeHtml(entry.schadorg)}">${escapeHtml(
           entry.label || entry.schadorg
         )}${entry.ausgenommen ? " (ausgenommen)" : ""}</span>`
     )
@@ -2285,7 +2411,9 @@ function renderResultWartezeiten(result: ReportingResult): string {
         : "";
       return `
         <li>
-          ${escapeHtml(entry.kultur_label || entry.kultur)}: ${escapeHtml(entry.tage || "-")} Tage${anwendungsbereich}
+          ${escapeHtml(entry.kultur_label || entry.kultur)}: ${escapeHtml(
+            entry.tage || "-"
+          )} Tage${anwendungsbereich}
         </li>
       `;
     })
@@ -2323,7 +2451,9 @@ function renderDebugSection(zulassungState: ZulassungState): string {
           <strong>Zeit:</strong> ${escapeHtml(
             new Date(debug.lastAutoUpdateCheck.time).toLocaleString("de-DE")
           )}<br>
-          <strong>Ergebnis:</strong> ${escapeHtml(debug.lastAutoUpdateCheck.result || "OK")}
+          <strong>Ergebnis:</strong> ${escapeHtml(
+            debug.lastAutoUpdateCheck.result || "OK"
+          )}
         </p>
       </div>
     `
@@ -2335,7 +2465,9 @@ function renderDebugSection(zulassungState: ZulassungState): string {
           .map(
             (log: SyncLogEntry) => `
             <tr>
-              <td><small>${escapeHtml(new Date(log.synced_at).toLocaleString("de-DE"))}</small></td>
+              <td><small>${escapeHtml(
+                new Date(log.synced_at).toLocaleString("de-DE")
+              )}</small></td>
               <td>${
                 log.ok
                   ? '<span class="badge bg-success"><i class="bi bi-check-lg"></i> OK</span>'
@@ -2360,7 +2492,9 @@ function renderDebugSection(zulassungState: ZulassungState): string {
                 : log.level === "debug"
                   ? "bg-secondary"
                   : "bg-primary";
-          return `<div><span class="badge ${badgeClass} me-1">${escapeHtml(log.level.toUpperCase())}</span> ${escapeHtml(log.message)}</div>`;
+          return `<div><span class="badge ${badgeClass} me-1">${escapeHtml(
+            log.level.toUpperCase()
+          )}</span> ${escapeHtml(log.message)}</div>`;
         })
         .join("")
     : "";
@@ -2369,7 +2503,9 @@ function renderDebugSection(zulassungState: ZulassungState): string {
     ? `
       <div class="mt-3">
         <h6><i class="bi bi-diagram-3 me-1"></i>Schema-Informationen</h6>
-        <p><strong>User Version:</strong> ${escapeHtml(debug.schema.user_version)}</p>
+        <p><strong>User Version:</strong> ${escapeHtml(
+          debug.schema.user_version
+        )}</p>
         <details>
           <summary class="btn btn-sm btn-outline-secondary">Tabellen anzeigen</summary>
           <pre class="bg-dark text-light p-2 mt-2" style="font-size: 11px; max-height: 400px; overflow-y: auto;">${escapeHtml(
@@ -2980,6 +3116,637 @@ function handleClearFilters(): void {
   resetSearchResults();
 }
 
+// ============================================
+// EPPO/BBCH Codes Manager Section
+// ============================================
+
+async function loadSavedCodes(): Promise<void> {
+  try {
+    const [eppoResult, bbchResult] = await Promise.all([
+      storage.listSavedEppo({ limit: 100 }),
+      storage.listSavedBbch({ limit: 100 }),
+    ]);
+    savedEppoList = eppoResult.items || [];
+    savedBbchList = bbchResult.items || [];
+
+    // Emit event to notify other components (e.g., Calculation form quick select)
+    services?.events?.emit?.("savedCodes:changed", {
+      eppoCount: savedEppoList.length,
+      bbchCount: savedBbchList.length,
+    });
+  } catch (error) {
+    console.error("Failed to load saved codes:", error);
+    savedEppoList = [];
+    savedBbchList = [];
+  }
+}
+
+function renderCodesManagerSection(): string {
+  return `
+    <div class="row g-4">
+      <!-- EPPO Codes Section -->
+      <div class="col-lg-6">
+        <div class="card card-dark h-100">
+          <div class="card-header bg-success bg-opacity-25">
+            <h5 class="mb-0">
+              <i class="bi bi-flower1 me-2"></i>
+              EPPO-Codes (Pflanzen/Kulturen)
+            </h5>
+          </div>
+          <div class="card-body">
+            <!-- Add new EPPO -->
+            <div class="mb-4 p-3 bg-dark rounded">
+              <h6 class="text-success mb-3">
+                <i class="bi bi-plus-circle me-1"></i>
+                Neuen EPPO-Code speichern
+              </h6>
+              <form data-form="add-eppo" class="row g-2">
+                <div class="col-12">
+                  <label class="form-label small">EPPO-Code suchen</label>
+                  <input type="text" class="form-control form-control-lg" 
+                         data-input="eppo-search" 
+                         placeholder="🔍 Suchen: z.B. Tomate, SOLLY, Apfel..."
+                         autocomplete="off" />
+                  <div class="form-text">Tippen Sie mindestens 2 Zeichen um zu suchen</div>
+                </div>
+                <div class="col-12">
+                  <div data-role="eppo-search-results" class="list-group mt-2" style="max-height: 200px; overflow-y: auto;"></div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label small">Code</label>
+                  <input type="text" class="form-control" data-input="eppo-code" placeholder="SOLLY" readonly />
+                </div>
+                <div class="col-6">
+                  <label class="form-label small">Name</label>
+                  <input type="text" class="form-control" data-input="eppo-name" placeholder="Tomate" />
+                </div>
+                <div class="col-12">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" data-input="eppo-favorite" id="eppo-favorite" />
+                    <label class="form-check-label" for="eppo-favorite">
+                      <i class="bi bi-star-fill text-warning me-1"></i>Als Favorit markieren
+                    </label>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <button type="submit" class="btn btn-success w-100">
+                    <i class="bi bi-plus-lg me-1"></i>EPPO-Code speichern
+                  </button>
+                </div>
+              </form>
+            </div>
+            
+            <!-- Saved EPPO List -->
+            <h6 class="mb-3">
+              <i class="bi bi-list-ul me-1"></i>
+              Gespeicherte EPPO-Codes
+              <span class="badge bg-secondary ms-2" data-count="eppo">${
+                savedEppoList.length
+              }</span>
+            </h6>
+            <div data-role="saved-eppo-list" class="list-group" style="max-height: 400px; overflow-y: auto;">
+              ${renderSavedEppoList()}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- BBCH Codes Section -->
+      <div class="col-lg-6">
+        <div class="card card-dark h-100">
+          <div class="card-header bg-info bg-opacity-25">
+            <h5 class="mb-0">
+              <i class="bi bi-bar-chart-steps me-2"></i>
+              BBCH-Stadien (Wachstum)
+            </h5>
+          </div>
+          <div class="card-body">
+            <!-- Add new BBCH -->
+            <div class="mb-4 p-3 bg-dark rounded">
+              <h6 class="text-info mb-3">
+                <i class="bi bi-plus-circle me-1"></i>
+                Neues BBCH-Stadium speichern
+              </h6>
+              <form data-form="add-bbch" class="row g-2">
+                <div class="col-12">
+                  <label class="form-label small">BBCH-Stadium suchen</label>
+                  <input type="text" class="form-control form-control-lg" 
+                         data-input="bbch-search" 
+                         placeholder="🔍 Suchen: z.B. Blüte, 65, Ernte..."
+                         autocomplete="off" />
+                  <div class="form-text">Tippen Sie mindestens 1 Zeichen um zu suchen</div>
+                </div>
+                <div class="col-12">
+                  <div data-role="bbch-search-results" class="list-group mt-2" style="max-height: 200px; overflow-y: auto;"></div>
+                </div>
+                <div class="col-4">
+                  <label class="form-label small">Code</label>
+                  <input type="text" class="form-control" data-input="bbch-code" placeholder="65" />
+                </div>
+                <div class="col-8">
+                  <label class="form-label small">Bezeichnung</label>
+                  <input type="text" class="form-control" data-input="bbch-label" placeholder="Vollblüte" />
+                </div>
+                <div class="col-12">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" data-input="bbch-favorite" id="bbch-favorite" />
+                    <label class="form-check-label" for="bbch-favorite">
+                      <i class="bi bi-star-fill text-warning me-1"></i>Als Favorit markieren
+                    </label>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <button type="submit" class="btn btn-info w-100">
+                    <i class="bi bi-plus-lg me-1"></i>BBCH-Stadium speichern
+                  </button>
+                </div>
+              </form>
+            </div>
+            
+            <!-- Saved BBCH List -->
+            <h6 class="mb-3">
+              <i class="bi bi-list-ul me-1"></i>
+              Gespeicherte BBCH-Stadien
+              <span class="badge bg-secondary ms-2" data-count="bbch">${
+                savedBbchList.length
+              }</span>
+            </h6>
+            <div data-role="saved-bbch-list" class="list-group" style="max-height: 400px; overflow-y: auto;">
+              ${renderSavedBbchList()}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Info Banner -->
+    <div class="alert alert-info mt-4">
+      <i class="bi bi-lightbulb me-2"></i>
+      <strong>Tipp:</strong> Gespeicherte Codes erscheinen als Schnellauswahl im Berechnungs-Formular. 
+      Häufig verwendete Codes werden automatisch gespeichert und oben angezeigt.
+    </div>
+  `;
+}
+
+function renderSavedEppoList(): string {
+  if (!savedEppoList.length) {
+    return `
+      <div class="list-group-item list-group-item-action text-muted text-center py-4">
+        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+        Noch keine EPPO-Codes gespeichert
+      </div>
+    `;
+  }
+
+  return savedEppoList
+    .map(
+      (item) => `
+    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-eppo-id="${escapeHtml(
+      item.id
+    )}">
+      <div class="flex-grow-1">
+        ${
+          item.isFavorite
+            ? '<i class="bi bi-star-fill text-warning me-2"></i>'
+            : ""
+        }
+        <strong class="text-success">${escapeHtml(item.code)}</strong>
+        <span class="ms-2">${escapeHtml(item.name)}</span>
+        ${
+          item.usageCount > 0
+            ? `<span class="badge bg-secondary ms-2">${item.usageCount}x</span>`
+            : ""
+        }
+      </div>
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-warning" data-action="toggle-favorite-eppo" data-id="${escapeHtml(
+          item.id
+        )}" title="Favorit umschalten">
+          <i class="bi bi-star${item.isFavorite ? "-fill" : ""}"></i>
+        </button>
+        <button type="button" class="btn btn-outline-danger" data-action="delete-eppo" data-id="${escapeHtml(
+          item.id
+        )}" title="Löschen">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    </div>
+  `
+    )
+    .join("");
+}
+
+function renderSavedBbchList(): string {
+  if (!savedBbchList.length) {
+    return `
+      <div class="list-group-item list-group-item-action text-muted text-center py-4">
+        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+        Noch keine BBCH-Stadien gespeichert
+      </div>
+    `;
+  }
+
+  return savedBbchList
+    .map(
+      (item) => `
+    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-bbch-id="${escapeHtml(
+      item.id
+    )}">
+      <div class="flex-grow-1">
+        ${
+          item.isFavorite
+            ? '<i class="bi bi-star-fill text-warning me-2"></i>'
+            : ""
+        }
+        <strong class="text-info">${escapeHtml(item.code)}</strong>
+        <span class="ms-2">${escapeHtml(item.label)}</span>
+        ${
+          item.usageCount > 0
+            ? `<span class="badge bg-secondary ms-2">${item.usageCount}x</span>`
+            : ""
+        }
+      </div>
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-warning" data-action="toggle-favorite-bbch" data-id="${escapeHtml(
+          item.id
+        )}" title="Favorit umschalten">
+          <i class="bi bi-star${item.isFavorite ? "-fill" : ""}"></i>
+        </button>
+        <button type="button" class="btn btn-outline-danger" data-action="delete-bbch" data-id="${escapeHtml(
+          item.id
+        )}" title="Löschen">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    </div>
+  `
+    )
+    .join("");
+}
+
+function updateCodesLists(section: HTMLElement): void {
+  const eppoListEl = section.querySelector<HTMLElement>(
+    '[data-role="saved-eppo-list"]'
+  );
+  const bbchListEl = section.querySelector<HTMLElement>(
+    '[data-role="saved-bbch-list"]'
+  );
+  const eppoCountEl = section.querySelector<HTMLElement>('[data-count="eppo"]');
+  const bbchCountEl = section.querySelector<HTMLElement>('[data-count="bbch"]');
+
+  if (eppoListEl) eppoListEl.innerHTML = renderSavedEppoList();
+  if (bbchListEl) bbchListEl.innerHTML = renderSavedBbchList();
+  if (eppoCountEl) eppoCountEl.textContent = String(savedEppoList.length);
+  if (bbchCountEl) bbchCountEl.textContent = String(savedBbchList.length);
+}
+
+function attachCodesManagerHandlers(section: HTMLElement): void {
+  // Tab switching
+  section.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.tab as "zulassung" | "codes";
+      section.dataset.activeTab = tab;
+
+      // Update tab buttons
+      section
+        .querySelectorAll("[data-tab]")
+        .forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      // Update tab content
+      section.querySelectorAll("[data-tab-content]").forEach((content) => {
+        content.classList.toggle(
+          "d-none",
+          content.getAttribute("data-tab-content") !== tab
+        );
+        content.classList.toggle(
+          "show",
+          content.getAttribute("data-tab-content") === tab
+        );
+        content.classList.toggle(
+          "active",
+          content.getAttribute("data-tab-content") === tab
+        );
+      });
+
+      // Load codes if switching to codes tab
+      if (tab === "codes" && !codesManagerInitialized) {
+        codesManagerInitialized = true;
+        void loadSavedCodes().then(() => updateCodesLists(section));
+      }
+    });
+  });
+
+  // EPPO Search
+  const eppoSearchInput = section.querySelector<HTMLInputElement>(
+    '[data-input="eppo-search"]'
+  );
+  const eppoSearchResults = section.querySelector<HTMLElement>(
+    '[data-role="eppo-search-results"]'
+  );
+
+  if (eppoSearchInput && eppoSearchResults) {
+    const searchEppo = debounce(async () => {
+      const term = eppoSearchInput.value.trim();
+      if (term.length < 2) {
+        eppoSearchResults.innerHTML = "";
+        return;
+      }
+
+      try {
+        const results = await searchEppoSuggestions(term, 10);
+        if (!results.length) {
+          eppoSearchResults.innerHTML = `
+            <div class="list-group-item text-muted">Keine Ergebnisse für "${escapeHtml(
+              term
+            )}"</div>
+          `;
+          return;
+        }
+
+        eppoSearchResults.innerHTML = results
+          .map(
+            (r) => `
+          <button type="button" class="list-group-item list-group-item-action" 
+                  data-action="select-eppo" 
+                  data-code="${escapeHtml(r.code)}" 
+                  data-name="${escapeHtml(r.name)}"
+                  data-language="${escapeHtml(r.language || "")}"
+                  data-dtcode="${escapeHtml(r.dtcode || "")}">
+            <strong class="text-success">${escapeHtml(r.code)}</strong>
+            <span class="ms-2">${escapeHtml(r.name)}</span>
+            ${
+              r.dtcode
+                ? `<small class="text-muted ms-2">(${escapeHtml(
+                    r.dtcode
+                  )})</small>`
+                : ""
+            }
+          </button>
+        `
+          )
+          .join("");
+      } catch (error) {
+        console.error("EPPO search failed:", error);
+        eppoSearchResults.innerHTML = `
+          <div class="list-group-item text-danger">Suche fehlgeschlagen</div>
+        `;
+      }
+    }, 300);
+
+    eppoSearchInput.addEventListener("input", searchEppo);
+  }
+
+  // BBCH Search
+  const bbchSearchInput = section.querySelector<HTMLInputElement>(
+    '[data-input="bbch-search"]'
+  );
+  const bbchSearchResults = section.querySelector<HTMLElement>(
+    '[data-role="bbch-search-results"]'
+  );
+
+  if (bbchSearchInput && bbchSearchResults) {
+    const searchBbch = debounce(async () => {
+      const term = bbchSearchInput.value.trim();
+      if (term.length < 1) {
+        bbchSearchResults.innerHTML = "";
+        return;
+      }
+
+      try {
+        const results = await searchBbchSuggestions(term, 10);
+        if (!results.length) {
+          bbchSearchResults.innerHTML = `
+            <div class="list-group-item text-muted">Keine Ergebnisse für "${escapeHtml(
+              term
+            )}"</div>
+          `;
+          return;
+        }
+
+        bbchSearchResults.innerHTML = results
+          .map(
+            (r) => `
+          <button type="button" class="list-group-item list-group-item-action" 
+                  data-action="select-bbch" 
+                  data-code="${escapeHtml(r.code)}" 
+                  data-label="${escapeHtml(r.label)}"
+                  data-principal="${r.principalStage ?? ""}"
+                  data-secondary="${r.secondaryStage ?? ""}">
+            <strong class="text-info">${escapeHtml(r.code)}</strong>
+            <span class="ms-2">${escapeHtml(r.label)}</span>
+          </button>
+        `
+          )
+          .join("");
+      } catch (error) {
+        console.error("BBCH search failed:", error);
+        bbchSearchResults.innerHTML = `
+          <div class="list-group-item text-danger">Suche fehlgeschlagen</div>
+        `;
+      }
+    }, 300);
+
+    bbchSearchInput.addEventListener("input", searchBbch);
+  }
+
+  // Event delegation for dynamic elements
+  section.addEventListener("click", async (event) => {
+    const target = event.target as HTMLElement;
+    const actionBtn = target.closest<HTMLElement>("[data-action]");
+    if (!actionBtn) return;
+
+    const action = actionBtn.dataset.action;
+
+    // Select EPPO from search results
+    if (action === "select-eppo") {
+      const codeInput = section.querySelector<HTMLInputElement>(
+        '[data-input="eppo-code"]'
+      );
+      const nameInput = section.querySelector<HTMLInputElement>(
+        '[data-input="eppo-name"]'
+      );
+      if (codeInput) codeInput.value = actionBtn.dataset.code || "";
+      if (nameInput) nameInput.value = actionBtn.dataset.name || "";
+      if (eppoSearchResults) eppoSearchResults.innerHTML = "";
+      if (eppoSearchInput) eppoSearchInput.value = "";
+    }
+
+    // Select BBCH from search results
+    if (action === "select-bbch") {
+      const codeInput = section.querySelector<HTMLInputElement>(
+        '[data-input="bbch-code"]'
+      );
+      const labelInput = section.querySelector<HTMLInputElement>(
+        '[data-input="bbch-label"]'
+      );
+      if (codeInput) codeInput.value = actionBtn.dataset.code || "";
+      if (labelInput) labelInput.value = actionBtn.dataset.label || "";
+      if (bbchSearchResults) bbchSearchResults.innerHTML = "";
+      if (bbchSearchInput) bbchSearchInput.value = "";
+    }
+
+    // Toggle EPPO favorite
+    if (action === "toggle-favorite-eppo") {
+      const id = actionBtn.dataset.id;
+      if (!id) return;
+      const item = savedEppoList.find((e) => e.id === id);
+      if (!item) return;
+      try {
+        await storage.upsertSavedEppo({
+          id: item.id,
+          code: item.code,
+          name: item.name,
+          language: item.language,
+          dtcode: item.dtcode,
+          isFavorite: !item.isFavorite,
+        });
+        await loadSavedCodes();
+        updateCodesLists(section);
+      } catch (error) {
+        console.error("Failed to toggle EPPO favorite:", error);
+      }
+    }
+
+    // Toggle BBCH favorite
+    if (action === "toggle-favorite-bbch") {
+      const id = actionBtn.dataset.id;
+      if (!id) return;
+      const item = savedBbchList.find((b) => b.id === id);
+      if (!item) return;
+      try {
+        await storage.upsertSavedBbch({
+          id: item.id,
+          code: item.code,
+          label: item.label,
+          principalStage: item.principalStage,
+          secondaryStage: item.secondaryStage,
+          isFavorite: !item.isFavorite,
+        });
+        await loadSavedCodes();
+        updateCodesLists(section);
+      } catch (error) {
+        console.error("Failed to toggle BBCH favorite:", error);
+      }
+    }
+
+    // Delete EPPO
+    if (action === "delete-eppo") {
+      const id = actionBtn.dataset.id;
+      if (!id) return;
+      if (!confirm("EPPO-Code wirklich löschen?")) return;
+      try {
+        await storage.deleteSavedEppo({ id });
+        await loadSavedCodes();
+        updateCodesLists(section);
+      } catch (error) {
+        console.error("Failed to delete EPPO:", error);
+      }
+    }
+
+    // Delete BBCH
+    if (action === "delete-bbch") {
+      const id = actionBtn.dataset.id;
+      if (!id) return;
+      if (!confirm("BBCH-Stadium wirklich löschen?")) return;
+      try {
+        await storage.deleteSavedBbch({ id });
+        await loadSavedCodes();
+        updateCodesLists(section);
+      } catch (error) {
+        console.error("Failed to delete BBCH:", error);
+      }
+    }
+  });
+
+  // Form submissions
+  const eppoForm = section.querySelector<HTMLFormElement>(
+    '[data-form="add-eppo"]'
+  );
+  if (eppoForm) {
+    eppoForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const codeInput = section.querySelector<HTMLInputElement>(
+        '[data-input="eppo-code"]'
+      );
+      const nameInput = section.querySelector<HTMLInputElement>(
+        '[data-input="eppo-name"]'
+      );
+      const favoriteInput = section.querySelector<HTMLInputElement>(
+        '[data-input="eppo-favorite"]'
+      );
+
+      const code = codeInput?.value.trim();
+      const name = nameInput?.value.trim();
+      if (!code || !name) {
+        alert("Bitte Code und Name eingeben");
+        return;
+      }
+
+      try {
+        await storage.upsertSavedEppo({
+          code,
+          name,
+          isFavorite: favoriteInput?.checked || false,
+        });
+        await loadSavedCodes();
+        updateCodesLists(section);
+        // Clear form
+        if (codeInput) codeInput.value = "";
+        if (nameInput) nameInput.value = "";
+        if (favoriteInput) favoriteInput.checked = false;
+      } catch (error) {
+        console.error("Failed to save EPPO:", error);
+        alert("Speichern fehlgeschlagen");
+      }
+    });
+  }
+
+  const bbchForm = section.querySelector<HTMLFormElement>(
+    '[data-form="add-bbch"]'
+  );
+  if (bbchForm) {
+    bbchForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const codeInput = section.querySelector<HTMLInputElement>(
+        '[data-input="bbch-code"]'
+      );
+      const labelInput = section.querySelector<HTMLInputElement>(
+        '[data-input="bbch-label"]'
+      );
+      const favoriteInput = section.querySelector<HTMLInputElement>(
+        '[data-input="bbch-favorite"]'
+      );
+
+      const code = codeInput?.value.trim();
+      const label = labelInput?.value.trim();
+      if (!code || !label) {
+        alert("Bitte Code und Bezeichnung eingeben");
+        return;
+      }
+
+      try {
+        await storage.upsertSavedBbch({
+          code,
+          label,
+          isFavorite: favoriteInput?.checked || false,
+        });
+        await loadSavedCodes();
+        updateCodesLists(section);
+        // Clear form
+        if (codeInput) codeInput.value = "";
+        if (labelInput) labelInput.value = "";
+        if (favoriteInput) favoriteInput.checked = false;
+      } catch (error) {
+        console.error("Failed to save BBCH:", error);
+        alert("Speichern fehlgeschlagen");
+      }
+    });
+  }
+}
+
+// ============================================
+
 export function initZulassung(
   target: Element | null,
   providedServices: Services
@@ -3016,4 +3783,14 @@ export function initZulassung(
       }, 2000);
     })();
   }
+}
+
+/**
+ * Reset the initialized state to allow re-initialization in a different container.
+ * Use with caution - primarily for embedding in settings tabs.
+ */
+export function resetZulassungInit(): void {
+  initialized = false;
+  container = null;
+  services = null;
 }

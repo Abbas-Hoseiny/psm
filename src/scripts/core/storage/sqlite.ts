@@ -872,3 +872,175 @@ export async function diagnoseBvlSchema(): Promise<any> {
   }
   return await callWorker("diagnoseBvlSchema", {});
 }
+
+// ============================================
+// Saved EPPO/BBCH Favorites API
+// ============================================
+
+export type SavedEppoRecord = {
+  id: string;
+  code: string;
+  name: string;
+  language?: string | null;
+  dtcode?: string | null;
+  usageCount: number;
+  isFavorite: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SavedBbchRecord = {
+  id: string;
+  code: string;
+  label: string;
+  principalStage?: number | null;
+  secondaryStage?: number | null;
+  usageCount: number;
+  isFavorite: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SavedEppoListResult = {
+  items: SavedEppoRecord[];
+};
+
+export type SavedBbchListResult = {
+  items: SavedBbchRecord[];
+};
+
+export async function listSavedEppo(
+  options: { favoritesOnly?: boolean; limit?: number } = {}
+): Promise<SavedEppoListResult> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("listSavedEppo", options);
+}
+
+export async function upsertSavedEppo(payload: {
+  id?: string;
+  code: string;
+  name: string;
+  language?: string | null;
+  dtcode?: string | null;
+  isFavorite?: boolean;
+}): Promise<{
+  id: string;
+  code: string;
+  name: string;
+  created?: boolean;
+  updated?: boolean;
+}> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("upsertSavedEppo", payload);
+}
+
+export async function deleteSavedEppo(payload: {
+  id: string;
+}): Promise<{ success: boolean }> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("deleteSavedEppo", payload);
+}
+
+export async function incrementEppoUsage(payload: {
+  code: string;
+  name?: string;
+  language?: string | null;
+  dtcode?: string | null;
+}): Promise<{ success: boolean }> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("incrementEppoUsage", payload);
+}
+
+export async function listSavedBbch(
+  options: { favoritesOnly?: boolean; limit?: number } = {}
+): Promise<SavedBbchListResult> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("listSavedBbch", options);
+}
+
+export async function upsertSavedBbch(payload: {
+  id?: string;
+  code: string;
+  label: string;
+  principalStage?: number | null;
+  secondaryStage?: number | null;
+  isFavorite?: boolean;
+}): Promise<{
+  id: string;
+  code: string;
+  label: string;
+  created?: boolean;
+  updated?: boolean;
+}> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("upsertSavedBbch", payload);
+}
+
+export async function deleteSavedBbch(payload: {
+  id: string;
+}): Promise<{ success: boolean }> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("deleteSavedBbch", payload);
+}
+
+export async function incrementBbchUsage(payload: {
+  code: string;
+  label?: string;
+  principalStage?: number | null;
+  secondaryStage?: number | null;
+}): Promise<{ success: boolean }> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("incrementBbchUsage", payload);
+}
+
+export async function getFrequentEppo(
+  options: { limit?: number } = {}
+): Promise<{
+  items: Array<{
+    code: string;
+    name: string;
+    language?: string | null;
+    dtcode?: string | null;
+    usageCount: number;
+    isFavorite: boolean;
+  }>;
+}> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("getFrequentEppo", options);
+}
+
+export async function getFrequentBbch(
+  options: { limit?: number } = {}
+): Promise<{
+  items: Array<{
+    code: string;
+    label: string;
+    principalStage?: number | null;
+    secondaryStage?: number | null;
+    usageCount: number;
+    isFavorite: boolean;
+  }>;
+}> {
+  if (!worker) {
+    throw new Error("Database not initialized");
+  }
+  return await callWorker("getFrequentBbch", options);
+}

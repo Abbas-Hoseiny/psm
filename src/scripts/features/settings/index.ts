@@ -14,6 +14,8 @@ import {
   createPagerWidget,
   type PagerWidget,
 } from "@scripts/features/shared/pagerWidget";
+import { initGps } from "@scripts/features/gps";
+import { initZulassung, resetZulassungInit } from "@scripts/features/zulassung";
 
 interface Services {
   state: {
@@ -23,6 +25,10 @@ interface Services {
   };
   events?: {
     emit?: (eventName: string, payload?: unknown) => void;
+    subscribe?: <T = unknown>(
+      eventName: string,
+      handler: (payload: T) => void
+    ) => (() => void) | void;
   };
 }
 
@@ -53,111 +59,160 @@ let mediumsPagerWidget: PagerWidget | null = null;
 let mediumsPagerTarget: HTMLElement | null = null;
 let settingsSectionRoot: HTMLElement | null = null;
 let settingsServices: Services | null = null;
+let activeSettingsTab: string = "mittel";
 
 function createSection(): HTMLElement {
   const section = document.createElement("div");
   section.className = "section-inner";
   section.innerHTML = `
-    <h2 class="text-center mb-4">Mittel-Verwaltung</h2>
+    <h2 class="text-center mb-4">
+      <i class="bi bi-gear me-2"></i>Einstellungen
+    </h2>
     
-    <div class="card card-dark">
-      <div class="card-body">
-        <!-- Mittel-Tabelle -->
-        <div class="table-responsive mb-4">
-          <table class="table table-dark table-hover mb-0" id="settings-mediums-table">
-            <thead>
-              <tr>
-                <th class="text-center" style="width:40px">
-                  <input type="checkbox" class="form-check-input" data-role="profile-select-all" title="Alle auswählen" />
-                </th>
-                <th>Name</th>
-                <th>Einheit</th>
-                <th>Methode</th>
-                <th>Wert</th>
-                <th>Zulassung</th>
-                <th>Wartezeit</th>
-                <th>Wirkstoff</th>
-                <th style="width:80px"></th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <div class="d-flex justify-content-end mb-4" data-role="mediums-pager"></div>
+    <!-- Settings Tab Navigation -->
+    <div class="settings-tabs mb-4">
+      <ul class="nav nav-pills nav-fill" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" data-settings-tab="mittel" type="button">
+            <i class="bi bi-droplet me-1"></i>
+            <span class="d-none d-md-inline">Mittel & Profile</span>
+            <span class="d-md-none">Mittel</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-settings-tab="gps" type="button">
+            <i class="bi bi-geo-alt me-1"></i>
+            <span class="d-none d-md-inline">GPS-Standorte</span>
+            <span class="d-md-none">GPS</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-settings-tab="bvl" type="button">
+            <i class="bi bi-database me-1"></i>
+            <span class="d-none d-md-inline">BVL & Codes</span>
+            <span class="d-md-none">BVL</span>
+          </button>
+        </li>
+      </ul>
+    </div>
 
-        <hr class="border-secondary my-4" />
-
-        <!-- Neues Mittel hinzufügen -->
-        <h5 class="text-success mb-3">+ Neues Mittel</h5>
-        <form id="settings-medium-form" class="row g-2 align-items-end mb-4">
-          <div class="col-6 col-md-2">
-            <label class="form-label small">Name *</label>
-            <input class="form-control form-control-sm" name="medium-name" placeholder="Elot-Vis" required />
+    <!-- Tab Contents -->
+    <div class="settings-tab-content">
+      <!-- Mittel & Profile Tab -->
+      <div class="settings-pane" data-pane="mittel" style="display: block;">
+        <div class="card card-dark">
+          <div class="card-header bg-success bg-opacity-25">
+            <h5 class="mb-0"><i class="bi bi-droplet me-2"></i>Mittel-Verwaltung</h5>
           </div>
-          <div class="col-6 col-md-1">
-            <label class="form-label small">Einheit *</label>
-            <input class="form-control form-control-sm" name="medium-unit" placeholder="ml" required />
-          </div>
-          <div class="col-6 col-md-2">
-            <label class="form-label small">Methode *</label>
-            <input class="form-control form-control-sm" name="medium-method" placeholder="perHektar" list="settings-method-options" required />
-            <datalist id="settings-method-options"></datalist>
-          </div>
-          <div class="col-6 col-md-1">
-            <label class="form-label small">Wert *</label>
-            <input type="number" step="any" class="form-control form-control-sm" name="medium-value" placeholder="0.83" required />
-          </div>
-          <div class="col-6 col-md-2">
-            <label class="form-label small">Zulassung</label>
-            <input class="form-control form-control-sm" name="medium-approval" placeholder="optional" />
-          </div>
-          <div class="col-3 col-md-1">
-            <label class="form-label small">Wartetage</label>
-            <input type="number" min="0" class="form-control form-control-sm" name="medium-wartezeit" placeholder="14" />
-          </div>
-          <div class="col-6 col-md-2">
-            <label class="form-label small">Wirkstoff</label>
-            <input class="form-control form-control-sm" name="medium-wirkstoff" placeholder="optional" />
-          </div>
-          <div class="col-3 col-md-1">
-            <button class="btn btn-success btn-sm w-100" type="submit">+</button>
-          </div>
-        </form>
-
-        <hr class="border-secondary my-4" />
-
-        <!-- Profile -->
-        <div class="row g-4">
-          <div class="col-lg-5">
-            <h5 class="text-info mb-3">Profil erstellen</h5>
-            <form id="settings-profile-form">
-              <input type="hidden" name="profile-id" />
-              <div class="input-group mb-2">
-                <input id="profile-name" class="form-control" name="profile-name" placeholder="Profilname" required />
-                <button class="btn btn-success" type="submit" data-role="profile-submit">Speichern</button>
-              </div>
-              <div class="d-flex justify-content-between align-items-center">
-                <small class="text-muted" data-role="profile-selection-summary">Keine Mittel ausgewählt</small>
-                <button class="btn btn-outline-secondary btn-sm" type="button" data-action="profile-reset">Zurücksetzen</button>
-              </div>
-            </form>
-          </div>
-          <div class="col-lg-7">
-            <h5 class="mb-3">Gespeicherte Profile</h5>
-            <div class="table-responsive">
-              <table class="table table-dark table-hover table-sm mb-0" id="settings-profile-table">
+          <div class="card-body">
+            <!-- Mittel-Tabelle -->
+            <div class="table-responsive mb-4">
+              <table class="table table-dark table-hover mb-0" id="settings-mediums-table">
                 <thead>
                   <tr>
+                    <th class="text-center" style="width:40px">
+                      <input type="checkbox" class="form-check-input" data-role="profile-select-all" title="Alle auswählen" />
+                    </th>
                     <th>Name</th>
-                    <th>Mittel</th>
-                    <th style="width:120px"></th>
+                    <th>Einheit</th>
+                    <th>Methode</th>
+                    <th>Wert</th>
+                    <th>Zulassung</th>
+                    <th>Wartezeit</th>
+                    <th>Wirkstoff</th>
+                    <th style="width:80px"></th>
                   </tr>
                 </thead>
                 <tbody></tbody>
               </table>
             </div>
+            <div class="d-flex justify-content-end mb-4" data-role="mediums-pager"></div>
+
+            <hr class="border-secondary my-4" />
+
+            <!-- Neues Mittel hinzufügen -->
+            <h5 class="text-success mb-3">+ Neues Mittel</h5>
+            <form id="settings-medium-form" class="row g-2 align-items-end mb-4">
+              <div class="col-6 col-md-2">
+                <label class="form-label small">Name *</label>
+                <input class="form-control form-control-sm" name="medium-name" placeholder="Elot-Vis" required />
+              </div>
+              <div class="col-6 col-md-1">
+                <label class="form-label small">Einheit *</label>
+                <input class="form-control form-control-sm" name="medium-unit" placeholder="ml" required />
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small">Methode *</label>
+                <input class="form-control form-control-sm" name="medium-method" placeholder="perHektar" list="settings-method-options" required />
+                <datalist id="settings-method-options"></datalist>
+              </div>
+              <div class="col-6 col-md-1">
+                <label class="form-label small">Wert *</label>
+                <input type="number" step="any" class="form-control form-control-sm" name="medium-value" placeholder="0.83" required />
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small">Zulassung</label>
+                <input class="form-control form-control-sm" name="medium-approval" placeholder="optional" />
+              </div>
+              <div class="col-3 col-md-1">
+                <label class="form-label small">Wartetage</label>
+                <input type="number" min="0" class="form-control form-control-sm" name="medium-wartezeit" placeholder="14" />
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small">Wirkstoff</label>
+                <input class="form-control form-control-sm" name="medium-wirkstoff" placeholder="optional" />
+              </div>
+              <div class="col-3 col-md-1">
+                <button class="btn btn-success btn-sm w-100" type="submit">+</button>
+              </div>
+            </form>
+
+            <hr class="border-secondary my-4" />
+
+            <!-- Profile -->
+            <div class="row g-4">
+              <div class="col-lg-5">
+                <h5 class="text-info mb-3">Profil erstellen</h5>
+                <form id="settings-profile-form">
+                  <input type="hidden" name="profile-id" />
+                  <div class="input-group mb-2">
+                    <input id="profile-name" class="form-control" name="profile-name" placeholder="Profilname" required />
+                    <button class="btn btn-success" type="submit" data-role="profile-submit">Speichern</button>
+                  </div>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted" data-role="profile-selection-summary">Keine Mittel ausgewählt</small>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" data-action="profile-reset">Zurücksetzen</button>
+                  </div>
+                </form>
+              </div>
+              <div class="col-lg-7">
+                <h5 class="mb-3">Gespeicherte Profile</h5>
+                <div class="table-responsive">
+                  <table class="table table-dark table-hover table-sm mb-0" id="settings-profile-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Mittel</th>
+                        <th style="width:120px"></th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+
+      <!-- GPS Tab -->
+      <div class="settings-pane" data-pane="gps" style="display: none;">
+        <div data-feature="gps-embedded"></div>
+      </div>
+
+      <!-- BVL & Codes Tab (combines BVL data and EPPO/BBCH management) -->
+      <div class="settings-pane" data-pane="bvl" style="display: none;">
+        <div data-feature="bvl-embedded"></div>
       </div>
     </div>
   `;
@@ -769,6 +824,96 @@ export function initSettings(
   profileSelectAllInput = section.querySelector<HTMLInputElement>(
     '[data-role="profile-select-all"]'
   );
+
+  // ===== Tab Switching Logic =====
+  let gpsInitialized = false;
+  let bvlInitialized = false;
+
+  function switchSettingsTab(tabName: string): void {
+    activeSettingsTab = tabName;
+
+    // Update tab button states
+    section
+      .querySelectorAll<HTMLButtonElement>("[data-settings-tab]")
+      .forEach((btn) => {
+        const isActive = btn.dataset.settingsTab === tabName;
+        btn.classList.toggle("active", isActive);
+      });
+
+    // Update pane visibility
+    section.querySelectorAll<HTMLElement>("[data-pane]").forEach((pane) => {
+      const isActive = pane.dataset.pane === tabName;
+      pane.style.display = isActive ? "block" : "none";
+    });
+
+    // Lazy-initialize embedded features on first visit
+    if (tabName === "gps" && !gpsInitialized) {
+      const gpsContainer = section.querySelector(
+        '[data-feature="gps-embedded"]'
+      );
+      if (gpsContainer) {
+        initGps(gpsContainer, services);
+        gpsInitialized = true;
+      }
+    }
+
+    if (tabName === "bvl" && !bvlInitialized) {
+      const bvlContainer = section.querySelector(
+        '[data-feature="bvl-embedded"]'
+      );
+      console.log("[Settings BVL] Container found:", !!bvlContainer);
+      console.log("[Settings BVL] services.events:", services.events);
+      console.log(
+        "[Settings BVL] services.events?.emit:",
+        services.events?.emit
+      );
+
+      if (bvlContainer) {
+        // Reset Zulassung init state to allow embedding
+        resetZulassungInit();
+
+        // Build services for Zulassung - emit might not be available
+        const zulassungServices = {
+          state: services.state,
+          events: {
+            emit:
+              services.events?.emit ||
+              ((name: string, payload?: unknown) => {
+                console.log("[Settings BVL] Fallback emit:", name, payload);
+              }),
+            subscribe: services.events?.subscribe
+              ? <T = unknown>(
+                  eventName: string,
+                  handler: (payload: T) => void
+                ): (() => void) => {
+                  const result = services.events!.subscribe!(
+                    eventName,
+                    handler
+                  );
+                  return typeof result === "function" ? result : () => {};
+                }
+              : undefined,
+          },
+        };
+        console.log("[Settings BVL] Calling initZulassung");
+        initZulassung(bvlContainer, zulassungServices);
+        bvlInitialized = true;
+        console.log("[Settings BVL] initZulassung completed");
+      }
+    }
+  }
+
+  // Attach tab click handlers
+  section
+    .querySelectorAll<HTMLButtonElement>("[data-settings-tab]")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tabName = btn.dataset.settingsTab;
+        if (tabName) {
+          switchSettingsTab(tabName);
+        }
+      });
+    });
 
   async function handleMediumAdd(): Promise<void> {
     if (!addForm || mediumSavePending) {
