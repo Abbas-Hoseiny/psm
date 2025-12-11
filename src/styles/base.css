@@ -122,3 +122,137 @@ h6 {
     background: #fff;
   }
 }
+
+/* ===================================================================
+   ACCESSIBILITY & READABILITY ENHANCEMENTS
+   Optimized for users with limited PC experience (gardeners)
+   - Larger touch targets
+   - Better contrast
+   - Clearer typography
+   =================================================================== */
+
+/* Larger base font size for better readability */
+html {
+  font-size: 17px; /* Slightly larger than default 16px */
+}
+
+/* Ensure good minimum touch targets (44px recommended by WCAG) */
+button,
+.btn,
+input[type="submit"],
+input[type="button"],
+.nav-link,
+.form-select,
+.form-control {
+  min-height: 44px;
+}
+
+/* Form elements - larger and clearer */
+.form-control,
+.form-select {
+  font-size: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+/* Buttons - larger text and padding */
+.btn {
+  font-size: 1rem;
+  padding: 0.625rem 1.25rem;
+  font-weight: 500;
+}
+
+.btn-lg {
+  font-size: 1.125rem;
+  padding: 0.875rem 1.5rem;
+}
+
+/* Primary action buttons - make them stand out more */
+.btn-success,
+.btn-primary {
+  font-weight: 600;
+}
+
+/* Labels - clearer and slightly larger */
+label,
+.form-label {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+/* Table text - ensure readability */
+.table {
+  font-size: 0.9375rem;
+}
+
+.table th {
+  font-weight: 600;
+}
+
+/* Card headers - clearer hierarchy */
+.card-header {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* Quick select buttons (EPPO/BBCH) - extra large touch targets */
+.quick-select-btn {
+  min-height: 48px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9375rem;
+}
+
+/* Save buttons next to inputs - clear visual */
+.save-code-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Focus states - clearer for accessibility */
+:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Better contrast for placeholder text */
+::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 1;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Mobile-first improvements */
+@media (max-width: 767.98px) {
+  html {
+    font-size: 16px;
+  }
+
+  /* Larger touch targets on mobile */
+  button,
+  .btn,
+  .nav-link {
+    min-height: 48px;
+  }
+
+  /* Full-width buttons on mobile for easier tapping */
+  .btn-mobile-full {
+    width: 100%;
+  }
+
+  /* Larger form controls on mobile */
+  .form-control,
+  .form-select {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 0.875rem 1rem;
+  }
+}

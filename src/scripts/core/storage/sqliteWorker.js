@@ -714,6 +714,395 @@ async function getActiveGpsPointId() {
   return { activePointId: activePointId || null };
 }
 
+// ============================================
+// Saved EPPO/BBCH Favorites Functions
+// ============================================
+
+function ensureSavedEppoTable(targetDb = db) {
+  if (!targetDb) return;
+  targetDb.exec(`
+    CREATE TABLE IF NOT EXISTS saved_eppo_codes (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      language TEXT,
+      dtcode TEXT,
+      usage_count INTEGER NOT NULL DEFAULT 0,
+      is_favorite INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_saved_eppo_code ON saved_eppo_codes(code);
+    CREATE INDEX IF NOT EXISTS idx_saved_eppo_favorite ON saved_eppo_codes(is_favorite DESC, usage_count DESC);
+    CREATE INDEX IF NOT EXISTS idx_saved_eppo_usage ON saved_eppo_codes(usage_count DESC);
+  `);
+}
+
+function ensureSavedBbchTable(targetDb = db) {
+  if (!targetDb) return;
+  targetDb.exec(`
+    CREATE TABLE IF NOT EXISTS saved_bbch_stages (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL,
+      label TEXT NOT NULL,
+      principal_stage INTEGER,
+      secondary_stage INTEGER,
+      usage_count INTEGER NOT NULL DEFAULT 0,
+      is_favorite INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_saved_bbch_code ON saved_bbch_stages(code);
+    CREATE INDEX IF NOT EXISTS idx_saved_bbch_favorite ON saved_bbch_stages(is_favorite DESC, usage_count DESC);
+    CREATE INDEX IF NOT EXISTS idx_saved_bbch_usage ON saved_bbch_stages(usage_count DESC);
+  `);
+}
+
+function generateSavedId(prefix) {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+async function listSavedEppo(options = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureSavedEppoTable();
+
+  const { favoritesOnly = false, limit = 100 } = options;
+  const whereClause = favoritesOnly ? "WHERE is_favorite = 1" : "";
+
+  const rows = [];
+  db.exec({
+    sql: `SELECT id, code, name, language, dtcode, usage_count, is_favorite, created_at, updated_at
+          FROM saved_eppo_codes
+          ${whereClause}
+          ORDER BY is_favorite DESC, usage_count DESC, name ASC
+          LIMIT ?`,
+    bind: [limit],
+    rowMode: "object",
+    callback: (row) =>
+      rows.push({
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        language: row.language,
+        dtcode: row.dtcode,
+        usageCount: row.usage_count,
+        isFavorite: Boolean(row.is_favorite),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }),
+  });
+  return { items: rows };
+}
+
+async function upsertSavedEppo(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureSavedEppoTable();
+
+  const code = String(payload.code ?? "").trim();
+  const name = String(payload.name ?? "").trim();
+  if (!code || !name) throw new Error("EPPO-Code und Name sind erforderlich.");
+
+  const id = payload.id || generateSavedId("eppo");
+  const language = payload.language || null;
+  const dtcode = payload.dtcode || null;
+  const isFavorite = payload.isFavorite ? 1 : 0;
+  const now = new Date().toISOString();
+
+  // Check if code already exists
+  const existing = db.selectValue(
+    "SELECT id FROM saved_eppo_codes WHERE code = ? LIMIT 1",
+    [code]
+  );
+
+  if (existing) {
+    // Update existing
+    const stmt = db.prepare(`
+      UPDATE saved_eppo_codes 
+      SET name = ?, language = ?, dtcode = ?, is_favorite = ?, updated_at = ?
+      WHERE code = ?
+    `);
+    stmt.bind([name, language, dtcode, isFavorite, now, code]);
+    stmt.step();
+    stmt.finalize();
+    return { id: existing, code, name, updated: true };
+  } else {
+    // Insert new
+    const stmt = db.prepare(`
+      INSERT INTO saved_eppo_codes (id, code, name, language, dtcode, usage_count, is_favorite, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
+    `);
+    stmt.bind([id, code, name, language, dtcode, isFavorite, now, now]);
+    stmt.step();
+    stmt.finalize();
+    return { id, code, name, created: true };
+  }
+}
+
+async function deleteSavedEppo(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureSavedEppoTable();
+
+  const id = String(payload.id ?? "").trim();
+  if (!id) throw new Error("ID erforderlich.");
+
+  const stmt = db.prepare("DELETE FROM saved_eppo_codes WHERE id = ?");
+  stmt.bind([id]);
+  stmt.step();
+  stmt.finalize();
+  return { success: true };
+}
+
+async function incrementEppoUsage(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureSavedEppoTable();
+
+  const code = String(payload.code ?? "").trim();
+  const name = String(payload.name ?? "").trim();
+  if (!code) return { success: false };
+
+  const now = new Date().toISOString();
+
+  // Check if exists
+  const existing = db.selectValue(
+    "SELECT id FROM saved_eppo_codes WHERE code = ? LIMIT 1",
+    [code]
+  );
+
+  if (existing) {
+    // Increment usage
+    const stmt = db.prepare(`
+      UPDATE saved_eppo_codes SET usage_count = usage_count + 1, updated_at = ? WHERE code = ?
+    `);
+    stmt.bind([now, code]);
+    stmt.step();
+    stmt.finalize();
+  } else if (name) {
+    // Auto-create entry for frequently used codes
+    const id = generateSavedId("eppo");
+    const stmt = db.prepare(`
+      INSERT INTO saved_eppo_codes (id, code, name, language, dtcode, usage_count, is_favorite, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?)
+    `);
+    stmt.bind([
+      id,
+      code,
+      name,
+      payload.language || null,
+      payload.dtcode || null,
+      now,
+      now,
+    ]);
+    stmt.step();
+    stmt.finalize();
+  }
+  return { success: true };
+}
+
+async function listSavedBbch(options = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureSavedBbchTable();
+
+  const { favoritesOnly = false, limit = 100 } = options;
+  const whereClause = favoritesOnly ? "WHERE is_favorite = 1" : "";
+
+  const rows = [];
+  db.exec({
+    sql: `SELECT id, code, label, principal_stage, secondary_stage, usage_count, is_favorite, created_at, updated_at
+          FROM saved_bbch_stages
+          ${whereClause}
+          ORDER BY is_favorite DESC, usage_count DESC, code ASC
+          LIMIT ?`,
+    bind: [limit],
+    rowMode: "object",
+    callback: (row) =>
+      rows.push({
+        id: row.id,
+        code: row.code,
+        label: row.label,
+        principalStage: row.principal_stage,
+        secondaryStage: row.secondary_stage,
+        usageCount: row.usage_count,
+        isFavorite: Boolean(row.is_favorite),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }),
+  });
+  return { items: rows };
+}
+
+async function upsertSavedBbch(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureSavedBbchTable();
+
+  const code = String(payload.code ?? "").trim();
+  const label = String(payload.label ?? "").trim();
+  if (!code || !label)
+    throw new Error("BBCH-Code und Bezeichnung sind erforderlich.");
+
+  const id = payload.id || generateSavedId("bbch");
+  const principalStage =
+    payload.principalStage != null ? Number(payload.principalStage) : null;
+  const secondaryStage =
+    payload.secondaryStage != null ? Number(payload.secondaryStage) : null;
+  const isFavorite = payload.isFavorite ? 1 : 0;
+  const now = new Date().toISOString();
+
+  // Check if code already exists
+  const existing = db.selectValue(
+    "SELECT id FROM saved_bbch_stages WHERE code = ? LIMIT 1",
+    [code]
+  );
+
+  if (existing) {
+    const stmt = db.prepare(`
+      UPDATE saved_bbch_stages 
+      SET label = ?, principal_stage = ?, secondary_stage = ?, is_favorite = ?, updated_at = ?
+      WHERE code = ?
+    `);
+    stmt.bind([label, principalStage, secondaryStage, isFavorite, now, code]);
+    stmt.step();
+    stmt.finalize();
+    return { id: existing, code, label, updated: true };
+  } else {
+    const stmt = db.prepare(`
+      INSERT INTO saved_bbch_stages (id, code, label, principal_stage, secondary_stage, usage_count, is_favorite, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
+    `);
+    stmt.bind([
+      id,
+      code,
+      label,
+      principalStage,
+      secondaryStage,
+      isFavorite,
+      now,
+      now,
+    ]);
+    stmt.step();
+    stmt.finalize();
+    return { id, code, label, created: true };
+  }
+}
+
+async function deleteSavedBbch(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureSavedBbchTable();
+
+  const id = String(payload.id ?? "").trim();
+  if (!id) throw new Error("ID erforderlich.");
+
+  const stmt = db.prepare("DELETE FROM saved_bbch_stages WHERE id = ?");
+  stmt.bind([id]);
+  stmt.step();
+  stmt.finalize();
+  return { success: true };
+}
+
+async function incrementBbchUsage(payload = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureSavedBbchTable();
+
+  const code = String(payload.code ?? "").trim();
+  const label = String(payload.label ?? "").trim();
+  if (!code) return { success: false };
+
+  const now = new Date().toISOString();
+
+  const existing = db.selectValue(
+    "SELECT id FROM saved_bbch_stages WHERE code = ? LIMIT 1",
+    [code]
+  );
+
+  if (existing) {
+    const stmt = db.prepare(`
+      UPDATE saved_bbch_stages SET usage_count = usage_count + 1, updated_at = ? WHERE code = ?
+    `);
+    stmt.bind([now, code]);
+    stmt.step();
+    stmt.finalize();
+  } else if (label) {
+    const id = generateSavedId("bbch");
+    const stmt = db.prepare(`
+      INSERT INTO saved_bbch_stages (id, code, label, principal_stage, secondary_stage, usage_count, is_favorite, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?)
+    `);
+    stmt.bind([
+      id,
+      code,
+      label,
+      payload.principalStage || null,
+      payload.secondaryStage || null,
+      now,
+      now,
+    ]);
+    stmt.step();
+    stmt.finalize();
+  }
+  return { success: true };
+}
+
+async function getFrequentEppo(options = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureSavedEppoTable();
+
+  const limit = options.limit || 10;
+  const rows = [];
+  db.exec({
+    sql: `SELECT code, name, language, dtcode, usage_count, is_favorite
+          FROM saved_eppo_codes
+          WHERE usage_count > 0
+          ORDER BY usage_count DESC, name ASC
+          LIMIT ?`,
+    bind: [limit],
+    rowMode: "object",
+    callback: (row) =>
+      rows.push({
+        code: row.code,
+        name: row.name,
+        language: row.language,
+        dtcode: row.dtcode,
+        usageCount: row.usage_count,
+        isFavorite: Boolean(row.is_favorite),
+      }),
+  });
+  return { items: rows };
+}
+
+async function getFrequentBbch(options = {}) {
+  if (!db) throw new Error("Database not initialized");
+  ensureSavedBbchTable();
+
+  const limit = options.limit || 10;
+  const rows = [];
+  db.exec({
+    sql: `SELECT code, label, principal_stage, secondary_stage, usage_count, is_favorite
+          FROM saved_bbch_stages
+          WHERE usage_count > 0
+          ORDER BY usage_count DESC, code ASC
+          LIMIT ?`,
+    bind: [limit],
+    rowMode: "object",
+    callback: (row) =>
+      rows.push({
+        code: row.code,
+        label: row.label,
+        principalStage: row.principal_stage,
+        secondaryStage: row.secondary_stage,
+        usageCount: row.usage_count,
+        isFavorite: Boolean(row.is_favorite),
+      }),
+  });
+  return { items: rows };
+}
+
+// ============================================
+
 function setMetaValue(key, value, targetDb = db) {
   if (!targetDb || !key) {
     return;
@@ -919,6 +1308,37 @@ self.onmessage = async function (event) {
         break;
       case "diagnoseBvlSchema":
         result = await diagnoseBvlSchema();
+        break;
+      // Saved EPPO/BBCH favorites
+      case "listSavedEppo":
+        result = await listSavedEppo(payload);
+        break;
+      case "upsertSavedEppo":
+        result = await upsertSavedEppo(payload);
+        break;
+      case "deleteSavedEppo":
+        result = await deleteSavedEppo(payload);
+        break;
+      case "incrementEppoUsage":
+        result = await incrementEppoUsage(payload);
+        break;
+      case "listSavedBbch":
+        result = await listSavedBbch(payload);
+        break;
+      case "upsertSavedBbch":
+        result = await upsertSavedBbch(payload);
+        break;
+      case "deleteSavedBbch":
+        result = await deleteSavedBbch(payload);
+        break;
+      case "incrementBbchUsage":
+        result = await incrementBbchUsage(payload);
+        break;
+      case "getFrequentEppo":
+        result = await getFrequentEppo(payload);
+        break;
+      case "getFrequentBbch":
+        result = await getFrequentBbch(payload);
         break;
       default:
         throw new Error(`Unknown action: ${action}`);
@@ -2155,15 +2575,15 @@ function mapMediumRow(row) {
       row.method_id != null
         ? String(row.method_id)
         : row.methodId != null
-          ? String(row.methodId)
-          : null,
+        ? String(row.methodId)
+        : null,
     value: Number(row.value ?? 0),
     zulassungsnummer:
       row.zulassungsnummer != null
         ? String(row.zulassungsnummer)
         : row.zulassung != null
-          ? String(row.zulassung)
-          : null,
+        ? String(row.zulassung)
+        : null,
     wartezeit: row.wartezeit != null ? Number(row.wartezeit) : null,
     wirkstoff: row.wirkstoff != null ? String(row.wirkstoff) : null,
   };
@@ -3904,7 +4324,9 @@ async function queryZulassung(payload) {
   ) => {
     const normalizedPrimary = normalizeRef(primaryRef);
     const normalizedSecondary = normalizeRef(secondaryRef);
-    const cacheKey = `${key}|${normalizedPrimary ?? ""}|${normalizedSecondary ?? ""}`;
+    const cacheKey = `${key}|${normalizedPrimary ?? ""}|${
+      normalizedSecondary ?? ""
+    }`;
     if (payloadCache.has(cacheKey)) {
       return payloadCache.get(cacheKey);
     }
