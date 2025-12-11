@@ -79,55 +79,61 @@ type WizardElements = {
 function createWizard(baseCompany: CompanyState): WizardElements {
   const section = document.createElement("section");
   section.className = "section-container d-none";
+
+  // Farbige Labels für bessere Orientierung
+  const inputStyle =
+    "background: #252525; border-color: #404040; color: #e8e8e8;";
+
   section.innerHTML = `
     <div class="section-inner">
-      <div class="card card-dark">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
-            <div>
-              <h2 class="mb-1">Neue Datenbank konfigurieren</h2>
-              <p class="text-muted mb-0">Erfasse deine Eckdaten. Daraus entsteht eine JSON-Datei für den späteren Import.</p>
-            </div>
-            <button type="button" class="btn btn-outline-light" data-action="wizard-back">Zurück</button>
+      <div class="card" style="background: #1a1a1a; border: 1px solid #333;">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 style="color: #58d68d; margin: 0;">Neue Datenbank</h2>
+            <button type="button" class="btn btn-outline-secondary" data-action="wizard-back">
+              <i class="bi bi-arrow-left me-1"></i>Zurück
+            </button>
           </div>
-          <form id="database-wizard-form" class="row g-3 text-start">
-            <div class="col-md-6">
-              <label class="form-label" for="wizard-company-name">Firmenname*</label>
-              <input class="form-control" id="wizard-company-name" name="wizard-company-name" required value="${escapeAttr(baseCompany.name)}" />
+          <form id="database-wizard-form" class="text-start">
+            <div class="row mb-4">
+              <div class="col-md-6 mb-3 mb-md-0">
+                <label class="form-label d-block mb-2" style="color: #5dade2; font-size: 1rem; font-weight: 600;" for="wizard-company-name">Firmenname *</label>
+                <input class="form-control" style="${inputStyle}" id="wizard-company-name" name="wizard-company-name" required value="${escapeAttr(baseCompany.name)}" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label d-block mb-2" style="color: #f4d03f; font-size: 1rem; font-weight: 600;" for="wizard-company-headline">Überschrift</label>
+                <input class="form-control" style="${inputStyle}" id="wizard-company-headline" name="wizard-company-headline" value="${escapeAttr(baseCompany.headline)}" />
+              </div>
             </div>
-            <div class="col-md-6">
-              <label class="form-label" for="wizard-company-headline">Überschrift / Claim</label>
-              <input class="form-control" id="wizard-company-headline" name="wizard-company-headline" value="${escapeAttr(baseCompany.headline)}" />
+            <div class="row mb-4">
+              <div class="col-12">
+                <label class="form-label d-block mb-2" style="color: #58d68d; font-size: 1rem; font-weight: 600;" for="wizard-company-address">Adresse</label>
+                <textarea class="form-control" style="${inputStyle}" id="wizard-company-address" name="wizard-company-address" rows="2">${escapeHtml(baseCompany.address)}</textarea>
+              </div>
             </div>
-            <div class="col-md-6">
-              <label class="form-label" for="wizard-company-logo">Logo-URL</label>
-              <input class="form-control" id="wizard-company-logo" name="wizard-company-logo" placeholder="https://example.com/logo.png" value="${escapeAttr(baseCompany.logoUrl)}" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label" for="wizard-company-email">Kontakt-E-Mail</label>
-              <input class="form-control" id="wizard-company-email" name="wizard-company-email" value="${escapeAttr(baseCompany.contactEmail)}" />
-            </div>
-            <div class="col-12">
-              <label class="form-label" for="wizard-company-address">Adresse</label>
-              <textarea class="form-control" id="wizard-company-address" name="wizard-company-address" rows="2">${escapeHtml(baseCompany.address)}</textarea>
-            </div>
-            <div class="col-12 d-flex flex-column flex-md-row gap-3">
-              <button type="submit" class="btn btn-success px-4">Datenbank erzeugen</button>
-              <button type="button" class="btn btn-outline-light px-4" data-action="wizard-back">Abbrechen</button>
+            <div class="d-flex gap-3">
+              <button type="submit" class="btn btn-lg px-4" style="background: #3d8b40; border-color: #3d8b40; color: white;">
+                <i class="bi bi-database-add me-2"></i>Erstellen
+              </button>
+              <button type="button" class="btn btn-outline-secondary px-4" data-action="wizard-back">Abbrechen</button>
             </div>
           </form>
         </div>
       </div>
-      <div class="card card-dark mt-4 d-none" data-role="wizard-result">
-        <div class="card-body">
-          <h3 class="h5 mb-3">Datenbank erstellt</h3>
-          <p class="mb-2">Vorschlag für den Dateinamen: <code data-role="wizard-filename"></code></p>
-          <div class="d-flex flex-column flex-lg-row gap-2 mb-3">
-            <button type="button" class="btn btn-success" data-action="wizard-save">Datei speichern</button>
+      <div class="card mt-4 d-none" style="background: #1a1a1a; border: 1px solid #333;" data-role="wizard-result">
+        <div class="card-body p-4">
+          <h3 style="color: #58d68d;" class="mb-3">Datenbank erstellt</h3>
+          <p class="mb-2" style="color: #a0a0a0;">Dateiname: <code style="color: #5dade2;" data-role="wizard-filename"></code></p>
+          <div class="d-flex gap-2 mb-3">
+            <button type="button" class="btn px-4" style="background: #3d8b40; border-color: #3d8b40; color: white;" data-action="wizard-save">
+              <i class="bi bi-download me-2"></i>Speichern
+            </button>
           </div>
-          <p class="text-muted small mb-2" data-role="wizard-save-hint"></p>
-          <p class="text-muted small mb-2">Vorschau der kompletten JSON-Struktur (scrollbar):</p>
-          <pre class="bg-dark rounded p-3 small overflow-auto" style="max-height: 14rem;" data-role="wizard-preview"></pre>
+          <p class="small mb-2" style="color: #707070;" data-role="wizard-save-hint"></p>
+          <details>
+            <summary style="color: #707070; cursor: pointer;" class="small mb-2">Vorschau anzeigen</summary>
+            <pre class="rounded p-3 small overflow-auto mt-2" style="background: #252525; max-height: 14rem; color: #a0a0a0;" data-role="wizard-preview"></pre>
+          </details>
         </div>
       </div>
     </div>
@@ -198,26 +204,26 @@ export function initStartup(
   const landingSection = document.createElement("section");
   landingSection.className = "section-container";
 
-  const activeDriver = getActiveDriverKey();
-  const usingSQLite = activeDriver === "sqlite";
-  const storageInfo = usingSQLite
-    ? ""
-    : "Die erzeugte JSON-Datei kann später erneut geladen oder weitergegeben werden.";
-
   landingSection.innerHTML = `
     <div class="section-inner">
-      <div class="card card-dark">
-        <div class="card-body text-center">
-          <h2 class="mb-3">Datenbank starten</h2>
-          <p class="mb-4">
-            Verwalte und berechne Pflanzenschutzmittel zentral: Lege eine neue SQLite-Datenbank an oder verbinde eine vorhandene Datei, die du lokal speichern und jederzeit erneut verwenden kannst.
-          </p>
-          <div class="d-flex flex-column flex-md-row gap-3 justify-content-center">
-            <button class="btn btn-success px-4" data-action="start-wizard">Neue Datenbank erstellen</button>
-            <button class="btn btn-outline-light px-4" data-action="open">Bestehende Datei verbinden</button>
-            <button class="btn btn-secondary px-4" data-action="useDefaults">Defaults testen</button>
+      <div class="card" style="background: #1a1a1a; border: 1px solid #333; position: relative;">
+        <div class="card-body text-center py-5">
+          <!-- Neue Datenbank Button oben rechts (selten gebraucht) -->
+          <div style="position: absolute; top: 1rem; right: 1rem;">
+            <button class="btn btn-sm btn-outline-secondary" data-action="start-wizard">
+              <i class="bi bi-plus-circle me-1"></i>Neu erstellen
+            </button>
           </div>
-          ${storageInfo ? `<p class="mt-3 text-muted mb-0 small">${storageInfo}</p>` : ""}
+          
+          <h2 class="mb-3" style="color: #58d68d; font-size: 1.75rem;">Datenbank öffnen</h2>
+          <p class="mb-4" style="color: #a0a0a0;">
+            Wähle deine bestehende Datei
+          </p>
+          
+          <!-- Hauptaktion: Datei öffnen (zentral, groß, grün) -->
+          <button class="btn btn-lg px-5 py-3" style="background: #3d8b40; border-color: #3d8b40; color: white; font-size: 1.1rem;" data-action="open">
+            <i class="bi bi-folder2-open me-2"></i>Datei öffnen
+          </button>
         </div>
       </div>
     </div>
@@ -382,12 +388,6 @@ export function initStartup(
     const headline = (formData.get("wizard-company-headline") || "")
       .toString()
       .trim();
-    const logoUrl = (formData.get("wizard-company-logo") || "")
-      .toString()
-      .trim();
-    const contactEmail = (formData.get("wizard-company-email") || "")
-      .toString()
-      .trim();
     const address = (formData.get("wizard-company-address") || "")
       .toString()
       .trim();
@@ -397,8 +397,8 @@ export function initStartup(
         company: {
           name,
           headline,
-          logoUrl,
-          contactEmail,
+          logoUrl: "",
+          contactEmail: "",
           address,
         },
       },

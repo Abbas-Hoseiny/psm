@@ -21,6 +21,7 @@ import {
 /**
  * Erzeugt das HTML für die QS-Zusatzfelder
  * Standardmäßig ausgeblendet - per Checkbox aktivierbar
+ * Pill-Design Labels mit ruhigen Pastellfarben
  */
 export function renderQsFieldsHtml(
   formDefaults: Partial<QsFieldValues> = {}
@@ -28,9 +29,17 @@ export function renderQsFieldsHtml(
   const labels = getQsLabels();
   const isVisible = isQsFieldsVisible();
 
+  // Einheitlicher Input-Style - kleinere Placeholder
+  const inputStyle =
+    "background: #252525; border-color: #404040; color: #e8e8e8; font-size: 0.85rem;";
+
+  // Label-Style: Kurviges Pill-Design mit fettem Text und ruhigen Farben - GRÖSSER
+  const labelBase =
+    "display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 1.05rem; font-weight: 700; margin-bottom: 10px;";
+
   return `
-    <div class="${QS_CSS_CLASSES.container} qs-fields-section mt-3 pt-3 border-top">
-      <div class="d-flex align-items-center mb-2">
+    <div class="${QS_CSS_CLASSES.container} qs-fields-section col-12 mt-3 pt-3" style="border-top: 1px solid #333;">
+      <div class="d-flex align-items-center mb-3">
         <div class="form-check">
           <input 
             type="checkbox" 
@@ -38,19 +47,74 @@ export function renderQsFieldsHtml(
             id="qs-fields-toggle" 
             ${isVisible ? "checked" : ""}
           />
-          <label class="form-check-label small text-muted" for="qs-fields-toggle">
+          <label class="form-check-label" style="color: #707070; font-size: 0.85rem;" for="qs-fields-toggle">
             QS-Zertifizierungsfelder anzeigen
           </label>
         </div>
       </div>
       <div class="qs-fields-content" style="display: ${isVisible ? "block" : "none"};">
-        <small class="text-muted d-block mb-3">Zusätzliche Dokumentationsfelder gemäß QS-GAP-Leitfaden 3.6.2 (optional)</small>
-        <div class="row g-3">
-          ${renderMaschineField(labels.maschine, formDefaults.maschine)}
-          ${renderSchaderregerField(labels.schaderreger, formDefaults.schaderreger)}
-          ${renderVerantwortlicherField(labels.verantwortlicher, formDefaults.verantwortlicher)}
-          ${renderWetterField(labels.wetter, formDefaults.wetter)}
-          ${renderBehandlungsartField(labels.behandlungsart, formDefaults.behandlungsart)}
+        <small style="color: #606060; display: block; margin-bottom: 1rem;">Zusätzliche Dokumentationsfelder gemäß QS-GAP-Leitfaden 3.6.2 (optional)</small>
+        <div class="row mb-3">
+          <div class="col-md-3 mb-3 mb-md-0 ${QS_CSS_CLASSES.field}">
+            <label class="form-label" style="${labelBase} background: #2a3f2f; color: #8ec8a8;">${escapeHtml(labels.maschine.label)}</label>
+            <input type="text" class="form-control" style="${inputStyle}"
+              id="calc-qs-maschine" name="calc-qs-maschine" 
+              placeholder="${escapeHtml(labels.maschine.placeholder)}"
+              title="${escapeHtml(labels.maschine.hint)}"
+              value="${escapeHtml(formDefaults.maschine || "")}"
+              list="calc-qs-maschine-list" />
+            <datalist id="calc-qs-maschine-list">
+              <option value="Anhängespritze">
+              <option value="Anbauspritze">
+              <option value="Selbstfahrspritze">
+              <option value="Rückenspritze">
+              <option value="Drohne">
+              <option value="Nebelgerät">
+              <option value="Granulatstreuer">
+            </datalist>
+          </div>
+          <div class="col-md-3 mb-3 mb-md-0 ${QS_CSS_CLASSES.field}">
+            <label class="form-label" style="${labelBase} background: #3f322a; color: #d4a888;">${escapeHtml(labels.schaderreger.label)}</label>
+            <input type="text" class="form-control" style="${inputStyle}"
+              id="calc-qs-schaderreger" name="calc-qs-schaderreger" 
+              placeholder="${escapeHtml(labels.schaderreger.placeholder)}"
+              title="${escapeHtml(labels.schaderreger.hint)}"
+              value="${escapeHtml(formDefaults.schaderreger || "")}" />
+          </div>
+          <div class="col-md-3 mb-3 mb-md-0 ${QS_CSS_CLASSES.field}">
+            <label class="form-label" style="${labelBase} background: #382a3f; color: #c8a8d8;">${escapeHtml(labels.verantwortlicher.label)}</label>
+            <input type="text" class="form-control" style="${inputStyle}"
+              id="calc-qs-verantwortlicher" name="calc-qs-verantwortlicher" 
+              placeholder="${escapeHtml(labels.verantwortlicher.placeholder)}"
+              title="${escapeHtml(labels.verantwortlicher.hint)}"
+              value="${escapeHtml(formDefaults.verantwortlicher || "")}" />
+          </div>
+          <div class="col-md-3 ${QS_CSS_CLASSES.field}">
+            <label class="form-label" style="${labelBase} background: #2a3f4f; color: #8ec8e8;">${escapeHtml(labels.wetter.label)}</label>
+            <input type="text" class="form-control" style="${inputStyle}"
+              id="calc-qs-wetter" name="calc-qs-wetter" 
+              placeholder="${escapeHtml(labels.wetter.placeholder)}"
+              title="${escapeHtml(labels.wetter.hint)}"
+              value="${escapeHtml(formDefaults.wetter || "")}"
+              list="calc-qs-wetter-list" />
+            <datalist id="calc-qs-wetter-list">
+              ${(labels.wetter.options || []).map((opt) => `<option value="${escapeHtml(opt)}">`).join("")}
+            </datalist>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-3 ${QS_CSS_CLASSES.field}">
+            <label class="form-label" style="${labelBase} background: #3f3a2a; color: #d4c898;">${escapeHtml(labels.behandlungsart.label)}</label>
+            <input type="text" class="form-control" style="${inputStyle}"
+              id="calc-qs-behandlungsart" name="calc-qs-behandlungsart" 
+              placeholder="${escapeHtml(labels.behandlungsart.placeholder)}"
+              title="${escapeHtml(labels.behandlungsart.hint)}"
+              value="${escapeHtml(formDefaults.behandlungsart || "")}"
+              list="calc-qs-behandlungsart-list" />
+            <datalist id="calc-qs-behandlungsart-list">
+              ${(labels.behandlungsart.options || []).map((opt) => `<option value="${escapeHtml(opt)}">`).join("")}
+            </datalist>
+          </div>
         </div>
       </div>
     </div>

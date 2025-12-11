@@ -7,7 +7,6 @@ import {
 import { initCalculation } from "@scripts/features/calculation";
 import { initStartup } from "@scripts/features/startup";
 import { initDocumentation } from "@scripts/features/documentation";
-import { initImportMerge } from "@scripts/features/importMerge";
 import { initSettings } from "@scripts/features/settings";
 import type { AppState } from "@scripts/core/state";
 
@@ -36,10 +35,6 @@ function initIndex(): void {
     '[data-feature="documentation"]'
   );
   initDocumentation(documentationContainer, services);
-  const importMergeContainer = document.querySelector(
-    '[data-feature="import-merge"]'
-  );
-  initImportMerge(importMergeContainer, services);
   const settingsContainer = document.querySelector('[data-feature="settings"]');
   initSettings(settingsContainer, services);
 
