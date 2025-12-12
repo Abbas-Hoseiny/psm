@@ -139,7 +139,7 @@ function createSection(): HTMLElement {
             <form id="settings-medium-form" class="row g-2 align-items-end mb-4">
               <div class="col-6 col-md-2">
                 <label class="form-label small">Name *</label>
-                <input class="form-control form-control-sm" name="medium-name" placeholder="Elot-Vis" required />
+                <input class="form-control form-control-sm" name="medium-name" placeholder="Name" required />
               </div>
               <div class="col-6 col-md-1">
                 <label class="form-label small">Einheit *</label>
@@ -152,19 +152,19 @@ function createSection(): HTMLElement {
               </div>
               <div class="col-6 col-md-1">
                 <label class="form-label small">Wert *</label>
-                <input type="number" step="any" class="form-control form-control-sm" name="medium-value" placeholder="0.83" required />
+                <input type="number" step="any" class="form-control form-control-sm" name="medium-value" placeholder="" required />
               </div>
               <div class="col-6 col-md-2">
                 <label class="form-label small">Zulassung</label>
-                <input class="form-control form-control-sm" name="medium-approval" placeholder="optional" />
+                <input class="form-control form-control-sm" name="medium-approval" placeholder="" />
               </div>
               <div class="col-3 col-md-1">
                 <label class="form-label small">Wartetage</label>
-                <input type="number" min="0" class="form-control form-control-sm" name="medium-wartezeit" placeholder="14" />
+                <input type="number" min="0" class="form-control form-control-sm" name="medium-wartezeit" placeholder="" />
               </div>
               <div class="col-6 col-md-2">
                 <label class="form-label small">Wirkstoff</label>
-                <input class="form-control form-control-sm" name="medium-wirkstoff" placeholder="optional" />
+                <input class="form-control form-control-sm" name="medium-wirkstoff" placeholder="" />
               </div>
               <div class="col-3 col-md-1">
                 <button class="btn btn-success btn-sm w-100" type="submit">+</button>
