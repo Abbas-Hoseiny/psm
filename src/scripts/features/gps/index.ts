@@ -22,6 +22,8 @@ import {
   registerAutoRefreshPolicy,
   type AutoRefreshStatus,
 } from "@scripts/core/autoRefresh";
+import { gpsLock } from "@scripts/core/asyncLock";
+import { toast } from "@scripts/core/toast";
 
 interface Services {
   state: {
@@ -87,8 +89,7 @@ let initialized = false;
 let activeTab: GpsTab = "list";
 let messageTimeout: number | null = null;
 let refs: Refs | null = null;
-let geolocationPending = false;
-let saveSubmissionPending = false;
+// Note: geolocationPending and saveSubmissionPending replaced by gpsLock
 let lastActionNote = "";
 let lastActiveId: string | null = null;
 let lastAvailability: AvailabilityStatus | null = null;
@@ -579,10 +580,7 @@ function updateBusyUi(
     return;
   }
   const shouldDisable =
-    availability !== "ok" ||
-    gpsState.pending ||
-    geolocationPending ||
-    saveSubmissionPending;
+    availability !== "ok" || gpsState.pending || gpsLock.isLocked();
   refs.disableTargets.forEach((element) => {
     if (
       element instanceof HTMLButtonElement ||
@@ -602,12 +600,9 @@ function updateBusyUi(
     } else if (availability === "wrong-driver") {
       badgeClass = "badge bg-warning text-dark";
       text = "Nur mit SQLite";
-    } else if (gpsState.pending) {
+    } else if (gpsState.pending || gpsLock.isLocked()) {
       badgeClass = "badge bg-info text-dark";
-      text = "Wird gespeichert";
-    } else if (geolocationPending) {
-      badgeClass = "badge bg-info text-dark";
-      text = "Position wird ermittelt";
+      text = "Wird verarbeitet";
     }
     refs.statusBadge.className = badgeClass;
     refs.statusBadge.textContent = text;
@@ -1157,48 +1152,49 @@ function readFormValues(): {
 
 async function handleFormSubmit(event: SubmitEvent): Promise<void> {
   event.preventDefault();
-  if (saveSubmissionPending) {
+  if (gpsLock.isLocked()) {
     setMessage("Speichern läuft bereits ...", "info");
     return;
   }
-  try {
-    const values = readFormValues();
-    if (hasDuplicateCoordinates(values.latitude, values.longitude)) {
-      setMessage(
-        "Ein GPS-Punkt mit identischen Koordinaten ist bereits vorhanden.",
-        "warning",
-        6000
+
+  void gpsLock.acquire(async () => {
+    try {
+      const values = readFormValues();
+      if (hasDuplicateCoordinates(values.latitude, values.longitude)) {
+        setMessage(
+          "Ein GPS-Punkt mit identischen Koordinaten ist bereits vorhanden.",
+          "warning",
+          6000
+        );
+        return;
+      }
+      updateBusyUi(getState().gps, evaluateAvailability(getState().app));
+      await saveGpsPoint(
+        {
+          name: values.name,
+          description: values.description || null,
+          latitude: values.latitude,
+          longitude: values.longitude,
+          source: values.source || null,
+        },
+        { activate: values.activate }
       );
-      return;
+      toast.success(`GPS-Punkt "${values.name}" gespeichert.`);
+      recordAction(
+        `GPS-Punkt gespeichert${values.activate ? " und aktiv gesetzt" : ""}: ${values.name}`
+      );
+      refs?.form?.reset();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "GPS-Punkt konnte nicht gespeichert werden.";
+      toast.error(message);
+      recordAction(`Speichern fehlgeschlagen: ${message}`);
+    } finally {
+      updateBusyUi(getState().gps, evaluateAvailability(getState().app));
     }
-    saveSubmissionPending = true;
-    updateBusyUi(getState().gps, evaluateAvailability(getState().app));
-    await saveGpsPoint(
-      {
-        name: values.name,
-        description: values.description || null,
-        latitude: values.latitude,
-        longitude: values.longitude,
-        source: values.source || null,
-      },
-      { activate: values.activate }
-    );
-    setMessage(`GPS-Punkt "${values.name}" gespeichert.`, "success");
-    recordAction(
-      `GPS-Punkt gespeichert${values.activate ? " und aktiv gesetzt" : ""}: ${values.name}`
-    );
-    refs?.form?.reset();
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "GPS-Punkt konnte nicht gespeichert werden.";
-    setMessage(message, "danger", 7000);
-    recordAction(`Speichern fehlgeschlagen: ${message}`);
-  } finally {
-    saveSubmissionPending = false;
-    updateBusyUi(getState().gps, evaluateAvailability(getState().app));
-  }
+  });
 }
 
 function fillCurrentPosition(): void {
@@ -1206,49 +1202,54 @@ function fillCurrentPosition(): void {
     return;
   }
   if (!navigator.geolocation) {
-    setMessage(
-      "Geolocation wird von diesem Browser nicht unterstützt.",
-      "warning",
-      6000
-    );
+    toast.warning("Geolocation wird von diesem Browser nicht unterstützt.");
     return;
   }
-  geolocationPending = true;
-  updateBusyUi(getState().gps, evaluateAvailability(getState().app));
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      geolocationPending = false;
-      const { latitude, longitude } = position.coords;
-      if (refs?.formFields.latitude) {
-        refs.formFields.latitude.value = latitude.toFixed(6);
-      }
-      if (refs?.formFields.longitude) {
-        refs.formFields.longitude.value = longitude.toFixed(6);
-      }
-      if (refs?.formFields.source && !refs.formFields.source.value.trim()) {
-        refs.formFields.source.value = "Browser";
-      }
-      setMessage("Koordinaten aus Browser-Position übernommen.", "success");
-      recordAction("Browser-Geolocation übernommen");
-      updateVerifyButtonState();
-      updateBusyUi(getState().gps, evaluateAvailability(getState().app));
-    },
-    (error) => {
-      geolocationPending = false;
-      const message =
-        error.code === error.PERMISSION_DENIED
-          ? "Zugriff auf Standort wurde verweigert."
-          : "Geolocation konnte nicht ermittelt werden.";
-      setMessage(message, "warning", 7000);
-      recordAction(`Geolocation fehlgeschlagen: ${message}`);
-      updateBusyUi(getState().gps, evaluateAvailability(getState().app));
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
-    }
-  );
+  if (gpsLock.isLocked()) {
+    toast.info("Bitte warten...");
+    return;
+  }
+
+  void gpsLock.acquire(async () => {
+    updateBusyUi(getState().gps, evaluateAvailability(getState().app));
+
+    return new Promise<void>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          if (refs?.formFields.latitude) {
+            refs.formFields.latitude.value = latitude.toFixed(6);
+          }
+          if (refs?.formFields.longitude) {
+            refs.formFields.longitude.value = longitude.toFixed(6);
+          }
+          if (refs?.formFields.source && !refs.formFields.source.value.trim()) {
+            refs.formFields.source.value = "Browser";
+          }
+          toast.success("Koordinaten aus Browser-Position übernommen.");
+          recordAction("Browser-Geolocation übernommen");
+          updateVerifyButtonState();
+          updateBusyUi(getState().gps, evaluateAvailability(getState().app));
+          resolve();
+        },
+        (error) => {
+          const message =
+            error.code === error.PERMISSION_DENIED
+              ? "Zugriff auf Standort wurde verweigert."
+              : "Geolocation konnte nicht ermittelt werden.";
+          toast.warning(message);
+          recordAction(`Geolocation fehlgeschlagen: ${message}`);
+          updateBusyUi(getState().gps, evaluateAvailability(getState().app));
+          resolve();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  });
 }
 
 function attachEventListeners(): void {

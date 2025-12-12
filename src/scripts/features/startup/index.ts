@@ -8,6 +8,7 @@ import {
 import { applyDatabase, createInitialDatabase } from "@scripts/core/database";
 import { getState, subscribeState } from "@scripts/core/state";
 import { escapeHtml } from "@scripts/core/utils";
+import { toast } from "@scripts/core/toast";
 import type { emit as emitEvent } from "@scripts/core/eventBus";
 
 interface Services {
@@ -286,7 +287,7 @@ export function initStartup(
           setActiveDriver("filesystem");
         }
       } catch (err) {
-        window.alert(
+        toast.error(
           "Dateisystemzugriff wird nicht unterstützt in diesem Browser."
         );
         throw err instanceof Error
@@ -302,7 +303,7 @@ export function initStartup(
         });
       } catch (err) {
         console.error("Fehler beim Öffnen der Datenbank", err);
-        window.alert(
+        toast.error(
           err instanceof Error
             ? err.message
             : "Öffnen der Datenbank fehlgeschlagen"
@@ -334,7 +335,7 @@ export function initStartup(
       const message =
         "Keine geeignete Speicheroption verfügbar. Bitte Browserberechtigungen prüfen.";
       console.error(message);
-      window.alert(message);
+      toast.error(message);
     });
   }
 
@@ -342,7 +343,7 @@ export function initStartup(
     button: HTMLButtonElement | null
   ): Promise<void> {
     if (!generatedDatabase) {
-      window.alert("Bitte erst die Datenbank erzeugen.");
+      toast.warning("Bitte erst die Datenbank erzeugen.");
       return;
     }
     await withButtonBusy(button, async () => {
@@ -354,7 +355,7 @@ export function initStartup(
           setActiveDriver("filesystem");
         }
       } catch (err) {
-        window.alert(
+        toast.error(
           "Dateisystemzugriff wird nicht unterstützt in diesem Browser."
         );
         throw err instanceof Error
@@ -370,7 +371,7 @@ export function initStartup(
         });
       } catch (err) {
         console.error("Fehler beim Speichern der Datenbank", err);
-        window.alert(
+        toast.error(
           err instanceof Error
             ? err.message
             : "Die Datei konnte nicht gespeichert werden"
@@ -384,7 +385,7 @@ export function initStartup(
     const formData = new FormData(wizard.form);
     const name = (formData.get("wizard-company-name") || "").toString().trim();
     if (!name) {
-      window.alert("Bitte einen Firmennamen angeben.");
+      toast.warning("Bitte einen Firmennamen angeben.");
       return;
     }
 

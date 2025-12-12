@@ -16,6 +16,8 @@ import {
 import { setFieldLabelByPath } from "@scripts/core/labels";
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { saveDatabase, getActiveDriverKey } from "@scripts/core/storage";
+import { saveLock } from "@scripts/core/asyncLock";
+import { toast } from "@scripts/core/toast";
 import {
   appendHistoryEntry,
   persistSqliteDatabaseFile,
@@ -117,8 +119,8 @@ function resolveGpsDisplay(
 }
 
 let initialized = false;
-let calculationSavePending = false;
 let calculationSaveLocked = false;
+// Note: calculationSavePending replaced by saveLock.isLocked()
 
 function escapeAttr(value: unknown): string {
   return escapeHtml(value);
@@ -928,7 +930,7 @@ async function persistHistory(services: Services): Promise<void> {
   } catch (err) {
     console.error("Automatisches Speichern der Historie fehlgeschlagen", err);
     services.events.emit("database:error", { scope: "history", error: err });
-    window.alert(
+    toast.warning(
       "Berechnung gespeichert, aber die Datei konnte nicht aktualisiert werden. Bitte manuell sichern."
     );
   }
@@ -1107,7 +1109,7 @@ export function initCalculation(
   );
   const refreshSaveButtonState = (): void => {
     if (saveButton) {
-      saveButton.disabled = calculationSavePending || calculationSaveLocked;
+      saveButton.disabled = saveLock.isLocked() || calculationSaveLocked;
     }
   };
   refreshSaveButtonState();
@@ -1375,7 +1377,7 @@ export function initCalculation(
     const currentState = services.state.getState();
     const point = getGpsPointById(currentState, currentState.gps.activePointId);
     if (!point) {
-      window.alert("Es ist kein aktiver GPS-Punkt festgelegt.");
+      toast.info("Es ist kein aktiver GPS-Punkt festgelegt.");
       return;
     }
     setGpsSelection(currentState, point);
@@ -1498,11 +1500,11 @@ export function initCalculation(
         });
     const areaHa = Number(rawAreaHa);
     if (!ersteller || Number.isNaN(areaHa)) {
-      window.alert("Bitte Felder korrekt ausfüllen!");
+      toast.warning("Bitte Felder korrekt ausfüllen!");
       return;
     }
     if (!usageType) {
-      window.alert("Bitte die Art der Verwendung angeben.");
+      toast.warning("Bitte die Art der Verwendung angeben.");
       return;
     }
 
@@ -1534,11 +1536,11 @@ export function initCalculation(
         .map((id) => mediumMap.get(id))
         .filter(Boolean) as any[];
       if (!mediumsForCalculation.length) {
-        window.alert("Dieses Profil enthält keine vorhandenen Mittel.");
+        toast.warning("Dieses Profil enthält keine vorhandenen Mittel.");
         return;
       }
     } else if (activeProfile) {
-      window.alert("Dieses Profil enthält keine Mittel.");
+      toast.warning("Dieses Profil enthält keine Mittel.");
       return;
     } else {
       mediumsForCalculation = extractSliceItems<any>(state.mediums).slice();
@@ -1677,7 +1679,7 @@ export function initCalculation(
     const state = services.state.getState();
     const calculation = state.calcContext as CalculationResult | null;
     if (!calculation) {
-      window.alert("Keine Berechnung vorhanden.");
+      toast.warning("Keine Berechnung vorhanden.");
       return;
     }
     const entry = mapCalculationToSnapshotEntry(calculation);
@@ -1703,17 +1705,18 @@ export function initCalculation(
     if (action === "print") {
       void printCurrentCalculationSnapshot().catch((error) => {
         console.error("Drucken fehlgeschlagen", error);
-        window.alert(
+        toast.error(
           "Druck konnte nicht gestartet werden. Bitte erneut versuchen."
         );
       });
       return;
     } else if (action === "save") {
-      if (calculationSavePending) {
+      // Use AsyncLock to prevent race conditions
+      if (saveLock.isLocked()) {
         return;
       }
       if (calculationSaveLocked) {
-        window.alert(
+        toast.warning(
           "Berechnung wurde bereits gespeichert. Bitte führen Sie zuerst eine neue Berechnung aus."
         );
         return;
@@ -1721,25 +1724,26 @@ export function initCalculation(
       const calc = services.state.getState()
         .calcContext as CalculationResult | null;
       if (!calc) {
-        window.alert("Keine Berechnung vorhanden.");
+        toast.warning("Keine Berechnung vorhanden.");
         return;
       }
-      calculationSavePending = true;
-      refreshSaveButtonState();
-      const savedAt = new Date().toISOString();
-      const entryForState = {
-        ...calc.header,
-        items: calc.items,
-        savedAt,
-      };
-      const appState = services.state.getState();
-      const driverKey = getActiveDriverKey();
-      const useSqlite =
-        driverKey === "sqlite" && Boolean(appState.app?.hasDatabase);
 
-      if (useSqlite) {
-        void (async () => {
-          try {
+      // Execute save operation with lock
+      void saveLock.acquire(async () => {
+        refreshSaveButtonState();
+        const savedAt = new Date().toISOString();
+        const entryForState = {
+          ...calc.header,
+          items: calc.items,
+          savedAt,
+        };
+        const appState = services.state.getState();
+        const driverKey = getActiveDriverKey();
+        const useSqlite =
+          driverKey === "sqlite" && Boolean(appState.app?.hasDatabase);
+
+        try {
+          if (useSqlite) {
             const result = await appendHistoryEntry({
               header: entryForState,
               items: calc.items,
@@ -1758,54 +1762,34 @@ export function initCalculation(
               scope: "history",
               driver: "sqlite",
             });
-            calculationSaveLocked = true;
-            window.alert(
-              "Berechnung gespeichert! (Siehe Dokumentationsbereich)"
-            );
-            resetCalculationForm();
-          } catch (error) {
-            console.error("History konnte nicht gespeichert werden", error);
-            window.alert(
-              "Berechnung konnte nicht gespeichert werden. Bitte erneut versuchen."
-            );
-          } finally {
-            calculationSavePending = false;
-            refreshSaveButtonState();
+          } else {
+            services.state.updateSlice("history", (historySlice) => {
+              const slice = ensureSliceWindow<any>(historySlice as any);
+              const items = [...slice.items, entryForState];
+              return {
+                ...slice,
+                items,
+                totalCount: items.length,
+                lastUpdatedAt: new Date().toISOString(),
+              };
+            });
+            await persistHistory(services);
           }
-        })();
-        return;
-      }
 
-      try {
-        services.state.updateSlice("history", (historySlice) => {
-          const slice = ensureSliceWindow<any>(historySlice as any);
-          const items = [...slice.items, entryForState];
-          return {
-            ...slice,
-            items,
-            totalCount: items.length,
-            lastUpdatedAt: new Date().toISOString(),
-          };
-        });
-        calculationSaveLocked = true;
-        window.alert("Berechnung gespeichert! (Siehe Dokumentationsbereich)");
-        resetCalculationForm();
-        void persistHistory(services)
-          .catch((err) => {
-            console.error("Persist history promise error", err);
-          })
-          .finally(() => {
-            calculationSavePending = false;
-            refreshSaveButtonState();
-          });
-      } catch (error) {
-        console.error("History konnte nicht gespeichert werden", error);
-        window.alert(
-          "Berechnung konnte nicht gespeichert werden. Bitte erneut versuchen."
-        );
-        calculationSavePending = false;
-        refreshSaveButtonState();
-      }
+          calculationSaveLocked = true;
+          toast.success(
+            "Berechnung gespeichert! (Siehe Dokumentationsbereich)"
+          );
+          resetCalculationForm();
+        } catch (error) {
+          console.error("History konnte nicht gespeichert werden", error);
+          toast.error(
+            "Berechnung konnte nicht gespeichert werden. Bitte erneut versuchen."
+          );
+        } finally {
+          refreshSaveButtonState();
+        }
+      });
     }
   });
 

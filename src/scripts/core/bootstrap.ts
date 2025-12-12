@@ -9,16 +9,7 @@ import {
 } from "../dev/debugOverlayGate";
 import { initQsMode } from "./qsMode";
 import { initInfos } from "../features/infos/infosClient";
-
-// Feature imports - to be migrated
-// import { initStarfield } from '../features/starfield/index';
-// import { initShell } from '../features/shell/index';
-// import { initStartup } from '../features/startup/index';
-// import { initCalculation } from '../features/calculation/index';
-// import { initHistory } from '../features/history/index';
-// import { initSettings } from '../features/settings/index';
-// import { initReporting } from '../features/reporting/index';
-// import { initZulassung } from '../features/zulassung/index';
+import { initToastContainer } from "./toast";
 
 function setupUnloadWarning(stateService: any): void {
   const handler = (event: BeforeUnloadEvent) => {
@@ -129,13 +120,9 @@ export async function bootstrap() {
       markToggleActive();
     });
   });
-  // initShell({ shell: regions.shell, footer: regions.footer }, services);
-  // initStartup(regions.startup, services);
-  // initCalculation(regions.main, services);
-  // initHistory(regions.main, services);
-  // initSettings(regions.main, services);
-  // initReporting(regions.main, services);
-  // initZulassung(regions.main, services);
+
+  // Initialize Toast notification system
+  initToastContainer();
 
   // Infos-Feature initialisieren
   const infosContainer = document.querySelector('[data-feature="infos"]');

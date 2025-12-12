@@ -34,6 +34,7 @@ import {
   createPagerWidget,
   type PagerWidget,
 } from "@scripts/features/shared/pagerWidget";
+import { toast } from "@scripts/core/toast";
 
 interface Services {
   state: {
@@ -149,13 +150,13 @@ function emitGpsActivationRequest(
   entry: HistoryEntry | null
 ): void {
   if (!entry?.gpsPointId) {
-    window.alert(
+    toast.info(
       "Dieser Eintrag ist nicht mit einem gespeicherten GPS-Punkt verknüpft."
     );
     return;
   }
   if (typeof services.events?.emit !== "function") {
-    window.alert("GPS-Modul konnte nicht benachrichtigt werden.");
+    toast.warning("GPS-Modul konnte nicht benachrichtigt werden.");
     return;
   }
   services.events.emit("gps:set-active-from-history", {
@@ -337,7 +338,7 @@ async function loadHistoryEntries(
   } catch (error) {
     console.error("History konnte nicht geladen werden", error);
     historyLoadError = "Historie konnte nicht geladen werden.";
-    window.alert(
+    toast.error(
       "Historie konnte nicht geladen werden. Bitte erneut versuchen."
     );
     historyPendingAdvance = null;
@@ -512,7 +513,7 @@ async function persistHistoryChanges(): Promise<void> {
     await saveDatabase(snapshot);
   } catch (err) {
     console.error("Fehler beim Persistieren der Historie", err);
-    window.alert(
+    toast.error(
       "Historie konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen."
     );
   }
@@ -896,7 +897,7 @@ async function printSummary(
   labels: AppState["fieldLabels"]
 ): Promise<void> {
   if (!entries.length) {
-    window.alert("Keine Einträge zum Drucken ausgewählt.");
+    toast.warning("Keine Einträge zum Drucken ausgewählt.");
     return;
   }
   const company = getState().company || {};
@@ -909,7 +910,7 @@ async function printSummary(
     });
   } catch (err) {
     console.error("Printing failed", err);
-    window.alert("Fehler beim Drucken. Bitte erneut versuchen.");
+    toast.error("Fehler beim Drucken. Bitte erneut versuchen.");
   }
 }
 
@@ -918,7 +919,7 @@ function printDetail(
   labels: AppState["fieldLabels"]
 ): void {
   if (!entry) {
-    window.alert("Kein Eintrag zum Drucken vorhanden.");
+    toast.warning("Kein Eintrag zum Drucken vorhanden.");
     return;
   }
   const company = getState().company || {};
@@ -1171,7 +1172,7 @@ export function initHistory(
       const indexAttr = target.dataset.index || detailCard?.dataset.index || "";
       const index = indexAttr !== "" ? Number(indexAttr) : NaN;
       if (Number.isNaN(index)) {
-        window.alert("Kein Historien-Eintrag ausgewählt.");
+        toast.warning("Kein Historien-Eintrag ausgewählt.");
         return;
       }
       const entry = getEntryByIndex(state, index);
@@ -1261,7 +1262,7 @@ export function initHistory(
             ? Number(rawId)
             : (rawId as number | undefined);
         if (entryId == null || Number.isNaN(entryId)) {
-          window.alert("Eintrag kann nicht gelöscht werden (fehlende ID).");
+          toast.error("Eintrag kann nicht gelöscht werden (fehlende ID).");
           return;
         }
         void (async () => {
@@ -1280,7 +1281,7 @@ export function initHistory(
             });
           } catch (error) {
             console.error("SQLite history delete failed", error);
-            window.alert(
+            toast.error(
               "Eintrag konnte nicht gelöscht werden. Bitte erneut versuchen."
             );
           }
