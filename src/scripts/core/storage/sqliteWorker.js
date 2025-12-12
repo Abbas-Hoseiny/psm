@@ -2308,6 +2308,10 @@ async function exportSnapshot() {
     callback: (row) => {
       const key = row[0];
       const value = row[1];
+      // Only parse known JSON keys, skip internal lookup metadata
+      if (key && key.startsWith("lookup:")) {
+        return; // Skip lookup metadata (simple string values, not JSON)
+      }
       try {
         const parsed = JSON.parse(value);
         if (key === "company") snapshot.meta.company = parsed;
@@ -2316,7 +2320,10 @@ async function exportSnapshot() {
         else if (key === "version") snapshot.meta.version = parsed;
         else if (key === "archives") snapshot.archives = parsed;
       } catch (e) {
-        console.warn(`Failed to parse meta key ${key}:`, e);
+        // Silently skip non-JSON meta values (e.g. simple strings)
+        if (import.meta.env?.DEV) {
+          console.debug(`Meta key ${key} is not JSON, skipping`);
+        }
       }
     },
   });

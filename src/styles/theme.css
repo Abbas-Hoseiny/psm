@@ -1,0 +1,469 @@
+/**
+ * Design System Tokens
+ * PSM Pflanzenschutz-Aufzeichnung
+ * 
+ * Neue Palette: Slate/Blue-Töne – "Dark but not heavy"
+ * - Dunkel genug für AMOLED-Feeling
+ * - Leicht blau-grau statt reines Schwarz
+ * - Bessere Lesbarkeit durch höhere Kontraste
+ * 
+ * WICHTIG: fields.jpg wird NUR in .bg-startup geladen (base.css)
+ */
+
+:root {
+  /* ══════════════════════════════════════════════════════════════════════
+     HINTERGRUND-SYSTEM
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* App-Gradient (Nach Start-Dialog, ohne Foto) */
+  --app-bg: radial-gradient(
+    ellipse 120% 80% at 50% -10%,
+    #1e3a5f 0%,
+    #081019 60%
+  );
+
+  /* Basis-Hintergründe */
+  --bg-0: #0b1620; /* Tiefster Hintergrund */
+  --bg-1: #0e1d2a; /* Body-Fallback */
+  --bg-2: #112b3a; /* Gradient-End */
+
+  /* Oberflächen-Stufen (Cards, Panels, etc.) – angehoben */
+  --surface-1: #122433; /* Karten, Panels */
+  --surface-2: #162c3e; /* Erhöhte Flächen */
+  --surface-3: #1b3448; /* Hover-States, aktive Elemente */
+
+  /* ══════════════════════════════════════════════════════════════════════
+     RAHMEN
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --border-1: #2a3f52; /* Standard-Rahmen */
+  --border-2: #36536b; /* Aktive/Fokus-Rahmen */
+
+  /* ══════════════════════════════════════════════════════════════════════
+     TEXT-HIERARCHIE (optimiert für Tageslicht-Lesbarkeit)
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --text: #e6f0f6; /* Primärer Text */
+  --text-muted: #a6b5c2; /* Sekundärer Text */
+  --text-dim: #7e93a4; /* Tertiärer Text (Labels, Hints) */
+
+  /* ══════════════════════════════════════════════════════════════════════
+     NAV/TABS – Subtil statt vollflächig grün
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --nav-active-bg: rgba(34, 197, 94, 0.14); /* Primary-Tint für aktive Nav */
+  --nav-active-border: rgba(34, 197, 94, 0.35);
+  --tab-active-underline: rgba(34, 197, 94, 0.75);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     SEMANTISCHE FARBEN
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* Primary (Grün) – Hauptaktionen: Berechnen, Speichern, OK */
+  --primary-600: #22c55e;
+  --primary-hover: #16a34a;
+  --primary-subtle: rgba(34, 197, 94, 0.18);
+
+  /* Info (Cyan) – Prüfen, Import, Hinweise */
+  --info-600: #22d3ee;
+  --info-hover: #0e9fb8;
+  --info-subtle: rgba(34, 211, 238, 0.15);
+
+  /* Warning (Amber) – Archiv, Achtung */
+  --warning-600: #fbbf24;
+  --warning-hover: #d97706;
+  --warning-subtle: rgba(251, 191, 36, 0.15);
+  --warning-text: #1a1a1a; /* Dunkler Text auf Warning-Buttons */
+
+  /* Danger (Rot) – Löschen, Fehler */
+  --danger-600: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-subtle: rgba(239, 68, 68, 0.15);
+
+  /* Neutral (für sekundäre Aktionen, Ghost-Buttons) */
+  --neutral-600: #64748b;
+  --neutral-hover: #475569;
+  --neutral-subtle: rgba(100, 116, 139, 0.15);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     FOKUS-RING
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --focus-ring: 0 0 0 3px rgba(34, 197, 94, 0.4);
+  --focus-color: #6ee7b7;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     OVERLAY
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --overlay: rgba(0, 0, 0, 0.55);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     LAYOUT-TOKENS
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* Border Radius */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-16: 16px;
+  --r-20: 20px;
+  --r-full: 9999px;
+
+  /* Spacing (4px Basis) */
+  --sp-1: 0.25rem; /* 4px */
+  --sp-2: 0.5rem; /* 8px */
+  --sp-3: 0.75rem; /* 12px */
+  --sp-4: 1rem; /* 16px */
+  --sp-5: 1.25rem; /* 20px */
+  --sp-6: 1.5rem; /* 24px */
+  --sp-8: 2rem; /* 32px */
+
+  /* Schatten (nach User-Vorgabe) */
+  --shadow-1: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 14px 40px rgba(0, 0, 0, 0.45);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     START-DIALOG OVERLAY
+     Für Glasmorphism-Effekt auf fields.jpg – freundlicher/heller
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --start-overlay-top: rgba(10, 18, 26, 0.1); /* Oben: fast transparent */
+  --start-overlay-mid: rgba(10, 18, 26, 0.24); /* Mitte: leicht */
+  --start-overlay-bot: rgba(10, 18, 26, 0.44); /* Unten: etwas mehr */
+  --start-overlay-bg: rgba(15, 28, 42, 0.55); /* Card-Hintergrund */
+  --start-overlay-blur: 4px; /* Weniger Blur = schärferes Foto */
+  --start-overlay-border: rgba(255, 255, 255, 0.1);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     FORM CONTROLS
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --control-h: 44px; /* Min-Höhe für Touch-Targets */
+
+  /* ══════════════════════════════════════════════════════════════════════
+     LEGACY COMPATIBILITY
+     Alte Token-Namen → neue Tokens (für bestehende Komponenten)
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --color-bg: var(--bg-1);
+  --color-bg-elevated: var(--surface-1);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border-1);
+  --color-border-muted: var(--border-1);
+  --color-border-focus: var(--primary-600);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-muted);
+  --color-text-muted: var(--text-dim);
+  --color-text-disabled: var(--text-dim);
+  --color-primary: var(--primary-600);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-hover);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-primary-muted: rgba(34, 197, 94, 0.5);
+  --color-info: var(--info-600);
+  --color-info-hover: var(--info-hover);
+  --color-info-active: var(--info-hover);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-muted: rgba(34, 184, 207, 0.5);
+  --color-warning: var(--warning-600);
+  --color-warning-hover: var(--warning-hover);
+  --color-warning-active: var(--warning-hover);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-muted: rgba(245, 158, 11, 0.6);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger-600);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-active: var(--danger-hover);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-muted: rgba(239, 68, 68, 0.5);
+  --color-neutral: var(--neutral-600);
+  --color-neutral-hover: var(--neutral-hover);
+  --color-neutral-active: var(--neutral-hover);
+  --color-neutral-subtle: var(--neutral-subtle);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     LEGACY SPACING (für bestehende Komponenten)
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --space-1: var(--sp-1);
+  --space-2: var(--sp-2);
+  --space-3: var(--sp-3);
+  --space-4: var(--sp-4);
+  --space-5: var(--sp-5);
+  --space-6: var(--sp-6);
+  --space-8: var(--sp-8);
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Legacy Radius */
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: 1rem;
+  --radius-full: var(--r-full);
+
+  /* Legacy Schatten */
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-1);
+  --shadow-lg: var(--shadow-2);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.35);
+  --shadow-focus: var(--focus-ring);
+  --shadow-focus-danger: 0 0 0 3px rgba(239, 68, 68, 0.4);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     KOMPONENTEN (Legacy)
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --navbar-bg: var(--surface-1);
+  --navbar-border: var(--primary-600);
+  --card-bg: var(--surface-1);
+  --card-bg-alt: var(--surface-2);
+  --card-border: var(--border-1);
+  --card-shadow: var(--shadow-1);
+  --input-bg: var(--bg-1);
+  --input-border: var(--border-1);
+  --input-border-focus: var(--primary-600);
+  --input-text: var(--text);
+  --input-placeholder: var(--text-dim);
+  --table-bg: var(--surface-1);
+  --table-header-bg: var(--surface-2);
+  --table-border: var(--border-1);
+  --table-row-hover: rgba(255, 255, 255, 0.03); /* Subtiler Hover */
+  --table-row-height: 48px; /* Mehr Luft pro Zeile */
+  --footer-bg: var(--surface-1);
+  --footer-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     TYPOGRAFIE
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --font-family-base:
+    "Helvetica Neue", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     TRANSITIONS
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --transition-fast: 0.1s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   UTILITY CLASSES - Semantische Button-Varianten
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Primary Button - Hauptaktionen */
+.btn-psm-primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-psm-primary:hover,
+.btn-psm-primary:focus {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  color: #fff;
+}
+
+.btn-psm-primary:active {
+  background-color: var(--color-primary-active);
+  border-color: var(--color-primary-active);
+}
+
+.btn-psm-primary:disabled {
+  background-color: var(--color-neutral);
+  border-color: var(--color-neutral);
+  opacity: 0.6;
+}
+
+/* Primary Outline */
+.btn-psm-primary-outline {
+  background-color: transparent;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-psm-primary-outline:hover,
+.btn-psm-primary-outline:focus {
+  background-color: var(--color-primary-subtle);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Info Button - Prüfen, Import */
+.btn-psm-info {
+  background-color: var(--color-info);
+  border-color: var(--color-info);
+  color: #fff;
+}
+
+.btn-psm-info:hover,
+.btn-psm-info:focus {
+  background-color: var(--color-info-hover);
+  border-color: var(--color-info-hover);
+  color: #fff;
+}
+
+/* Info Outline */
+.btn-psm-info-outline {
+  background-color: transparent;
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+.btn-psm-info-outline:hover,
+.btn-psm-info-outline:focus {
+  background-color: var(--color-info-subtle);
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+/* Warning Button - Archiv, Achtung */
+.btn-psm-warning {
+  background-color: var(--color-warning);
+  border-color: var(--color-warning);
+  color: var(--color-warning-text);
+  font-weight: 600;
+}
+
+.btn-psm-warning:hover,
+.btn-psm-warning:focus {
+  background-color: var(--color-warning-hover);
+  border-color: var(--color-warning-hover);
+  color: var(--color-warning-text);
+}
+
+/* Warning Outline */
+.btn-psm-warning-outline {
+  background-color: transparent;
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.btn-psm-warning-outline:hover,
+.btn-psm-warning-outline:focus {
+  background-color: var(--color-warning-subtle);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+/* Danger Button - Löschen */
+.btn-psm-danger {
+  background-color: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-psm-danger:hover,
+.btn-psm-danger:focus {
+  background-color: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
+  color: #fff;
+}
+
+/* Danger Outline */
+.btn-psm-danger-outline {
+  background-color: transparent;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.btn-psm-danger-outline:hover,
+.btn-psm-danger-outline:focus {
+  background-color: var(--color-danger-subtle);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* Secondary Button - Neutrale Aktionen */
+.btn-psm-secondary {
+  background-color: var(--color-surface-3);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.btn-psm-secondary:hover,
+.btn-psm-secondary:focus {
+  background-color: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+/* Secondary Outline (Ghost) */
+.btn-psm-secondary-outline {
+  background-color: transparent;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.btn-psm-secondary-outline:hover,
+.btn-psm-secondary-outline:focus {
+  background-color: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   UTILITY CLASSES - Semantische Badge-Varianten
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Basis für alle Badges */
+.badge-psm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25em 0.6em;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  line-height: 1.3;
+}
+
+/* Primary Badge - Wichtige Info, Status "OK" */
+.badge-psm-primary {
+  background-color: var(--color-primary-subtle);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-muted);
+}
+
+/* Info Badge - Zusatzinfo, Tipps */
+.badge-psm-info {
+  background-color: var(--color-info-subtle);
+  color: var(--color-info);
+  border: 1px solid var(--color-info-muted);
+}
+
+/* Warning Badge - Achtung, Deadline */
+.badge-psm-warning {
+  background-color: var(--color-warning-subtle);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-muted);
+}
+
+/* Danger Badge - Fehler, Ablauf */
+.badge-psm-danger {
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-muted);
+}
+
+/* Neutral Badge - Tags ohne besondere Bedeutung */
+.badge-psm-neutral {
+  background-color: var(--color-neutral-subtle);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
