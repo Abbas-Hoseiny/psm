@@ -2575,15 +2575,15 @@ function mapMediumRow(row) {
       row.method_id != null
         ? String(row.method_id)
         : row.methodId != null
-        ? String(row.methodId)
-        : null,
+          ? String(row.methodId)
+          : null,
     value: Number(row.value ?? 0),
     zulassungsnummer:
       row.zulassungsnummer != null
         ? String(row.zulassungsnummer)
         : row.zulassung != null
-        ? String(row.zulassung)
-        : null,
+          ? String(row.zulassung)
+          : null,
     wartezeit: row.wartezeit != null ? Number(row.wartezeit) : null,
     wirkstoff: row.wirkstoff != null ? String(row.wirkstoff) : null,
   };
@@ -4477,12 +4477,67 @@ async function queryZulassung(payload) {
       },
     });
 
-    result.wirkstoffe = getPayloadsForKey("wirkstoff", {
+    // Hole wirkstoff_gehalt Einträge für dieses Mittel (über kennr)
+    const wirkstoffGehaltEntries = getPayloadsForKey("wirkstoff_gehalt", {
       primaryRef: result.kennr,
     });
-    result.wirkstoff_gehalt = getPayloadsForKey("wirkstoff_gehalt", {
-      primaryRef: result.kennr,
+
+    // Hilfsfunktion: Suche Wirkstoffname direkt in der Payload-Tabelle via SQL
+    const getWirkstoffNameByWirknr = (wirknr) => {
+      if (!wirknr) return null;
+      let wirkstoffName = null;
+      db.exec({
+        sql: `
+          SELECT payload_json FROM bvl_api_payloads 
+          WHERE key = 'wirkstoff' 
+          AND (primary_ref = ? OR payload_json LIKE ?)
+          LIMIT 1
+        `,
+        bind: [wirknr, `%"wirknr":"${wirknr}"%`],
+        callback: (row) => {
+          const payload = safeParseJson(row[0]);
+          if (payload) {
+            wirkstoffName =
+              getFieldValue(payload, "wirkstoffname") ||
+              getFieldValue(payload, "WIRKSTOFFNAME");
+          }
+        },
+      });
+      return wirkstoffName;
+    };
+
+    // Anreichern mit Wirkstoffnamen aus der wirkstoff-Tabelle (über wirknr)
+    result.wirkstoffe = wirkstoffGehaltEntries.map((gehaltEntry) => {
+      const wirknr =
+        getFieldValue(gehaltEntry, "wirknr") ||
+        getFieldValue(gehaltEntry, "WIRKNR");
+
+      // Versuche erst über Payload-Cache, dann direkt via SQL
+      let wirkstoffData = wirknr
+        ? getFirstPayload("wirkstoff", { primaryRef: wirknr })
+        : null;
+
+      let wirkstoffName = wirkstoffData
+        ? getFieldValue(wirkstoffData, "wirkstoffname") ||
+          getFieldValue(wirkstoffData, "WIRKSTOFFNAME")
+        : null;
+
+      // Fallback: Direkte SQL-Suche wenn Cache nichts liefert
+      if (!wirkstoffName && wirknr) {
+        wirkstoffName = getWirkstoffNameByWirknr(wirknr);
+      }
+
+      return {
+        ...gehaltEntry,
+        wirkstoff_name: wirkstoffName,
+        wirkstoff_name_en: wirkstoffData
+          ? getFieldValue(wirkstoffData, "wirkstoffname_en") ||
+            getFieldValue(wirkstoffData, "WIRKSTOFFNAME_EN")
+          : null,
+      };
     });
+
+    result.wirkstoff_gehalt = wirkstoffGehaltEntries;
     result.zusatzstoffe = getPayloadsForKey("zusatzstoff", {
       primaryRef: result.kennr,
     });

@@ -262,7 +262,7 @@ const SYNC_ENDPOINTS = [
     endpoint: "wirkstoff",
     category: "payload",
     label: "Wirkstoffe",
-    primaryRefField: "KENNR",
+    primaryRefField: "WIRKNR",
   },
   {
     key: "wirkstoff_gehalt",

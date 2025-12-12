@@ -28,3 +28,7 @@ pnpm-debug.log*
 # astro
 .astro/
 _vendor/
+
+# cloned repos
+pflanzenschutzmittelzulassung-api/
+pflanzenschutz-db/
