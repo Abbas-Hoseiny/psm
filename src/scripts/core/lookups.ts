@@ -82,7 +82,51 @@ async function fetchLookupAsset(kind: LookupKind): Promise<ArrayBuffer> {
   return response.arrayBuffer();
 }
 
+// Version für deutsche Datenbanken - bei Änderung werden Daten neu importiert
+const LOOKUP_VERSION = "2.2-de-debug";
+const LOOKUP_VERSION_KEY = "lookup:version";
+
+// Track ob Version bereits geprüft wurde
+let versionChecked = false;
+let needsReimport = false;
+
+function getLookupVersionFromStorage(): string | null {
+  try {
+    return localStorage.getItem(LOOKUP_VERSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setLookupVersionInStorage(): void {
+  try {
+    localStorage.setItem(LOOKUP_VERSION_KEY, LOOKUP_VERSION);
+  } catch {
+    // ignore
+  }
+}
+
+function checkVersionOnce(): boolean {
+  if (versionChecked) {
+    return needsReimport;
+  }
+  versionChecked = true;
+  const storedVersion = getLookupVersionFromStorage();
+  needsReimport = storedVersion !== LOOKUP_VERSION;
+  if (needsReimport) {
+    console.log(
+      `Lookup-Version geändert: ${storedVersion} → ${LOOKUP_VERSION}, Daten werden neu importiert`
+    );
+  }
+  return needsReimport;
+}
+
 async function hasLookupData(kind: LookupKind): Promise<boolean> {
+  // Prüfe ob Version geändert wurde - wenn ja, neu importieren
+  if (checkVersionOnce()) {
+    return false;
+  }
+
   const stats = (await workerGetLookupStats()) as LookupStats | undefined;
   if (!stats) {
     return false;
@@ -96,6 +140,7 @@ async function hasLookupData(kind: LookupKind): Promise<boolean> {
 }
 
 async function importLookupFromAsset(kind: LookupKind): Promise<void> {
+  console.log(`Importiere ${kind.toUpperCase()}-Lookup aus Asset...`);
   const buffer = await fetchLookupAsset(kind);
   if (kind === "eppo") {
     await workerImportLookupEppo(buffer);
@@ -103,6 +148,9 @@ async function importLookupFromAsset(kind: LookupKind): Promise<void> {
     await workerImportLookupBbch(buffer);
   }
   availability[kind] = true;
+  // Speichere Version nach erfolgreichem Import beider Datenbanken
+  setLookupVersionInStorage();
+  console.log(`${kind.toUpperCase()}-Lookup erfolgreich importiert`);
 }
 
 export async function ensureLookupData(kind: LookupKind): Promise<void> {
