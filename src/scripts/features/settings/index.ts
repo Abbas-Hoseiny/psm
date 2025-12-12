@@ -84,17 +84,17 @@ function createSection(): HTMLElement {
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" data-settings-tab="gps" type="button">
-            <i class="bi bi-geo-alt me-1"></i>
-            <span class="d-none d-md-inline">GPS-Standorte</span>
-            <span class="d-md-none">GPS</span>
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
           <button class="nav-link" data-settings-tab="bvl" type="button">
             <i class="bi bi-database me-1"></i>
             <span class="d-none d-md-inline">BVL & Codes</span>
             <span class="d-md-none">BVL</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-settings-tab="gps" type="button">
+            <i class="bi bi-geo-alt me-1"></i>
+            <span class="d-none d-md-inline">GPS-Standorte</span>
+            <span class="d-md-none">GPS</span>
           </button>
         </li>
       </ul>
@@ -640,13 +640,19 @@ function renderMediumRows(state: AppState): void {
     const globalIndex = start + index;
     const row = document.createElement("tr");
     const method = methodsById.get(medium.methodId);
+    // Zulassung kann als 'approval' oder 'zulassungsnummer' gespeichert sein
+    const approvalValue = medium.approval || medium.zulassungsnummer;
     const approvalText =
-      typeof medium.zulassungsnummer === "string" &&
-      medium.zulassungsnummer.trim().length
-        ? escapeHtml(medium.zulassungsnummer)
+      typeof approvalValue === "string" && approvalValue.trim().length
+        ? escapeHtml(approvalValue)
         : "-";
+    // Wartezeit kann String (z.B. "FX") oder Number sein
     const wartezeitText =
-      typeof medium.wartezeit === "number" ? `${medium.wartezeit} Tage` : "-";
+      typeof medium.wartezeit === "string" && medium.wartezeit.trim().length
+        ? escapeHtml(medium.wartezeit)
+        : typeof medium.wartezeit === "number"
+          ? `${medium.wartezeit} Tage`
+          : "-";
     const wirkstoffText =
       typeof medium.wirkstoff === "string" && medium.wirkstoff.trim().length
         ? escapeHtml(medium.wirkstoff)
@@ -659,7 +665,7 @@ function renderMediumRows(state: AppState): void {
       </td>
       <td>${escapeHtml(medium.name)}</td>
       <td>${escapeHtml(medium.unit)}</td>
-      <td>${escapeHtml(method ? method.label : medium.methodId)}</td>
+      <td>${escapeHtml(method ? method.label : medium.method || medium.methodId || "-")}</td>
       <td>${escapeHtml(medium.value != null ? String(medium.value) : "")}</td>
       <td>${approvalText}</td>
       <td>${wartezeitText}</td>

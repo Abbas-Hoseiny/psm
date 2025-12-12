@@ -1226,16 +1226,37 @@ function renderResultItem(result: ReportingResult): string {
     : {};
 
   // Daten für "Zu Mitteln hinzufügen" Button vorbereiten
+  // ALLE Wirkstoffe kombinieren (nicht nur der erste)
   const wirkstoff =
     Array.isArray(result.wirkstoffe) && result.wirkstoffe.length > 0
-      ? result.wirkstoffe[0].wirkstoff_name ||
-        result.wirkstoffe[0].wirkstoff ||
-        ""
+      ? result.wirkstoffe
+          .map((w) => {
+            const name =
+              w.wirkstoff_name ||
+              w.wirkstoffname ||
+              w.WIRKSTOFFNAME ||
+              w.wirkstoff ||
+              w.wirknr ||
+              w.WIRKNR ||
+              "";
+            return name;
+          })
+          .filter((name) => name) // Leere Einträge entfernen
+          .join(", ") // Mit Komma verbinden
       : "";
+  // Wartezeit aus BVL: Kombiniere Tage und Anwendungsbereich-Code
   const wartezeit =
     Array.isArray(result.wartezeiten) && result.wartezeiten.length > 0
-      ? String(result.wartezeiten[0].tage || "")
-      : "";
+      ? (() => {
+          const w = result.wartezeiten[0];
+          const tage = w.gesetzt_wartezeit || w.tage || "";
+          const code = w.anwendungsbereich || "";
+          if (tage && code) return `${tage} Tage (${code})`;
+          if (tage) return `${tage} Tage`;
+          if (code) return code;
+          return "-";
+        })()
+      : "-";
 
   // JSON für data-Attribut - Base64 encodiert um Escaping-Probleme zu vermeiden
   const addToMediumDataObj = {
@@ -1328,17 +1349,22 @@ function renderResultWirkstoffe(result: ReportingResult): string {
 
   const list = result.wirkstoffe
     .map((entry) => {
-      const gehalt = coerceNumber(entry.gehalt);
+      // BVL API liefert gehalt_rein_grundstruktur und gehalt_einheit
+      const gehalt =
+        coerceNumber(entry.gehalt_rein_grundstruktur) ??
+        coerceNumber(entry.gehalt_rein) ??
+        coerceNumber(entry.gehalt);
       const gehaltStr =
         gehalt !== null
           ? numberFormatter.format(gehalt)
-          : String(entry.gehalt || "");
+          : String(entry.gehalt_rein_grundstruktur || entry.gehalt || "");
+      const einheit = entry.gehalt_einheit || entry.einheit || "";
       return `
         <li>
-          ${escapeHtml(entry.wirkstoff_name || entry.wirkstoff || "-")}
+          ${escapeHtml(entry.wirkstoff_name || entry.wirkstoff || entry.wirknr || "-")}
           ${
-            entry.gehalt
-              ? ` - ${escapeHtml(gehaltStr)} ${escapeHtml(entry.einheit || "")}`
+            gehalt !== null
+              ? ` - ${escapeHtml(gehaltStr)} ${escapeHtml(einheit)}`
               : ""
           }
         </li>
@@ -2797,35 +2823,53 @@ function createAddMediumDialog(): HTMLElement {
       </div>
       <div style="padding: 20px;">
         <form id="add-medium-modal-form">
-          <div style="margin-bottom: 16px;">
-            <label style="display: block; margin-bottom: 6px; color: #aaa; font-size: 14px;">Name</label>
-            <input type="text" name="modal-name" readonly style="width: 100%; padding: 8px 12px; border: 1px solid #555; border-radius: 4px; background: #444; color: #888; font-size: 14px;" />
+          <!-- Feste Werte aus BVL (nicht editierbar) -->
+          <div style="margin-bottom: 12px; padding: 12px; background: #3a3a3a; border-radius: 6px; border-left: 3px solid #666;">
+            <label style="display: block; margin-bottom: 6px; color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Name</label>
+            <input type="text" name="modal-name" readonly style="width: 100%; padding: 6px 0; border: none; background: transparent; color: #ccc; font-size: 14px; cursor: not-allowed;" />
           </div>
-          <div style="margin-bottom: 16px;">
-            <label style="display: block; margin-bottom: 6px; color: #aaa; font-size: 14px;">Zulassungsnummer</label>
-            <input type="text" name="modal-approval" readonly style="width: 100%; padding: 8px 12px; border: 1px solid #555; border-radius: 4px; background: #444; color: #888; font-size: 14px;" />
+          <div style="margin-bottom: 12px; padding: 12px; background: #3a3a3a; border-radius: 6px; border-left: 3px solid #666;">
+            <label style="display: block; margin-bottom: 6px; color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Zulassungsnummer</label>
+            <input type="text" name="modal-approval" readonly style="width: 100%; padding: 6px 0; border: none; background: transparent; color: #ccc; font-size: 14px; cursor: not-allowed;" />
           </div>
-          <div style="margin-bottom: 16px;">
-            <label style="display: block; margin-bottom: 6px; color: #aaa; font-size: 14px;">Wirkstoff</label>
-            <input type="text" name="modal-wirkstoff" readonly style="width: 100%; padding: 8px 12px; border: 1px solid #555; border-radius: 4px; background: #444; color: #888; font-size: 14px;" />
+          <div style="margin-bottom: 12px; padding: 12px; background: #3a3a3a; border-radius: 6px; border-left: 3px solid #666;">
+            <label style="display: block; margin-bottom: 6px; color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Wirkstoff</label>
+            <input type="text" name="modal-wirkstoff" readonly style="width: 100%; padding: 6px 0; border: none; background: transparent; color: #ccc; font-size: 14px; cursor: not-allowed;" />
           </div>
-          <hr style="border: none; border-top: 1px solid #444; margin: 20px 0;" />
+          
+          <div style="margin: 20px 0; padding: 10px 0; border-top: 1px dashed #555;">
+            <span style="color: #28a745; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+              <i class="bi bi-pencil-square me-1"></i>Editierbares Feld
+            </span>
+          </div>
+          
+          <!-- Editierbares Feld (grün umrandet) -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div>
-              <label style="display: block; margin-bottom: 6px; color: #fff; font-size: 14px;">Einheit *</label>
-              <input type="text" name="modal-unit" placeholder="ml, %" required style="width: 100%; padding: 8px 12px; border: 1px solid #666; border-radius: 4px; background: #333; color: #fff; font-size: 14px;" />
+              <label style="display: block; margin-bottom: 6px; color: #28a745; font-size: 14px; font-weight: 500;">Wert (ml/ha) *</label>
+              <input type="number" step="any" name="modal-value" placeholder="z.B. 500" required style="width: 100%; padding: 10px 12px; border: 2px solid #28a745; border-radius: 4px; background: #2a3a2a; color: #fff; font-size: 14px;" />
             </div>
             <div>
-              <label style="display: block; margin-bottom: 6px; color: #fff; font-size: 14px;">Methode *</label>
-              <input type="text" name="modal-method" placeholder="perHektar" required style="width: 100%; padding: 8px 12px; border: 1px solid #666; border-radius: 4px; background: #333; color: #fff; font-size: 14px;" />
+              <label style="display: block; margin-bottom: 6px; color: #888; font-size: 14px;">Einheit</label>
+              <input type="text" name="modal-unit" value="ml" readonly style="width: 100%; padding: 10px 12px; border: 1px solid #555; border-radius: 4px; background: #3a3a3a; color: #ccc; font-size: 14px; cursor: not-allowed;" />
+            </div>
+          </div>
+          
+          <div style="margin: 16px 0; padding: 10px 0; border-top: 1px dashed #555;">
+            <span style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+              <i class="bi bi-lock me-1"></i>Automatisch befüllt
+            </span>
+          </div>
+          
+          <!-- Feste Standardwerte (readonly aber mit Werten) -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; margin-bottom: 6px; color: #888; font-size: 14px;">Methode</label>
+              <input type="text" name="modal-method" value="perHektar" readonly style="width: 100%; padding: 10px 12px; border: 1px solid #555; border-radius: 4px; background: #3a3a3a; color: #ccc; font-size: 14px; cursor: not-allowed;" />
             </div>
             <div>
-              <label style="display: block; margin-bottom: 6px; color: #fff; font-size: 14px;">Wert *</label>
-              <input type="number" step="any" name="modal-value" placeholder="1" required style="width: 100%; padding: 8px 12px; border: 1px solid #666; border-radius: 4px; background: #333; color: #fff; font-size: 14px;" />
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 6px; color: #fff; font-size: 14px;">Wartetage</label>
-              <input type="number" min="0" name="modal-wartezeit" placeholder="14" style="width: 100%; padding: 8px 12px; border: 1px solid #666; border-radius: 4px; background: #333; color: #fff; font-size: 14px;" />
+              <label style="display: block; margin-bottom: 6px; color: #888; font-size: 14px;">Wartezeit (BVL)</label>
+              <input type="text" name="modal-wartezeit" readonly style="width: 100%; padding: 10px 12px; border: 1px solid #555; border-radius: 4px; background: #3a3a3a; color: #ccc; font-size: 14px; cursor: not-allowed;" />
             </div>
           </div>
         </form>
@@ -2887,15 +2931,16 @@ function showAddMediumModal(data: {
     (form.querySelector('[name="modal-wirkstoff"]') as HTMLInputElement).value =
       data.wirkstoff;
     (form.querySelector('[name="modal-wartezeit"]') as HTMLInputElement).value =
-      data.wartezeit;
-    (form.querySelector('[name="modal-unit"]') as HTMLInputElement).value = "";
+      data.wartezeit || "-";
+    (form.querySelector('[name="modal-unit"]') as HTMLInputElement).value =
+      "ml";
     (form.querySelector('[name="modal-method"]') as HTMLInputElement).value =
-      "";
+      "perHektar";
     (form.querySelector('[name="modal-value"]') as HTMLInputElement).value = "";
 
-    // Fokus auf erstes editierbares Feld
+    // Fokus auf Wert-Feld (einziges editierbares Feld)
     setTimeout(() => {
-      (form.querySelector('[name="modal-unit"]') as HTMLInputElement)?.focus();
+      (form.querySelector('[name="modal-value"]') as HTMLInputElement)?.focus();
     }, 100);
   }
 }
@@ -2930,7 +2975,7 @@ function handleSaveMediumFromModal(): void {
   ).value.trim();
 
   if (!name || !unit || !method || !valueStr) {
-    alert("Bitte alle Pflichtfelder ausfüllen (Einheit, Methode, Wert)");
+    alert("Bitte alle Pflichtfelder ausfüllen");
     return;
   }
 
@@ -2940,7 +2985,8 @@ function handleSaveMediumFromModal(): void {
     return;
   }
 
-  const wartezeit = wartezeitStr ? parseInt(wartezeitStr, 10) : null;
+  // Wartezeit als String speichern (z.B. "28 Tage (FX)" oder "FX")
+  const wartezeit = wartezeitStr && wartezeitStr !== "-" ? wartezeitStr : null;
 
   // Neues Mittel erstellen
   const newMedium = {
