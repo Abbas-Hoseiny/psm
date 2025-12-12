@@ -7,6 +7,8 @@ import {
 import { syncBvlData } from "@scripts/core/bvlSync";
 import { checkForUpdates } from "@scripts/core/bvlDataset";
 import * as storage from "@scripts/core/storage/sqlite";
+import { saveDatabase } from "@scripts/core/storage";
+import { getDatabaseSnapshot } from "@scripts/core/database";
 import { escapeHtml, debounce } from "@scripts/core/utils";
 import {
   createPagerWidget,
@@ -1244,6 +1246,7 @@ function renderResultItem(result: ReportingResult): string {
           .filter((name) => name) // Leere Einträge entfernen
           .join(", ") // Mit Komma verbinden
       : "";
+
   // Wartezeit aus BVL: Kombiniere Tage und Anwendungsbereich-Code
   const wartezeit =
     Array.isArray(result.wartezeiten) && result.wartezeiten.length > 0
@@ -2895,7 +2898,7 @@ function createAddMediumDialog(): HTMLElement {
     ?.addEventListener("click", closeAddMediumDialog);
   overlay
     .querySelector("#btn-save-medium")
-    ?.addEventListener("click", handleSaveMediumFromModal);
+    ?.addEventListener("click", () => void handleSaveMediumFromModal());
 
   // Klick außerhalb schließt Dialog
   overlay.addEventListener("click", (e) => {
@@ -2945,7 +2948,7 @@ function showAddMediumModal(data: {
   }
 }
 
-function handleSaveMediumFromModal(): void {
+async function handleSaveMediumFromModal(): Promise<void> {
   const dialog = addMediumDialog;
   if (!dialog || !services) return;
 
@@ -2994,8 +2997,10 @@ function handleSaveMediumFromModal(): void {
     name,
     unit,
     method,
+    methodId: method, // Für Kompatibilität mit Settings
     value,
     approval: approval || null,
+    zulassungsnummer: approval || null, // Für Kompatibilität mit Settings
     wartezeit: wartezeit,
     wirkstoff: wirkstoff || null,
   };
@@ -3006,12 +3011,18 @@ function handleSaveMediumFromModal(): void {
     return {
       ...prev,
       items: [...items, newMedium],
+      totalCount: items.length + 1,
+      lastUpdatedAt: new Date().toISOString(),
     };
   });
 
-  // Event emittieren für Persistierung
-  if (services.events?.emit) {
-    services.events.emit("mediums:changed");
+  // In Datenbank persistieren
+  try {
+    const snapshot = getDatabaseSnapshot();
+    await saveDatabase(snapshot);
+    console.log("Mittel in Datenbank gespeichert:", newMedium.name);
+  } catch (err) {
+    console.error("Fehler beim Speichern in Datenbank:", err);
   }
 
   // Dialog schließen

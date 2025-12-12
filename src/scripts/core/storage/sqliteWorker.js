@@ -158,10 +158,10 @@ function ensureMediumColumns(targetDb = db) {
   if (!targetDb) {
     return;
   }
-  // Add wartezeit column if missing
+  // Add wartezeit column if missing (TEXT for codes like 'FX')
   if (!hasColumn(targetDb, "mediums", "wartezeit")) {
     try {
-      targetDb.exec("ALTER TABLE mediums ADD COLUMN wartezeit INTEGER");
+      targetDb.exec("ALTER TABLE mediums ADD COLUMN wartezeit TEXT");
       console.log("[DB] Added wartezeit column to mediums");
     } catch (e) {
       console.warn("[DB] Could not add wartezeit column:", e.message);
@@ -2128,7 +2128,7 @@ async function importSnapshot(snapshot) {
             medium.methodId || medium.method_id,
             medium.value,
             approvalNumber,
-            medium.wartezeit != null ? Number(medium.wartezeit) : null,
+            medium.wartezeit ?? null,
             medium.wirkstoff ?? null,
           ])
           .step();
@@ -2338,7 +2338,7 @@ async function exportSnapshot() {
 
   // Export mediums
   db.exec({
-    sql: "SELECT id, name, unit, method_id, value, zulassungsnummer FROM mediums",
+    sql: "SELECT id, name, unit, method_id, value, zulassungsnummer, wartezeit, wirkstoff FROM mediums",
     callback: (row) => {
       snapshot.mediums.push({
         id: row[0],
@@ -2347,6 +2347,8 @@ async function exportSnapshot() {
         methodId: row[3],
         value: row[4],
         zulassungsnummer: row[5] || null,
+        wartezeit: row[6] || null,
+        wirkstoff: row[7] || null,
       });
     },
   });
@@ -2518,7 +2520,7 @@ async function upsertMedium(medium) {
         medium.approvalNumber ??
         medium.zulassung ??
         null,
-      medium.wartezeit != null ? Number(medium.wartezeit) : null,
+      medium.wartezeit ?? null,
       medium.wirkstoff ?? null,
     ])
     .step();
@@ -2554,7 +2556,7 @@ async function listMediums() {
         methodId: row[3],
         value: row[4],
         zulassungsnummer: row[5] || null,
-        wartezeit: row[6] != null ? Number(row[6]) : null,
+        wartezeit: row[6] || null,
         wirkstoff: row[7] || null,
       });
     },
