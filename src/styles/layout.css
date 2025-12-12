@@ -54,16 +54,21 @@
   position: fixed;
   bottom: 0;
   left: 0;
+  right: 0;
   width: 100%;
-  background-color: var(--footer-bg, var(--color-surface-1));
-  color: var(--color-text);
-  text-align: center;
-  padding: var(--space-3);
-  box-shadow: var(--footer-shadow);
-  font-size: var(--font-size-sm);
+  background-color: var(--surface-1, #1e293b);
+  border-top: 1px solid var(--border-1, #334155);
+  color: var(--text-muted, #94a3b8);
+  padding: var(--sp-3, 0.75rem) var(--sp-4, 1rem);
+  font-size: var(--font-size-sm, 0.875rem);
   z-index: 999;
 }
 
 .site-footer a {
+  color: var(--text-muted, #94a3b8);
   text-decoration: underline;
+}
+
+.site-footer a:hover {
+  color: var(--text, #f1f5f9);
 }
