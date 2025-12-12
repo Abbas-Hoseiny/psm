@@ -563,43 +563,27 @@ function render(): void {
 
       ${noDatabaseHint}
       
-      <!-- Tab Navigation - Benutzerfreundliche Karten -->
+      <!-- Tab Navigation - Konsistente Karten -->
       <div class="row g-3 mb-4">
         <div class="col-md-6">
-          <div class="card h-100 ${activeTab === "zulassung" ? "border-success" : ""}" 
-               style="cursor: pointer; background: ${activeTab === "zulassung" ? "#1a3d1a" : "#2d2d2d"};" data-tab="zulassung">
-            <div class="card-body d-flex align-items-center">
-              <div class="rounded-circle p-3 me-3" style="background: ${activeTab === "zulassung" ? "#2f9e44" : "#4a4a4a"};">
-                <i class="bi bi-search fs-4 text-white"></i>
-              </div>
-              <div>
-                <h5 class="card-title mb-1">
-                  <i class="bi bi-file-earmark-check me-1"></i>
-                  Pflanzenschutzmittel suchen
-                </h5>
-                <p class="card-text text-muted small mb-0">
-                  Offizielle BVL-Zulassungsdaten durchsuchen und Mittel zu deiner Liste hinzufügen
-                </p>
-              </div>
+          <div class="bvl-tab-card ${activeTab === "zulassung" ? "active" : ""}" data-tab="zulassung">
+            <div class="bvl-tab-icon">
+              <i class="bi bi-search"></i>
+            </div>
+            <div class="bvl-tab-content">
+              <h5>Pflanzenschutzmittel suchen</h5>
+              <p>Offizielle BVL-Zulassungsdaten durchsuchen und Mittel zu deiner Liste hinzufügen</p>
             </div>
           </div>
         </div>
         <div class="col-md-6">
-          <div class="card h-100 ${activeTab === "codes" ? "border-success" : ""}" 
-               style="cursor: pointer; background: ${activeTab === "codes" ? "#1a3d1a" : "#2d2d2d"};" data-tab="codes">
-            <div class="card-body d-flex align-items-center">
-              <div class="rounded-circle p-3 me-3" style="background: ${activeTab === "codes" ? "#2f9e44" : "#4a4a4a"};">
-                <i class="bi bi-bookmark-star fs-4 text-white"></i>
-              </div>
-              <div>
-                <h5 class="card-title mb-1">
-                  <i class="bi bi-tags me-1"></i>
-                  EPPO & BBCH Codes
-                </h5>
-                <p class="card-text text-muted small mb-0">
-                  Kultur- und Wachstumsstadium-Codes für die Dokumentation verwalten
-                </p>
-              </div>
+          <div class="bvl-tab-card ${activeTab === "codes" ? "active" : ""}" data-tab="codes">
+            <div class="bvl-tab-icon">
+              <i class="bi bi-bookmark-star"></i>
+            </div>
+            <div class="bvl-tab-content">
+              <h5>EPPO & BBCH Codes</h5>
+              <p>Kultur- und Wachstumsstadium-Codes für die Dokumentation verwalten</p>
             </div>
           </div>
         </div>
@@ -635,27 +619,24 @@ function render(): void {
 function renderStatusSection(zulassungState: ZulassungState): string {
   if (!zulassungState.lastSync) {
     return `
-      <div class="card mb-3 border-info" style="background: #1a2a3a;">
-        <div class="card-body">
-          <div class="d-flex align-items-start">
-            <div class="rounded-circle p-3 me-3" style="background: #0d6efd;">
-              <i class="bi bi-cloud-download fs-4 text-white"></i>
+      <div class="bvl-card bvl-section" style="border-left: 3px solid var(--info-500);">
+        <div class="bvl-card-body">
+          <div class="bvl-status-header">
+            <div class="bvl-status-icon" style="background: var(--info-500);">
+              <i class="bi bi-cloud-download"></i>
             </div>
             <div>
-              <h5 class="mb-2">
-                <i class="bi bi-database me-2"></i>
-                BVL-Daten herunterladen
-              </h5>
-              <p class="mb-2">
-                Lade die offizielle Pflanzenschutzmittel-Datenbank vom Bundesamt für Verbraucherschutz (BVL) herunter.
+              <h5 class="bvl-status-title" style="color: var(--text);">BVL-Daten herunterladen</h5>
+              <p style="color: var(--text-muted); margin: 0; font-size: var(--font-size-sm);">
+                Lade die offizielle Pflanzenschutzmittel-Datenbank vom Bundesamt für Verbraucherschutz (BVL).
               </p>
-              <ul class="list-unstyled small text-muted mb-0">
-                <li><i class="bi bi-check-circle text-success me-1"></i> Über 1.500 zugelassene Pflanzenschutzmittel</li>
-                <li><i class="bi bi-check-circle text-success me-1"></i> Kulturen, Schadorganismen & Wartezeiten</li>
-                <li><i class="bi bi-check-circle text-success me-1"></i> Automatische Updates verfügbar</li>
-              </ul>
             </div>
           </div>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: var(--font-size-sm); color: var(--text-muted);">
+            <li style="margin-bottom: var(--sp-1);"><i class="bi bi-check-circle text-success me-2"></i>Über 2.000 zugelassene Pflanzenschutzmittel</li>
+            <li style="margin-bottom: var(--sp-1);"><i class="bi bi-check-circle text-success me-2"></i>Kulturen, Schadorganismen & Wartezeiten</li>
+            <li><i class="bi bi-check-circle text-success me-2"></i>Automatische Updates verfügbar</li>
+          </ul>
         </div>
       </div>
     `;
@@ -669,49 +650,34 @@ function renderStatusSection(zulassungState: ZulassungState): string {
   const totalAwg = counts.awg || counts.bvl_awg || 0;
 
   return `
-    <div class="card mb-3 border-success" style="background: #1a2e1a;">
-      <div class="card-body">
-        <div class="d-flex align-items-start">
-          <div class="rounded-circle p-3 me-3" style="background: #2f9e44;">
-            <i class="bi bi-check-circle-fill fs-4 text-white"></i>
-          </div>
-          <div class="flex-grow-1">
-            <h5 class="mb-2 text-success">
-              <i class="bi bi-database-fill-check me-2"></i>
-              Daten geladen
-            </h5>
-            <div class="row g-3">
-              <div class="col-6 col-md-3">
-                <div class="text-center p-2 rounded" style="background: #1e1e1e;">
-                  <div class="fs-4 fw-bold text-success">${totalMittel.toLocaleString("de-DE")}</div>
-                  <small class="text-muted">Mittel</small>
-                </div>
-              </div>
-              <div class="col-6 col-md-3">
-                <div class="text-center p-2 rounded" style="background: #1e1e1e;">
-                  <div class="fs-4 fw-bold text-info">${totalAwg.toLocaleString("de-DE")}</div>
-                  <small class="text-muted">Anwendungen</small>
-                </div>
-              </div>
-              <div class="col-6 col-md-3">
-                <div class="text-center p-2 rounded" style="background: #1e1e1e;">
-                  <div class="fs-4 fw-bold text-warning">${(counts.awg_kultur || counts.bvl_awg_kultur || 0).toLocaleString("de-DE")}</div>
-                  <small class="text-muted">Kulturen</small>
-                </div>
-              </div>
-              <div class="col-6 col-md-3">
-                <div class="text-center p-2 rounded" style="background: #1e1e1e;">
-                  <div class="fs-4 fw-bold text-danger">${(counts.awg_schadorg || counts.bvl_awg_schadorg || 0).toLocaleString("de-DE")}</div>
-                  <small class="text-muted">Schädlinge</small>
-                </div>
-              </div>
-            </div>
-            <small class="text-muted d-block mt-2">
-              <i class="bi bi-clock me-1"></i>
-              Letzte Aktualisierung: ${escapeHtml(lastSyncDate)}
-            </small>
-          </div>
+    <div class="bvl-status-card bvl-section">
+      <div class="bvl-status-header">
+        <div class="bvl-status-icon">
+          <i class="bi bi-check"></i>
         </div>
+        <h5 class="bvl-status-title">Daten geladen</h5>
+      </div>
+      <div class="bvl-stats-grid">
+        <div class="bvl-stat-box">
+          <div class="bvl-stat-value success">${totalMittel.toLocaleString("de-DE")}</div>
+          <div class="bvl-stat-label">Mittel</div>
+        </div>
+        <div class="bvl-stat-box">
+          <div class="bvl-stat-value info">${totalAwg.toLocaleString("de-DE")}</div>
+          <div class="bvl-stat-label">Anwendungen</div>
+        </div>
+        <div class="bvl-stat-box">
+          <div class="bvl-stat-value warning">${(counts.awg_kultur || counts.bvl_awg_kultur || 0).toLocaleString("de-DE")}</div>
+          <div class="bvl-stat-label">Kulturen</div>
+        </div>
+        <div class="bvl-stat-box">
+          <div class="bvl-stat-value danger">${(counts.awg_schadorg || counts.bvl_awg_schadorg || 0).toLocaleString("de-DE")}</div>
+          <div class="bvl-stat-label">Schädlinge</div>
+        </div>
+      </div>
+      <div class="bvl-status-meta">
+        <i class="bi bi-clock"></i>
+        Letzte Aktualisierung: ${escapeHtml(lastSyncDate)}
       </div>
     </div>
   `;
@@ -774,99 +740,84 @@ function renderSyncSection(zulassungState: ZulassungState): string {
   const buttonIcon = hasData ? "bi-arrow-clockwise" : "bi-cloud-download";
 
   return `
-    <div class="card mb-3" style="background: #2d2d2d;">
-      <div class="card-body">
-        ${
-          zulassungState.autoUpdateAvailable
-            ? `
-          <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
-            <div class="rounded-circle bg-warning bg-opacity-25 p-2 me-3">
-              <i class="bi bi-bell-fill text-warning"></i>
-            </div>
-            <div class="flex-grow-1">
-              <strong>Neue Daten verfügbar!</strong><br>
-              <small>Version ${escapeHtml(
-                zulassungState.autoUpdateVersion || "unbekannt"
-              )} steht zum Download bereit.</small>
-            </div>
-            <button class="btn btn-warning" id="btn-apply-update">
-              <i class="bi bi-download me-1"></i>Jetzt aktualisieren
-            </button>
+    <div class="bvl-sync-card bvl-section">
+      ${
+        zulassungState.autoUpdateAvailable
+          ? `
+        <div class="bvl-alert">
+          <i class="bi bi-bell-fill bvl-alert-icon"></i>
+          <div class="bvl-alert-content">
+            <strong>Neue Daten verfügbar!</strong>
+            <small>Version ${escapeHtml(
+              zulassungState.autoUpdateVersion || "unbekannt"
+            )} steht zum Download bereit.</small>
           </div>
-        `
-            : ""
-        }
-        
-        ${
-          isBusy
-            ? `
-          <div class="text-center py-4">
-            <div class="spinner-border text-success mb-3" style="width: 3rem; height: 3rem;" role="status">
-              <span class="visually-hidden">Lädt...</span>
-            </div>
-            <h5 class="mb-2">
-              <i class="${currentStep?.icon || "bi-arrow-repeat"} me-2"></i>
-              ${escapeHtml(currentStep?.label || "Verarbeite...")}
+          <button class="btn btn-warning" id="btn-apply-update">
+            <i class="bi bi-download me-1"></i>Jetzt aktualisieren
+          </button>
+        </div>
+      `
+          : ""
+      }
+      
+      ${
+        isBusy
+          ? `
+        <div class="bvl-progress-card">
+          <div class="bvl-progress-spinner"></div>
+          <h5 class="bvl-progress-title">
+            <i class="${currentStep?.icon || "bi-arrow-repeat"} me-2"></i>
+            ${escapeHtml(currentStep?.label || "Verarbeite...")}
+          </h5>
+          <p class="bvl-progress-desc">${escapeHtml(currentStep?.description || progress.message)}</p>
+          <div class="bvl-progress-bar">
+            <div class="bvl-progress-fill" style="width: ${progress.percent}%"></div>
+          </div>
+          <p class="bvl-progress-hint">
+            <i class="bi bi-hourglass-split me-1"></i>
+            Bitte warten – dies kann einige Minuten dauern...
+          </p>
+        </div>
+      `
+          : `
+        <div class="bvl-sync-row">
+          <div class="bvl-sync-info">
+            <h5>
+              <i class="bi bi-cloud-arrow-down"></i>
+              BVL-Daten ${hasData ? "aktualisieren" : "herunterladen"}
             </h5>
-            <p class="text-muted mb-3">${escapeHtml(currentStep?.description || progress.message)}</p>
-            <div class="progress mx-auto" style="height: 24px; max-width: 400px;" role="progressbar" 
-                 aria-valuenow="${progress.percent}" aria-valuemin="0" aria-valuemax="100">
-              <div class="progress-bar progress-bar-striped progress-bar-animated ${
-                currentStep?.color || "bg-success"
-              }" style="width: ${progress.percent}%">
-                <strong>${progress.percent}%</strong>
-              </div>
-            </div>
-            <small class="text-muted d-block mt-2">
-              <i class="bi bi-hourglass-split me-1"></i>
-              Bitte warten – dies kann einige Minuten dauern...
-            </small>
+            <p>
+              ${
+                hasData
+                  ? "Prüfe auf neue Pflanzenschutzmittel-Daten vom BVL"
+                  : "Lade die komplette Zulassungsdatenbank herunter (~15 MB)"
+              }
+            </p>
           </div>
-        `
-            : `
-          <div class="d-flex align-items-center justify-content-between">
-            <div>
-              <h5 class="mb-1">
-                <i class="bi bi-cloud-arrow-down me-2"></i>
-                BVL-Daten ${hasData ? "aktualisieren" : "herunterladen"}
-              </h5>
-              <small class="text-muted">
-                ${
-                  hasData
-                    ? "Prüfe auf neue Pflanzenschutzmittel-Daten vom BVL"
-                    : "Lade die komplette Zulassungsdatenbank herunter (~15 MB)"
-                }
-              </small>
-            </div>
-            <button id="btn-sync" class="btn ${hasData ? "btn-outline-success" : "btn-success"} btn-lg">
-              <i class="${buttonIcon} me-2"></i>
-              ${buttonText}
-            </button>
+          <button id="btn-sync" class="btn ${hasData ? "btn-outline-success" : "btn-success"} btn-lg">
+            <i class="${buttonIcon} me-2"></i>
+            ${buttonText}
+          </button>
+        </div>
+      `
+      }
+      
+      ${
+        error
+          ? `
+        <div class="bvl-alert" style="border-color: var(--danger-500); margin-top: var(--sp-4);">
+          <i class="bi bi-exclamation-triangle-fill bvl-alert-icon" style="color: var(--danger-500);"></i>
+          <div class="bvl-alert-content">
+            <strong>Download fehlgeschlagen</strong>
+            <small>${escapeHtml(error)}</small>
           </div>
-        `
-        }
-        
-        ${
-          error
-            ? `
-          <div class="alert alert-danger mt-3 d-flex align-items-start">
-            <i class="bi bi-exclamation-triangle-fill me-2 mt-1 fs-4"></i>
-            <div class="flex-grow-1">
-              <strong>Download fehlgeschlagen</strong>
-              <p class="mb-2 small">${escapeHtml(error)}</p>
-              <small class="text-muted">
-                <i class="bi bi-lightbulb me-1"></i>
-                Prüfe deine Internetverbindung und versuche es erneut.
-              </small>
-            </div>
-            <button class="btn btn-sm btn-outline-danger ms-2" id="btn-show-debug">
-              <i class="bi bi-bug me-1"></i>Details
-            </button>
-          </div>
-        `
-            : ""
-        }
-      </div>
+          <button class="btn btn-sm btn-outline-danger" id="btn-show-debug">
+            <i class="bi bi-bug me-1"></i>Details
+          </button>
+        </div>
+      `
+          : ""
+      }
     </div>
   `;
 }
@@ -881,120 +832,114 @@ function renderFilterSection(zulassungState: ZulassungState): string {
   const hasPests = pests.length > 0;
 
   return `
-    <div class="card mb-3" style="background: #2d2d2d;">
-      <div class="card-body">
-        <h5 class="card-title mb-3">
-          <i class="bi bi-search me-2"></i>
-          Pflanzenschutzmittel suchen
-        </h5>
-        
-        <!-- Schnellsuche - prominent -->
-        <div class="mb-4">
-          <div class="input-group input-group-lg">
-            <span class="input-group-text bg-dark border-secondary">
-              <i class="bi bi-search text-muted"></i>
-            </span>
-            <input type="search" id="filter-text" class="form-control form-control-lg" 
-                   placeholder="Mittelname eingeben, z.B. 'Neem', 'Kupfer', 'Rapsöl'..." 
-                   value="${escapeHtml(filters.text || "")}"
-                   autofocus>
-            <button id="btn-search" class="btn btn-success btn-lg px-4" ${disableSearch ? "disabled" : ""}>
-              ${
-                disableSearch
-                  ? '<span class="spinner-border spinner-border-sm me-2"></span>Suche...'
-                  : '<i class="bi bi-search me-2"></i>Suchen'
-              }
-            </button>
-          </div>
-          <small class="form-text text-muted mt-1 d-block">
-            <i class="bi bi-lightbulb me-1"></i>
-            Tipp: Du kannst auch nach Zulassungsnummer oder Wirkstoff suchen
-          </small>
-        </div>
+    <div class="bvl-search-card bvl-section">
+      <h5>
+        <i class="bi bi-search"></i>
+        Pflanzenschutzmittel suchen
+      </h5>
+      
+      <!-- Schnellsuche - prominent -->
+      <div class="bvl-search-input-group">
+        <input type="search" id="filter-text" 
+               placeholder="Mittelname eingeben, z.B. 'Neem', 'Kupfer', 'Rapsöl'..." 
+               value="${escapeHtml(filters.text || "")}"
+               autofocus>
+        <button id="btn-search" class="btn btn-success btn-lg" ${disableSearch ? "disabled" : ""}>
+          ${
+            disableSearch
+              ? '<span class="spinner-border spinner-border-sm me-2"></span>Suche...'
+              : '<i class="bi bi-search me-2"></i>Suchen'
+          }
+        </button>
+      </div>
+      <p class="bvl-search-hint">
+        <i class="bi bi-lightbulb me-1"></i>
+        Tipp: Du kannst auch nach Zulassungsnummer oder Wirkstoff suchen
+      </p>
 
-        <!-- Erweiterte Filter - einklappbar -->
-        <div class="border-top border-secondary pt-3">
-          <button class="btn btn-sm btn-link text-decoration-none p-0 mb-3" type="button" 
-                  data-bs-toggle="collapse" data-bs-target="#advanced-filters" 
-                  aria-expanded="false" aria-controls="advanced-filters">
-            <i class="bi bi-sliders me-1"></i>
-            Erweiterte Filter anzeigen
-            <i class="bi bi-chevron-down ms-1"></i>
-          </button>
-          
-          <div class="collapse" id="advanced-filters">
-            <div class="row g-3">
-              ${
-                hasCultures
-                  ? `
-                <div class="col-md-6">
-                  <label for="filter-culture" class="form-label">
-                    <i class="bi bi-flower1 me-1 text-success"></i>Kultur
-                  </label>
-                  <select id="filter-culture" class="form-select">
-                    <option value="">Alle Kulturen</option>
-                    ${cultures
-                      .map(
-                        (culture: any) =>
-                          `<option value="${escapeHtml(culture.code)}" ${
-                            filters.culture === culture.code ? "selected" : ""
-                          }>${escapeHtml(culture.label || culture.code)}</option>`
-                      )
-                      .join("")}
-                  </select>
-                </div>
-              `
-                  : `
-                <div class="col-md-6">
-                  <label class="form-label text-muted">
-                    <i class="bi bi-flower1 me-1"></i>Kultur
-                  </label>
-                  <p class="text-muted small mb-0">
-                    <i class="bi bi-info-circle me-1"></i>
-                    Lade zuerst BVL-Daten herunter
-                  </p>
-                </div>
-              `
-              }
-              ${
-                hasPests
-                  ? `
-                <div class="col-md-6">
-                  <label for="filter-pest" class="form-label">
-                    <i class="bi bi-bug me-1 text-danger"></i>Schadorganismus
-                  </label>
-                  <select id="filter-pest" class="form-select">
-                    <option value="">Alle Schadorganismen</option>
-                    ${pests
-                      .map(
-                        (pest: any) =>
-                          `<option value="${escapeHtml(pest.code)}" ${
-                            filters.pest === pest.code ? "selected" : ""
-                          }>${escapeHtml(pest.label || pest.code)}</option>`
-                      )
-                      .join("")}
-                  </select>
-                </div>
-              `
-                  : ""
-              }
-              <div class="col-12">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="filter-expired" ${
-                    filters.includeExpired ? "checked" : ""
-                  }>
-                  <label class="form-check-label" for="filter-expired">
-                    <i class="bi bi-clock-history me-1"></i>
-                    Auch abgelaufene Zulassungen anzeigen
-                  </label>
-                </div>
+      <!-- Erweiterte Filter - einklappbar -->
+      <div style="border-top: 1px solid var(--border-1); padding-top: var(--sp-3); margin-top: var(--sp-4);">
+        <button class="btn btn-sm btn-link text-decoration-none p-0 mb-3" type="button" 
+                data-bs-toggle="collapse" data-bs-target="#advanced-filters" 
+                aria-expanded="false" aria-controls="advanced-filters"
+                style="color: var(--text-muted);">
+          <i class="bi bi-sliders me-1"></i>
+          Erweiterte Filter anzeigen
+          <i class="bi bi-chevron-down ms-1"></i>
+        </button>
+        
+        <div class="collapse" id="advanced-filters">
+          <div class="row g-3">
+            ${
+              hasCultures
+                ? `
+              <div class="col-md-6">
+                <label for="filter-culture" class="form-label" style="color: var(--text-muted); font-size: var(--font-size-sm);">
+                  <i class="bi bi-flower1 me-1 text-success"></i>Kultur
+                </label>
+                <select id="filter-culture" class="form-select">
+                  <option value="">Alle Kulturen</option>
+                  ${cultures
+                    .map(
+                      (culture: any) =>
+                        `<option value="${escapeHtml(culture.code)}" ${
+                          filters.culture === culture.code ? "selected" : ""
+                        }>${escapeHtml(culture.label || culture.code)}</option>`
+                    )
+                    .join("")}
+                </select>
+              </div>
+            `
+                : `
+              <div class="col-md-6">
+                <label class="form-label" style="color: var(--text-dim); font-size: var(--font-size-sm);">
+                  <i class="bi bi-flower1 me-1"></i>Kultur
+                </label>
+                <p style="color: var(--text-dim); font-size: var(--font-size-sm); margin: 0;">
+                  <i class="bi bi-info-circle me-1"></i>
+                  Lade zuerst BVL-Daten herunter
+                </p>
+              </div>
+            `
+            }
+            ${
+              hasPests
+                ? `
+              <div class="col-md-6">
+                <label for="filter-pest" class="form-label" style="color: var(--text-muted); font-size: var(--font-size-sm);">
+                  <i class="bi bi-bug me-1 text-danger"></i>Schadorganismus
+                </label>
+                <select id="filter-pest" class="form-select">
+                  <option value="">Alle Schadorganismen</option>
+                  ${pests
+                    .map(
+                      (pest: any) =>
+                        `<option value="${escapeHtml(pest.code)}" ${
+                          filters.pest === pest.code ? "selected" : ""
+                        }>${escapeHtml(pest.label || pest.code)}</option>`
+                    )
+                    .join("")}
+                </select>
+              </div>
+            `
+                : ""
+            }
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="filter-expired" ${
+                  filters.includeExpired ? "checked" : ""
+                }>
+                <label class="form-check-label" for="filter-expired" style="color: var(--text-muted);">
+                  <i class="bi bi-clock-history me-1"></i>
+                  Auch abgelaufene Zulassungen anzeigen
+                </label>
               </div>
             </div>
-            <div class="mt-3">
-              <button id="btn-clear-filters" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-x-circle me-1"></i>Alle Filter zurücksetzen
-              </button>
-            </div>
+          </div>
+          <div class="mt-3">
+            <button id="btn-clear-filters" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-x-circle me-1"></i>Alle Filter zurücksetzen
+            </button>
           </div>
         </div>
       </div>
@@ -3424,34 +3369,16 @@ function renderCodesManagerSection(): string {
   const hasBbch = savedBbchList.length > 0;
 
   return `
-    <!-- Einführungstext für Gärtner -->
-    <div class="alert alert-success mb-4">
-      <div class="d-flex align-items-start">
-        <i class="bi bi-lightbulb-fill me-3 fs-4"></i>
-        <div>
-          <strong>Was sind EPPO- und BBCH-Codes?</strong>
-          <p class="mb-2 mt-1">
-            <strong>EPPO-Codes</strong> = Internationale Abkürzungen für Pflanzen/Kulturen (z.B. SOLLY = Tomate)<br>
-            <strong>BBCH-Stadien</strong> = Wachstumsphasen der Pflanze (z.B. 65 = Vollblüte)
-          </p>
-          <small class="text-muted">
-            <i class="bi bi-check-circle me-1"></i>
-            Diese Codes werden für die EU-konforme Dokumentation benötigt und erscheinen als Schnellauswahl bei der Berechnung.
-          </small>
-        </div>
-      </div>
-    </div>
-
     <div class="row g-4">
       <!-- EPPO Codes Section -->
       <div class="col-lg-6">
-        <div class="card h-100" style="background: #2d2d2d;">
-          <div class="card-header d-flex justify-content-between align-items-center" style="background: #1a3d1a;">
-            <h5 class="mb-0 text-success">
-              <i class="bi bi-flower1 me-2"></i>
+        <div class="card card-dark codes-card h-100">
+          <div class="card-header codes-card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="bi bi-flower1 me-2 text-success"></i>
               Kulturen (EPPO-Codes)
             </h5>
-            <span class="badge bg-success">${savedEppoList.length} gespeichert</span>
+            <span class="badge badge-psm-neutral">${savedEppoList.length} gespeichert</span>
           </div>
           <div class="card-body">
             <!-- Suchfeld für EPPO - prominent -->
@@ -3469,7 +3396,7 @@ function renderCodesManagerSection(): string {
             </div>
             
             <!-- Oder manuell eingeben -->
-            <div class="border-top border-secondary pt-3 mb-3">
+            <div class="border-top pt-3 mb-3" style="border-color: var(--border-1) !important;">
               <button class="btn btn-sm btn-link text-decoration-none p-0" type="button" 
                       data-bs-toggle="collapse" data-bs-target="#eppo-manual-form" 
                       aria-expanded="false">
@@ -3487,7 +3414,7 @@ function renderCodesManagerSection(): string {
                     <input type="text" class="form-control form-control-sm" data-input="eppo-name" placeholder="Name (z.B. Tomate)" />
                   </div>
                   <div class="col-2">
-                    <button type="submit" class="btn btn-success btn-sm w-100">
+                    <button type="submit" class="btn btn-psm-primary btn-sm w-100">
                       <i class="bi bi-plus-lg"></i>
                     </button>
                   </div>
@@ -3529,13 +3456,13 @@ function renderCodesManagerSection(): string {
       
       <!-- BBCH Codes Section -->
       <div class="col-lg-6">
-        <div class="card h-100" style="background: #2d2d2d;">
-          <div class="card-header d-flex justify-content-between align-items-center" style="background: #1a2a3a;">
-            <h5 class="mb-0 text-info">
-              <i class="bi bi-bar-chart-steps me-2"></i>
+        <div class="card card-dark codes-card h-100">
+          <div class="card-header codes-card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="bi bi-bar-chart-steps me-2 text-info"></i>
               Wachstumsstadien (BBCH)
             </h5>
-            <span class="badge bg-info">${savedBbchList.length} gespeichert</span>
+            <span class="badge badge-psm-neutral">${savedBbchList.length} gespeichert</span>
           </div>
           <div class="card-body">
             <!-- Suchfeld für BBCH - prominent -->
@@ -3553,7 +3480,7 @@ function renderCodesManagerSection(): string {
             </div>
             
             <!-- Oder manuell eingeben -->
-            <div class="border-top border-secondary pt-3 mb-3">
+            <div class="border-top pt-3 mb-3" style="border-color: var(--border-1) !important;">
               <button class="btn btn-sm btn-link text-decoration-none p-0" type="button" 
                       data-bs-toggle="collapse" data-bs-target="#bbch-manual-form" 
                       aria-expanded="false">
@@ -3571,7 +3498,7 @@ function renderCodesManagerSection(): string {
                     <input type="text" class="form-control form-control-sm" data-input="bbch-label" placeholder="Bezeichnung" />
                   </div>
                   <div class="col-2">
-                    <button type="submit" class="btn btn-info btn-sm w-100">
+                    <button type="submit" class="btn btn-psm-primary btn-sm w-100">
                       <i class="bi bi-plus-lg"></i>
                     </button>
                   </div>

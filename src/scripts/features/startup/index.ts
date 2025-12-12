@@ -80,59 +80,61 @@ function createWizard(baseCompany: CompanyState): WizardElements {
   const section = document.createElement("section");
   section.className = "section-container d-none";
 
-  // Farbige Labels für bessere Orientierung
-  const inputStyle =
-    "background: #252525; border-color: #404040; color: #e8e8e8;";
-
   section.innerHTML = `
     <div class="section-inner">
-      <div class="card" style="background: #1a1a1a; border: 1px solid #333;">
+      <div class="card startup-card">
         <div class="card-body p-4">
           <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 style="color: #58d68d; margin: 0;">Neue Datenbank</h2>
-            <button type="button" class="btn btn-outline-secondary" data-action="wizard-back">
+            <h2 class="mb-0" style="color: var(--color-primary);">Neue Datenbank</h2>
+            <button type="button" class="btn btn-psm-secondary-outline" data-action="wizard-back">
               <i class="bi bi-arrow-left me-1"></i>Zurück
             </button>
           </div>
           <form id="database-wizard-form" class="text-start">
             <div class="row mb-4">
               <div class="col-md-6 mb-3 mb-md-0">
-                <label class="form-label d-block mb-2" style="color: #5dade2; font-size: 1rem; font-weight: 600;" for="wizard-company-name">Firmenname *</label>
-                <input class="form-control" style="${inputStyle}" id="wizard-company-name" name="wizard-company-name" required value="${escapeAttr(baseCompany.name)}" />
+                <label class="form-label d-block mb-2" for="wizard-company-name">
+                  Firmenname <span class="text-danger">*</span>
+                </label>
+                <input class="form-control" id="wizard-company-name" name="wizard-company-name" required value="${escapeAttr(baseCompany.name)}" placeholder="z.B. Gärtnerei Müller" />
               </div>
               <div class="col-md-6">
-                <label class="form-label d-block mb-2" style="color: #f4d03f; font-size: 1rem; font-weight: 600;" for="wizard-company-headline">Überschrift</label>
-                <input class="form-control" style="${inputStyle}" id="wizard-company-headline" name="wizard-company-headline" value="${escapeAttr(baseCompany.headline)}" />
+                <label class="form-label d-block mb-2" for="wizard-company-headline">
+                  Überschrift <span class="text-muted small">(optional)</span>
+                </label>
+                <input class="form-control" id="wizard-company-headline" name="wizard-company-headline" value="${escapeAttr(baseCompany.headline)}" placeholder="z.B. Pflanzenschutz-Dokumentation 2025" />
               </div>
             </div>
             <div class="row mb-4">
               <div class="col-12">
-                <label class="form-label d-block mb-2" style="color: #58d68d; font-size: 1rem; font-weight: 600;" for="wizard-company-address">Adresse</label>
-                <textarea class="form-control" style="${inputStyle}" id="wizard-company-address" name="wizard-company-address" rows="2">${escapeHtml(baseCompany.address)}</textarea>
+                <label class="form-label d-block mb-2" for="wizard-company-address">
+                  Adresse <span class="text-muted small">(optional)</span>
+                </label>
+                <textarea class="form-control" id="wizard-company-address" name="wizard-company-address" rows="2" placeholder="Straße, PLZ Ort">${escapeHtml(baseCompany.address)}</textarea>
               </div>
             </div>
             <div class="d-flex gap-3">
-              <button type="submit" class="btn btn-lg px-4" style="background: #3d8b40; border-color: #3d8b40; color: white;">
+              <button type="submit" class="btn btn-psm-primary btn-lg px-4">
                 <i class="bi bi-database-add me-2"></i>Erstellen
               </button>
-              <button type="button" class="btn btn-outline-secondary px-4" data-action="wizard-back">Abbrechen</button>
+              <button type="button" class="btn btn-psm-secondary-outline px-4" data-action="wizard-back">Abbrechen</button>
             </div>
           </form>
         </div>
       </div>
-      <div class="card mt-4 d-none" style="background: #1a1a1a; border: 1px solid #333;" data-role="wizard-result">
+      <div class="card startup-card mt-4 d-none" data-role="wizard-result">
         <div class="card-body p-4">
-          <h3 style="color: #58d68d;" class="mb-3">Datenbank erstellt</h3>
-          <p class="mb-2" style="color: #a0a0a0;">Dateiname: <code style="color: #5dade2;" data-role="wizard-filename"></code></p>
+          <h3 class="mb-3" style="color: var(--color-primary);">✓ Datenbank erstellt</h3>
+          <p class="mb-2">Dateiname: <code style="color: var(--color-info);" data-role="wizard-filename"></code></p>
           <div class="d-flex gap-2 mb-3">
-            <button type="button" class="btn px-4" style="background: #3d8b40; border-color: #3d8b40; color: white;" data-action="wizard-save">
+            <button type="button" class="btn btn-psm-primary px-4" data-action="wizard-save">
               <i class="bi bi-download me-2"></i>Speichern
             </button>
           </div>
-          <p class="small mb-2" style="color: #707070;" data-role="wizard-save-hint"></p>
+          <p class="small mb-2 text-muted" data-role="wizard-save-hint"></p>
           <details>
-            <summary style="color: #707070; cursor: pointer;" class="small mb-2">Vorschau anzeigen</summary>
-            <pre class="rounded p-3 small overflow-auto mt-2" style="background: #252525; max-height: 14rem; color: #a0a0a0;" data-role="wizard-preview"></pre>
+            <summary class="small mb-2 text-muted" style="cursor: pointer;">Vorschau anzeigen</summary>
+            <pre class="rounded p-3 small overflow-auto mt-2" style="background: var(--color-bg-elevated); max-height: 14rem;" data-role="wizard-preview"></pre>
           </details>
         </div>
       </div>
@@ -206,22 +208,23 @@ export function initStartup(
 
   landingSection.innerHTML = `
     <div class="section-inner">
-      <div class="card" style="background: #1a1a1a; border: 1px solid #333; position: relative;">
+      <div class="card startup-card" style="position: relative;">
         <div class="card-body text-center py-5">
           <!-- Neue Datenbank Button oben rechts (selten gebraucht) -->
           <div style="position: absolute; top: 1rem; right: 1rem;">
-            <button class="btn btn-sm btn-outline-secondary" data-action="start-wizard">
+            <button class="btn btn-sm btn-psm-secondary-outline" data-action="start-wizard">
               <i class="bi bi-plus-circle me-1"></i>Neu erstellen
             </button>
           </div>
           
-          <h2 class="mb-3" style="color: #58d68d; font-size: 1.75rem;">Datenbank öffnen</h2>
-          <p class="mb-4" style="color: #a0a0a0;">
+          <i class="bi bi-database fs-1 mb-3 d-block" style="color: var(--color-primary); opacity: 0.8;"></i>
+          <h2 class="mb-3" style="font-size: 1.75rem; color: var(--color-primary);">Datenbank öffnen</h2>
+          <p class="mb-4">
             Wähle deine bestehende Datei
           </p>
           
           <!-- Hauptaktion: Datei öffnen (zentral, groß, grün) -->
-          <button class="btn btn-lg px-5 py-3" style="background: #3d8b40; border-color: #3d8b40; color: white; font-size: 1.1rem;" data-action="open">
+          <button class="btn btn-psm-primary btn-lg px-5 py-3" style="font-size: 1.1rem;" data-action="open">
             <i class="bi bi-folder2-open me-2"></i>Datei öffnen
           </button>
         </div>

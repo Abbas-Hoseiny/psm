@@ -1,4 +1,6 @@
 /* Layout scaffolding for modular SPA */
+/* Uses design tokens from theme.css */
+
 .app-root {
   position: relative;
   display: flex;
@@ -13,7 +15,7 @@
 }
 
 .section-container {
-  padding: 3rem 0;
+  padding: var(--space-12) 0;
 }
 
 .section-container .section-inner {
@@ -22,15 +24,15 @@
 }
 
 .shell-navbar {
-  background-color: var(--color-navbar);
-  border-bottom: 2px solid var(--color-accent);
+  background-color: var(--navbar-bg, var(--color-surface-1));
+  border-bottom: 2px solid var(--navbar-border, var(--color-primary));
 }
 
 .shell-navbar .navbar-brand {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  color: var(--color-text-body);
+  gap: var(--space-4);
+  color: var(--color-text);
 }
 
 .shell-navbar .navbar-brand img {
@@ -39,13 +41,13 @@
 }
 
 .shell-navbar .nav-btn {
-  color: var(--color-text-body);
-  border-color: #ccc;
+  color: var(--color-text);
+  border-color: var(--color-border);
 }
 
 .shell-navbar .nav-btn:hover,
 .shell-navbar .nav-btn:focus {
-  background-color: #444;
+  background-color: var(--color-surface-3);
 }
 
 .site-footer {
@@ -53,12 +55,13 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  background-color: var(--color-navbar);
-  color: var(--color-text-body);
+  background-color: var(--footer-bg, var(--color-surface-1));
+  color: var(--color-text);
   text-align: center;
-  padding: 0.75rem;
-  box-shadow: 0 -2px 5px var(--color-footer-shadow);
-  font-size: 0.9rem;
+  padding: var(--space-3);
+  box-shadow: var(--footer-shadow);
+  font-size: var(--font-size-sm);
+  z-index: 999;
 }
 
 .site-footer a {

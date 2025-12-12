@@ -913,7 +913,8 @@ export async function listSavedEppo(
   options: { favoritesOnly?: boolean; limit?: number } = {}
 ): Promise<SavedEppoListResult> {
   if (!worker) {
-    throw new Error("Database not initialized");
+    // Return empty result when database not yet initialized
+    return { items: [] };
   }
   return await callWorker("listSavedEppo", options);
 }
@@ -963,7 +964,8 @@ export async function listSavedBbch(
   options: { favoritesOnly?: boolean; limit?: number } = {}
 ): Promise<SavedBbchListResult> {
   if (!worker) {
-    throw new Error("Database not initialized");
+    // Return empty result when database not yet initialized
+    return { items: [] };
   }
   return await callWorker("listSavedBbch", options);
 }
@@ -1022,7 +1024,8 @@ export async function getFrequentEppo(
   }>;
 }> {
   if (!worker) {
-    throw new Error("Database not initialized");
+    // Return empty result when database not yet initialized
+    return { items: [] };
   }
   return await callWorker("getFrequentEppo", options);
 }
@@ -1040,7 +1043,8 @@ export async function getFrequentBbch(
   }>;
 }> {
   if (!worker) {
-    throw new Error("Database not initialized");
+    // Return empty result when database not yet initialized
+    return { items: [] };
   }
   return await callWorker("getFrequentBbch", options);
 }

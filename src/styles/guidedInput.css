@@ -6,23 +6,29 @@
  * - Nicht ablenkend aber deutlich sichtbar
  * - Gute Lesbarkeit
  * - Professionelles Aussehen
+ * 
+ * Nutzt Design-Tokens aus theme.css
  */
 
 /* Toggle-Button Styling */
 .guided-input-toggle {
-  background: linear-gradient(135deg, #1e3a2f 0%, #2d4a3e 100%) !important;
-  border: 2px solid #48bb78 !important;
-  transition: all 0.3s ease;
+  background: linear-gradient(
+    135deg,
+    var(--color-surface-1) 0%,
+    var(--color-surface-2) 100%
+  ) !important;
+  border: 2px solid var(--color-primary) !important;
+  transition: all var(--transition-slow);
 }
 
 .guided-input-toggle:hover {
-  border-color: #68d391 !important;
-  box-shadow: 0 0 15px rgba(72, 187, 120, 0.3);
+  border-color: var(--color-primary-hover) !important;
+  box-shadow: 0 0 15px var(--color-primary-subtle);
 }
 
 .guided-input-toggle .form-check-input:checked {
-  background-color: #48bb78;
-  border-color: #48bb78;
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .guided-input-toggle .form-check-input {
@@ -33,11 +39,11 @@
 
 .guided-input-toggle label {
   cursor: pointer;
-  margin-left: 0.5rem;
+  margin-left: var(--space-2);
 }
 
 .guided-input-toggle label strong {
-  color: #68d391;
+  color: var(--color-primary);
   font-size: 1.1rem;
 }
 
@@ -51,14 +57,14 @@
 .guided-highlight {
   position: relative;
   z-index: 10;
-  background: #1a202c;
-  border-radius: 8px;
-  padding: 8px !important;
-  margin: -8px;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) !important;
+  margin: calc(var(--space-2) * -1);
   box-shadow:
-    0 0 0 4px rgba(72, 187, 120, 0.4),
-    0 0 20px rgba(72, 187, 120, 0.3),
-    0 4px 20px rgba(0, 0, 0, 0.3);
+    0 0 0 4px var(--color-primary-muted),
+    0 0 20px var(--color-primary-subtle),
+    var(--shadow-lg);
   animation: pulse-highlight 2s ease-in-out infinite;
 }
 
@@ -66,28 +72,28 @@
   0%,
   100% {
     box-shadow:
-      0 0 0 4px rgba(72, 187, 120, 0.4),
-      0 0 20px rgba(72, 187, 120, 0.3),
-      0 4px 20px rgba(0, 0, 0, 0.3);
+      0 0 0 4px var(--color-primary-muted),
+      0 0 20px var(--color-primary-subtle),
+      var(--shadow-lg);
   }
   50% {
     box-shadow:
-      0 0 0 6px rgba(72, 187, 120, 0.6),
-      0 0 30px rgba(72, 187, 120, 0.4),
-      0 4px 30px rgba(0, 0, 0, 0.4);
+      0 0 0 6px var(--color-primary),
+      0 0 30px var(--color-primary-muted),
+      var(--shadow-xl);
   }
 }
 
 /* Aktives Eingabefeld */
 .guided-active {
-  border-color: #48bb78 !important;
-  box-shadow: 0 0 0 3px rgba(72, 187, 120, 0.3) !important;
-  background: #1a202c !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: var(--shadow-focus) !important;
+  background: var(--color-bg-elevated) !important;
 }
 
 .guided-active:focus {
-  border-color: #68d391 !important;
-  box-shadow: 0 0 0 4px rgba(72, 187, 120, 0.4) !important;
+  border-color: var(--color-primary-hover) !important;
+  box-shadow: 0 0 0 4px var(--color-primary-subtle) !important;
 }
 
 /* Tooltip */
@@ -99,7 +105,7 @@
   opacity: 0;
   visibility: hidden;
   transform: translateY(10px);
-  transition: all 0.3s ease;
+  transition: all var(--transition-slow);
   pointer-events: none;
 }
 
@@ -111,13 +117,15 @@
 }
 
 .guided-tooltip-content {
-  background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-  border: 2px solid #48bb78;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.4),
-    0 0 20px rgba(72, 187, 120, 0.2);
+  background: linear-gradient(
+    135deg,
+    var(--color-surface-2) 0%,
+    var(--color-surface-1) 100%
+  );
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-xl);
 }
 
 .guided-tooltip-arrow {
@@ -126,69 +134,69 @@
   left: 30px;
   width: 16px;
   height: 16px;
-  background: #2d3748;
-  border-left: 2px solid #48bb78;
-  border-top: 2px solid #48bb78;
+  background: var(--color-surface-2);
+  border-left: 2px solid var(--color-primary);
+  border-top: 2px solid var(--color-primary);
   transform: rotate(45deg);
 }
 
 .guided-tooltip-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #4a5568;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .guided-tooltip-step {
-  background: #48bb78;
-  color: #1a202c;
-  font-size: 11px;
+  background: var(--color-primary);
+  color: var(--color-bg);
+  font-size: var(--font-size-xs);
   font-weight: 700;
   padding: 3px 8px;
-  border-radius: 20px;
+  border-radius: var(--radius-full);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .guided-tooltip-title {
-  color: #fff;
-  font-size: 18px;
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
   font-weight: 600;
 }
 
 .guided-tooltip-hint {
-  color: #e2e8f0;
-  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
   line-height: 1.5;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-3);
 }
 
 .guided-tooltip-example {
-  color: #a0aec0;
-  font-size: 13px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
   font-style: italic;
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  margin-bottom: 12px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
 }
 
 .guided-tooltip-nav {
   text-align: center;
-  padding-top: 10px;
-  border-top: 1px solid #4a5568;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
 }
 
 .guided-tooltip-nav kbd {
-  background: #4a5568;
-  color: #fff;
+  background: var(--color-surface-3);
+  color: var(--color-text);
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-family: inherit;
-  font-size: 12px;
-  box-shadow: 0 2px 0 #2d3748;
+  font-size: var(--font-size-xs);
+  box-shadow: 0 2px 0 var(--color-surface-2);
 }
 
 /* Submit-Button Animation wenn alle Felder fertig */
@@ -200,11 +208,11 @@
   0%,
   100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.4);
+    box-shadow: 0 0 0 0 var(--color-primary-muted);
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0 0 20px rgba(72, 187, 120, 0.6);
+    box-shadow: 0 0 20px var(--color-primary);
   }
 }
 
@@ -232,4 +240,131 @@
   .guided-overlay {
     display: none !important;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BERECHNUNG FORM STYLES
+   Ruhiges, gruppiertes Layout ohne Farbchaos
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.calc-form-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.calc-result-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-lg);
+}
+
+/* Fieldset mit linker Akzent-Border */
+.calc-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  padding-left: var(--sp-4);
+  border-left: 3px solid var(--border-2);
+}
+
+.calc-fieldset:focus-within {
+  border-left-color: var(--primary-600);
+}
+
+.calc-legend {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--sp-3);
+  display: flex;
+  align-items: center;
+}
+
+.calc-legend i {
+  color: var(--primary-600);
+  opacity: 0.7;
+}
+
+/* Ruhige Labels ohne Farbchaos */
+.calc-label {
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  margin-bottom: var(--sp-1);
+}
+
+.calc-required {
+  color: var(--danger-600);
+  margin-left: 2px;
+}
+
+/* Einheitliche Inputs */
+.calc-input {
+  background: var(--bg-1);
+  border: 1px solid var(--border-1);
+  color: var(--text);
+  height: var(--control-h);
+  border-radius: var(--r-md);
+  font-size: var(--font-size-base);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.calc-input:focus {
+  border-color: var(--primary-600);
+  box-shadow: var(--focus-ring);
+  background: var(--bg-1);
+  color: var(--text);
+  outline: none;
+}
+
+.calc-input::placeholder {
+  color: var(--text-dim);
+}
+
+/* Ausgefüllte Felder visuell hervorheben */
+.calc-input.has-value {
+  background: var(--surface-2);
+  border-left: 3px solid var(--primary-600);
+  color: #fff;
+  font-weight: 500;
+}
+
+/* Focus-Zustand auch bei ausgefüllten Feldern */
+.calc-input.has-value:focus {
+  border-color: var(--primary-600);
+  border-left: 3px solid var(--primary-600);
+  box-shadow: var(--focus-ring);
+}
+
+.calc-input-sm {
+  height: 36px;
+  font-size: var(--font-size-sm);
+  background: var(--bg-1);
+  border: 1px solid var(--border-1);
+  color: var(--text-muted);
+}
+
+.calc-hint {
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+  margin-top: var(--sp-1);
+}
+
+/* Input Group Button */
+.calc-form-card .input-group .btn {
+  border-color: var(--border-1);
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+
+.calc-form-card .input-group .btn:hover {
+  background: var(--surface-3);
+  color: var(--text);
 }

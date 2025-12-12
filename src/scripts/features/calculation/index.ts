@@ -150,147 +150,147 @@ function createSection(
   const section = document.createElement("section");
   section.className = "section-inner";
 
-  // Ruhige, gedämpfte Pastellfarben für Labels mit Pill-Design
-  // Zeile 1: Hellblau, Beige, Mintgrün, Pfirsich
-  // Zeile 2: Lavendel, Hellblau, Beige, Mintgrün
-  // Zeile 3: Pfirsich, Lavendel, Hellblau, Beige
-  const inputStyle =
-    "background: #252525; border-color: #404040; color: #e8e8e8; font-size: 0.85rem;";
-
-  // Label-Style: Kurviges Pill-Design mit fettem Text - GRÖSSER
-  const labelBase =
-    "display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 1.05rem; font-weight: 700; margin-bottom: 10px;";
-
   section.innerHTML = `
-    <div class="card mb-4 no-print" style="background: #1a1a1a; border: 1px solid #333;">
+    <div class="card calc-form-card mb-4 no-print">
       <div class="card-body p-4">
         <form id="calculationForm" class="no-print">
-          <!-- Zeile 1: Grunddaten -->
-          <div class="row mb-4">
-            <div class="col-md-3 mb-3 mb-md-0">
-              <label class="form-label" style="${labelBase} background: #2a3f4f; color: #8ec8e8;" for="calc-ersteller">
-                ${escapeHtml(labels.calculation.fields.creator.label)}
-              </label>
-              <input type="text" class="form-control" style="${inputStyle}" 
-                id="calc-ersteller" name="calc-ersteller" required 
-                placeholder="${escapeAttr(labels.calculation.fields.creator.placeholder)}" 
-                value="${escapeAttr(formDefaults.creator || "")}" />
-            </div>
-            <div class="col-md-3 mb-3 mb-md-0">
-              <label class="form-label" style="${labelBase} background: #3f3a2a; color: #d4c898;" for="calc-standort">
-                ${escapeHtml(labels.calculation.fields.location.label)}
-              </label>
-              <input type="text" class="form-control" style="${inputStyle}" 
-                id="calc-standort" name="calc-standort" 
-                placeholder="${escapeAttr(labels.calculation.fields.location.placeholder)}" 
-                value="${escapeAttr(formDefaults.location || "")}" />
-            </div>
-            <div class="col-md-3 mb-3 mb-md-0">
-              <label class="form-label" style="${labelBase} background: #2a3f2f; color: #8ec8a8;" for="calc-kultur">
-                ${escapeHtml(labels.calculation.fields.crop.label)}
-              </label>
-              <input type="text" class="form-control" style="${inputStyle}" 
-                id="calc-kultur" name="calc-kultur" 
-                placeholder="${escapeAttr(labels.calculation.fields.crop.placeholder)}" 
-                value="${escapeAttr(formDefaults.crop || "")}" />
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" style="${labelBase} background: #3f322a; color: #d4a888;" for="calc-area-ha">
-                ${escapeHtml(labels.calculation.fields.quantity.label)}
-              </label>
-              <input type="number" min="0" step="any" class="form-control" style="${inputStyle}" 
-                id="calc-area-ha" name="calc-area-ha" required 
-                placeholder="${escapeAttr(labels.calculation.fields.quantity.placeholder)}" 
-                value="${escapeAttr(formDefaults.areaHa || "")}" />
-            </div>
-          </div>
-          
-          <!-- Zeile 2: Mittel & Codes -->
-          <div class="row mb-4">
-            <div class="col-md-3 mb-3 mb-md-0">
-              <label class="form-label" style="${labelBase} background: #382a3f; color: #c8a8d8;">Mittelprofil</label>
-              <select class="form-select" style="${inputStyle}" data-role="calc-profile-select">
-                <option value="">Alle Mittel</option>
-              </select>
-              <div class="form-text" style="color: #606060; font-size: 0.75rem;" data-role="calc-profile-hint">Alle Mittel aktiv.</div>
-            </div>
-            <div class="col-md-3 mb-3 mb-md-0">
-              <label class="form-label" style="${labelBase} background: #2a3f4f; color: #8ec8e8;" for="calc-eppo">
-                ${escapeHtml(labels.calculation.fields.eppoCode.label)}
-              </label>
-              <input type="text" class="form-control" style="${inputStyle}" 
-                id="calc-eppo" name="calc-eppo" list="calc-eppo-options" autocomplete="off" 
-                placeholder="${escapeAttr(labels.calculation.fields.eppoCode.placeholder)}" 
-                value="${escapeAttr(formDefaults.eppoCode || "")}" />
-              <datalist id="calc-eppo-options"></datalist>
-              <div class="code-dropdown" data-dropdown="eppo" style="display:none;"></div>
-            </div>
-            <div class="col-md-3 mb-3 mb-md-0">
-              <label class="form-label" style="${labelBase} background: #3f3a2a; color: #d4c898;" for="calc-bbch">
-                ${escapeHtml(labels.calculation.fields.bbch.label)}
-              </label>
-              <input type="text" class="form-control" style="${inputStyle}" 
-                id="calc-bbch" name="calc-bbch" list="calc-bbch-options" autocomplete="off" 
-                placeholder="${escapeAttr(labels.calculation.fields.bbch.placeholder)}" 
-                value="${escapeAttr(formDefaults.bbch || "")}" />
-              <datalist id="calc-bbch-options"></datalist>
-              <div class="code-dropdown" data-dropdown="bbch" style="display:none;"></div>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" style="${labelBase} background: #2a3f2f; color: #8ec8a8;" for="calc-invekos">
-                ${escapeHtml(labels.calculation.fields.invekos.label)}
-              </label>
-              <input type="text" class="form-control" style="${inputStyle}" 
-                id="calc-invekos" name="calc-invekos" 
-                placeholder="${escapeAttr(labels.calculation.fields.invekos.placeholder)}" 
-                value="${escapeAttr(formDefaults.invekos || "")}" />
-            </div>
-          </div>
-          
-          <!-- Zeile 3: Verwendung, GPS, Datum, Zeit -->
-          <div class="row mb-4">
-            <div class="col-md-3 mb-3 mb-md-0">
-              <label class="form-label" style="${labelBase} background: #3f322a; color: #d4a888;" for="calc-verwendung">
-                ${escapeHtml(labels.calculation.fields.usageType.label)}
-              </label>
-              <input type="text" class="form-control" style="${inputStyle}" 
-                id="calc-verwendung" name="calc-verwendung" required 
-                placeholder="${escapeAttr(labels.calculation.fields.usageType.placeholder)}" 
-                value="${escapeAttr(formDefaults.usageType || "")}" />
-            </div>
-            <div class="col-md-3 mb-3 mb-md-0">
-              <label class="form-label" style="${labelBase} background: #382a3f; color: #c8a8d8;" for="calc-gps">
-                ${escapeHtml(labels.calculation.fields.gps.label)}
-              </label>
-              <div class="input-group mb-2">
-                <input type="text" class="form-control" style="${inputStyle}" 
-                  id="calc-gps" name="calc-gps" 
-                  placeholder="${escapeAttr(labels.calculation.fields.gps.placeholder)}" 
-                  value="${escapeAttr(formDefaults.gps || "")}" />
-                <button type="button" class="btn btn-outline-secondary btn-sm" style="border-color: #404040; color: #909090;" data-action="gps-use-active">Aktiver Punkt</button>
+          <!-- Gruppe 1: Grunddaten -->
+          <fieldset class="calc-fieldset mb-4">
+            <legend class="calc-legend">
+              <i class="bi bi-person-badge me-2"></i>Grunddaten
+            </legend>
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-ersteller">
+                  ${escapeHtml(labels.calculation.fields.creator.label)}
+                  <span class="calc-required">*</span>
+                </label>
+                <input type="text" class="form-control calc-input" 
+                  id="calc-ersteller" name="calc-ersteller" required 
+                  value="${escapeAttr(formDefaults.creator || "")}" />
               </div>
-              <select class="form-select form-select-sm mb-1" style="background: #252525; border-color: #404040; color: #909090; font-size: 0.75rem;" data-role="gps-point-select">
-                <option value="">Gespeicherten Punkt verknüpfen ...</option>
-              </select>
-              <button type="button" class="btn btn-link btn-sm p-0" style="color: #606060; font-size: 0.7rem;" data-action="gps-clear-selection">Keine Verknüpfung</button>
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-standort">
+                  ${escapeHtml(labels.calculation.fields.location.label)}
+                </label>
+                <input type="text" class="form-control calc-input" 
+                  id="calc-standort" name="calc-standort" 
+                  value="${escapeAttr(formDefaults.location || "")}" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-kultur">
+                  ${escapeHtml(labels.calculation.fields.crop.label)}
+                </label>
+                <input type="text" class="form-control calc-input" 
+                  id="calc-kultur" name="calc-kultur" 
+                  value="${escapeAttr(formDefaults.crop || "")}" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-area-ha">
+                  ${escapeHtml(labels.calculation.fields.quantity.label)}
+                  <span class="calc-required">*</span>
+                </label>
+                <input type="number" min="0" step="any" class="form-control calc-input" 
+                  id="calc-area-ha" name="calc-area-ha" required 
+                  value="${escapeAttr(formDefaults.areaHa || "")}" />
+              </div>
             </div>
-            <div class="col-md-3 mb-3 mb-md-0">
-              <label class="form-label" style="${labelBase} background: #2a3f4f; color: #8ec8e8;" for="calc-datum">
-                ${escapeHtml(labels.calculation.fields.date.label)}
-              </label>
-              <input type="date" class="form-control" style="${inputStyle}" 
-                id="calc-datum" name="calc-datum" 
-                value="${escapeAttr(formDefaults.date || "")}" />
+          </fieldset>
+          
+          <!-- Gruppe 2: Mittel & Codes -->
+          <fieldset class="calc-fieldset mb-4">
+            <legend class="calc-legend">
+              <i class="bi bi-tags me-2"></i>Mittel &amp; Codes
+            </legend>
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label calc-label">Mittelprofil</label>
+                <select class="form-select calc-input" data-role="calc-profile-select">
+                  <option value="">Alle Mittel</option>
+                </select>
+                <div class="form-text calc-hint" data-role="calc-profile-hint">Alle Mittel aktiv.</div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-eppo">
+                  ${escapeHtml(labels.calculation.fields.eppoCode.label)}
+                </label>
+                <input type="text" class="form-control calc-input" 
+                  id="calc-eppo" name="calc-eppo" list="calc-eppo-options" autocomplete="off" 
+                  value="${escapeAttr(formDefaults.eppoCode || "")}" />
+                <datalist id="calc-eppo-options"></datalist>
+                <div class="code-dropdown" data-dropdown="eppo" style="display:none;"></div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-bbch">
+                  ${escapeHtml(labels.calculation.fields.bbch.label)}
+                </label>
+                <input type="text" class="form-control calc-input" 
+                  id="calc-bbch" name="calc-bbch" list="calc-bbch-options" autocomplete="off" 
+                  value="${escapeAttr(formDefaults.bbch || "")}" />
+                <datalist id="calc-bbch-options"></datalist>
+                <div class="code-dropdown" data-dropdown="bbch" style="display:none;"></div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-invekos">
+                  ${escapeHtml(labels.calculation.fields.invekos.label)}
+                </label>
+                <input type="text" class="form-control calc-input" 
+                  id="calc-invekos" name="calc-invekos" 
+                  value="${escapeAttr(formDefaults.invekos || "")}" />
+              </div>
             </div>
-            <div class="col-md-3">
-              <label class="form-label" style="${labelBase} background: #3f3a2a; color: #d4c898;" for="calc-uhrzeit">
-                ${escapeHtml(labels.calculation.fields.time.label)}
-              </label>
-              <input type="time" class="form-control" style="${inputStyle}" 
-                id="calc-uhrzeit" name="calc-uhrzeit" 
-                value="${escapeAttr(formDefaults.time || "")}" />
+          </fieldset>
+          
+          <!-- Gruppe 3: Verwendung, Ort & Zeit -->
+          <fieldset class="calc-fieldset mb-4">
+            <legend class="calc-legend">
+              <i class="bi bi-calendar-event me-2"></i>Verwendung, Ort &amp; Zeit
+            </legend>
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-verwendung">
+                  ${escapeHtml(labels.calculation.fields.usageType.label)}
+                  <span class="calc-required">*</span>
+                </label>
+                <input type="text" class="form-control calc-input" 
+                  id="calc-verwendung" name="calc-verwendung" required 
+                  value="${escapeAttr(formDefaults.usageType || "")}" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-gps">
+                  ${escapeHtml(labels.calculation.fields.gps.label)}
+                </label>
+                <div class="input-group">
+                  <input type="text" class="form-control calc-input" 
+                    id="calc-gps" name="calc-gps" 
+                    value="${escapeAttr(formDefaults.gps || "")}" />
+                  <button type="button" class="btn btn-psm-secondary-outline btn-sm" data-action="gps-use-active">
+                    <i class="bi bi-geo-alt"></i>
+                  </button>
+                </div>
+                <select class="form-select form-select-sm calc-input-sm mt-1" data-role="gps-point-select">
+                  <option value="">Punkt verknüpfen ...</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-datum">
+                  ${escapeHtml(labels.calculation.fields.date.label)}
+                </label>
+                <input type="date" class="form-control calc-input" 
+                  id="calc-datum" name="calc-datum" 
+                  value="${escapeAttr(formDefaults.date || "")}" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label calc-label" for="calc-uhrzeit">
+                  ${escapeHtml(labels.calculation.fields.time.label)}
+                </label>
+                <input type="time" class="form-control calc-input" 
+                  id="calc-uhrzeit" name="calc-uhrzeit" 
+                  value="${escapeAttr(formDefaults.time || "")}" />
+              </div>
             </div>
-          </div>
+          </fieldset>
+
           ${renderQsFieldsHtml({
             maschine: formDefaults.qsMaschine || "",
             schaderreger: formDefaults.qsSchaderreger || "",
@@ -298,13 +298,16 @@ function createSection(
             wetter: formDefaults.qsWetter || "",
             behandlungsart: formDefaults.qsBehandlungsart || "",
           })}
-          <div class="col-12 text-center mt-3">
-            <button type="submit" class="btn btn-lg px-5" style="background: #3d8b40; border-color: #3d8b40; color: white;">Berechnen ${renderQsBadge()}</button>
+          
+          <div class="text-center mt-4">
+            <button type="submit" class="btn btn-lg btn-psm-primary px-5">
+              <i class="bi bi-calculator me-2"></i>Berechnen ${renderQsBadge()}
+            </button>
           </div>
         </form>
       </div>
     </div>
-    <div id="calc-result" class="card d-none" style="background: #1e1e1e; border: 1px solid #3a3a3a;">
+    <div id="calc-result" class="card calc-result-card d-none">
       <div class="card-body">
         <div class="calc-summary mb-3">
           <div class="calc-summary-columns">
@@ -1108,6 +1111,27 @@ export function initCalculation(
     }
   };
   refreshSaveButtonState();
+
+  // Hilfsfunktion: .has-value Klasse für ausgefüllte Felder setzen
+  const updateHasValueClass = (
+    field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+  ): void => {
+    const hasValue = field.value.trim() !== "";
+    field.classList.toggle("has-value", hasValue);
+  };
+
+  const setupHasValueTracking = (): void => {
+    form
+      ?.querySelectorAll<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >(".calc-input")
+      .forEach((field) => {
+        updateHasValueClass(field);
+        field.addEventListener("input", () => updateHasValueClass(field));
+        field.addEventListener("change", () => updateHasValueClass(field));
+      });
+  };
+
   const resetCalculationForm = (): void => {
     if (form) {
       form.reset();
@@ -1117,11 +1141,17 @@ export function initCalculation(
         >("input:not([type='checkbox']):not([type='button']):not([type='submit']), textarea")
         .forEach((field) => {
           field.value = "";
+          updateHasValueClass(field);
         });
       form
         .querySelectorAll<HTMLInputElement>("input[type='checkbox']")
         .forEach((checkbox) => {
           checkbox.checked = false;
+        });
+      form
+        .querySelectorAll<HTMLSelectElement>("select.calc-input")
+        .forEach((select) => {
+          updateHasValueClass(select);
         });
     }
     clearGpsSelection(services.state.getState());
@@ -1323,6 +1353,7 @@ export function initCalculation(
 
   updateGpsSelectOptions(initialState);
   updateProfileSelectOptions(initialState);
+  setupHasValueTracking();
 
   gpsSelect?.addEventListener("change", () => {
     const currentState = services.state.getState();
