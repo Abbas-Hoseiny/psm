@@ -869,7 +869,7 @@
   position: fixed;
   inset: 0;
   z-index: 9999;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   opacity: 0;
@@ -880,6 +880,7 @@
 }
 
 .infos-lightbox.active {
+  display: flex;
   opacity: 1;
   visibility: visible;
 }
@@ -1140,10 +1141,16 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 .infos-sources-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
   gap: 1.5rem;
   margin-bottom: 1.5rem;
+}
+
+@media (min-width: 769px) {
+  .infos-sources-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+  }
 }
 
 .infos-source-tile {
