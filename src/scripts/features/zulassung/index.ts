@@ -3780,14 +3780,14 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
         bbchSearchResults.innerHTML = results
           .map(
             (r) => `
-          <button type="button" class="list-group-item list-group-item-action" 
+          <button type="button" class="list-group-item list-group-item-action d-flex align-items-start gap-2 py-2" 
                   data-action="select-bbch" 
                   data-code="${escapeHtml(r.code)}" 
                   data-label="${escapeHtml(r.label)}"
                   data-principal="${r.principalStage ?? ""}"
                   data-secondary="${r.secondaryStage ?? ""}">
-            <strong class="text-info">${escapeHtml(r.code)}</strong>
-            <span class="ms-2">${escapeHtml(r.label)}</span>
+            <strong class="text-info flex-shrink-0" style="min-width: 35px;">${escapeHtml(r.code)}</strong>
+            <span class="text-break" style="line-height: 1.4;">${escapeHtml(r.label)}</span>
           </button>
         `
           )
@@ -3854,6 +3854,9 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
           dtcode: item.dtcode,
           isFavorite: !item.isFavorite,
         });
+        // Persistiere in Datenbank
+        const snapshot = getDatabaseSnapshot();
+        await saveDatabase(snapshot);
         await loadSavedCodes();
         updateCodesLists(section);
       } catch (error) {
@@ -3876,6 +3879,9 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
           secondaryStage: item.secondaryStage,
           isFavorite: !item.isFavorite,
         });
+        // Persistiere in Datenbank
+        const snapshot = getDatabaseSnapshot();
+        await saveDatabase(snapshot);
         await loadSavedCodes();
         updateCodesLists(section);
       } catch (error) {
@@ -3890,6 +3896,9 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
       if (!confirm("EPPO-Code wirklich löschen?")) return;
       try {
         await storage.deleteSavedEppo({ id });
+        // Persistiere in Datenbank
+        const snapshot = getDatabaseSnapshot();
+        await saveDatabase(snapshot);
         await loadSavedCodes();
         updateCodesLists(section);
       } catch (error) {
@@ -3904,6 +3913,9 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
       if (!confirm("BBCH-Stadium wirklich löschen?")) return;
       try {
         await storage.deleteSavedBbch({ id });
+        // Persistiere in Datenbank
+        const snapshot = getDatabaseSnapshot();
+        await saveDatabase(snapshot);
         await loadSavedCodes();
         updateCodesLists(section);
       } catch (error) {
@@ -3942,6 +3954,9 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
           name,
           isFavorite: favoriteInput?.checked || false,
         });
+        // Persistiere in Datenbank
+        const snapshot = getDatabaseSnapshot();
+        await saveDatabase(snapshot);
         await loadSavedCodes();
         updateCodesLists(section);
         // Clear form
@@ -3984,6 +3999,9 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
           label,
           isFavorite: favoriteInput?.checked || false,
         });
+        // Persistiere in Datenbank
+        const snapshot = getDatabaseSnapshot();
+        await saveDatabase(snapshot);
         await loadSavedCodes();
         updateCodesLists(section);
         // Clear form
