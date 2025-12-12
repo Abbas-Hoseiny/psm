@@ -10,6 +10,7 @@ import {
 } from "./state";
 import { emit } from "./eventBus";
 import { getActiveDriverKey } from "./storage";
+import { gpsLock, saveLock } from "./asyncLock";
 import {
   listGpsPoints as workerListGpsPoints,
   upsertGpsPoint as workerUpsertGpsPoint,
@@ -331,63 +332,67 @@ export async function saveGpsPoint(
   options: { activate?: boolean } = {}
 ): Promise<GpsPoint> {
   assertSqliteDriver("GPS-Punkt speichern");
-  const trimmedName = String(input.name ?? "").trim();
-  if (!trimmedName) {
-    throw new Error("Name für GPS-Punkt fehlt");
-  }
-  const latitude = Number(input.latitude);
-  const longitude = Number(input.longitude);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    throw new Error("Ungültige Koordinaten für GPS-Punkt");
-  }
 
-  const payload = {
-    id: input.id || generateGpsPointId(),
-    name: trimmedName,
-    description: input.description ?? null,
-    latitude,
-    longitude,
-    source: input.source ?? null,
-  };
-
-  updateGpsState({ pending: true, lastError: null });
-  try {
-    const stored = await workerUpsertGpsPoint(payload);
-    const point = normalizeGpsPoint(stored);
-    updateGpsState((prev) => {
-      const items = insertPointIntoList(prev.points.items, point);
-      return {
-        ...prev,
-        points: {
-          ...prev.points,
-          items,
-          totalCount: items.length,
-          lastUpdatedAt: new Date().toISOString(),
-          isComplete: true,
-        },
-        pending: false,
-        lastError: null,
-        initialized: true,
-      };
-    });
-    if (options.activate) {
-      await setActiveGpsPoint(point.id, { silent: true });
+  // Verwende gpsLock um Race Conditions zu verhindern
+  return gpsLock.acquire(async () => {
+    const trimmedName = String(input.name ?? "").trim();
+    if (!trimmedName) {
+      throw new Error("Name für GPS-Punkt fehlt");
     }
-    await persistGpsChanges();
-    emit("gps:data-changed", { action: "upsert", id: point.id });
-    return point;
-  } catch (error) {
-    console.error("GPS-Punkt konnte nicht gespeichert werden", error);
-    updateGpsState({
-      pending: false,
-      lastError:
-        error instanceof Error
-          ? error.message
-          : "GPS-Punkt konnte nicht gespeichert werden.",
-      initialized: true,
-    });
-    throw error;
-  }
+    const latitude = Number(input.latitude);
+    const longitude = Number(input.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      throw new Error("Ungültige Koordinaten für GPS-Punkt");
+    }
+
+    const payload = {
+      id: input.id || generateGpsPointId(),
+      name: trimmedName,
+      description: input.description ?? null,
+      latitude,
+      longitude,
+      source: input.source ?? null,
+    };
+
+    updateGpsState({ pending: true, lastError: null });
+    try {
+      const stored = await workerUpsertGpsPoint(payload);
+      const point = normalizeGpsPoint(stored);
+      updateGpsState((prev) => {
+        const items = insertPointIntoList(prev.points.items, point);
+        return {
+          ...prev,
+          points: {
+            ...prev.points,
+            items,
+            totalCount: items.length,
+            lastUpdatedAt: new Date().toISOString(),
+            isComplete: true,
+          },
+          pending: false,
+          lastError: null,
+          initialized: true,
+        };
+      });
+      if (options.activate) {
+        await setActiveGpsPoint(point.id, { silent: true });
+      }
+      await persistGpsChanges();
+      emit("gps:data-changed", { action: "upsert", id: point.id });
+      return point;
+    } catch (error) {
+      console.error("GPS-Punkt konnte nicht gespeichert werden", error);
+      updateGpsState({
+        pending: false,
+        lastError:
+          error instanceof Error
+            ? error.message
+            : "GPS-Punkt konnte nicht gespeichert werden.",
+        initialized: true,
+      });
+      throw error;
+    }
+  });
 }
 
 export async function deleteGpsPoint(id: string): Promise<void> {
@@ -396,46 +401,52 @@ export async function deleteGpsPoint(id: string): Promise<void> {
   if (!trimmedId) {
     throw new Error("Ungültige GPS-Punkt-ID");
   }
-  const wasActive = getState().gps.activePointId === trimmedId;
-  updateGpsState({ pending: true, lastError: null });
-  try {
-    await workerDeleteGpsPoint({ id: trimmedId });
-    updateGpsState((prev) => {
-      const items = prev.points.items.filter((point) => point.id !== trimmedId);
-      const activePointId =
-        prev.activePointId === trimmedId ? null : prev.activePointId;
-      return {
-        ...prev,
-        points: {
-          ...prev.points,
-          items,
-          totalCount: items.length,
-          lastUpdatedAt: new Date().toISOString(),
-          isComplete: true,
-        },
-        activePointId,
+
+  // Verwende gpsLock um Race Conditions zu verhindern
+  return gpsLock.acquire(async () => {
+    const wasActive = getState().gps.activePointId === trimmedId;
+    updateGpsState({ pending: true, lastError: null });
+    try {
+      await workerDeleteGpsPoint({ id: trimmedId });
+      updateGpsState((prev) => {
+        const items = prev.points.items.filter(
+          (point) => point.id !== trimmedId
+        );
+        const activePointId =
+          prev.activePointId === trimmedId ? null : prev.activePointId;
+        return {
+          ...prev,
+          points: {
+            ...prev.points,
+            items,
+            totalCount: items.length,
+            lastUpdatedAt: new Date().toISOString(),
+            isComplete: true,
+          },
+          activePointId,
+          pending: false,
+          lastError: null,
+          initialized: true,
+        };
+      });
+      if (wasActive) {
+        await workerSetActiveGpsPointId({ id: null });
+      }
+      await persistGpsChanges();
+      emit("gps:data-changed", { action: "delete", id: trimmedId });
+    } catch (error) {
+      console.error("GPS-Punkt konnte nicht gelöscht werden", error);
+      updateGpsState({
         pending: false,
-        lastError: null,
+        lastError:
+          error instanceof Error
+            ? error.message
+            : "GPS-Punkt konnte nicht gelöscht werden.",
         initialized: true,
-      };
-    });
-    if (wasActive) {
-      await workerSetActiveGpsPointId({ id: null });
+      });
+      throw error;
     }
-    await persistGpsChanges();
-    emit("gps:data-changed", { action: "delete", id: trimmedId });
-  } catch (error) {
-    console.error("GPS-Punkt konnte nicht gelöscht werden", error);
-    updateGpsState({
-      pending: false,
-      lastError:
-        error instanceof Error
-          ? error.message
-          : "GPS-Punkt konnte nicht gelöscht werden.",
-      initialized: true,
-    });
-    throw error;
-  }
+  });
 }
 
 export async function setActiveGpsPoint(

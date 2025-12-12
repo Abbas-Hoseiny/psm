@@ -4390,101 +4390,139 @@ async function queryZulassung(payload) {
     return payload;
   };
 
-  // Enrich each result with detailed information
-  for (const result of results) {
-    // Get cultures
-    result.kulturen = [];
+  // Enrich each result with detailed information using batch queries for performance
+  // Collect all awg_ids and kennrs for batch loading
+  const allAwgIds = results.map((r) => r.awg_id);
+  const allKennrs = [...new Set(results.map((r) => r.kennr))];
+
+  // Pre-fetch all kulturen in one query
+  const kulturenMap = new Map();
+  if (allAwgIds.length > 0) {
+    const placeholders = allAwgIds.map(() => "?").join(",");
     db.exec({
       sql: `
-        SELECT ak.kultur, ak.ausgenommen, ak.sortier_nr, IFNULL(lk.label, ak.kultur) as label
+        SELECT ak.awg_id, ak.kultur, ak.ausgenommen, ak.sortier_nr, IFNULL(lk.label, ak.kultur) as label
         FROM bvl_awg_kultur ak
         LEFT JOIN bvl_lookup_kultur lk ON lk.code = ak.kultur
-        WHERE ak.awg_id = ? 
-        ORDER BY ak.sortier_nr
+        WHERE ak.awg_id IN (${placeholders})
+        ORDER BY ak.awg_id, ak.sortier_nr
       `,
-      bind: [result.awg_id],
+      bind: allAwgIds,
       callback: (row) => {
-        result.kulturen.push({
-          kultur: row[0],
-          ausgenommen: row[1],
-          sortier_nr: row[2],
-          label: row[3],
+        const awgId = row[0];
+        if (!kulturenMap.has(awgId)) {
+          kulturenMap.set(awgId, []);
+        }
+        kulturenMap.get(awgId).push({
+          kultur: row[1],
+          ausgenommen: row[2],
+          sortier_nr: row[3],
+          label: row[4],
         });
       },
     });
+  }
 
-    // Get schadorganismen
-    result.schadorganismen = [];
+  // Pre-fetch all schadorganismen in one query
+  const schadorgMap = new Map();
+  if (allAwgIds.length > 0) {
+    const placeholders = allAwgIds.map(() => "?").join(",");
     db.exec({
       sql: `
-        SELECT aso.schadorg, aso.ausgenommen, aso.sortier_nr, IFNULL(ls.label, aso.schadorg) as label
+        SELECT aso.awg_id, aso.schadorg, aso.ausgenommen, aso.sortier_nr, IFNULL(ls.label, aso.schadorg) as label
         FROM bvl_awg_schadorg aso
         LEFT JOIN bvl_lookup_schadorg ls ON ls.code = aso.schadorg
-        WHERE aso.awg_id = ? 
-        ORDER BY aso.sortier_nr
+        WHERE aso.awg_id IN (${placeholders})
+        ORDER BY aso.awg_id, aso.sortier_nr
       `,
-      bind: [result.awg_id],
+      bind: allAwgIds,
       callback: (row) => {
-        result.schadorganismen.push({
-          schadorg: row[0],
-          ausgenommen: row[1],
-          sortier_nr: row[2],
-          label: row[3],
+        const awgId = row[0];
+        if (!schadorgMap.has(awgId)) {
+          schadorgMap.set(awgId, []);
+        }
+        schadorgMap.get(awgId).push({
+          schadorg: row[1],
+          ausgenommen: row[2],
+          sortier_nr: row[3],
+          label: row[4],
         });
       },
     });
+  }
 
-    // Get aufwände
-    result.aufwaende = [];
+  // Pre-fetch all aufwaende in one query
+  const aufwaendeMap = new Map();
+  if (allAwgIds.length > 0) {
+    const placeholders = allAwgIds.map(() => "?").join(",");
     db.exec({
       sql: `
-        SELECT aufwand_bedingung, sortier_nr, mittel_menge, mittel_einheit,
+        SELECT awg_id, aufwand_bedingung, sortier_nr, mittel_menge, mittel_einheit,
                wasser_menge, wasser_einheit, payload_json
         FROM bvl_awg_aufwand 
-        WHERE awg_id = ? 
-        ORDER BY sortier_nr
+        WHERE awg_id IN (${placeholders})
+        ORDER BY awg_id, sortier_nr
       `,
-      bind: [result.awg_id],
+      bind: allAwgIds,
       callback: (row) => {
-        result.aufwaende.push({
-          aufwand_bedingung: row[0],
-          sortier_nr: row[1],
-          mittel_menge: row[2],
-          mittel_einheit: row[3],
-          wasser_menge: row[4],
-          wasser_einheit: row[5],
-          payload_json: row[6],
+        const awgId = row[0];
+        if (!aufwaendeMap.has(awgId)) {
+          aufwaendeMap.set(awgId, []);
+        }
+        aufwaendeMap.get(awgId).push({
+          aufwand_bedingung: row[1],
+          sortier_nr: row[2],
+          mittel_menge: row[3],
+          mittel_einheit: row[4],
+          wasser_menge: row[5],
+          wasser_einheit: row[6],
+          payload_json: row[7],
         });
       },
     });
+  }
 
-    // Get wartezeiten
-    result.wartezeiten = [];
+  // Pre-fetch all wartezeiten in one query
+  const wartezeitenMap = new Map();
+  if (allAwgIds.length > 0) {
+    const placeholders = allAwgIds.map(() => "?").join(",");
     db.exec({
       sql: `
-        SELECT w.awg_wartezeit_nr, w.kultur, w.sortier_nr, w.tage, 
+        SELECT w.awg_id, w.awg_wartezeit_nr, w.kultur, w.sortier_nr, w.tage, 
                w.bemerkung_kode, w.anwendungsbereich, w.erlaeuterung, w.payload_json,
                IFNULL(lk.label, w.kultur) as kultur_label
         FROM bvl_awg_wartezeit w
         LEFT JOIN bvl_lookup_kultur lk ON lk.code = w.kultur
-        WHERE w.awg_id = ? 
-        ORDER BY w.sortier_nr
+        WHERE w.awg_id IN (${placeholders})
+        ORDER BY w.awg_id, w.sortier_nr
       `,
-      bind: [result.awg_id],
+      bind: allAwgIds,
       callback: (row) => {
-        result.wartezeiten.push({
-          awg_wartezeit_nr: row[0],
-          kultur: row[1],
-          sortier_nr: row[2],
-          tage: row[3],
-          bemerkung_kode: row[4],
-          anwendungsbereich: row[5],
-          erlaeuterung: row[6],
-          payload_json: row[7],
-          kultur_label: row[8],
+        const awgId = row[0];
+        if (!wartezeitenMap.has(awgId)) {
+          wartezeitenMap.set(awgId, []);
+        }
+        wartezeitenMap.get(awgId).push({
+          awg_wartezeit_nr: row[1],
+          kultur: row[2],
+          sortier_nr: row[3],
+          tage: row[4],
+          bemerkung_kode: row[5],
+          anwendungsbereich: row[6],
+          erlaeuterung: row[7],
+          payload_json: row[8],
+          kultur_label: row[9],
         });
       },
     });
+  }
+
+  for (const result of results) {
+    // Use pre-fetched data instead of individual queries
+    result.kulturen = kulturenMap.get(result.awg_id) || [];
+    result.schadorganismen = schadorgMap.get(result.awg_id) || [];
+    result.aufwaende = aufwaendeMap.get(result.awg_id) || [];
+    result.wartezeiten = wartezeitenMap.get(result.awg_id) || [];
 
     // Hole wirkstoff_gehalt Einträge für dieses Mittel (über kennr)
     const wirkstoffGehaltEntries = getPayloadsForKey("wirkstoff_gehalt", {

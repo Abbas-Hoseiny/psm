@@ -19,6 +19,7 @@ import {
   searchEppoSuggestions,
   searchBbchSuggestions,
 } from "@scripts/core/lookups";
+import { emit as emitEvent } from "@scripts/core/eventBus";
 
 // Saved EPPO/BBCH state for the codes manager
 let savedEppoList: storage.SavedEppoRecord[] = [];
@@ -3352,8 +3353,9 @@ async function loadSavedCodes(): Promise<void> {
     savedEppoList = eppoResult.items || [];
     savedBbchList = bbchResult.items || [];
 
-    // Emit event to notify other components (e.g., Calculation form quick select)
-    services?.events?.emit?.("savedCodes:changed", {
+    // Emit event DIRECTLY via EventBus to notify other components (e.g., Calculation form quick select)
+    // This ensures the event is always sent, even when embedded in Settings
+    emitEvent("savedCodes:changed", {
       eppoCount: savedEppoList.length,
       bbchCount: savedBbchList.length,
     });
@@ -3382,7 +3384,7 @@ function renderCodesManagerSection(): string {
           </div>
           <div class="card-body">
             <!-- Suchfeld für EPPO - prominent -->
-            <div class="mb-4">
+            <div class="mb-3">
               <label class="form-label">
                 <i class="bi bi-search me-1"></i>
                 Kultur suchen und speichern
@@ -3391,13 +3393,37 @@ function renderCodesManagerSection(): string {
                      data-input="eppo-search" 
                      placeholder="z.B. Tomate, Apfel, Salat, Gurke..."
                      autocomplete="off" />
-              <small class="form-text text-muted">Tippe mindestens 2 Buchstaben</small>
+              <small class="form-text text-muted">Tippe mindestens 2 Buchstaben – Klick speichert direkt</small>
               <div data-role="eppo-search-results" class="list-group mt-2" style="max-height: 250px; overflow-y: auto;"></div>
             </div>
             
-            <!-- Oder manuell eingeben -->
+            <!-- Saved EPPO List - MOVED UP for visibility -->
             <div class="border-top pt-3 mb-3" style="border-color: var(--border-1) !important;">
-              <button class="btn btn-sm btn-link text-decoration-none p-0" type="button" 
+              ${
+                hasEppo
+                  ? `
+                <h6 class="mb-2 text-muted small text-uppercase d-flex align-items-center">
+                  <i class="bi bi-bookmark-star me-1"></i>
+                  Meine Kulturen
+                  <span class="badge bg-success ms-2">${savedEppoList.length}</span>
+                </h6>
+                <div data-role="saved-eppo-list" class="list-group list-group-flush mb-3" style="max-height: 300px; overflow-y: auto;">
+                  ${renderSavedEppoList()}
+                </div>
+              `
+                  : `
+                <div class="text-center py-3 text-muted">
+                  <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                  <p class="mb-0 small">Noch keine Kulturen gespeichert</p>
+                  <small>Suche oben und klicke zum Speichern</small>
+                </div>
+              `
+              }
+            </div>
+            
+            <!-- Manuell eingeben - Collapsed by default -->
+            <div class="border-top pt-2" style="border-color: var(--border-1) !important;">
+              <button class="btn btn-sm btn-link text-decoration-none p-0 text-muted" type="button" 
                       data-bs-toggle="collapse" data-bs-target="#eppo-manual-form" 
                       aria-expanded="false">
                 <i class="bi bi-pencil me-1"></i>
@@ -3429,27 +3455,6 @@ function renderCodesManagerSection(): string {
                 </form>
               </div>
             </div>
-            
-            <!-- Saved EPPO List -->
-            ${
-              hasEppo
-                ? `
-              <h6 class="mb-2 text-muted small text-uppercase">
-                <i class="bi bi-bookmark-star me-1"></i>
-                Meine Kulturen
-              </h6>
-              <div data-role="saved-eppo-list" class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
-                ${renderSavedEppoList()}
-              </div>
-            `
-                : `
-              <div class="text-center py-4 text-muted">
-                <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
-                <p class="mb-1">Noch keine Kulturen gespeichert</p>
-                <small>Suche oben nach einer Kultur und klicke zum Speichern</small>
-              </div>
-            `
-            }
           </div>
         </div>
       </div>
@@ -3466,7 +3471,7 @@ function renderCodesManagerSection(): string {
           </div>
           <div class="card-body">
             <!-- Suchfeld für BBCH - prominent -->
-            <div class="mb-4">
+            <div class="mb-3">
               <label class="form-label">
                 <i class="bi bi-search me-1"></i>
                 Stadium suchen und speichern
@@ -3475,13 +3480,37 @@ function renderCodesManagerSection(): string {
                      data-input="bbch-search" 
                      placeholder="z.B. Blüte, Ernte, 65, Keimung..."
                      autocomplete="off" />
-              <small class="form-text text-muted">Tippe einen Begriff oder eine Nummer</small>
+              <small class="form-text text-muted">Tippe einen Begriff oder eine Nummer – Klick speichert direkt</small>
               <div data-role="bbch-search-results" class="list-group mt-2" style="max-height: 250px; overflow-y: auto;"></div>
             </div>
             
-            <!-- Oder manuell eingeben -->
+            <!-- Saved BBCH List - MOVED UP for visibility -->
             <div class="border-top pt-3 mb-3" style="border-color: var(--border-1) !important;">
-              <button class="btn btn-sm btn-link text-decoration-none p-0" type="button" 
+              ${
+                hasBbch
+                  ? `
+                <h6 class="mb-2 text-muted small text-uppercase d-flex align-items-center">
+                  <i class="bi bi-bookmark-star me-1"></i>
+                  Meine Stadien
+                  <span class="badge bg-info ms-2">${savedBbchList.length}</span>
+                </h6>
+                <div data-role="saved-bbch-list" class="list-group list-group-flush mb-3" style="max-height: 300px; overflow-y: auto;">
+                  ${renderSavedBbchList()}
+                </div>
+              `
+                  : `
+                <div class="text-center py-3 text-muted">
+                  <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                  <p class="mb-0 small">Noch keine Stadien gespeichert</p>
+                  <small>Suche oben und klicke zum Speichern</small>
+                </div>
+              `
+              }
+            </div>
+            
+            <!-- Manuell eingeben - Collapsed by default -->
+            <div class="border-top pt-2" style="border-color: var(--border-1) !important;">
+              <button class="btn btn-sm btn-link text-decoration-none p-0 text-muted" type="button" 
                       data-bs-toggle="collapse" data-bs-target="#bbch-manual-form" 
                       aria-expanded="false">
                 <i class="bi bi-pencil me-1"></i>
@@ -3513,27 +3542,6 @@ function renderCodesManagerSection(): string {
                 </form>
               </div>
             </div>
-            
-            <!-- Saved BBCH List -->
-            ${
-              hasBbch
-                ? `
-              <h6 class="mb-2 text-muted small text-uppercase">
-                <i class="bi bi-bookmark-star me-1"></i>
-                Meine Stadien
-              </h6>
-              <div data-role="saved-bbch-list" class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
-                ${renderSavedBbchList()}
-              </div>
-            `
-                : `
-              <div class="text-center py-4 text-muted">
-                <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
-                <p class="mb-1">Noch keine Stadien gespeichert</p>
-                <small>Suche oben nach einem Stadium und klicke zum Speichern</small>
-              </div>
-            `
-            }
           </div>
         </div>
       </div>
@@ -3638,19 +3646,103 @@ function renderSavedBbchList(): string {
 }
 
 function updateCodesLists(section: HTMLElement): void {
+  // Update EPPO section
   const eppoListEl = section.querySelector<HTMLElement>(
     '[data-role="saved-eppo-list"]'
   );
+  const hasEppo = savedEppoList.length > 0;
+
+  if (eppoListEl) {
+    // Find the parent container that holds either the list or empty placeholder
+    const eppoContainer = eppoListEl.closest(".border-top");
+    if (eppoContainer) {
+      if (hasEppo) {
+        eppoContainer.innerHTML = `
+          <h6 class="mb-2 text-muted small text-uppercase d-flex align-items-center">
+            <i class="bi bi-bookmark-star me-1"></i>
+            Meine Kulturen
+            <span class="badge bg-success ms-2">${savedEppoList.length}</span>
+          </h6>
+          <div data-role="saved-eppo-list" class="list-group list-group-flush mb-3" style="max-height: 300px; overflow-y: auto;">
+            ${renderSavedEppoList()}
+          </div>
+        `;
+      }
+    }
+  } else if (hasEppo) {
+    // Need to replace empty placeholder with list
+    const emptyPlaceholder = section.querySelector(
+      ".codes-card:first-child .border-top.pt-3.mb-3"
+    );
+    if (emptyPlaceholder) {
+      emptyPlaceholder.innerHTML = `
+        <h6 class="mb-2 text-muted small text-uppercase d-flex align-items-center">
+          <i class="bi bi-bookmark-star me-1"></i>
+          Meine Kulturen
+          <span class="badge bg-success ms-2">${savedEppoList.length}</span>
+        </h6>
+        <div data-role="saved-eppo-list" class="list-group list-group-flush mb-3" style="max-height: 300px; overflow-y: auto;">
+          ${renderSavedEppoList()}
+        </div>
+      `;
+    }
+  }
+
+  // Update BBCH section
   const bbchListEl = section.querySelector<HTMLElement>(
     '[data-role="saved-bbch-list"]'
   );
-  const eppoCountEl = section.querySelector<HTMLElement>('[data-count="eppo"]');
-  const bbchCountEl = section.querySelector<HTMLElement>('[data-count="bbch"]');
+  const hasBbch = savedBbchList.length > 0;
 
-  if (eppoListEl) eppoListEl.innerHTML = renderSavedEppoList();
-  if (bbchListEl) bbchListEl.innerHTML = renderSavedBbchList();
-  if (eppoCountEl) eppoCountEl.textContent = String(savedEppoList.length);
-  if (bbchCountEl) bbchCountEl.textContent = String(savedBbchList.length);
+  if (bbchListEl) {
+    // Find the parent container that holds either the list or empty placeholder
+    const bbchContainer = bbchListEl.closest(".border-top");
+    if (bbchContainer) {
+      if (hasBbch) {
+        bbchContainer.innerHTML = `
+          <h6 class="mb-2 text-muted small text-uppercase d-flex align-items-center">
+            <i class="bi bi-bookmark-star me-1"></i>
+            Meine Stadien
+            <span class="badge bg-info ms-2">${savedBbchList.length}</span>
+          </h6>
+          <div data-role="saved-bbch-list" class="list-group list-group-flush mb-3" style="max-height: 300px; overflow-y: auto;">
+            ${renderSavedBbchList()}
+          </div>
+        `;
+      }
+    }
+  } else if (hasBbch) {
+    // Need to replace empty placeholder with list - find the second card (BBCH)
+    const bbchCards = section.querySelectorAll(".codes-card");
+    const bbchCard = bbchCards[1];
+    if (bbchCard) {
+      const emptyPlaceholder = bbchCard.querySelector(".border-top.pt-3.mb-3");
+      if (emptyPlaceholder) {
+        emptyPlaceholder.innerHTML = `
+          <h6 class="mb-2 text-muted small text-uppercase d-flex align-items-center">
+            <i class="bi bi-bookmark-star me-1"></i>
+            Meine Stadien
+            <span class="badge bg-info ms-2">${savedBbchList.length}</span>
+          </h6>
+          <div data-role="saved-bbch-list" class="list-group list-group-flush mb-3" style="max-height: 300px; overflow-y: auto;">
+            ${renderSavedBbchList()}
+          </div>
+        `;
+      }
+    }
+  }
+
+  // Update badge counts in card headers
+  const eppoCountBadge = section.querySelector(
+    ".codes-card:first-child .card-header .badge"
+  );
+  const bbchCountBadge = section.querySelector(
+    ".codes-card:last-child .card-header .badge"
+  );
+  if (eppoCountBadge)
+    eppoCountBadge.textContent = `${savedEppoList.length} gespeichert`;
+  if (bbchCountBadge)
+    bbchCountBadge.textContent = `${savedBbchList.length} gespeichert`;
 }
 
 function attachCodesManagerHandlers(section: HTMLElement): void {
@@ -3811,32 +3903,116 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
 
     const action = actionBtn.dataset.action;
 
-    // Select EPPO from search results
+    // Select EPPO from search results - DIRECTLY SAVE to SQLite
     if (action === "select-eppo") {
-      const codeInput = section.querySelector<HTMLInputElement>(
-        '[data-input="eppo-code"]'
-      );
-      const nameInput = section.querySelector<HTMLInputElement>(
-        '[data-input="eppo-name"]'
-      );
-      if (codeInput) codeInput.value = actionBtn.dataset.code || "";
-      if (nameInput) nameInput.value = actionBtn.dataset.name || "";
+      const code = actionBtn.dataset.code || "";
+      const name = actionBtn.dataset.name || "";
+      const language = actionBtn.dataset.language || "";
+      const dtcode = actionBtn.dataset.dtcode || "";
+
+      if (!code || !name) {
+        console.warn("EPPO selection missing code or name");
+        return;
+      }
+
+      // Clear search UI immediately for feedback
       if (eppoSearchResults) eppoSearchResults.innerHTML = "";
       if (eppoSearchInput) eppoSearchInput.value = "";
+
+      // Check if already saved
+      const existing = savedEppoList.find(
+        (e) => e.code.toUpperCase() === code.toUpperCase()
+      );
+      if (existing) {
+        // Show a visual hint that it's already saved
+        const listItem = section.querySelector<HTMLElement>(
+          `[data-eppo-id="${existing.id}"]`
+        );
+        if (listItem) {
+          listItem.classList.add("flash-highlight");
+          setTimeout(() => listItem.classList.remove("flash-highlight"), 800);
+        }
+        return;
+      }
+
+      try {
+        // Directly save to SQLite
+        await storage.upsertSavedEppo({
+          code,
+          name,
+          language: language || undefined,
+          dtcode: dtcode || undefined,
+          isFavorite: false,
+        });
+        // Persist to database file
+        const snapshot = getDatabaseSnapshot();
+        await saveDatabase(snapshot);
+        await loadSavedCodes();
+        updateCodesLists(section);
+      } catch (error) {
+        console.error("Failed to save EPPO from search:", error);
+        alert("Speichern fehlgeschlagen");
+      }
     }
 
-    // Select BBCH from search results
+    // Select BBCH from search results - DIRECTLY SAVE to SQLite
     if (action === "select-bbch") {
-      const codeInput = section.querySelector<HTMLInputElement>(
-        '[data-input="bbch-code"]'
-      );
-      const labelInput = section.querySelector<HTMLInputElement>(
-        '[data-input="bbch-label"]'
-      );
-      if (codeInput) codeInput.value = actionBtn.dataset.code || "";
-      if (labelInput) labelInput.value = actionBtn.dataset.label || "";
+      const code = actionBtn.dataset.code || "";
+      const label = actionBtn.dataset.label || "";
+      const principalStageStr = actionBtn.dataset.principal;
+      const secondaryStageStr = actionBtn.dataset.secondary;
+      const principalStage = principalStageStr
+        ? parseInt(principalStageStr, 10)
+        : undefined;
+      const secondaryStage = secondaryStageStr
+        ? parseInt(secondaryStageStr, 10)
+        : undefined;
+
+      if (!code || !label) {
+        console.warn("BBCH selection missing code or label");
+        return;
+      }
+
+      // Clear search UI immediately for feedback
       if (bbchSearchResults) bbchSearchResults.innerHTML = "";
       if (bbchSearchInput) bbchSearchInput.value = "";
+
+      // Check if already saved
+      const existing = savedBbchList.find((b) => b.code === code);
+      if (existing) {
+        // Show a visual hint that it's already saved
+        const listItem = section.querySelector<HTMLElement>(
+          `[data-bbch-id="${existing.id}"]`
+        );
+        if (listItem) {
+          listItem.classList.add("flash-highlight");
+          setTimeout(() => listItem.classList.remove("flash-highlight"), 800);
+        }
+        return;
+      }
+
+      try {
+        // Directly save to SQLite
+        await storage.upsertSavedBbch({
+          code,
+          label,
+          principalStage: Number.isNaN(principalStage)
+            ? undefined
+            : principalStage,
+          secondaryStage: Number.isNaN(secondaryStage)
+            ? undefined
+            : secondaryStage,
+          isFavorite: false,
+        });
+        // Persist to database file
+        const snapshot = getDatabaseSnapshot();
+        await saveDatabase(snapshot);
+        await loadSavedCodes();
+        updateCodesLists(section);
+      } catch (error) {
+        console.error("Failed to save BBCH from search:", error);
+        alert("Speichern fehlgeschlagen");
+      }
     }
 
     // Toggle EPPO favorite
