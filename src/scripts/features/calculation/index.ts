@@ -1440,6 +1440,12 @@ export function initCalculation(
     // Dropdown content will be refreshed on next focus
   });
 
+  // Also load quick select data when database is connected
+  services.events.subscribe("database:connected", async () => {
+    quickSelectLoaded = false;
+    await loadQuickSelectData(true);
+  });
+
   section
     .querySelectorAll<HTMLInputElement>(".label-editor")
     .forEach((input) => {

@@ -1229,6 +1229,25 @@ html.qs-mode .card-dark {
   overflow-wrap: break-word;
 }
 
+/* Flash highlight animation for duplicate code selection */
+@keyframes flash-highlight-pulse {
+  0% {
+    background-color: rgba(var(--success-rgb, 40, 167, 69), 0.4);
+    transform: scale(1.02);
+  }
+  50% {
+    background-color: rgba(var(--success-rgb, 40, 167, 69), 0.2);
+  }
+  100% {
+    background-color: transparent;
+    transform: scale(1);
+  }
+}
+
+.codes-card .flash-highlight {
+  animation: flash-highlight-pulse 0.8s ease-out;
+}
+
 /* Progress während Sync */
 .bvl-progress-card {
   background: var(--surface-1);

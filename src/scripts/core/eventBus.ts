@@ -49,7 +49,7 @@ export interface EventMap {
     dtcode?: string;
   };
   "lookup:apply-bbch": { code?: string; label?: string };
-  "savedCodes:changed": void;
+  "savedCodes:changed": { eppoCount: number; bbchCount: number };
 
   // Documentation events
   "documentation:focus-range": {

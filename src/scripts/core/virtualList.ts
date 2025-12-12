@@ -228,16 +228,20 @@ export function initVirtualList(
   }
 
   /**
-   * Handle scroll events
+   * Handle scroll events with requestAnimationFrame for better performance
    */
-  let scrollTimeout = null;
+  let scrollScheduled = false;
   function handleScroll() {
-    if (scrollTimeout) {
-      clearTimeout(scrollTimeout);
+    if (scrollScheduled) {
+      return;
     }
-    scrollTimeout = setTimeout(() => {
-      render();
-    }, 16); // ~60fps
+    scrollScheduled = true;
+    requestAnimationFrame(() => {
+      scrollScheduled = false;
+      if (!isDestroyed) {
+        render();
+      }
+    });
   }
 
   function maybeRequestMore(renderedEnd: number) {
@@ -323,9 +327,7 @@ export function initVirtualList(
       isDestroyed = true;
 
       container.removeEventListener("scroll", handleScroll);
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout);
-      }
+      scrollScheduled = false;
 
       // Clean up all nodes
       Array.from(itemsContainer.children).forEach((node) => {
