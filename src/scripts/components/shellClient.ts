@@ -59,10 +59,8 @@ function initShell(): void {
     });
   });
 
-  const calcBtn = document.querySelector('[data-section="calc"]');
-  if (calcBtn instanceof HTMLElement) {
-    calcBtn.classList.add("active");
-  }
+  // Initial active state wird durch subscribeState gesetzt - nicht manuell setzen
+  // da dies Konflikte verursacht wenn man zwischen Bereichen wechselt
 
   let isPrinting = false;
   const activeDocumentTitle = document.title || "Pflanzenschutz";

@@ -900,7 +900,9 @@ html.qs-mode .card-dark {
   background: var(--surface-1);
   border: 1px solid var(--border-1);
   border-radius: var(--r-lg);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .bvl-card:hover {
@@ -1039,10 +1041,18 @@ html.qs-mode .card-dark {
   line-height: 1.2;
 }
 
-.bvl-stat-value.success { color: var(--success-500); }
-.bvl-stat-value.info { color: var(--info-500); }
-.bvl-stat-value.warning { color: var(--warning-500); }
-.bvl-stat-value.danger { color: var(--danger-500); }
+.bvl-stat-value.success {
+  color: var(--success-500);
+}
+.bvl-stat-value.info {
+  color: var(--info-500);
+}
+.bvl-stat-value.warning {
+  color: var(--warning-500);
+}
+.bvl-stat-value.danger {
+  color: var(--danger-500);
+}
 
 .bvl-stat-label {
   font-size: var(--font-size-xs);
@@ -1191,6 +1201,34 @@ html.qs-mode .card-dark {
   background: var(--surface-2);
 }
 
+/* BBCH Suchergebnisse - einzelne Einträge klar getrennt */
+.codes-card [data-role="bbch-search-results"] .list-group-item,
+.codes-card [data-role="eppo-search-results"] .list-group-item {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  min-height: auto;
+  height: auto;
+  white-space: normal;
+  border: 1px solid var(--border-1);
+  margin-bottom: -1px;
+}
+
+.codes-card [data-role="bbch-search-results"] .list-group-item strong,
+.codes-card [data-role="eppo-search-results"] .list-group-item strong {
+  flex-shrink: 0;
+  min-width: 40px;
+}
+
+.codes-card [data-role="bbch-search-results"] .list-group-item span,
+.codes-card [data-role="eppo-search-results"] .list-group-item span {
+  flex: 1;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
 /* Progress während Sync */
 .bvl-progress-card {
   background: var(--surface-1);
@@ -1211,7 +1249,9 @@ html.qs-mode .card-dark {
 }
 
 @keyframes bvl-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .bvl-progress-title {
