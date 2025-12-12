@@ -4765,166 +4765,81 @@ async function importLookupEppo(payload = {}) {
   }
 
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  console.log(`[EPPO Import] Lade Datenbank, ${bytes.length} bytes`);
   const remoteDb = openDatabaseFromBytes(bytes);
 
   const rows = [];
-  const metadataById = new Map();
   let uniqueCodeCount = 0;
   try {
+    // Prüfe welche Tabellen existieren
+    const tables = [];
     remoteDb.exec({
-      sql: `
-        WITH localized AS (
-          SELECT
-            codeid,
-            MAX(CASE WHEN UPPER(codelang) = 'DE' THEN TRIM(fullname) END) AS name_de,
-            MAX(CASE WHEN UPPER(codelang) = 'EN' THEN TRIM(fullname) END) AS name_en,
-            MAX(CASE WHEN UPPER(codelang) = 'LA' THEN TRIM(fullname) END) AS name_la
-          FROM t_names
-          WHERE fullname IS NOT NULL AND LENGTH(TRIM(fullname)) > 0
-          GROUP BY codeid
-        )
-        SELECT
-          c.codeid,
-          UPPER(TRIM(c.eppocode)) AS code,
-          CASE
-            WHEN c.dtcode IS NOT NULL AND LENGTH(TRIM(c.dtcode)) > 0
-              THEN UPPER(TRIM(c.dtcode))
-            ELSE NULL
-          END AS dtcode,
-          dt.libtype AS dt_label,
-          loc.name_de,
-          loc.name_en,
-          loc.name_la,
-          TRIM(
-            COALESCE(
-              loc.name_de,
-              loc.name_en,
-              loc.name_la,
-              c.eppocode
-            )
-          ) AS fallback_name
-        FROM t_codes c
-        LEFT JOIN t_datatypes dt ON UPPER(TRIM(dt.dtcode)) = UPPER(TRIM(c.dtcode))
-        LEFT JOIN localized loc ON loc.codeid = c.codeid
-        WHERE c.eppocode IS NOT NULL
-          AND LENGTH(TRIM(c.eppocode)) > 0;
-      `,
+      sql: `SELECT name FROM sqlite_master WHERE type='table'`,
       callback: (row) => {
-        const codeId = row && row[0] != null ? Number(row[0]) : null;
-        const code = row && row[1] ? String(row[1]).trim().toUpperCase() : "";
-        if (!codeId || !code) {
-          return;
-        }
-        const normalizeName = (value) => {
-          if (!value) {
-            return null;
+        if (row && row[0]) tables.push(row[0]);
+      },
+    });
+    console.log(`[EPPO Import] Gefundene Tabellen:`, tables);
+
+    // Neue einfache deutsche Struktur: Tabelle "eppo" mit code + name
+    if (tables.includes("eppo")) {
+      console.log(`[EPPO Import] Nutze neue deutsche Tabelle "eppo"`);
+      remoteDb.exec({
+        sql: `SELECT code, name FROM eppo ORDER BY name`,
+        callback: (row) => {
+          if (!row || !row[0]) {
+            return;
           }
-          const trimmed = String(value).trim();
-          return trimmed.length ? trimmed : null;
-        };
-        const fallbackName = normalizeName(row[7]) || code;
-        metadataById.set(codeId, {
-          codeId,
-          code,
-          dtcode: normalizeName(row[2]) || null,
-          dtLabel: normalizeName(row[3]),
-          nameDe: normalizeName(row[4]),
-          nameEn: normalizeName(row[5]),
-          nameLa: normalizeName(row[6]),
-          fallbackName,
-        });
-      },
-    });
-
-    const codesWithEntries = new Set();
-    remoteDb.exec({
-      sql: `
-        WITH ranked AS (
-          SELECT
-            n.codeid,
-            CASE
-              WHEN n.codelang IS NULL OR LENGTH(TRIM(n.codelang)) = 0
-                THEN ''
-              ELSE UPPER(TRIM(n.codelang))
-            END AS language,
-            TRIM(n.fullname) AS fullname,
-            n.idauth AS authority_id,
-            ROW_NUMBER() OVER (
-              PARTITION BY n.codeid,
-                CASE
-                  WHEN n.codelang IS NULL OR LENGTH(TRIM(n.codelang)) = 0
-                    THEN ''
-                  ELSE UPPER(TRIM(n.codelang))
-                END
-              ORDER BY
-                CASE WHEN IFNULL(n.preferred, 0) = 1 THEN 0 ELSE 1 END,
-                LENGTH(TRIM(n.fullname)),
-                TRIM(n.fullname)
-            ) AS lang_rank
-          FROM t_names n
-          JOIN t_codes c ON c.codeid = n.codeid
-          WHERE c.eppocode IS NOT NULL
-            AND LENGTH(TRIM(c.eppocode)) > 0
-            AND n.fullname IS NOT NULL
-            AND LENGTH(TRIM(n.fullname)) > 0
-            AND (n.status IS NULL OR n.status != 'R')
-        )
-        SELECT
-          r.codeid,
-          r.language,
-          r.fullname,
-          lang.language AS language_label,
-          auth.authdesc AS authority
-        FROM ranked r
-        LEFT JOIN t_langs lang ON UPPER(IFNULL(lang.codelang, '')) = r.language
-        LEFT JOIN t_authorities auth ON auth.idauth = r.authority_id
-        WHERE r.lang_rank = 1;
-      `,
-      callback: (row) => {
-        if (!row || row[0] == null) {
-          return;
-        }
-        const codeId = Number(row[0]);
-        const meta = metadataById.get(codeId);
-        if (!meta) {
-          return;
-        }
-        const language = row[1] ? String(row[1]).trim().toUpperCase() : "";
-        const nameValue = row[2] ? String(row[2]).trim() : "";
-        rows.push({
-          code: meta.code,
-          name: nameValue || meta.fallbackName || meta.code,
-          language,
-          dtcode: meta.dtcode,
-          dtLabel: meta.dtLabel,
-          languageLabel: row[3] ? String(row[3]).trim() : null,
-          authority: row[4] ? String(row[4]).trim() : null,
-          nameDe: meta.nameDe,
-          nameEn: meta.nameEn,
-          nameLa: meta.nameLa,
-        });
-        codesWithEntries.add(codeId);
-      },
-    });
-
-    for (const meta of metadataById.values()) {
-      if (codesWithEntries.has(meta.codeId)) {
-        continue;
-      }
-      rows.push({
-        code: meta.code,
-        name: meta.fallbackName || meta.code,
-        language: "",
-        dtcode: meta.dtcode,
-        dtLabel: meta.dtLabel,
-        languageLabel: null,
-        authority: null,
-        nameDe: meta.nameDe,
-        nameEn: meta.nameEn,
-        nameLa: meta.nameLa,
+          const code = String(row[0]).trim().toUpperCase();
+          const name = row[1] ? String(row[1]).trim() : code;
+          rows.push({
+            code,
+            name,
+            language: "DE",
+            dtcode: null,
+            dtLabel: "plant",
+            languageLabel: "Deutsch",
+            authority: null,
+            nameDe: name,
+            nameEn: null,
+            nameLa: null,
+          });
+        },
       });
+    } else if (tables.includes("t_codes")) {
+      // Alte komplexe Struktur - Fallback
+      console.log(`[EPPO Import] Nutze alte Struktur mit t_codes`);
+      remoteDb.exec({
+        sql: `
+          SELECT UPPER(TRIM(c.eppocode)) AS code, TRIM(n.fullname) AS name
+          FROM t_codes c
+          JOIN t_names n ON c.codeid = n.codeid
+          WHERE n.codelang = 'de' AND n.fullname IS NOT NULL
+          ORDER BY n.fullname
+        `,
+        callback: (row) => {
+          if (!row || !row[0]) return;
+          const code = String(row[0]).trim().toUpperCase();
+          const name = row[1] ? String(row[1]).trim() : code;
+          rows.push({
+            code,
+            name,
+            language: "DE",
+            dtcode: null,
+            dtLabel: "plant",
+            languageLabel: "Deutsch",
+            authority: null,
+            nameDe: name,
+            nameEn: null,
+            nameLa: null,
+          });
+        },
+      });
+    } else {
+      console.error(`[EPPO Import] Keine bekannte Tabellenstruktur gefunden!`);
     }
-    uniqueCodeCount = metadataById.size;
+    uniqueCodeCount = rows.length;
+    console.log(`[EPPO Import] ${rows.length} Einträge gelesen`);
   } finally {
     remoteDb.close();
   }
@@ -4990,47 +4905,82 @@ async function importLookupBbch(payload = {}) {
   }
 
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  console.log(`[BBCH Import] Lade Datenbank, ${bytes.length} bytes`);
   const remoteDb = openDatabaseFromBytes(bytes);
   const rows = [];
 
   try {
+    // Prüfe welche Tabellen existieren
+    const tables = [];
     remoteDb.exec({
-      sql: `
-        SELECT * FROM (
-          SELECT
-            COALESCE(
-              NULLIF(TRIM(bbch_code), ''),
-              CASE
-                WHEN principal_stage IS NOT NULL THEN printf('%02d%02d', principal_stage, IFNULL(secondary_stage, 0))
-                ELSE NULL
-              END
-            ) AS code,
-            TRIM(COALESCE(label_de, uri)) AS label,
-            principal_stage,
-            secondary_stage,
-            definition_1,
-            definition_2,
-            kind
-          FROM bbch_stage
-        ) WHERE code IS NOT NULL
-      `,
+      sql: `SELECT name FROM sqlite_master WHERE type='table'`,
       callback: (row) => {
-        if (!row || !row[0]) {
-          return;
-        }
-        const definitionParts = [row[4], row[5]]
-          .filter((part) => part && String(part).trim().length)
-          .map((part) => String(part).trim());
-        rows.push({
-          code: row[0],
-          label: row[1] || row[0],
-          principal: row[2] != null ? Number(row[2]) : null,
-          secondary: row[3] != null ? Number(row[3]) : null,
-          definition: definitionParts.join("\n"),
-          kind: row[6] || null,
-        });
+        if (row && row[0]) tables.push(row[0]);
       },
     });
+    console.log(`[BBCH Import] Gefundene Tabellen:`, tables);
+
+    // Neue einfache deutsche Struktur: Tabelle "bbch" mit code + label + stage_group
+    if (tables.includes("bbch")) {
+      console.log(`[BBCH Import] Nutze neue deutsche Tabelle "bbch"`);
+      remoteDb.exec({
+        sql: `SELECT code, label, stage_group FROM bbch ORDER BY CAST(code AS INTEGER)`,
+        callback: (row) => {
+          if (!row || !row[0]) {
+            return;
+          }
+          const code = String(row[0]).trim();
+          const label = row[1] ? String(row[1]).trim() : code;
+          const stageGroup = row[2] != null ? Number(row[2]) : null;
+          rows.push({
+            code,
+            label,
+            principal: stageGroup,
+            secondary: null,
+            definition: label,
+            kind: null,
+          });
+        },
+      });
+    } else if (tables.includes("bbch_stage")) {
+      // Alte komplexe Struktur - Fallback
+      console.log(`[BBCH Import] Nutze alte Struktur mit bbch_stage`);
+      remoteDb.exec({
+        sql: `SELECT bbch_code, label_de, definition_1, definition_2, principal_stage FROM bbch_stage ORDER BY CAST(bbch_code AS INTEGER)`,
+        callback: (row) => {
+          if (!row || !row[0]) return;
+          const code = String(row[0]).trim();
+          // Versuche deutschen Text zu finden
+          let label = row[1] || code;
+          const def1 = row[2] || "";
+          const def2 = row[3] || "";
+          if (
+            def2.includes("Quelle BBCH") ||
+            def2.includes("(G)") ||
+            def2.includes("(D)")
+          ) {
+            label = def2;
+          } else if (
+            def1.includes("Quelle BBCH") ||
+            def1.includes("(G)") ||
+            def1.includes("(D)")
+          ) {
+            label = def1;
+          }
+          rows.push({
+            code,
+            label,
+            principal: row[4] != null ? Number(row[4]) : null,
+            secondary: null,
+            definition: label,
+            kind: null,
+          });
+        },
+      });
+    } else {
+      console.error(`[BBCH Import] Keine bekannte Tabellenstruktur gefunden!`);
+    }
+    console.log(`[BBCH Import] ${rows.length} Einträge gelesen`);
   } finally {
     remoteDb.close();
   }
@@ -5081,6 +5031,40 @@ function searchEppoCodes(params = {}) {
   const languageParam = (params.language || "").trim().toUpperCase();
   const hasLanguageFilter = languageParam.length > 0;
   const results = [];
+
+  // DEBUG: Zeige was in der DB ist
+  const totalCount =
+    db.selectValue("SELECT COUNT(*) FROM lookup_eppo_codes") || 0;
+  console.log(
+    `[EPPO Search] Suche: "${query}", Sprache: "${languageParam}", hasLanguageFilter: ${hasLanguageFilter}`
+  );
+  console.log(
+    `[EPPO Search] Gesamt ${totalCount} Einträge in lookup_eppo_codes`
+  );
+  if (query && totalCount > 0) {
+    const likeTerm = `%${query.toUpperCase()}%`;
+    const matchCount =
+      db.selectValue(
+        `SELECT COUNT(*) FROM lookup_eppo_codes WHERE UPPER(name) LIKE ? OR UPPER(IFNULL(name_de, '')) LIKE ?`,
+        [likeTerm, likeTerm]
+      ) || 0;
+    console.log(`[EPPO Search] ${matchCount} Treffer für "${query}"`);
+    // Zeige erste 3 Einträge als Beispiel
+    const samples = [];
+    db.exec({
+      sql: `SELECT code, name, language, name_de FROM lookup_eppo_codes LIMIT 3`,
+      callback: (row) => {
+        if (row)
+          samples.push({
+            code: row[0],
+            name: row[1],
+            lang: row[2],
+            name_de: row[3],
+          });
+      },
+    });
+    console.log(`[EPPO Search] Beispiel-Einträge:`, samples);
+  }
 
   if (hasLanguageFilter && languageParam === "DE") {
     return searchGermanEppoCodes({ query, limit, offset });
@@ -5149,13 +5133,16 @@ function searchEppoCodes(params = {}) {
   const upper = query.toUpperCase();
   const likeTerm = `%${upper}%`;
 
-  const whereParts = ["(code LIKE ? OR UPPER(name) LIKE ?)"];
+  // Suche auch in name_de für deutsche Begriffe wie "Kartoffel", "Salat" etc.
+  const whereParts = [
+    "(code LIKE ? OR UPPER(name) LIKE ? OR UPPER(IFNULL(name_de, '')) LIKE ?)",
+  ];
   if (hasLanguageFilter) {
     whereParts.push(languageCondition);
   }
   const whereClause = `WHERE ${whereParts.join(" AND ")}`;
 
-  const totalBinds = [likeTerm, likeTerm];
+  const totalBinds = [likeTerm, likeTerm, likeTerm];
   appendLanguageFilter(totalBinds);
   const total =
     Number(
@@ -5165,17 +5152,20 @@ function searchEppoCodes(params = {}) {
       )
     ) || 0;
 
-  const rowBinds = [likeTerm, likeTerm];
+  const rowBinds = [likeTerm, likeTerm, likeTerm];
   appendLanguageFilter(rowBinds);
-  rowBinds.push(`${upper}%`, limit, offset);
+  const orderBinds = [`${upper}%`, likeTerm];
+  const paginationBinds = [limit, offset];
 
   db.exec({
     sql: `${selectClause}
       ${whereClause}
-      ORDER BY CASE WHEN code LIKE ? THEN 0 ELSE 1 END, name
+      ORDER BY CASE WHEN code LIKE ? THEN 0 ELSE 1 END,
+               CASE WHEN UPPER(IFNULL(name_de, '')) LIKE ? THEN 0 ELSE 1 END,
+               name
       LIMIT ? OFFSET ?
     `,
-    bind: rowBinds,
+    bind: [...rowBinds, ...orderBinds, ...paginationBinds],
     callback: (row) => {
       results.push({
         code: row[0],
@@ -5421,22 +5411,26 @@ function searchBbchStages(params = {}) {
   }
 
   const likeTerm = `%${query.toUpperCase()}%`;
+  // Suche auch in definition für deutsche Begriffe wie "Blüte", "Keimblatt" etc.
   const total =
     Number(
       db.selectValue(
-        `SELECT COUNT(*) FROM lookup_bbch_stages WHERE code LIKE ? OR UPPER(label) LIKE ?`,
-        [likeTerm, likeTerm]
+        `SELECT COUNT(*) FROM lookup_bbch_stages WHERE code LIKE ? OR UPPER(label) LIKE ? OR UPPER(IFNULL(definition, '')) LIKE ?`,
+        [likeTerm, likeTerm, likeTerm]
       )
     ) || 0;
   db.exec({
     sql: `
       SELECT code, label, principal_stage, secondary_stage, definition, kind
       FROM lookup_bbch_stages
-      WHERE code LIKE ? OR UPPER(label) LIKE ?
-      ${orderClause}
+      WHERE code LIKE ? OR UPPER(label) LIKE ? OR UPPER(IFNULL(definition, '')) LIKE ?
+      ORDER BY 
+        CASE WHEN code LIKE ? THEN 0 ELSE 1 END,
+        CASE WHEN UPPER(IFNULL(definition, '')) LIKE ? THEN 0 ELSE 1 END,
+        label
       LIMIT ? OFFSET ?
     `,
-    bind: [likeTerm, likeTerm, limit, offset],
+    bind: [likeTerm, likeTerm, likeTerm, likeTerm, likeTerm, limit, offset],
     callback: (row) => {
       results.push({
         code: row[0],
