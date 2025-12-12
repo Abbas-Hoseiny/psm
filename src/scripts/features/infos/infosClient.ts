@@ -419,6 +419,7 @@ function getSourceIcon(iconName: string): string {
       src="https://www.peterstader.de/wp-content/uploads/2020/01/logo-peter-stader-retina.png" 
       alt="Peter Stader" 
       class="infos-source-logo"
+      style="max-width: 120px; max-height: 40px; height: 40px; width: auto; object-fit: contain;"
     />`;
   }
 
@@ -428,6 +429,9 @@ function getSourceIcon(iconName: string): string {
       src="https://jungpflanzen.bio/wp-content/uploads/2024/01/Baerthele_Jungpflanzen_Markenzeichen.svg" 
       alt="Christian Bärthele" 
       class="infos-source-logo"
+      width="120"
+      height="40"
+      style="max-width: 120px; max-height: 40px; height: 40px; width: auto; object-fit: contain;"
     />`;
   }
 

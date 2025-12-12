@@ -1171,24 +1171,46 @@
   align-items: center;
   justify-content: flex-start;
   height: 48px;
+  max-height: 48px;
   overflow: hidden;
 }
 
 /* Source Logos - strikte Größenbegrenzung */
 .infos-source-logo {
-  max-width: 120px;
-  max-height: 40px;
-  width: auto;
-  height: 40px;
+  max-width: 120px !important;
+  max-height: 40px !important;
+  width: auto !important;
+  height: 40px !important;
   object-fit: contain;
   object-position: left center;
 }
 
+/* Alle Bilder im Tile-Icon begrenzen */
+.infos-source-tile-icon img {
+  max-width: 120px !important;
+  max-height: 40px !important;
+  width: auto !important;
+  height: 40px !important;
+  object-fit: contain;
+}
+
 /* Hero Icon with Logo */
-.infos-hero-icon .infos-source-logo {
-  max-width: 48px;
-  max-height: 32px;
-  height: 32px;
+.infos-hero-icon .infos-source-logo,
+.infos-hero-icon img {
+  max-width: 48px !important;
+  max-height: 32px !important;
+  height: 32px !important;
+  width: auto !important;
+}
+
+/* Modal Icon with Logo */
+.infos-modal-icon img,
+.infos-modal-icon .infos-source-logo {
+  max-width: 32px !important;
+  max-height: 24px !important;
+  height: 24px !important;
+  width: auto !important;
+  vertical-align: middle;
 }
 
 .infos-source-tile-content h3 {
