@@ -1,48 +1,69 @@
-import { loadDefaultsConfig } from './config.js';
-import { detectPreferredDriver, setActiveDriver } from './storage/index.js';
-import { getState, patchState, subscribeState, updateSlice } from './state.js';
-import { emit, subscribe as subscribeEvent } from './eventBus.js';
+import { loadDefaultsConfig } from "./config.js";
+import { detectPreferredDriver, setActiveDriver } from "./storage/index.js";
+import { getState, patchState, subscribeState, updateSlice } from "./state.js";
+import { emit, subscribe as subscribeEvent } from "./eventBus.js";
 
-import { initStarfield } from '../features/starfield/index.js';
-import { initShell } from '../features/shell/index.js';
-import { initStartup } from '../features/startup/index.js';
-import { initCalculation } from '../features/calculation/index.js';
-import { initHistory } from '../features/history/index.js';
-import { initSettings } from '../features/settings/index.js';
-import { initReporting } from '../features/reporting/index.js';
-import { initZulassung } from '../features/zulassung/index.js';
+import { initStarfield } from "../features/starfield/index.js";
+import { initShell } from "../features/shell/index.js";
+import { initStartup } from "../features/startup/index.js";
+import { initCalculation } from "../features/calculation/index.js";
+import { initHistory } from "../features/history/index.js";
+import { initSettings } from "../features/settings/index.js";
+import { initReporting } from "../features/reporting/index.js";
+import { initZulassung } from "../features/zulassung/index.js";
+
+// Flag to temporarily skip beforeunload warning for external links
+let skipBeforeUnloadOnce = false;
 
 function setupUnloadWarning(stateService) {
-  const handler = event => {
+  const handler = (event) => {
+    // Skip warning if an external link was just clicked
+    if (skipBeforeUnloadOnce) {
+      skipBeforeUnloadOnce = false;
+      return;
+    }
     event.preventDefault();
-    event.returnValue = 'Die Verbindung zur Datenbank wird getrennt. Ungespeicherte Änderungen können verloren gehen.';
+    event.returnValue =
+      "Die Verbindung zur Datenbank wird getrennt. Ungespeicherte Änderungen können verloren gehen.";
     return event.returnValue;
   };
   let active = false;
-  const update = state => {
+  const update = (state) => {
     const shouldWarn = Boolean(state.app?.hasDatabase);
     if (shouldWarn && !active) {
-      window.addEventListener('beforeunload', handler);
+      window.addEventListener("beforeunload", handler);
       active = true;
     } else if (!shouldWarn && active) {
-      window.removeEventListener('beforeunload', handler);
+      window.removeEventListener("beforeunload", handler);
       active = false;
     }
   };
   update(stateService.getState());
   stateService.subscribe(update);
+
+  // Listen for clicks on external links to skip beforeunload warning
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest("a");
+    if (link && link.target === "_blank") {
+      skipBeforeUnloadOnce = true;
+      // Reset flag after a short delay in case navigation didn't happen
+      setTimeout(() => {
+        skipBeforeUnloadOnce = false;
+      }, 100);
+    }
+  });
 }
 
 function getRegions() {
-  const root = document.getElementById('app-root');
+  const root = document.getElementById("app-root");
   if (!root) {
-    throw new Error('app-root Container fehlt');
+    throw new Error("app-root Container fehlt");
   }
   return {
     startup: root.querySelector('[data-region="startup"]'),
     shell: root.querySelector('[data-region="shell"]'),
     main: root.querySelector('[data-region="main"]'),
-    footer: root.querySelector('[data-region="footer"]')
+    footer: root.querySelector('[data-region="footer"]'),
   };
 }
 
@@ -50,7 +71,7 @@ export async function bootstrap() {
   const regions = getRegions();
 
   const driverKey = detectPreferredDriver();
-  if (driverKey !== 'memory') {
+  if (driverKey !== "memory") {
     setActiveDriver(driverKey);
   }
 
@@ -61,12 +82,12 @@ export async function bootstrap() {
       getState,
       patchState,
       updateSlice,
-      subscribe: subscribeState
+      subscribe: subscribeState,
     },
     events: {
       emit,
-      subscribe: subscribeEvent
-    }
+      subscribe: subscribeEvent,
+    },
   };
 
   initStarfield();
@@ -82,7 +103,7 @@ export async function bootstrap() {
   patchState({
     app: {
       ...getState().app,
-      ready: true
-    }
+      ready: true,
+    },
   });
 }
