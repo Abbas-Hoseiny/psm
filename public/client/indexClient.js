@@ -1,8 +1,9 @@
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-};
+var __esm = (fn, res) =>
+  function __init() {
+    return (fn && (res = (0, fn[__getOwnPropNames(fn)[0]])((fn = 0))), res);
+  };
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -59,167 +60,206 @@ __export(browser_exports, {
   zip: () => zip,
   zipSync: () => zipSync,
   zlib: () => zlib,
-  zlibSync: () => zlibSync
+  zlibSync: () => zlibSync,
 });
 function StrmOpt(opts, cb) {
-  if (typeof opts == "function")
-    cb = opts, opts = {};
+  if (typeof opts == "function") ((cb = opts), (opts = {}));
   this.ondata = cb;
   return opts;
 }
 function deflate(data, opts, cb) {
-  if (!cb)
-    cb = opts, opts = {};
-  if (typeof cb != "function")
-    err(7);
-  return cbify(data, opts, [
-    bDflt
-  ], function(ev) {
-    return pbf(deflateSync(ev.data[0], ev.data[1]));
-  }, 0, cb);
+  if (!cb) ((cb = opts), (opts = {}));
+  if (typeof cb != "function") err(7);
+  return cbify(
+    data,
+    opts,
+    [bDflt],
+    function (ev) {
+      return pbf(deflateSync(ev.data[0], ev.data[1]));
+    },
+    0,
+    cb
+  );
 }
 function deflateSync(data, opts) {
   return dopt(data, opts || {}, 0, 0);
 }
 function inflate(data, opts, cb) {
-  if (!cb)
-    cb = opts, opts = {};
-  if (typeof cb != "function")
-    err(7);
-  return cbify(data, opts, [
-    bInflt
-  ], function(ev) {
-    return pbf(inflateSync(ev.data[0], gopt(ev.data[1])));
-  }, 1, cb);
+  if (!cb) ((cb = opts), (opts = {}));
+  if (typeof cb != "function") err(7);
+  return cbify(
+    data,
+    opts,
+    [bInflt],
+    function (ev) {
+      return pbf(inflateSync(ev.data[0], gopt(ev.data[1])));
+    },
+    1,
+    cb
+  );
 }
 function inflateSync(data, opts) {
   return inflt(data, { i: 2 }, opts && opts.out, opts && opts.dictionary);
 }
 function gzip(data, opts, cb) {
-  if (!cb)
-    cb = opts, opts = {};
-  if (typeof cb != "function")
-    err(7);
-  return cbify(data, opts, [
-    bDflt,
-    gze,
-    function() {
-      return [gzipSync];
-    }
-  ], function(ev) {
-    return pbf(gzipSync(ev.data[0], ev.data[1]));
-  }, 2, cb);
+  if (!cb) ((cb = opts), (opts = {}));
+  if (typeof cb != "function") err(7);
+  return cbify(
+    data,
+    opts,
+    [
+      bDflt,
+      gze,
+      function () {
+        return [gzipSync];
+      },
+    ],
+    function (ev) {
+      return pbf(gzipSync(ev.data[0], ev.data[1]));
+    },
+    2,
+    cb
+  );
 }
 function gzipSync(data, opts) {
-  if (!opts)
-    opts = {};
-  var c = crc(), l = data.length;
+  if (!opts) opts = {};
+  var c = crc(),
+    l = data.length;
   c.p(data);
-  var d = dopt(data, opts, gzhl(opts), 8), s = d.length;
-  return gzh(d, opts), wbytes(d, s - 8, c.d()), wbytes(d, s - 4, l), d;
+  var d = dopt(data, opts, gzhl(opts), 8),
+    s = d.length;
+  return (gzh(d, opts), wbytes(d, s - 8, c.d()), wbytes(d, s - 4, l), d);
 }
 function gunzip(data, opts, cb) {
-  if (!cb)
-    cb = opts, opts = {};
-  if (typeof cb != "function")
-    err(7);
-  return cbify(data, opts, [
-    bInflt,
-    guze,
-    function() {
-      return [gunzipSync];
-    }
-  ], function(ev) {
-    return pbf(gunzipSync(ev.data[0], ev.data[1]));
-  }, 3, cb);
+  if (!cb) ((cb = opts), (opts = {}));
+  if (typeof cb != "function") err(7);
+  return cbify(
+    data,
+    opts,
+    [
+      bInflt,
+      guze,
+      function () {
+        return [gunzipSync];
+      },
+    ],
+    function (ev) {
+      return pbf(gunzipSync(ev.data[0], ev.data[1]));
+    },
+    3,
+    cb
+  );
 }
 function gunzipSync(data, opts) {
   var st = gzs(data);
-  if (st + 8 > data.length)
-    err(6, "invalid gzip data");
-  return inflt(data.subarray(st, -8), { i: 2 }, opts && opts.out || new u8(gzl(data)), opts && opts.dictionary);
+  if (st + 8 > data.length) err(6, "invalid gzip data");
+  return inflt(
+    data.subarray(st, -8),
+    { i: 2 },
+    (opts && opts.out) || new u8(gzl(data)),
+    opts && opts.dictionary
+  );
 }
 function zlib(data, opts, cb) {
-  if (!cb)
-    cb = opts, opts = {};
-  if (typeof cb != "function")
-    err(7);
-  return cbify(data, opts, [
-    bDflt,
-    zle,
-    function() {
-      return [zlibSync];
-    }
-  ], function(ev) {
-    return pbf(zlibSync(ev.data[0], ev.data[1]));
-  }, 4, cb);
+  if (!cb) ((cb = opts), (opts = {}));
+  if (typeof cb != "function") err(7);
+  return cbify(
+    data,
+    opts,
+    [
+      bDflt,
+      zle,
+      function () {
+        return [zlibSync];
+      },
+    ],
+    function (ev) {
+      return pbf(zlibSync(ev.data[0], ev.data[1]));
+    },
+    4,
+    cb
+  );
 }
 function zlibSync(data, opts) {
-  if (!opts)
-    opts = {};
+  if (!opts) opts = {};
   var a = adler();
   a.p(data);
   var d = dopt(data, opts, opts.dictionary ? 6 : 2, 4);
-  return zlh(d, opts), wbytes(d, d.length - 4, a.d()), d;
+  return (zlh(d, opts), wbytes(d, d.length - 4, a.d()), d);
 }
 function unzlib(data, opts, cb) {
-  if (!cb)
-    cb = opts, opts = {};
-  if (typeof cb != "function")
-    err(7);
-  return cbify(data, opts, [
-    bInflt,
-    zule,
-    function() {
-      return [unzlibSync];
-    }
-  ], function(ev) {
-    return pbf(unzlibSync(ev.data[0], gopt(ev.data[1])));
-  }, 5, cb);
+  if (!cb) ((cb = opts), (opts = {}));
+  if (typeof cb != "function") err(7);
+  return cbify(
+    data,
+    opts,
+    [
+      bInflt,
+      zule,
+      function () {
+        return [unzlibSync];
+      },
+    ],
+    function (ev) {
+      return pbf(unzlibSync(ev.data[0], gopt(ev.data[1])));
+    },
+    5,
+    cb
+  );
 }
 function unzlibSync(data, opts) {
-  return inflt(data.subarray(zls(data, opts && opts.dictionary), -4), { i: 2 }, opts && opts.out, opts && opts.dictionary);
+  return inflt(
+    data.subarray(zls(data, opts && opts.dictionary), -4),
+    { i: 2 },
+    opts && opts.out,
+    opts && opts.dictionary
+  );
 }
 function decompress(data, opts, cb) {
-  if (!cb)
-    cb = opts, opts = {};
-  if (typeof cb != "function")
-    err(7);
-  return data[0] == 31 && data[1] == 139 && data[2] == 8 ? gunzip(data, opts, cb) : (data[0] & 15) != 8 || data[0] >> 4 > 7 || (data[0] << 8 | data[1]) % 31 ? inflate(data, opts, cb) : unzlib(data, opts, cb);
+  if (!cb) ((cb = opts), (opts = {}));
+  if (typeof cb != "function") err(7);
+  return data[0] == 31 && data[1] == 139 && data[2] == 8
+    ? gunzip(data, opts, cb)
+    : (data[0] & 15) != 8 || data[0] >> 4 > 7 || ((data[0] << 8) | data[1]) % 31
+      ? inflate(data, opts, cb)
+      : unzlib(data, opts, cb);
 }
 function decompressSync(data, opts) {
-  return data[0] == 31 && data[1] == 139 && data[2] == 8 ? gunzipSync(data, opts) : (data[0] & 15) != 8 || data[0] >> 4 > 7 || (data[0] << 8 | data[1]) % 31 ? inflateSync(data, opts) : unzlibSync(data, opts);
+  return data[0] == 31 && data[1] == 139 && data[2] == 8
+    ? gunzipSync(data, opts)
+    : (data[0] & 15) != 8 || data[0] >> 4 > 7 || ((data[0] << 8) | data[1]) % 31
+      ? inflateSync(data, opts)
+      : unzlibSync(data, opts);
 }
 function strToU8(str, latin1) {
   if (latin1) {
     var ar_1 = new u8(str.length);
-    for (var i = 0; i < str.length; ++i)
-      ar_1[i] = str.charCodeAt(i);
+    for (var i = 0; i < str.length; ++i) ar_1[i] = str.charCodeAt(i);
     return ar_1;
   }
-  if (te)
-    return te.encode(str);
+  if (te) return te.encode(str);
   var l = str.length;
   var ar = new u8(str.length + (str.length >> 1));
   var ai = 0;
-  var w = function(v) {
+  var w = function (v) {
     ar[ai++] = v;
   };
   for (var i = 0; i < l; ++i) {
     if (ai + 5 > ar.length) {
-      var n = new u8(ai + 8 + (l - i << 1));
+      var n = new u8(ai + 8 + ((l - i) << 1));
       n.set(ar);
       ar = n;
     }
     var c = str.charCodeAt(i);
-    if (c < 128 || latin1)
-      w(c);
-    else if (c < 2048)
-      w(192 | c >> 6), w(128 | c & 63);
+    if (c < 128 || latin1) w(c);
+    else if (c < 2048) (w(192 | (c >> 6)), w(128 | (c & 63)));
     else if (c > 55295 && c < 57344)
-      c = 65536 + (c & 1023 << 10) | str.charCodeAt(++i) & 1023, w(240 | c >> 18), w(128 | c >> 12 & 63), w(128 | c >> 6 & 63), w(128 | c & 63);
-    else
-      w(224 | c >> 12), w(128 | c >> 6 & 63), w(128 | c & 63);
+      ((c = (65536 + (c & (1023 << 10))) | (str.charCodeAt(++i) & 1023)),
+        w(240 | (c >> 18)),
+        w(128 | ((c >> 12) & 63)),
+        w(128 | ((c >> 6) & 63)),
+        w(128 | (c & 63)));
+    else (w(224 | (c >> 12)), w(128 | ((c >> 6) & 63)), w(128 | (c & 63)));
   }
   return slc(ar, 0, ai);
 }
@@ -232,37 +272,40 @@ function strFromU8(dat, latin1) {
   } else if (td) {
     return td.decode(dat);
   } else {
-    var _a2 = dutf8(dat), s = _a2.s, r = _a2.r;
-    if (r.length)
-      err(8);
+    var _a2 = dutf8(dat),
+      s = _a2.s,
+      r = _a2.r;
+    if (r.length) err(8);
     return s;
   }
 }
 function zip(data, opts, cb) {
-  if (!cb)
-    cb = opts, opts = {};
-  if (typeof cb != "function")
-    err(7);
+  if (!cb) ((cb = opts), (opts = {}));
+  if (typeof cb != "function") err(7);
   var r = {};
   fltn(data, "", r, opts);
   var k = Object.keys(r);
-  var lft = k.length, o = 0, tot = 0;
-  var slft = lft, files = new Array(lft);
+  var lft = k.length,
+    o = 0,
+    tot = 0;
+  var slft = lft,
+    files = new Array(lft);
   var term = [];
-  var tAll = function() {
-    for (var i2 = 0; i2 < term.length; ++i2)
-      term[i2]();
+  var tAll = function () {
+    for (var i2 = 0; i2 < term.length; ++i2) term[i2]();
   };
-  var cbd = function(a, b) {
-    mt(function() {
+  var cbd = function (a, b) {
+    mt(function () {
       cb(a, b);
     });
   };
-  mt(function() {
+  mt(function () {
     cbd = cb;
   });
-  var cbf = function() {
-    var out = new u8(tot + 22), oe = o, cdl = tot - o;
+  var cbf = function () {
+    var out = new u8(tot + 22),
+      oe = o,
+      cdl = tot - o;
     tot = 0;
     for (var i2 = 0; i2 < slft; ++i2) {
       var f = files[i2];
@@ -272,7 +315,9 @@ function zip(data, opts, cb) {
         var badd = 30 + f.f.length + exfl(f.extra);
         var loc = tot + badd;
         out.set(f.c, loc);
-        wzh(out, o, f, f.f, f.u, l, tot, f.m), o += 16 + badd + (f.m ? f.m.length : 0), tot = loc + l;
+        (wzh(out, o, f, f.f, f.u, l, tot, f.m),
+          (o += 16 + badd + (f.m ? f.m.length : 0)),
+          (tot = loc + l));
       } catch (e) {
         return cbd(e, null);
       }
@@ -280,18 +325,23 @@ function zip(data, opts, cb) {
     wzf(out, o, files.length, cdl, oe);
     cbd(null, out);
   };
-  if (!lft)
-    cbf();
-  var _loop_1 = function(i2) {
+  if (!lft) cbf();
+  var _loop_1 = function (i2) {
     var fn = k[i2];
-    var _a2 = r[fn], file = _a2[0], p = _a2[1];
-    var c = crc(), size = file.length;
+    var _a2 = r[fn],
+      file = _a2[0],
+      p = _a2[1];
+    var c = crc(),
+      size = file.length;
     c.p(file);
-    var f = strToU8(fn), s = f.length;
-    var com = p.comment, m = com && strToU8(com), ms = m && m.length;
+    var f = strToU8(fn),
+      s = f.length;
+    var com = p.comment,
+      m = com && strToU8(com),
+      ms = m && m.length;
     var exl = exfl(p.extra);
     var compression = p.level == 0 ? 0 : 8;
-    var cbl = function(e, d) {
+    var cbl = function (e, d) {
       if (e) {
         tAll();
         cbd(e, null);
@@ -303,27 +353,23 @@ function zip(data, opts, cb) {
           c: d,
           f,
           m,
-          u: s != fn.length || m && com.length != ms,
-          compression
+          u: s != fn.length || (m && com.length != ms),
+          compression,
         });
         o += 30 + s + exl + l;
         tot += 76 + 2 * (s + exl) + (ms || 0) + l;
-        if (!--lft)
-          cbf();
+        if (!--lft) cbf();
       }
     };
-    if (s > 65535)
-      cbl(err(11, 0, 1), null);
-    if (!compression)
-      cbl(null, file);
+    if (s > 65535) cbl(err(11, 0, 1), null);
+    if (!compression) cbl(null, file);
     else if (size < 16e4) {
       try {
         cbl(null, deflateSync(file, p));
       } catch (e) {
         cbl(e, null);
       }
-    } else
-      term.push(deflate(file, p, cbl));
+    } else term.push(deflate(file, p, cbl));
   };
   for (var i = 0; i < slft; ++i) {
     _loop_1(i);
@@ -331,65 +377,71 @@ function zip(data, opts, cb) {
   return tAll;
 }
 function zipSync(data, opts) {
-  if (!opts)
-    opts = {};
+  if (!opts) opts = {};
   var r = {};
   var files = [];
   fltn(data, "", r, opts);
   var o = 0;
   var tot = 0;
   for (var fn in r) {
-    var _a2 = r[fn], file = _a2[0], p = _a2[1];
+    var _a2 = r[fn],
+      file = _a2[0],
+      p = _a2[1];
     var compression = p.level == 0 ? 0 : 8;
-    var f = strToU8(fn), s = f.length;
-    var com = p.comment, m = com && strToU8(com), ms = m && m.length;
+    var f = strToU8(fn),
+      s = f.length;
+    var com = p.comment,
+      m = com && strToU8(com),
+      ms = m && m.length;
     var exl = exfl(p.extra);
-    if (s > 65535)
-      err(11);
-    var d = compression ? deflateSync(file, p) : file, l = d.length;
+    if (s > 65535) err(11);
+    var d = compression ? deflateSync(file, p) : file,
+      l = d.length;
     var c = crc();
     c.p(file);
-    files.push(mrg(p, {
-      size: file.length,
-      crc: c.d(),
-      c: d,
-      f,
-      m,
-      u: s != fn.length || m && com.length != ms,
-      o,
-      compression
-    }));
+    files.push(
+      mrg(p, {
+        size: file.length,
+        crc: c.d(),
+        c: d,
+        f,
+        m,
+        u: s != fn.length || (m && com.length != ms),
+        o,
+        compression,
+      })
+    );
     o += 30 + s + exl + l;
     tot += 76 + 2 * (s + exl) + (ms || 0) + l;
   }
-  var out = new u8(tot + 22), oe = o, cdl = tot - o;
+  var out = new u8(tot + 22),
+    oe = o,
+    cdl = tot - o;
   for (var i = 0; i < files.length; ++i) {
     var f = files[i];
     wzh(out, f.o, f, f.f, f.u, f.c.length);
     var badd = 30 + f.f.length + exfl(f.extra);
     out.set(f.c, f.o + badd);
-    wzh(out, o, f, f.f, f.u, f.c.length, f.o, f.m), o += 16 + badd + (f.m ? f.m.length : 0);
+    (wzh(out, o, f, f.f, f.u, f.c.length, f.o, f.m),
+      (o += 16 + badd + (f.m ? f.m.length : 0)));
   }
   wzf(out, o, files.length, cdl, oe);
   return out;
 }
 function unzip(data, opts, cb) {
-  if (!cb)
-    cb = opts, opts = {};
-  if (typeof cb != "function")
-    err(7);
+  if (!cb) ((cb = opts), (opts = {}));
+  if (typeof cb != "function") err(7);
   var term = [];
-  var tAll = function() {
-    for (var i2 = 0; i2 < term.length; ++i2)
-      term[i2]();
+  var tAll = function () {
+    for (var i2 = 0; i2 < term.length; ++i2) term[i2]();
   };
   var files = {};
-  var cbd = function(a, b) {
-    mt(function() {
+  var cbd = function (a, b) {
+    mt(function () {
       cb(a, b);
     });
   };
-  mt(function() {
+  mt(function () {
     cbd = cb;
   });
   var e = data.length - 22;
@@ -399,7 +451,6 @@ function unzip(data, opts, cb) {
       return tAll;
     }
   }
-  ;
   var lft = b2(data, e + 8);
   if (lft) {
     var c = lft;
@@ -414,28 +465,35 @@ function unzip(data, opts, cb) {
       }
     }
     var fltr = opts && opts.filter;
-    var _loop_3 = function(i2) {
-      var _a2 = zh(data, o, z), c_1 = _a2[0], sc = _a2[1], su = _a2[2], fn = _a2[3], no = _a2[4], off = _a2[5], b = slzh(data, off);
+    var _loop_3 = function (i2) {
+      var _a2 = zh(data, o, z),
+        c_1 = _a2[0],
+        sc = _a2[1],
+        su = _a2[2],
+        fn = _a2[3],
+        no = _a2[4],
+        off = _a2[5],
+        b = slzh(data, off);
       o = no;
-      var cbl = function(e2, d) {
+      var cbl = function (e2, d) {
         if (e2) {
           tAll();
           cbd(e2, null);
         } else {
-          if (d)
-            files[fn] = d;
-          if (!--lft)
-            cbd(null, files);
+          if (d) files[fn] = d;
+          if (!--lft) cbd(null, files);
         }
       };
-      if (!fltr || fltr({
-        name: fn,
-        size: sc,
-        originalSize: su,
-        compression: c_1
-      })) {
-        if (!c_1)
-          cbl(null, slc(data, b, b + sc));
+      if (
+        !fltr ||
+        fltr({
+          name: fn,
+          size: sc,
+          originalSize: su,
+          compression: c_1,
+        })
+      ) {
+        if (!c_1) cbl(null, slc(data, b, b + sc));
         else if (c_1 == 8) {
           var infl = data.subarray(b, b + sc);
           if (su < 524288 || sc > 0.8 * su) {
@@ -444,31 +502,24 @@ function unzip(data, opts, cb) {
             } catch (e2) {
               cbl(e2, null);
             }
-          } else
-            term.push(inflate(infl, { size: su }, cbl));
-        } else
-          cbl(err(14, "unknown compression type " + c_1, 1), null);
-      } else
-        cbl(null, null);
+          } else term.push(inflate(infl, { size: su }, cbl));
+        } else cbl(err(14, "unknown compression type " + c_1, 1), null);
+      } else cbl(null, null);
     };
     for (var i = 0; i < c; ++i) {
       _loop_3(i);
     }
-  } else
-    cbd(null, {});
+  } else cbd(null, {});
   return tAll;
 }
 function unzipSync(data, opts) {
   var files = {};
   var e = data.length - 22;
   for (; b4(data, e) != 101010256; --e) {
-    if (!e || data.length - e > 65558)
-      err(13);
+    if (!e || data.length - e > 65558) err(13);
   }
-  ;
   var c = b2(data, e + 8);
-  if (!c)
-    return {};
+  if (!c) return {};
   var o = b4(data, e + 16);
   var z = o == 4294967295 || c == 65535;
   if (z) {
@@ -481,41 +532,174 @@ function unzipSync(data, opts) {
   }
   var fltr = opts && opts.filter;
   for (var i = 0; i < c; ++i) {
-    var _a2 = zh(data, o, z), c_2 = _a2[0], sc = _a2[1], su = _a2[2], fn = _a2[3], no = _a2[4], off = _a2[5], b = slzh(data, off);
+    var _a2 = zh(data, o, z),
+      c_2 = _a2[0],
+      sc = _a2[1],
+      su = _a2[2],
+      fn = _a2[3],
+      no = _a2[4],
+      off = _a2[5],
+      b = slzh(data, off);
     o = no;
-    if (!fltr || fltr({
-      name: fn,
-      size: sc,
-      originalSize: su,
-      compression: c_2
-    })) {
-      if (!c_2)
-        files[fn] = slc(data, b, b + sc);
+    if (
+      !fltr ||
+      fltr({
+        name: fn,
+        size: sc,
+        originalSize: su,
+        compression: c_2,
+      })
+    ) {
+      if (!c_2) files[fn] = slc(data, b, b + sc);
       else if (c_2 == 8)
         files[fn] = inflateSync(data.subarray(b, b + sc), { out: new u8(su) });
-      else
-        err(14, "unknown compression type " + c_2);
+      else err(14, "unknown compression type " + c_2);
     }
   }
   return files;
 }
-var ch2, wk, u8, u16, i32, fleb, fdeb, clim, freb, _a, fl, revfl, _b, fd, revfd, rev, x, i, hMap, flt, i, i, i, i, fdt, i, flm, flrm, fdm, fdrm, max, bits, bits16, shft, slc, FlateErrorCode, ec, err, inflt, wbits, wbits16, hTree, ln, lc, clen, wfblk, wblk, deo, et, dflt, crct, crc, adler, dopt, mrg, wcln, ch, cbfs, wrkr, bInflt, bDflt, gze, guze, zle, zule, pbf, gopt, cbify, astrm, astrmify, b2, b4, b8, wbytes, gzh, gzs, gzl, gzhl, zlh, zls, Deflate, AsyncDeflate, Inflate, AsyncInflate, Gzip, AsyncGzip, Gunzip, AsyncGunzip, Zlib, AsyncZlib, Unzlib, AsyncUnzlib, Decompress, AsyncDecompress, fltn, te, td, tds, dutf8, DecodeUTF8, EncodeUTF8, dbf, slzh, zh, z64e, exfl, wzh, wzf, ZipPassThrough, ZipDeflate, AsyncZipDeflate, Zip, UnzipPassThrough, UnzipInflate, AsyncUnzipInflate, Unzip, mt;
+var ch2,
+  wk,
+  u8,
+  u16,
+  i32,
+  fleb,
+  fdeb,
+  clim,
+  freb,
+  _a,
+  fl,
+  revfl,
+  _b,
+  fd,
+  revfd,
+  rev,
+  x,
+  i,
+  hMap,
+  flt,
+  i,
+  i,
+  i,
+  i,
+  fdt,
+  i,
+  flm,
+  flrm,
+  fdm,
+  fdrm,
+  max,
+  bits,
+  bits16,
+  shft,
+  slc,
+  FlateErrorCode,
+  ec,
+  err,
+  inflt,
+  wbits,
+  wbits16,
+  hTree,
+  ln,
+  lc,
+  clen,
+  wfblk,
+  wblk,
+  deo,
+  et,
+  dflt,
+  crct,
+  crc,
+  adler,
+  dopt,
+  mrg,
+  wcln,
+  ch,
+  cbfs,
+  wrkr,
+  bInflt,
+  bDflt,
+  gze,
+  guze,
+  zle,
+  zule,
+  pbf,
+  gopt,
+  cbify,
+  astrm,
+  astrmify,
+  b2,
+  b4,
+  b8,
+  wbytes,
+  gzh,
+  gzs,
+  gzl,
+  gzhl,
+  zlh,
+  zls,
+  Deflate,
+  AsyncDeflate,
+  Inflate,
+  AsyncInflate,
+  Gzip,
+  AsyncGzip,
+  Gunzip,
+  AsyncGunzip,
+  Zlib,
+  AsyncZlib,
+  Unzlib,
+  AsyncUnzlib,
+  Decompress,
+  AsyncDecompress,
+  fltn,
+  te,
+  td,
+  tds,
+  dutf8,
+  DecodeUTF8,
+  EncodeUTF8,
+  dbf,
+  slzh,
+  zh,
+  z64e,
+  exfl,
+  wzh,
+  wzf,
+  ZipPassThrough,
+  ZipDeflate,
+  AsyncZipDeflate,
+  Zip,
+  UnzipPassThrough,
+  UnzipInflate,
+  AsyncUnzipInflate,
+  Unzip,
+  mt;
 var init_browser = __esm({
   "node_modules/fflate/esm/browser.js"() {
     ch2 = {};
-    wk = function(c, id, msg, transfer, cb) {
-      var w = new Worker(ch2[id] || (ch2[id] = URL.createObjectURL(new Blob([
-        c + ';addEventListener("error",function(e){e=e.error;postMessage({$e$:[e.message,e.code,e.stack]})})'
-      ], { type: "text/javascript" }))));
-      w.onmessage = function(e) {
-        var d = e.data, ed = d.$e$;
+    wk = function (c, id, msg, transfer, cb) {
+      var w = new Worker(
+        ch2[id] ||
+          (ch2[id] = URL.createObjectURL(
+            new Blob(
+              [
+                c +
+                  ';addEventListener("error",function(e){e=e.error;postMessage({$e$:[e.message,e.code,e.stack]})})',
+              ],
+              { type: "text/javascript" }
+            )
+          ))
+      );
+      w.onmessage = function (e) {
+        var d = e.data,
+          ed = d.$e$;
         if (ed) {
           var err2 = new Error(ed[0]);
           err2["code"] = ed[1];
           err2.stack = ed[2];
           cb(err2, null);
-        } else
-          cb(null, d);
+        } else cb(null, d);
       };
       w.postMessage(msg, transfer);
       return w;
@@ -524,78 +708,20 @@ var init_browser = __esm({
     u16 = Uint16Array;
     i32 = Int32Array;
     fleb = new u8([
+      0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5,
+      5, 5, 5, 0, /* unused */
+      0, 0, /* impossible */
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      1,
-      1,
-      1,
-      1,
-      2,
-      2,
-      2,
-      2,
-      3,
-      3,
-      3,
-      3,
-      4,
-      4,
-      4,
-      4,
-      5,
-      5,
-      5,
-      5,
-      0,
-      /* unused */
-      0,
-      0,
-      /* impossible */
-      0
     ]);
     fdeb = new u8([
-      0,
-      0,
-      0,
-      0,
-      1,
-      1,
-      2,
-      2,
-      3,
-      3,
-      4,
-      4,
-      5,
-      5,
-      6,
-      6,
-      7,
-      7,
-      8,
-      8,
-      9,
-      9,
-      10,
-      10,
-      11,
-      11,
-      12,
-      12,
-      13,
-      13,
-      /* unused */
-      0,
-      0
+      0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10,
+      11, 11, 12, 12, 13, 13, /* unused */
+      0, 0,
     ]);
-    clim = new u8([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
-    freb = function(eb, start) {
+    clim = new u8([
+      16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
+    ]);
+    freb = function (eb, start) {
       var b = new u16(31);
       for (var i = 0; i < 31; ++i) {
         b[i] = start += 1 << eb[i - 1];
@@ -603,7 +729,7 @@ var init_browser = __esm({
       var r = new i32(b[30]);
       for (var i = 1; i < 30; ++i) {
         for (var j = b[i]; j < b[i + 1]; ++j) {
-          r[j] = j - b[i] << 5 | i;
+          r[j] = ((j - b[i]) << 5) | i;
         }
       }
       return { b, r };
@@ -611,28 +737,27 @@ var init_browser = __esm({
     _a = freb(fleb, 2);
     fl = _a.b;
     revfl = _a.r;
-    fl[28] = 258, revfl[258] = 28;
+    ((fl[28] = 258), (revfl[258] = 28));
     _b = freb(fdeb, 0);
     fd = _b.b;
     revfd = _b.r;
     rev = new u16(32768);
     for (i = 0; i < 32768; ++i) {
-      x = (i & 43690) >> 1 | (i & 21845) << 1;
-      x = (x & 52428) >> 2 | (x & 13107) << 2;
-      x = (x & 61680) >> 4 | (x & 3855) << 4;
-      rev[i] = ((x & 65280) >> 8 | (x & 255) << 8) >> 1;
+      x = ((i & 43690) >> 1) | ((i & 21845) << 1);
+      x = ((x & 52428) >> 2) | ((x & 13107) << 2);
+      x = ((x & 61680) >> 4) | ((x & 3855) << 4);
+      rev[i] = (((x & 65280) >> 8) | ((x & 255) << 8)) >> 1;
     }
-    hMap = function(cd, mb, r) {
+    hMap = function (cd, mb, r) {
       var s = cd.length;
       var i = 0;
       var l = new u16(mb);
       for (; i < s; ++i) {
-        if (cd[i])
-          ++l[cd[i] - 1];
+        if (cd[i]) ++l[cd[i] - 1];
       }
       var le = new u16(mb);
       for (i = 1; i < mb; ++i) {
-        le[i] = le[i - 1] + l[i - 1] << 1;
+        le[i] = (le[i - 1] + l[i - 1]) << 1;
       }
       var co;
       if (r) {
@@ -640,10 +765,10 @@ var init_browser = __esm({
         var rvb = 15 - mb;
         for (i = 0; i < s; ++i) {
           if (cd[i]) {
-            var sv = i << 4 | cd[i];
+            var sv = (i << 4) | cd[i];
             var r_1 = mb - cd[i];
             var v = le[cd[i] - 1]++ << r_1;
-            for (var m = v | (1 << r_1) - 1; v <= m; ++v) {
+            for (var m = v | ((1 << r_1) - 1); v <= m; ++v) {
               co[rev[v] >> rvb] = sv;
             }
           }
@@ -652,52 +777,44 @@ var init_browser = __esm({
         co = new u16(s);
         for (i = 0; i < s; ++i) {
           if (cd[i]) {
-            co[i] = rev[le[cd[i] - 1]++] >> 15 - cd[i];
+            co[i] = rev[le[cd[i] - 1]++] >> (15 - cd[i]);
           }
         }
       }
       return co;
     };
     flt = new u8(288);
-    for (i = 0; i < 144; ++i)
-      flt[i] = 8;
-    for (i = 144; i < 256; ++i)
-      flt[i] = 9;
-    for (i = 256; i < 280; ++i)
-      flt[i] = 7;
-    for (i = 280; i < 288; ++i)
-      flt[i] = 8;
+    for (i = 0; i < 144; ++i) flt[i] = 8;
+    for (i = 144; i < 256; ++i) flt[i] = 9;
+    for (i = 256; i < 280; ++i) flt[i] = 7;
+    for (i = 280; i < 288; ++i) flt[i] = 8;
     fdt = new u8(32);
-    for (i = 0; i < 32; ++i)
-      fdt[i] = 5;
+    for (i = 0; i < 32; ++i) fdt[i] = 5;
     flm = /* @__PURE__ */ hMap(flt, 9, 0);
     flrm = /* @__PURE__ */ hMap(flt, 9, 1);
     fdm = /* @__PURE__ */ hMap(fdt, 5, 0);
     fdrm = /* @__PURE__ */ hMap(fdt, 5, 1);
-    max = function(a) {
+    max = function (a) {
       var m = a[0];
       for (var i = 1; i < a.length; ++i) {
-        if (a[i] > m)
-          m = a[i];
+        if (a[i] > m) m = a[i];
       }
       return m;
     };
-    bits = function(d, p, m) {
-      var o = p / 8 | 0;
-      return (d[o] | d[o + 1] << 8) >> (p & 7) & m;
+    bits = function (d, p, m) {
+      var o = (p / 8) | 0;
+      return ((d[o] | (d[o + 1] << 8)) >> (p & 7)) & m;
     };
-    bits16 = function(d, p) {
-      var o = p / 8 | 0;
-      return (d[o] | d[o + 1] << 8 | d[o + 2] << 16) >> (p & 7);
+    bits16 = function (d, p) {
+      var o = (p / 8) | 0;
+      return (d[o] | (d[o + 1] << 8) | (d[o + 2] << 16)) >> (p & 7);
     };
-    shft = function(p) {
-      return (p + 7) / 8 | 0;
+    shft = function (p) {
+      return ((p + 7) / 8) | 0;
     };
-    slc = function(v, s, e) {
-      if (s == null || s < 0)
-        s = 0;
-      if (e == null || e > v.length)
-        e = v.length;
+    slc = function (v, s, e) {
+      if (s == null || s < 0) s = 0;
+      if (e == null || e > v.length) e = v.length;
       return new u8(v.subarray(s, e));
     };
     FlateErrorCode = {
@@ -715,7 +832,7 @@ var init_browser = __esm({
       FilenameTooLong: 11,
       StreamFinishing: 12,
       InvalidZipData: 13,
-      UnknownCompressionMethod: 14
+      UnknownCompressionMethod: 14,
     };
     ec = [
       "unexpected EOF",
@@ -731,28 +848,25 @@ var init_browser = __esm({
       "date not in range 1980-2099",
       "filename too long",
       "stream finishing",
-      "invalid zip data"
+      "invalid zip data",
       // determined by unknown compression method
     ];
-    err = function(ind, msg, nt) {
+    err = function (ind, msg, nt) {
       var e = new Error(msg || ec[ind]);
       e.code = ind;
-      if (Error.captureStackTrace)
-        Error.captureStackTrace(e, err);
-      if (!nt)
-        throw e;
+      if (Error.captureStackTrace) Error.captureStackTrace(e, err);
+      if (!nt) throw e;
       return e;
     };
-    inflt = function(dat, st, buf, dict) {
-      var sl = dat.length, dl = dict ? dict.length : 0;
-      if (!sl || st.f && !st.l)
-        return buf || new u8(0);
+    inflt = function (dat, st, buf, dict) {
+      var sl = dat.length,
+        dl = dict ? dict.length : 0;
+      if (!sl || (st.f && !st.l)) return buf || new u8(0);
       var noBuf = !buf;
       var resize = noBuf || st.i != 2;
       var noSt = st.i;
-      if (noBuf)
-        buf = new u8(sl * 3);
-      var cbuf = function(l2) {
+      if (noBuf) buf = new u8(sl * 3);
+      var cbuf = function (l2) {
         var bl = buf.length;
         if (l2 > bl) {
           var nbuf = new u8(Math.max(bl * 2, l2));
@@ -760,7 +874,13 @@ var init_browser = __esm({
           buf = nbuf;
         }
       };
-      var final = st.f || 0, pos = st.p || 0, bt = st.b || 0, lm = st.l, dm = st.d, lbt = st.m, dbt = st.n;
+      var final = st.f || 0,
+        pos = st.p || 0,
+        bt = st.b || 0,
+        lm = st.l,
+        dm = st.d,
+        lbt = st.m,
+        dbt = st.n;
       var tbts = sl * 8;
       do {
         if (!lm) {
@@ -768,21 +888,22 @@ var init_browser = __esm({
           var type = bits(dat, pos + 1, 3);
           pos += 3;
           if (!type) {
-            var s = shft(pos) + 4, l = dat[s - 4] | dat[s - 3] << 8, t = s + l;
+            var s = shft(pos) + 4,
+              l = dat[s - 4] | (dat[s - 3] << 8),
+              t = s + l;
             if (t > sl) {
-              if (noSt)
-                err(0);
+              if (noSt) err(0);
               break;
             }
-            if (resize)
-              cbuf(bt + l);
+            if (resize) cbuf(bt + l);
             buf.set(dat.subarray(s, t), bt);
-            st.b = bt += l, st.p = pos = t * 8, st.f = final;
+            ((st.b = bt += l), (st.p = pos = t * 8), (st.f = final));
             continue;
           } else if (type == 1)
-            lm = flrm, dm = fdrm, lbt = 9, dbt = 5;
+            ((lm = flrm), (dm = fdrm), (lbt = 9), (dbt = 5));
           else if (type == 2) {
-            var hLit = bits(dat, pos, 31) + 257, hcLen = bits(dat, pos + 10, 15) + 4;
+            var hLit = bits(dat, pos, 31) + 257,
+              hcLen = bits(dat, pos + 10, 15) + 4;
             var tl = hLit + bits(dat, pos + 5, 31) + 1;
             pos += 14;
             var ldt = new u8(tl);
@@ -791,7 +912,8 @@ var init_browser = __esm({
               clt[clim[i]] = bits(dat, pos + i * 3, 7);
             }
             pos += hcLen * 3;
-            var clb = max(clt), clbmsk = (1 << clb) - 1;
+            var clb = max(clt),
+              clbmsk = (1 << clb) - 1;
             var clm = hMap(clt, clb, 1);
             for (var i = 0; i < tl; ) {
               var r = clm[bits(dat, pos, clbmsk)];
@@ -800,123 +922,116 @@ var init_browser = __esm({
               if (s < 16) {
                 ldt[i++] = s;
               } else {
-                var c = 0, n = 0;
+                var c = 0,
+                  n = 0;
                 if (s == 16)
-                  n = 3 + bits(dat, pos, 3), pos += 2, c = ldt[i - 1];
-                else if (s == 17)
-                  n = 3 + bits(dat, pos, 7), pos += 3;
-                else if (s == 18)
-                  n = 11 + bits(dat, pos, 127), pos += 7;
-                while (n--)
-                  ldt[i++] = c;
+                  ((n = 3 + bits(dat, pos, 3)), (pos += 2), (c = ldt[i - 1]));
+                else if (s == 17) ((n = 3 + bits(dat, pos, 7)), (pos += 3));
+                else if (s == 18) ((n = 11 + bits(dat, pos, 127)), (pos += 7));
+                while (n--) ldt[i++] = c;
               }
             }
-            var lt = ldt.subarray(0, hLit), dt = ldt.subarray(hLit);
+            var lt = ldt.subarray(0, hLit),
+              dt = ldt.subarray(hLit);
             lbt = max(lt);
             dbt = max(dt);
             lm = hMap(lt, lbt, 1);
             dm = hMap(dt, dbt, 1);
-          } else
-            err(1);
+          } else err(1);
           if (pos > tbts) {
-            if (noSt)
-              err(0);
+            if (noSt) err(0);
             break;
           }
         }
-        if (resize)
-          cbuf(bt + 131072);
-        var lms = (1 << lbt) - 1, dms = (1 << dbt) - 1;
+        if (resize) cbuf(bt + 131072);
+        var lms = (1 << lbt) - 1,
+          dms = (1 << dbt) - 1;
         var lpos = pos;
         for (; ; lpos = pos) {
-          var c = lm[bits16(dat, pos) & lms], sym = c >> 4;
+          var c = lm[bits16(dat, pos) & lms],
+            sym = c >> 4;
           pos += c & 15;
           if (pos > tbts) {
-            if (noSt)
-              err(0);
+            if (noSt) err(0);
             break;
           }
-          if (!c)
-            err(2);
-          if (sym < 256)
-            buf[bt++] = sym;
+          if (!c) err(2);
+          if (sym < 256) buf[bt++] = sym;
           else if (sym == 256) {
-            lpos = pos, lm = null;
+            ((lpos = pos), (lm = null));
             break;
           } else {
             var add = sym - 254;
             if (sym > 264) {
-              var i = sym - 257, b = fleb[i];
+              var i = sym - 257,
+                b = fleb[i];
               add = bits(dat, pos, (1 << b) - 1) + fl[i];
               pos += b;
             }
-            var d = dm[bits16(dat, pos) & dms], dsym = d >> 4;
-            if (!d)
-              err(3);
+            var d = dm[bits16(dat, pos) & dms],
+              dsym = d >> 4;
+            if (!d) err(3);
             pos += d & 15;
             var dt = fd[dsym];
             if (dsym > 3) {
               var b = fdeb[dsym];
-              dt += bits16(dat, pos) & (1 << b) - 1, pos += b;
+              ((dt += bits16(dat, pos) & ((1 << b) - 1)), (pos += b));
             }
             if (pos > tbts) {
-              if (noSt)
-                err(0);
+              if (noSt) err(0);
               break;
             }
-            if (resize)
-              cbuf(bt + 131072);
+            if (resize) cbuf(bt + 131072);
             var end = bt + add;
             if (bt < dt) {
-              var shift = dl - dt, dend = Math.min(dt, end);
-              if (shift + bt < 0)
-                err(3);
-              for (; bt < dend; ++bt)
-                buf[bt] = dict[shift + bt];
+              var shift = dl - dt,
+                dend = Math.min(dt, end);
+              if (shift + bt < 0) err(3);
+              for (; bt < dend; ++bt) buf[bt] = dict[shift + bt];
             }
-            for (; bt < end; ++bt)
-              buf[bt] = buf[bt - dt];
+            for (; bt < end; ++bt) buf[bt] = buf[bt - dt];
           }
         }
-        st.l = lm, st.p = lpos, st.b = bt, st.f = final;
-        if (lm)
-          final = 1, st.m = lbt, st.d = dm, st.n = dbt;
+        ((st.l = lm), (st.p = lpos), (st.b = bt), (st.f = final));
+        if (lm) ((final = 1), (st.m = lbt), (st.d = dm), (st.n = dbt));
       } while (!final);
       return bt != buf.length && noBuf ? slc(buf, 0, bt) : buf.subarray(0, bt);
     };
-    wbits = function(d, p, v) {
+    wbits = function (d, p, v) {
       v <<= p & 7;
-      var o = p / 8 | 0;
+      var o = (p / 8) | 0;
       d[o] |= v;
       d[o + 1] |= v >> 8;
     };
-    wbits16 = function(d, p, v) {
+    wbits16 = function (d, p, v) {
       v <<= p & 7;
-      var o = p / 8 | 0;
+      var o = (p / 8) | 0;
       d[o] |= v;
       d[o + 1] |= v >> 8;
       d[o + 2] |= v >> 16;
     };
-    hTree = function(d, mb) {
+    hTree = function (d, mb) {
       var t = [];
       for (var i = 0; i < d.length; ++i) {
-        if (d[i])
-          t.push({ s: i, f: d[i] });
+        if (d[i]) t.push({ s: i, f: d[i] });
       }
       var s = t.length;
       var t2 = t.slice();
-      if (!s)
-        return { t: et, l: 0 };
+      if (!s) return { t: et, l: 0 };
       if (s == 1) {
         var v = new u8(t[0].s + 1);
         v[t[0].s] = 1;
         return { t: v, l: 1 };
       }
-      t.sort(function(a, b) {
+      t.sort(function (a, b) {
         return a.f - b.f;
       });
       t.push({ s: -1, f: 25001 });
-      var l = t[0], r = t[1], i0 = 0, i1 = 1, i2 = 2;
+      var l = t[0],
+        r = t[1],
+        i0 = 0,
+        i1 = 1,
+        i2 = 2;
       t[0] = { s: -1, f: l.f + r.f, l, r };
       while (i1 != s - 1) {
         l = t[t[i0].f < t[i2].f ? i0++ : i2++];
@@ -925,32 +1040,30 @@ var init_browser = __esm({
       }
       var maxSym = t2[0].s;
       for (var i = 1; i < s; ++i) {
-        if (t2[i].s > maxSym)
-          maxSym = t2[i].s;
+        if (t2[i].s > maxSym) maxSym = t2[i].s;
       }
       var tr = new u16(maxSym + 1);
       var mbt = ln(t[i1 - 1], tr, 0);
       if (mbt > mb) {
-        var i = 0, dt = 0;
-        var lft = mbt - mb, cst = 1 << lft;
-        t2.sort(function(a, b) {
+        var i = 0,
+          dt = 0;
+        var lft = mbt - mb,
+          cst = 1 << lft;
+        t2.sort(function (a, b) {
           return tr[b.s] - tr[a.s] || a.f - b.f;
         });
         for (; i < s; ++i) {
           var i2_1 = t2[i].s;
           if (tr[i2_1] > mb) {
-            dt += cst - (1 << mbt - tr[i2_1]);
+            dt += cst - (1 << (mbt - tr[i2_1]));
             tr[i2_1] = mb;
-          } else
-            break;
+          } else break;
         }
         dt >>= lft;
         while (dt > 0) {
           var i2_2 = t2[i].s;
-          if (tr[i2_2] < mb)
-            dt -= 1 << mb - tr[i2_2]++ - 1;
-          else
-            ++i;
+          if (tr[i2_2] < mb) dt -= 1 << (mb - tr[i2_2]++ - 1);
+          else ++i;
         }
         for (; i >= 0 && dt; --i) {
           var i2_3 = t2[i].s;
@@ -963,163 +1076,191 @@ var init_browser = __esm({
       }
       return { t: new u8(tr), l: mbt };
     };
-    ln = function(n, l, d) {
-      return n.s == -1 ? Math.max(ln(n.l, l, d + 1), ln(n.r, l, d + 1)) : l[n.s] = d;
+    ln = function (n, l, d) {
+      return n.s == -1
+        ? Math.max(ln(n.l, l, d + 1), ln(n.r, l, d + 1))
+        : (l[n.s] = d);
     };
-    lc = function(c) {
+    lc = function (c) {
       var s = c.length;
-      while (s && !c[--s])
-        ;
+      while (s && !c[--s]);
       var cl = new u16(++s);
-      var cli = 0, cln = c[0], cls = 1;
-      var w = function(v) {
+      var cli = 0,
+        cln = c[0],
+        cls = 1;
+      var w = function (v) {
         cl[cli++] = v;
       };
       for (var i = 1; i <= s; ++i) {
-        if (c[i] == cln && i != s)
-          ++cls;
+        if (c[i] == cln && i != s) ++cls;
         else {
           if (!cln && cls > 2) {
-            for (; cls > 138; cls -= 138)
-              w(32754);
+            for (; cls > 138; cls -= 138) w(32754);
             if (cls > 2) {
-              w(cls > 10 ? cls - 11 << 5 | 28690 : cls - 3 << 5 | 12305);
+              w(
+                cls > 10 ? ((cls - 11) << 5) | 28690 : ((cls - 3) << 5) | 12305
+              );
               cls = 0;
             }
           } else if (cls > 3) {
-            w(cln), --cls;
-            for (; cls > 6; cls -= 6)
-              w(8304);
-            if (cls > 2)
-              w(cls - 3 << 5 | 8208), cls = 0;
+            (w(cln), --cls);
+            for (; cls > 6; cls -= 6) w(8304);
+            if (cls > 2) (w(((cls - 3) << 5) | 8208), (cls = 0));
           }
-          while (cls--)
-            w(cln);
+          while (cls--) w(cln);
           cls = 1;
           cln = c[i];
         }
       }
       return { c: cl.subarray(0, cli), n: s };
     };
-    clen = function(cf, cl) {
+    clen = function (cf, cl) {
       var l = 0;
-      for (var i = 0; i < cl.length; ++i)
-        l += cf[i] * cl[i];
+      for (var i = 0; i < cl.length; ++i) l += cf[i] * cl[i];
       return l;
     };
-    wfblk = function(out, pos, dat) {
+    wfblk = function (out, pos, dat) {
       var s = dat.length;
       var o = shft(pos + 2);
       out[o] = s & 255;
       out[o + 1] = s >> 8;
       out[o + 2] = out[o] ^ 255;
       out[o + 3] = out[o + 1] ^ 255;
-      for (var i = 0; i < s; ++i)
-        out[o + i + 4] = dat[i];
+      for (var i = 0; i < s; ++i) out[o + i + 4] = dat[i];
       return (o + 4 + s) * 8;
     };
-    wblk = function(dat, out, final, syms, lf, df, eb, li, bs, bl, p) {
+    wblk = function (dat, out, final, syms, lf, df, eb, li, bs, bl, p) {
       wbits(out, p++, final);
       ++lf[256];
-      var _a2 = hTree(lf, 15), dlt = _a2.t, mlb = _a2.l;
-      var _b2 = hTree(df, 15), ddt = _b2.t, mdb = _b2.l;
-      var _c = lc(dlt), lclt = _c.c, nlc = _c.n;
-      var _d = lc(ddt), lcdt = _d.c, ndc = _d.n;
+      var _a2 = hTree(lf, 15),
+        dlt = _a2.t,
+        mlb = _a2.l;
+      var _b2 = hTree(df, 15),
+        ddt = _b2.t,
+        mdb = _b2.l;
+      var _c = lc(dlt),
+        lclt = _c.c,
+        nlc = _c.n;
+      var _d = lc(ddt),
+        lcdt = _d.c,
+        ndc = _d.n;
       var lcfreq = new u16(19);
-      for (var i = 0; i < lclt.length; ++i)
-        ++lcfreq[lclt[i] & 31];
-      for (var i = 0; i < lcdt.length; ++i)
-        ++lcfreq[lcdt[i] & 31];
-      var _e = hTree(lcfreq, 7), lct = _e.t, mlcb = _e.l;
+      for (var i = 0; i < lclt.length; ++i) ++lcfreq[lclt[i] & 31];
+      for (var i = 0; i < lcdt.length; ++i) ++lcfreq[lcdt[i] & 31];
+      var _e = hTree(lcfreq, 7),
+        lct = _e.t,
+        mlcb = _e.l;
       var nlcc = 19;
-      for (; nlcc > 4 && !lct[clim[nlcc - 1]]; --nlcc)
-        ;
-      var flen = bl + 5 << 3;
+      for (; nlcc > 4 && !lct[clim[nlcc - 1]]; --nlcc);
+      var flen = (bl + 5) << 3;
       var ftlen = clen(lf, flt) + clen(df, fdt) + eb;
-      var dtlen = clen(lf, dlt) + clen(df, ddt) + eb + 14 + 3 * nlcc + clen(lcfreq, lct) + 2 * lcfreq[16] + 3 * lcfreq[17] + 7 * lcfreq[18];
+      var dtlen =
+        clen(lf, dlt) +
+        clen(df, ddt) +
+        eb +
+        14 +
+        3 * nlcc +
+        clen(lcfreq, lct) +
+        2 * lcfreq[16] +
+        3 * lcfreq[17] +
+        7 * lcfreq[18];
       if (bs >= 0 && flen <= ftlen && flen <= dtlen)
         return wfblk(out, p, dat.subarray(bs, bs + bl));
       var lm, ll, dm, dl;
-      wbits(out, p, 1 + (dtlen < ftlen)), p += 2;
+      (wbits(out, p, 1 + (dtlen < ftlen)), (p += 2));
       if (dtlen < ftlen) {
-        lm = hMap(dlt, mlb, 0), ll = dlt, dm = hMap(ddt, mdb, 0), dl = ddt;
+        ((lm = hMap(dlt, mlb, 0)),
+          (ll = dlt),
+          (dm = hMap(ddt, mdb, 0)),
+          (dl = ddt));
         var llm = hMap(lct, mlcb, 0);
         wbits(out, p, nlc - 257);
         wbits(out, p + 5, ndc - 1);
         wbits(out, p + 10, nlcc - 4);
         p += 14;
-        for (var i = 0; i < nlcc; ++i)
-          wbits(out, p + 3 * i, lct[clim[i]]);
+        for (var i = 0; i < nlcc; ++i) wbits(out, p + 3 * i, lct[clim[i]]);
         p += 3 * nlcc;
         var lcts = [lclt, lcdt];
         for (var it = 0; it < 2; ++it) {
           var clct = lcts[it];
           for (var i = 0; i < clct.length; ++i) {
             var len = clct[i] & 31;
-            wbits(out, p, llm[len]), p += lct[len];
+            (wbits(out, p, llm[len]), (p += lct[len]));
             if (len > 15)
-              wbits(out, p, clct[i] >> 5 & 127), p += clct[i] >> 12;
+              (wbits(out, p, (clct[i] >> 5) & 127), (p += clct[i] >> 12));
           }
         }
       } else {
-        lm = flm, ll = flt, dm = fdm, dl = fdt;
+        ((lm = flm), (ll = flt), (dm = fdm), (dl = fdt));
       }
       for (var i = 0; i < li; ++i) {
         var sym = syms[i];
         if (sym > 255) {
-          var len = sym >> 18 & 31;
-          wbits16(out, p, lm[len + 257]), p += ll[len + 257];
-          if (len > 7)
-            wbits(out, p, sym >> 23 & 31), p += fleb[len];
+          var len = (sym >> 18) & 31;
+          (wbits16(out, p, lm[len + 257]), (p += ll[len + 257]));
+          if (len > 7) (wbits(out, p, (sym >> 23) & 31), (p += fleb[len]));
           var dst = sym & 31;
-          wbits16(out, p, dm[dst]), p += dl[dst];
-          if (dst > 3)
-            wbits16(out, p, sym >> 5 & 8191), p += fdeb[dst];
+          (wbits16(out, p, dm[dst]), (p += dl[dst]));
+          if (dst > 3) (wbits16(out, p, (sym >> 5) & 8191), (p += fdeb[dst]));
         } else {
-          wbits16(out, p, lm[sym]), p += ll[sym];
+          (wbits16(out, p, lm[sym]), (p += ll[sym]));
         }
       }
       wbits16(out, p, lm[256]);
       return p + ll[256];
     };
-    deo = /* @__PURE__ */ new i32([65540, 131080, 131088, 131104, 262176, 1048704, 1048832, 2114560, 2117632]);
+    deo = /* @__PURE__ */ new i32([
+      65540, 131080, 131088, 131104, 262176, 1048704, 1048832, 2114560, 2117632,
+    ]);
     et = /* @__PURE__ */ new u8(0);
-    dflt = function(dat, lvl, plvl, pre, post, st) {
+    dflt = function (dat, lvl, plvl, pre, post, st) {
       var s = st.z || dat.length;
       var o = new u8(pre + s + 5 * (1 + Math.ceil(s / 7e3)) + post);
       var w = o.subarray(pre, o.length - post);
       var lst = st.l;
       var pos = (st.r || 0) & 7;
       if (lvl) {
-        if (pos)
-          w[0] = st.r >> 3;
+        if (pos) w[0] = st.r >> 3;
         var opt = deo[lvl - 1];
-        var n = opt >> 13, c = opt & 8191;
+        var n = opt >> 13,
+          c = opt & 8191;
         var msk_1 = (1 << plvl) - 1;
-        var prev = st.p || new u16(32768), head = st.h || new u16(msk_1 + 1);
-        var bs1_1 = Math.ceil(plvl / 3), bs2_1 = 2 * bs1_1;
-        var hsh = function(i2) {
-          return (dat[i2] ^ dat[i2 + 1] << bs1_1 ^ dat[i2 + 2] << bs2_1) & msk_1;
+        var prev = st.p || new u16(32768),
+          head = st.h || new u16(msk_1 + 1);
+        var bs1_1 = Math.ceil(plvl / 3),
+          bs2_1 = 2 * bs1_1;
+        var hsh = function (i2) {
+          return (
+            (dat[i2] ^ (dat[i2 + 1] << bs1_1) ^ (dat[i2 + 2] << bs2_1)) & msk_1
+          );
         };
         var syms = new i32(25e3);
-        var lf = new u16(288), df = new u16(32);
-        var lc_1 = 0, eb = 0, i = st.i || 0, li = 0, wi = st.w || 0, bs = 0;
+        var lf = new u16(288),
+          df = new u16(32);
+        var lc_1 = 0,
+          eb = 0,
+          i = st.i || 0,
+          li = 0,
+          wi = st.w || 0,
+          bs = 0;
         for (; i + 2 < s; ++i) {
           var hv = hsh(i);
-          var imod = i & 32767, pimod = head[hv];
+          var imod = i & 32767,
+            pimod = head[hv];
           prev[imod] = pimod;
           head[hv] = imod;
           if (wi <= i) {
             var rem = s - i;
             if ((lc_1 > 7e3 || li > 24576) && (rem > 423 || !lst)) {
               pos = wblk(dat, w, 0, syms, lf, df, eb, li, bs, i - bs, pos);
-              li = lc_1 = eb = 0, bs = i;
-              for (var j = 0; j < 286; ++j)
-                lf[j] = 0;
-              for (var j = 0; j < 30; ++j)
-                df[j] = 0;
+              ((li = lc_1 = eb = 0), (bs = i));
+              for (var j = 0; j < 286; ++j) lf[j] = 0;
+              for (var j = 0; j < 30; ++j) df[j] = 0;
             }
-            var l = 2, d = 0, ch_1 = c, dif = imod - pimod & 32767;
+            var l = 2,
+              d = 0,
+              ch_1 = c,
+              dif = (imod - pimod) & 32767;
             if (rem > 2 && hv == hsh(i - dif)) {
               var maxn = Math.min(n, rem) - 1;
               var maxd = Math.min(32767, i);
@@ -1127,30 +1268,28 @@ var init_browser = __esm({
               while (dif <= maxd && --ch_1 && imod != pimod) {
                 if (dat[i + l] == dat[i + l - dif]) {
                   var nl = 0;
-                  for (; nl < ml && dat[i + nl] == dat[i + nl - dif]; ++nl)
-                    ;
+                  for (; nl < ml && dat[i + nl] == dat[i + nl - dif]; ++nl);
                   if (nl > l) {
-                    l = nl, d = dif;
-                    if (nl > maxn)
-                      break;
+                    ((l = nl), (d = dif));
+                    if (nl > maxn) break;
                     var mmd = Math.min(dif, nl - 2);
                     var md = 0;
                     for (var j = 0; j < mmd; ++j) {
-                      var ti = i - dif + j & 32767;
+                      var ti = (i - dif + j) & 32767;
                       var pti = prev[ti];
-                      var cd = ti - pti & 32767;
-                      if (cd > md)
-                        md = cd, pimod = ti;
+                      var cd = (ti - pti) & 32767;
+                      if (cd > md) ((md = cd), (pimod = ti));
                     }
                   }
                 }
-                imod = pimod, pimod = prev[imod];
-                dif += imod - pimod & 32767;
+                ((imod = pimod), (pimod = prev[imod]));
+                dif += (imod - pimod) & 32767;
               }
             }
             if (d) {
-              syms[li++] = 268435456 | revfl[l] << 18 | revfd[d];
-              var lin = revfl[l] & 31, din = revfd[d] & 31;
+              syms[li++] = 268435456 | (revfl[l] << 18) | revfd[d];
+              var lin = revfl[l] & 31,
+                din = revfd[d] & 31;
               eb += fleb[lin] + fdeb[din];
               ++lf[257 + lin];
               ++df[din];
@@ -1168,15 +1307,15 @@ var init_browser = __esm({
         }
         pos = wblk(dat, w, lst, syms, lf, df, eb, li, bs, i - bs, pos);
         if (!lst) {
-          st.r = pos & 7 | w[pos / 8 | 0] << 3;
+          st.r = (pos & 7) | (w[(pos / 8) | 0] << 3);
           pos -= 7;
-          st.h = head, st.p = prev, st.i = i, st.w = wi;
+          ((st.h = head), (st.p = prev), (st.i = i), (st.w = wi));
         }
       } else {
         for (var i = st.w || 0; i < s + lst; i += 65535) {
           var e = i + 65535;
           if (e >= s) {
-            w[pos / 8 | 0] = lst;
+            w[(pos / 8) | 0] = lst;
             e = s;
           }
           pos = wfblk(w, pos + 1, dat.subarray(i, e));
@@ -1185,51 +1324,55 @@ var init_browser = __esm({
       }
       return slc(o, 0, pre + shft(pos) + post);
     };
-    crct = /* @__PURE__ */ function() {
+    crct = /* @__PURE__ */ (function () {
       var t = new Int32Array(256);
       for (var i = 0; i < 256; ++i) {
-        var c = i, k = 9;
-        while (--k)
-          c = (c & 1 && -306674912) ^ c >>> 1;
+        var c = i,
+          k = 9;
+        while (--k) c = (c & 1 && -306674912) ^ (c >>> 1);
         t[i] = c;
       }
       return t;
-    }();
-    crc = function() {
+    })();
+    crc = function () {
       var c = -1;
       return {
-        p: function(d) {
+        p: function (d) {
           var cr = c;
           for (var i = 0; i < d.length; ++i)
-            cr = crct[cr & 255 ^ d[i]] ^ cr >>> 8;
+            cr = crct[(cr & 255) ^ d[i]] ^ (cr >>> 8);
           c = cr;
         },
-        d: function() {
+        d: function () {
           return ~c;
-        }
+        },
       };
     };
-    adler = function() {
-      var a = 1, b = 0;
+    adler = function () {
+      var a = 1,
+        b = 0;
       return {
-        p: function(d) {
-          var n = a, m = b;
+        p: function (d) {
+          var n = a,
+            m = b;
           var l = d.length | 0;
           for (var i = 0; i != l; ) {
             var e = Math.min(i + 2655, l);
-            for (; i < e; ++i)
-              m += n += d[i];
-            n = (n & 65535) + 15 * (n >> 16), m = (m & 65535) + 15 * (m >> 16);
+            for (; i < e; ++i) m += n += d[i];
+            ((n = (n & 65535) + 15 * (n >> 16)),
+              (m = (m & 65535) + 15 * (m >> 16)));
           }
-          a = n, b = m;
+          ((a = n), (b = m));
         },
-        d: function() {
-          a %= 65521, b %= 65521;
-          return (a & 255) << 24 | (a & 65280) << 8 | (b & 255) << 8 | b >> 8;
-        }
+        d: function () {
+          ((a %= 65521), (b %= 65521));
+          return (
+            ((a & 255) << 24) | ((a & 65280) << 8) | ((b & 255) << 8) | (b >> 8)
+          );
+        },
       };
     };
-    dopt = function(dat, opt, pre, post, st) {
+    dopt = function (dat, opt, pre, post, st) {
       if (!st) {
         st = { l: 1 };
         if (opt.dictionary) {
@@ -1241,22 +1384,35 @@ var init_browser = __esm({
           st.w = dict.length;
         }
       }
-      return dflt(dat, opt.level == null ? 6 : opt.level, opt.mem == null ? st.l ? Math.ceil(Math.max(8, Math.min(13, Math.log(dat.length))) * 1.5) : 20 : 12 + opt.mem, pre, post, st);
+      return dflt(
+        dat,
+        opt.level == null ? 6 : opt.level,
+        opt.mem == null
+          ? st.l
+            ? Math.ceil(Math.max(8, Math.min(13, Math.log(dat.length))) * 1.5)
+            : 20
+          : 12 + opt.mem,
+        pre,
+        post,
+        st
+      );
     };
-    mrg = function(a, b) {
+    mrg = function (a, b) {
       var o = {};
-      for (var k in a)
-        o[k] = a[k];
-      for (var k in b)
-        o[k] = b[k];
+      for (var k in a) o[k] = a[k];
+      for (var k in b) o[k] = b[k];
       return o;
     };
-    wcln = function(fn, fnStr, td2) {
+    wcln = function (fn, fnStr, td2) {
       var dt = fn();
       var st = fn.toString();
-      var ks = st.slice(st.indexOf("[") + 1, st.lastIndexOf("]")).replace(/\s+/g, "").split(",");
+      var ks = st
+        .slice(st.indexOf("[") + 1, st.lastIndexOf("]"))
+        .replace(/\s+/g, "")
+        .split(",");
       for (var i = 0; i < dt.length; ++i) {
-        var v = dt[i], k = ks[i];
+        var v = dt[i],
+          k = ks[i];
         if (typeof v == "function") {
           fnStr += ";" + k + "=";
           var st_1 = v.toString();
@@ -1267,17 +1423,16 @@ var init_browser = __esm({
             } else {
               fnStr += st_1;
               for (var t in v.prototype)
-                fnStr += ";" + k + ".prototype." + t + "=" + v.prototype[t].toString();
+                fnStr +=
+                  ";" + k + ".prototype." + t + "=" + v.prototype[t].toString();
             }
-          } else
-            fnStr += st_1;
-        } else
-          td2[k] = v;
+          } else fnStr += st_1;
+        } else td2[k] = v;
       }
       return fnStr;
     };
     ch = [];
-    cbfs = function(v) {
+    cbfs = function (v) {
       var tl = [];
       for (var k in v) {
         if (v[k].buffer) {
@@ -1286,164 +1441,236 @@ var init_browser = __esm({
       }
       return tl;
     };
-    wrkr = function(fns, init, id, cb) {
+    wrkr = function (fns, init, id, cb) {
       if (!ch[id]) {
-        var fnStr = "", td_1 = {}, m = fns.length - 1;
-        for (var i = 0; i < m; ++i)
-          fnStr = wcln(fns[i], fnStr, td_1);
+        var fnStr = "",
+          td_1 = {},
+          m = fns.length - 1;
+        for (var i = 0; i < m; ++i) fnStr = wcln(fns[i], fnStr, td_1);
         ch[id] = { c: wcln(fns[m], fnStr, td_1), e: td_1 };
       }
       var td2 = mrg({}, ch[id].e);
-      return wk(ch[id].c + ";onmessage=function(e){for(var k in e.data)self[k]=e.data[k];onmessage=" + init.toString() + "}", id, td2, cbfs(td2), cb);
+      return wk(
+        ch[id].c +
+          ";onmessage=function(e){for(var k in e.data)self[k]=e.data[k];onmessage=" +
+          init.toString() +
+          "}",
+        id,
+        td2,
+        cbfs(td2),
+        cb
+      );
     };
-    bInflt = function() {
-      return [u8, u16, i32, fleb, fdeb, clim, fl, fd, flrm, fdrm, rev, ec, hMap, max, bits, bits16, shft, slc, err, inflt, inflateSync, pbf, gopt];
+    bInflt = function () {
+      return [
+        u8,
+        u16,
+        i32,
+        fleb,
+        fdeb,
+        clim,
+        fl,
+        fd,
+        flrm,
+        fdrm,
+        rev,
+        ec,
+        hMap,
+        max,
+        bits,
+        bits16,
+        shft,
+        slc,
+        err,
+        inflt,
+        inflateSync,
+        pbf,
+        gopt,
+      ];
     };
-    bDflt = function() {
-      return [u8, u16, i32, fleb, fdeb, clim, revfl, revfd, flm, flt, fdm, fdt, rev, deo, et, hMap, wbits, wbits16, hTree, ln, lc, clen, wfblk, wblk, shft, slc, dflt, dopt, deflateSync, pbf];
+    bDflt = function () {
+      return [
+        u8,
+        u16,
+        i32,
+        fleb,
+        fdeb,
+        clim,
+        revfl,
+        revfd,
+        flm,
+        flt,
+        fdm,
+        fdt,
+        rev,
+        deo,
+        et,
+        hMap,
+        wbits,
+        wbits16,
+        hTree,
+        ln,
+        lc,
+        clen,
+        wfblk,
+        wblk,
+        shft,
+        slc,
+        dflt,
+        dopt,
+        deflateSync,
+        pbf,
+      ];
     };
-    gze = function() {
+    gze = function () {
       return [gzh, gzhl, wbytes, crc, crct];
     };
-    guze = function() {
+    guze = function () {
       return [gzs, gzl];
     };
-    zle = function() {
+    zle = function () {
       return [zlh, wbytes, adler];
     };
-    zule = function() {
+    zule = function () {
       return [zls];
     };
-    pbf = function(msg) {
+    pbf = function (msg) {
       return postMessage(msg, [msg.buffer]);
     };
-    gopt = function(o) {
-      return o && {
-        out: o.size && new u8(o.size),
-        dictionary: o.dictionary
-      };
+    gopt = function (o) {
+      return (
+        o && {
+          out: o.size && new u8(o.size),
+          dictionary: o.dictionary,
+        }
+      );
     };
-    cbify = function(dat, opts, fns, init, id, cb) {
-      var w = wrkr(fns, init, id, function(err2, dat2) {
+    cbify = function (dat, opts, fns, init, id, cb) {
+      var w = wrkr(fns, init, id, function (err2, dat2) {
         w.terminate();
         cb(err2, dat2);
       });
       w.postMessage([dat, opts], opts.consume ? [dat.buffer] : []);
-      return function() {
+      return function () {
         w.terminate();
       };
     };
-    astrm = function(strm) {
-      strm.ondata = function(dat, final) {
+    astrm = function (strm) {
+      strm.ondata = function (dat, final) {
         return postMessage([dat, final], [dat.buffer]);
       };
-      return function(ev) {
+      return function (ev) {
         if (ev.data.length) {
           strm.push(ev.data[0], ev.data[1]);
           postMessage([ev.data[0].length]);
-        } else
-          strm.flush();
+        } else strm.flush();
       };
     };
-    astrmify = function(fns, strm, opts, init, id, flush, ext) {
+    astrmify = function (fns, strm, opts, init, id, flush, ext) {
       var t;
-      var w = wrkr(fns, init, id, function(err2, dat) {
-        if (err2)
-          w.terminate(), strm.ondata.call(strm, err2);
-        else if (!Array.isArray(dat))
-          ext(dat);
+      var w = wrkr(fns, init, id, function (err2, dat) {
+        if (err2) (w.terminate(), strm.ondata.call(strm, err2));
+        else if (!Array.isArray(dat)) ext(dat);
         else if (dat.length == 1) {
           strm.queuedSize -= dat[0];
-          if (strm.ondrain)
-            strm.ondrain(dat[0]);
+          if (strm.ondrain) strm.ondrain(dat[0]);
         } else {
-          if (dat[1])
-            w.terminate();
+          if (dat[1]) w.terminate();
           strm.ondata.call(strm, err2, dat[0], dat[1]);
         }
       });
       w.postMessage(opts);
       strm.queuedSize = 0;
-      strm.push = function(d, f) {
-        if (!strm.ondata)
-          err(5);
-        if (t)
-          strm.ondata(err(4, 0, 1), null, !!f);
+      strm.push = function (d, f) {
+        if (!strm.ondata) err(5);
+        if (t) strm.ondata(err(4, 0, 1), null, !!f);
         strm.queuedSize += d.length;
-        w.postMessage([d, t = f], [d.buffer]);
+        w.postMessage([d, (t = f)], [d.buffer]);
       };
-      strm.terminate = function() {
+      strm.terminate = function () {
         w.terminate();
       };
       if (flush) {
-        strm.flush = function() {
+        strm.flush = function () {
           w.postMessage([]);
         };
       }
     };
-    b2 = function(d, b) {
-      return d[b] | d[b + 1] << 8;
+    b2 = function (d, b) {
+      return d[b] | (d[b + 1] << 8);
     };
-    b4 = function(d, b) {
-      return (d[b] | d[b + 1] << 8 | d[b + 2] << 16 | d[b + 3] << 24) >>> 0;
+    b4 = function (d, b) {
+      return (
+        (d[b] | (d[b + 1] << 8) | (d[b + 2] << 16) | (d[b + 3] << 24)) >>> 0
+      );
     };
-    b8 = function(d, b) {
+    b8 = function (d, b) {
       return b4(d, b) + b4(d, b + 4) * 4294967296;
     };
-    wbytes = function(d, b, v) {
-      for (; v; ++b)
-        d[b] = v, v >>>= 8;
+    wbytes = function (d, b, v) {
+      for (; v; ++b) ((d[b] = v), (v >>>= 8));
     };
-    gzh = function(c, o) {
+    gzh = function (c, o) {
       var fn = o.filename;
-      c[0] = 31, c[1] = 139, c[2] = 8, c[8] = o.level < 2 ? 4 : o.level == 9 ? 2 : 0, c[9] = 3;
+      ((c[0] = 31),
+        (c[1] = 139),
+        (c[2] = 8),
+        (c[8] = o.level < 2 ? 4 : o.level == 9 ? 2 : 0),
+        (c[9] = 3));
       if (o.mtime != 0)
         wbytes(c, 4, Math.floor(new Date(o.mtime || Date.now()) / 1e3));
       if (fn) {
         c[3] = 8;
-        for (var i = 0; i <= fn.length; ++i)
-          c[i + 10] = fn.charCodeAt(i);
+        for (var i = 0; i <= fn.length; ++i) c[i + 10] = fn.charCodeAt(i);
       }
     };
-    gzs = function(d) {
-      if (d[0] != 31 || d[1] != 139 || d[2] != 8)
-        err(6, "invalid gzip data");
+    gzs = function (d) {
+      if (d[0] != 31 || d[1] != 139 || d[2] != 8) err(6, "invalid gzip data");
       var flg = d[3];
       var st = 10;
-      if (flg & 4)
-        st += (d[10] | d[11] << 8) + 2;
-      for (var zs = (flg >> 3 & 1) + (flg >> 4 & 1); zs > 0; zs -= !d[st++])
-        ;
+      if (flg & 4) st += (d[10] | (d[11] << 8)) + 2;
+      for (
+        var zs = ((flg >> 3) & 1) + ((flg >> 4) & 1);
+        zs > 0;
+        zs -= !d[st++]
+      );
       return st + (flg & 2);
     };
-    gzl = function(d) {
+    gzl = function (d) {
       var l = d.length;
-      return (d[l - 4] | d[l - 3] << 8 | d[l - 2] << 16 | d[l - 1] << 24) >>> 0;
+      return (
+        (d[l - 4] | (d[l - 3] << 8) | (d[l - 2] << 16) | (d[l - 1] << 24)) >>> 0
+      );
     };
-    gzhl = function(o) {
+    gzhl = function (o) {
       return 10 + (o.filename ? o.filename.length + 1 : 0);
     };
-    zlh = function(c, o) {
-      var lv = o.level, fl2 = lv == 0 ? 0 : lv < 6 ? 1 : lv == 9 ? 3 : 2;
-      c[0] = 120, c[1] = fl2 << 6 | (o.dictionary && 32);
-      c[1] |= 31 - (c[0] << 8 | c[1]) % 31;
+    zlh = function (c, o) {
+      var lv = o.level,
+        fl2 = lv == 0 ? 0 : lv < 6 ? 1 : lv == 9 ? 3 : 2;
+      ((c[0] = 120), (c[1] = (fl2 << 6) | (o.dictionary && 32)));
+      c[1] |= 31 - (((c[0] << 8) | c[1]) % 31);
       if (o.dictionary) {
         var h = adler();
         h.p(o.dictionary);
         wbytes(c, 2, h.d());
       }
     };
-    zls = function(d, dict) {
-      if ((d[0] & 15) != 8 || d[0] >> 4 > 7 || (d[0] << 8 | d[1]) % 31)
+    zls = function (d, dict) {
+      if ((d[0] & 15) != 8 || d[0] >> 4 > 7 || ((d[0] << 8) | d[1]) % 31)
         err(6, "invalid zlib data");
-      if ((d[1] >> 5 & 1) == +!dict)
-        err(6, "invalid zlib data: " + (d[1] & 32 ? "need" : "unexpected") + " dictionary");
-      return (d[1] >> 3 & 4) + 2;
+      if (((d[1] >> 5) & 1) == +!dict)
+        err(
+          6,
+          "invalid zlib data: " +
+            (d[1] & 32 ? "need" : "unexpected") +
+            " dictionary"
+        );
+      return ((d[1] >> 3) & 4) + 2;
     };
-    Deflate = /* @__PURE__ */ function() {
+    Deflate = /* @__PURE__ */ (function () {
       function Deflate2(opts, cb) {
-        if (typeof opts == "function")
-          cb = opts, opts = {};
+        if (typeof opts == "function") ((cb = opts), (opts = {}));
         this.ondata = cb;
         this.o = opts || {};
         this.s = { l: 0, i: 32768, w: 32768, z: 32768 };
@@ -1454,14 +1681,12 @@ var init_browser = __esm({
           this.s.i = 32768 - dict.length;
         }
       }
-      Deflate2.prototype.p = function(c, f) {
+      Deflate2.prototype.p = function (c, f) {
         this.ondata(dopt(c, this.o, 0, 0, this.s), f);
       };
-      Deflate2.prototype.push = function(chunk, final) {
-        if (!this.ondata)
-          err(5);
-        if (this.s.l)
-          err(4);
+      Deflate2.prototype.push = function (chunk, final) {
+        if (!this.ondata) err(5);
+        if (this.s.l) err(4);
         var endLen = chunk.length + this.s.z;
         if (endLen > this.b.length) {
           if (endLen > 2 * this.b.length - 32768) {
@@ -1476,7 +1701,7 @@ var init_browser = __esm({
           this.b.set(this.b.subarray(-32768));
           this.b.set(chunk.subarray(split), 32768);
           this.s.z = chunk.length - split + 32768;
-          this.s.i = 32766, this.s.w = 32768;
+          ((this.s.i = 32766), (this.s.w = 32768));
         } else {
           this.b.set(chunk, this.s.z);
           this.s.z += chunk.length;
@@ -1484,143 +1709,156 @@ var init_browser = __esm({
         this.s.l = final & 1;
         if (this.s.z > this.s.w + 8191 || final) {
           this.p(this.b, final || false);
-          this.s.w = this.s.i, this.s.i -= 2;
+          ((this.s.w = this.s.i), (this.s.i -= 2));
         }
       };
-      Deflate2.prototype.flush = function() {
-        if (!this.ondata)
-          err(5);
-        if (this.s.l)
-          err(4);
+      Deflate2.prototype.flush = function () {
+        if (!this.ondata) err(5);
+        if (this.s.l) err(4);
         this.p(this.b, false);
-        this.s.w = this.s.i, this.s.i -= 2;
+        ((this.s.w = this.s.i), (this.s.i -= 2));
       };
       return Deflate2;
-    }();
-    AsyncDeflate = /* @__PURE__ */ function() {
+    })();
+    AsyncDeflate = /* @__PURE__ */ (function () {
       function AsyncDeflate2(opts, cb) {
-        astrmify([
-          bDflt,
-          function() {
-            return [astrm, Deflate];
-          }
-        ], this, StrmOpt.call(this, opts, cb), function(ev) {
-          var strm = new Deflate(ev.data);
-          onmessage = astrm(strm);
-        }, 6, 1);
+        astrmify(
+          [
+            bDflt,
+            function () {
+              return [astrm, Deflate];
+            },
+          ],
+          this,
+          StrmOpt.call(this, opts, cb),
+          function (ev) {
+            var strm = new Deflate(ev.data);
+            onmessage = astrm(strm);
+          },
+          6,
+          1
+        );
       }
       return AsyncDeflate2;
-    }();
-    Inflate = /* @__PURE__ */ function() {
+    })();
+    Inflate = /* @__PURE__ */ (function () {
       function Inflate2(opts, cb) {
-        if (typeof opts == "function")
-          cb = opts, opts = {};
+        if (typeof opts == "function") ((cb = opts), (opts = {}));
         this.ondata = cb;
         var dict = opts && opts.dictionary && opts.dictionary.subarray(-32768);
         this.s = { i: 0, b: dict ? dict.length : 0 };
         this.o = new u8(32768);
         this.p = new u8(0);
-        if (dict)
-          this.o.set(dict);
+        if (dict) this.o.set(dict);
       }
-      Inflate2.prototype.e = function(c) {
-        if (!this.ondata)
-          err(5);
-        if (this.d)
-          err(4);
-        if (!this.p.length)
-          this.p = c;
+      Inflate2.prototype.e = function (c) {
+        if (!this.ondata) err(5);
+        if (this.d) err(4);
+        if (!this.p.length) this.p = c;
         else if (c.length) {
           var n = new u8(this.p.length + c.length);
-          n.set(this.p), n.set(c, this.p.length), this.p = n;
+          (n.set(this.p), n.set(c, this.p.length), (this.p = n));
         }
       };
-      Inflate2.prototype.c = function(final) {
+      Inflate2.prototype.c = function (final) {
         this.s.i = +(this.d = final || false);
         var bts = this.s.b;
         var dt = inflt(this.p, this.s, this.o);
         this.ondata(slc(dt, bts, this.s.b), this.d);
-        this.o = slc(dt, this.s.b - 32768), this.s.b = this.o.length;
-        this.p = slc(this.p, this.s.p / 8 | 0), this.s.p &= 7;
+        ((this.o = slc(dt, this.s.b - 32768)), (this.s.b = this.o.length));
+        ((this.p = slc(this.p, (this.s.p / 8) | 0)), (this.s.p &= 7));
       };
-      Inflate2.prototype.push = function(chunk, final) {
-        this.e(chunk), this.c(final);
+      Inflate2.prototype.push = function (chunk, final) {
+        (this.e(chunk), this.c(final));
       };
       return Inflate2;
-    }();
-    AsyncInflate = /* @__PURE__ */ function() {
+    })();
+    AsyncInflate = /* @__PURE__ */ (function () {
       function AsyncInflate2(opts, cb) {
-        astrmify([
-          bInflt,
-          function() {
-            return [astrm, Inflate];
-          }
-        ], this, StrmOpt.call(this, opts, cb), function(ev) {
-          var strm = new Inflate(ev.data);
-          onmessage = astrm(strm);
-        }, 7, 0);
+        astrmify(
+          [
+            bInflt,
+            function () {
+              return [astrm, Inflate];
+            },
+          ],
+          this,
+          StrmOpt.call(this, opts, cb),
+          function (ev) {
+            var strm = new Inflate(ev.data);
+            onmessage = astrm(strm);
+          },
+          7,
+          0
+        );
       }
       return AsyncInflate2;
-    }();
-    Gzip = /* @__PURE__ */ function() {
+    })();
+    Gzip = /* @__PURE__ */ (function () {
       function Gzip2(opts, cb) {
         this.c = crc();
         this.l = 0;
         this.v = 1;
         Deflate.call(this, opts, cb);
       }
-      Gzip2.prototype.push = function(chunk, final) {
+      Gzip2.prototype.push = function (chunk, final) {
         this.c.p(chunk);
         this.l += chunk.length;
         Deflate.prototype.push.call(this, chunk, final);
       };
-      Gzip2.prototype.p = function(c, f) {
+      Gzip2.prototype.p = function (c, f) {
         var raw = dopt(c, this.o, this.v && gzhl(this.o), f && 8, this.s);
-        if (this.v)
-          gzh(raw, this.o), this.v = 0;
+        if (this.v) (gzh(raw, this.o), (this.v = 0));
         if (f)
-          wbytes(raw, raw.length - 8, this.c.d()), wbytes(raw, raw.length - 4, this.l);
+          (wbytes(raw, raw.length - 8, this.c.d()),
+            wbytes(raw, raw.length - 4, this.l));
         this.ondata(raw, f);
       };
-      Gzip2.prototype.flush = function() {
+      Gzip2.prototype.flush = function () {
         Deflate.prototype.flush.call(this);
       };
       return Gzip2;
-    }();
-    AsyncGzip = /* @__PURE__ */ function() {
+    })();
+    AsyncGzip = /* @__PURE__ */ (function () {
       function AsyncGzip2(opts, cb) {
-        astrmify([
-          bDflt,
-          gze,
-          function() {
-            return [astrm, Deflate, Gzip];
-          }
-        ], this, StrmOpt.call(this, opts, cb), function(ev) {
-          var strm = new Gzip(ev.data);
-          onmessage = astrm(strm);
-        }, 8, 1);
+        astrmify(
+          [
+            bDflt,
+            gze,
+            function () {
+              return [astrm, Deflate, Gzip];
+            },
+          ],
+          this,
+          StrmOpt.call(this, opts, cb),
+          function (ev) {
+            var strm = new Gzip(ev.data);
+            onmessage = astrm(strm);
+          },
+          8,
+          1
+        );
       }
       return AsyncGzip2;
-    }();
-    Gunzip = /* @__PURE__ */ function() {
+    })();
+    Gunzip = /* @__PURE__ */ (function () {
       function Gunzip2(opts, cb) {
         this.v = 1;
         this.r = 0;
         Inflate.call(this, opts, cb);
       }
-      Gunzip2.prototype.push = function(chunk, final) {
+      Gunzip2.prototype.push = function (chunk, final) {
         Inflate.prototype.e.call(this, chunk);
         this.r += chunk.length;
         if (this.v) {
           var p = this.p.subarray(this.v - 1);
           var s = p.length > 3 ? gzs(p) : 4;
           if (s > p.length) {
-            if (!final)
-              return;
+            if (!final) return;
           } else if (this.v > 1 && this.onmember) {
             this.onmember(this.r - p.length);
           }
-          this.p = p.subarray(s), this.v = 0;
+          ((this.p = p.subarray(s)), (this.v = 0));
         }
         Inflate.prototype.c.call(this, final);
         if (this.s.f && !this.s.l && !final) {
@@ -1631,136 +1869,164 @@ var init_browser = __esm({
         }
       };
       return Gunzip2;
-    }();
-    AsyncGunzip = /* @__PURE__ */ function() {
+    })();
+    AsyncGunzip = /* @__PURE__ */ (function () {
       function AsyncGunzip2(opts, cb) {
         var _this = this;
-        astrmify([
-          bInflt,
-          guze,
-          function() {
-            return [astrm, Inflate, Gunzip];
+        astrmify(
+          [
+            bInflt,
+            guze,
+            function () {
+              return [astrm, Inflate, Gunzip];
+            },
+          ],
+          this,
+          StrmOpt.call(this, opts, cb),
+          function (ev) {
+            var strm = new Gunzip(ev.data);
+            strm.onmember = function (offset) {
+              return postMessage(offset);
+            };
+            onmessage = astrm(strm);
+          },
+          9,
+          0,
+          function (offset) {
+            return _this.onmember && _this.onmember(offset);
           }
-        ], this, StrmOpt.call(this, opts, cb), function(ev) {
-          var strm = new Gunzip(ev.data);
-          strm.onmember = function(offset) {
-            return postMessage(offset);
-          };
-          onmessage = astrm(strm);
-        }, 9, 0, function(offset) {
-          return _this.onmember && _this.onmember(offset);
-        });
+        );
       }
       return AsyncGunzip2;
-    }();
-    Zlib = /* @__PURE__ */ function() {
+    })();
+    Zlib = /* @__PURE__ */ (function () {
       function Zlib2(opts, cb) {
         this.c = adler();
         this.v = 1;
         Deflate.call(this, opts, cb);
       }
-      Zlib2.prototype.push = function(chunk, final) {
+      Zlib2.prototype.push = function (chunk, final) {
         this.c.p(chunk);
         Deflate.prototype.push.call(this, chunk, final);
       };
-      Zlib2.prototype.p = function(c, f) {
-        var raw = dopt(c, this.o, this.v && (this.o.dictionary ? 6 : 2), f && 4, this.s);
-        if (this.v)
-          zlh(raw, this.o), this.v = 0;
-        if (f)
-          wbytes(raw, raw.length - 4, this.c.d());
+      Zlib2.prototype.p = function (c, f) {
+        var raw = dopt(
+          c,
+          this.o,
+          this.v && (this.o.dictionary ? 6 : 2),
+          f && 4,
+          this.s
+        );
+        if (this.v) (zlh(raw, this.o), (this.v = 0));
+        if (f) wbytes(raw, raw.length - 4, this.c.d());
         this.ondata(raw, f);
       };
-      Zlib2.prototype.flush = function() {
+      Zlib2.prototype.flush = function () {
         Deflate.prototype.flush.call(this);
       };
       return Zlib2;
-    }();
-    AsyncZlib = /* @__PURE__ */ function() {
+    })();
+    AsyncZlib = /* @__PURE__ */ (function () {
       function AsyncZlib2(opts, cb) {
-        astrmify([
-          bDflt,
-          zle,
-          function() {
-            return [astrm, Deflate, Zlib];
-          }
-        ], this, StrmOpt.call(this, opts, cb), function(ev) {
-          var strm = new Zlib(ev.data);
-          onmessage = astrm(strm);
-        }, 10, 1);
+        astrmify(
+          [
+            bDflt,
+            zle,
+            function () {
+              return [astrm, Deflate, Zlib];
+            },
+          ],
+          this,
+          StrmOpt.call(this, opts, cb),
+          function (ev) {
+            var strm = new Zlib(ev.data);
+            onmessage = astrm(strm);
+          },
+          10,
+          1
+        );
       }
       return AsyncZlib2;
-    }();
-    Unzlib = /* @__PURE__ */ function() {
+    })();
+    Unzlib = /* @__PURE__ */ (function () {
       function Unzlib2(opts, cb) {
         Inflate.call(this, opts, cb);
         this.v = opts && opts.dictionary ? 2 : 1;
       }
-      Unzlib2.prototype.push = function(chunk, final) {
+      Unzlib2.prototype.push = function (chunk, final) {
         Inflate.prototype.e.call(this, chunk);
         if (this.v) {
-          if (this.p.length < 6 && !final)
-            return;
-          this.p = this.p.subarray(zls(this.p, this.v - 1)), this.v = 0;
+          if (this.p.length < 6 && !final) return;
+          ((this.p = this.p.subarray(zls(this.p, this.v - 1))), (this.v = 0));
         }
         if (final) {
-          if (this.p.length < 4)
-            err(6, "invalid zlib data");
+          if (this.p.length < 4) err(6, "invalid zlib data");
           this.p = this.p.subarray(0, -4);
         }
         Inflate.prototype.c.call(this, final);
       };
       return Unzlib2;
-    }();
-    AsyncUnzlib = /* @__PURE__ */ function() {
+    })();
+    AsyncUnzlib = /* @__PURE__ */ (function () {
       function AsyncUnzlib2(opts, cb) {
-        astrmify([
-          bInflt,
-          zule,
-          function() {
-            return [astrm, Inflate, Unzlib];
-          }
-        ], this, StrmOpt.call(this, opts, cb), function(ev) {
-          var strm = new Unzlib(ev.data);
-          onmessage = astrm(strm);
-        }, 11, 0);
+        astrmify(
+          [
+            bInflt,
+            zule,
+            function () {
+              return [astrm, Inflate, Unzlib];
+            },
+          ],
+          this,
+          StrmOpt.call(this, opts, cb),
+          function (ev) {
+            var strm = new Unzlib(ev.data);
+            onmessage = astrm(strm);
+          },
+          11,
+          0
+        );
       }
       return AsyncUnzlib2;
-    }();
-    Decompress = /* @__PURE__ */ function() {
+    })();
+    Decompress = /* @__PURE__ */ (function () {
       function Decompress2(opts, cb) {
         this.o = StrmOpt.call(this, opts, cb) || {};
         this.G = Gunzip;
         this.I = Inflate;
         this.Z = Unzlib;
       }
-      Decompress2.prototype.i = function() {
+      Decompress2.prototype.i = function () {
         var _this = this;
-        this.s.ondata = function(dat, final) {
+        this.s.ondata = function (dat, final) {
           _this.ondata(dat, final);
         };
       };
-      Decompress2.prototype.push = function(chunk, final) {
-        if (!this.ondata)
-          err(5);
+      Decompress2.prototype.push = function (chunk, final) {
+        if (!this.ondata) err(5);
         if (!this.s) {
           if (this.p && this.p.length) {
             var n = new u8(this.p.length + chunk.length);
-            n.set(this.p), n.set(chunk, this.p.length);
-          } else
-            this.p = chunk;
+            (n.set(this.p), n.set(chunk, this.p.length));
+          } else this.p = chunk;
           if (this.p.length > 2) {
-            this.s = this.p[0] == 31 && this.p[1] == 139 && this.p[2] == 8 ? new this.G(this.o) : (this.p[0] & 15) != 8 || this.p[0] >> 4 > 7 || (this.p[0] << 8 | this.p[1]) % 31 ? new this.I(this.o) : new this.Z(this.o);
+            this.s =
+              this.p[0] == 31 && this.p[1] == 139 && this.p[2] == 8
+                ? new this.G(this.o)
+                : (this.p[0] & 15) != 8 ||
+                    this.p[0] >> 4 > 7 ||
+                    ((this.p[0] << 8) | this.p[1]) % 31
+                  ? new this.I(this.o)
+                  : new this.Z(this.o);
             this.i();
             this.s.push(this.p, final);
             this.p = null;
           }
-        } else
-          this.s.push(chunk, final);
+        } else this.s.push(chunk, final);
       };
       return Decompress2;
-    }();
-    AsyncDecompress = /* @__PURE__ */ function() {
+    })();
+    AsyncDecompress = /* @__PURE__ */ (function () {
       function AsyncDecompress2(opts, cb) {
         Decompress.call(this, opts, cb);
         this.queuedSize = 0;
@@ -1768,32 +2034,31 @@ var init_browser = __esm({
         this.I = AsyncInflate;
         this.Z = AsyncUnzlib;
       }
-      AsyncDecompress2.prototype.i = function() {
+      AsyncDecompress2.prototype.i = function () {
         var _this = this;
-        this.s.ondata = function(err2, dat, final) {
+        this.s.ondata = function (err2, dat, final) {
           _this.ondata(err2, dat, final);
         };
-        this.s.ondrain = function(size) {
+        this.s.ondrain = function (size) {
           _this.queuedSize -= size;
-          if (_this.ondrain)
-            _this.ondrain(size);
+          if (_this.ondrain) _this.ondrain(size);
         };
       };
-      AsyncDecompress2.prototype.push = function(chunk, final) {
+      AsyncDecompress2.prototype.push = function (chunk, final) {
         this.queuedSize += chunk.length;
         Decompress.prototype.push.call(this, chunk, final);
       };
       return AsyncDecompress2;
-    }();
-    fltn = function(d, p, t, o) {
+    })();
+    fltn = function (d, p, t, o) {
       for (var k in d) {
-        var val = d[k], n = p + k, op = o;
-        if (Array.isArray(val))
-          op = mrg(o, val[1]), val = val[0];
-        if (val instanceof u8)
-          t[n] = [val, op];
+        var val = d[k],
+          n = p + k,
+          op = o;
+        if (Array.isArray(val)) ((op = mrg(o, val[1])), (val = val[0]));
+        if (val instanceof u8) t[n] = [val, op];
         else {
-          t[n += "/"] = [new u8(0), op];
+          t[(n += "/")] = [new u8(0), op];
           fltn(val, n, t, o);
         }
       }
@@ -1804,237 +2069,259 @@ var init_browser = __esm({
     try {
       td.decode(et, { stream: true });
       tds = 1;
-    } catch (e) {
-    }
-    dutf8 = function(d) {
+    } catch (e) {}
+    dutf8 = function (d) {
       for (var r = "", i = 0; ; ) {
         var c = d[i++];
         var eb = (c > 127) + (c > 223) + (c > 239);
-        if (i + eb > d.length)
-          return { s: r, r: slc(d, i - 1) };
-        if (!eb)
-          r += String.fromCharCode(c);
+        if (i + eb > d.length) return { s: r, r: slc(d, i - 1) };
+        if (!eb) r += String.fromCharCode(c);
         else if (eb == 3) {
-          c = ((c & 15) << 18 | (d[i++] & 63) << 12 | (d[i++] & 63) << 6 | d[i++] & 63) - 65536, r += String.fromCharCode(55296 | c >> 10, 56320 | c & 1023);
+          ((c =
+            (((c & 15) << 18) |
+              ((d[i++] & 63) << 12) |
+              ((d[i++] & 63) << 6) |
+              (d[i++] & 63)) -
+            65536),
+            (r += String.fromCharCode(55296 | (c >> 10), 56320 | (c & 1023))));
         } else if (eb & 1)
-          r += String.fromCharCode((c & 31) << 6 | d[i++] & 63);
+          r += String.fromCharCode(((c & 31) << 6) | (d[i++] & 63));
         else
-          r += String.fromCharCode((c & 15) << 12 | (d[i++] & 63) << 6 | d[i++] & 63);
+          r += String.fromCharCode(
+            ((c & 15) << 12) | ((d[i++] & 63) << 6) | (d[i++] & 63)
+          );
       }
     };
-    DecodeUTF8 = /* @__PURE__ */ function() {
+    DecodeUTF8 = /* @__PURE__ */ (function () {
       function DecodeUTF82(cb) {
         this.ondata = cb;
-        if (tds)
-          this.t = new TextDecoder();
-        else
-          this.p = et;
+        if (tds) this.t = new TextDecoder();
+        else this.p = et;
       }
-      DecodeUTF82.prototype.push = function(chunk, final) {
-        if (!this.ondata)
-          err(5);
+      DecodeUTF82.prototype.push = function (chunk, final) {
+        if (!this.ondata) err(5);
         final = !!final;
         if (this.t) {
           this.ondata(this.t.decode(chunk, { stream: true }), final);
           if (final) {
-            if (this.t.decode().length)
-              err(8);
+            if (this.t.decode().length) err(8);
             this.t = null;
           }
           return;
         }
-        if (!this.p)
-          err(4);
+        if (!this.p) err(4);
         var dat = new u8(this.p.length + chunk.length);
         dat.set(this.p);
         dat.set(chunk, this.p.length);
-        var _a2 = dutf8(dat), s = _a2.s, r = _a2.r;
+        var _a2 = dutf8(dat),
+          s = _a2.s,
+          r = _a2.r;
         if (final) {
-          if (r.length)
-            err(8);
+          if (r.length) err(8);
           this.p = null;
-        } else
-          this.p = r;
+        } else this.p = r;
         this.ondata(s, final);
       };
       return DecodeUTF82;
-    }();
-    EncodeUTF8 = /* @__PURE__ */ function() {
+    })();
+    EncodeUTF8 = /* @__PURE__ */ (function () {
       function EncodeUTF82(cb) {
         this.ondata = cb;
       }
-      EncodeUTF82.prototype.push = function(chunk, final) {
-        if (!this.ondata)
-          err(5);
-        if (this.d)
-          err(4);
-        this.ondata(strToU8(chunk), this.d = final || false);
+      EncodeUTF82.prototype.push = function (chunk, final) {
+        if (!this.ondata) err(5);
+        if (this.d) err(4);
+        this.ondata(strToU8(chunk), (this.d = final || false));
       };
       return EncodeUTF82;
-    }();
-    dbf = function(l) {
+    })();
+    dbf = function (l) {
       return l == 1 ? 3 : l < 6 ? 2 : l == 9 ? 1 : 0;
     };
-    slzh = function(d, b) {
+    slzh = function (d, b) {
       return b + 30 + b2(d, b + 26) + b2(d, b + 28);
     };
-    zh = function(d, b, z) {
-      var fnl = b2(d, b + 28), fn = strFromU8(d.subarray(b + 46, b + 46 + fnl), !(b2(d, b + 8) & 2048)), es = b + 46 + fnl, bs = b4(d, b + 20);
-      var _a2 = z && bs == 4294967295 ? z64e(d, es) : [bs, b4(d, b + 24), b4(d, b + 42)], sc = _a2[0], su = _a2[1], off = _a2[2];
-      return [b2(d, b + 10), sc, su, fn, es + b2(d, b + 30) + b2(d, b + 32), off];
+    zh = function (d, b, z) {
+      var fnl = b2(d, b + 28),
+        fn = strFromU8(
+          d.subarray(b + 46, b + 46 + fnl),
+          !(b2(d, b + 8) & 2048)
+        ),
+        es = b + 46 + fnl,
+        bs = b4(d, b + 20);
+      var _a2 =
+          z && bs == 4294967295
+            ? z64e(d, es)
+            : [bs, b4(d, b + 24), b4(d, b + 42)],
+        sc = _a2[0],
+        su = _a2[1],
+        off = _a2[2];
+      return [
+        b2(d, b + 10),
+        sc,
+        su,
+        fn,
+        es + b2(d, b + 30) + b2(d, b + 32),
+        off,
+      ];
     };
-    z64e = function(d, b) {
-      for (; b2(d, b) != 1; b += 4 + b2(d, b + 2))
-        ;
+    z64e = function (d, b) {
+      for (; b2(d, b) != 1; b += 4 + b2(d, b + 2));
       return [b8(d, b + 12), b8(d, b + 4), b8(d, b + 20)];
     };
-    exfl = function(ex) {
+    exfl = function (ex) {
       var le = 0;
       if (ex) {
         for (var k in ex) {
           var l = ex[k].length;
-          if (l > 65535)
-            err(9);
+          if (l > 65535) err(9);
           le += l + 4;
         }
       }
       return le;
     };
-    wzh = function(d, b, f, fn, u, c, ce, co) {
-      var fl2 = fn.length, ex = f.extra, col = co && co.length;
+    wzh = function (d, b, f, fn, u, c, ce, co) {
+      var fl2 = fn.length,
+        ex = f.extra,
+        col = co && co.length;
       var exl = exfl(ex);
-      wbytes(d, b, ce != null ? 33639248 : 67324752), b += 4;
-      if (ce != null)
-        d[b++] = 20, d[b++] = f.os;
-      d[b] = 20, b += 2;
-      d[b++] = f.flag << 1 | (c < 0 && 8), d[b++] = u && 8;
-      d[b++] = f.compression & 255, d[b++] = f.compression >> 8;
-      var dt = new Date(f.mtime == null ? Date.now() : f.mtime), y = dt.getFullYear() - 1980;
-      if (y < 0 || y > 119)
-        err(10);
-      wbytes(d, b, y << 25 | dt.getMonth() + 1 << 21 | dt.getDate() << 16 | dt.getHours() << 11 | dt.getMinutes() << 5 | dt.getSeconds() >> 1), b += 4;
+      (wbytes(d, b, ce != null ? 33639248 : 67324752), (b += 4));
+      if (ce != null) ((d[b++] = 20), (d[b++] = f.os));
+      ((d[b] = 20), (b += 2));
+      ((d[b++] = (f.flag << 1) | (c < 0 && 8)), (d[b++] = u && 8));
+      ((d[b++] = f.compression & 255), (d[b++] = f.compression >> 8));
+      var dt = new Date(f.mtime == null ? Date.now() : f.mtime),
+        y = dt.getFullYear() - 1980;
+      if (y < 0 || y > 119) err(10);
+      (wbytes(
+        d,
+        b,
+        (y << 25) |
+          ((dt.getMonth() + 1) << 21) |
+          (dt.getDate() << 16) |
+          (dt.getHours() << 11) |
+          (dt.getMinutes() << 5) |
+          (dt.getSeconds() >> 1)
+      ),
+        (b += 4));
       if (c != -1) {
         wbytes(d, b, f.crc);
         wbytes(d, b + 4, c < 0 ? -c - 2 : c);
         wbytes(d, b + 8, f.size);
       }
       wbytes(d, b + 12, fl2);
-      wbytes(d, b + 14, exl), b += 16;
+      (wbytes(d, b + 14, exl), (b += 16));
       if (ce != null) {
         wbytes(d, b, col);
         wbytes(d, b + 6, f.attrs);
-        wbytes(d, b + 10, ce), b += 14;
+        (wbytes(d, b + 10, ce), (b += 14));
       }
       d.set(fn, b);
       b += fl2;
       if (exl) {
         for (var k in ex) {
-          var exf = ex[k], l = exf.length;
+          var exf = ex[k],
+            l = exf.length;
           wbytes(d, b, +k);
           wbytes(d, b + 2, l);
-          d.set(exf, b + 4), b += 4 + l;
+          (d.set(exf, b + 4), (b += 4 + l));
         }
       }
-      if (col)
-        d.set(co, b), b += col;
+      if (col) (d.set(co, b), (b += col));
       return b;
     };
-    wzf = function(o, b, c, d, e) {
+    wzf = function (o, b, c, d, e) {
       wbytes(o, b, 101010256);
       wbytes(o, b + 8, c);
       wbytes(o, b + 10, c);
       wbytes(o, b + 12, d);
       wbytes(o, b + 16, e);
     };
-    ZipPassThrough = /* @__PURE__ */ function() {
+    ZipPassThrough = /* @__PURE__ */ (function () {
       function ZipPassThrough2(filename) {
         this.filename = filename;
         this.c = crc();
         this.size = 0;
         this.compression = 0;
       }
-      ZipPassThrough2.prototype.process = function(chunk, final) {
+      ZipPassThrough2.prototype.process = function (chunk, final) {
         this.ondata(null, chunk, final);
       };
-      ZipPassThrough2.prototype.push = function(chunk, final) {
-        if (!this.ondata)
-          err(5);
+      ZipPassThrough2.prototype.push = function (chunk, final) {
+        if (!this.ondata) err(5);
         this.c.p(chunk);
         this.size += chunk.length;
-        if (final)
-          this.crc = this.c.d();
+        if (final) this.crc = this.c.d();
         this.process(chunk, final || false);
       };
       return ZipPassThrough2;
-    }();
-    ZipDeflate = /* @__PURE__ */ function() {
+    })();
+    ZipDeflate = /* @__PURE__ */ (function () {
       function ZipDeflate2(filename, opts) {
         var _this = this;
-        if (!opts)
-          opts = {};
+        if (!opts) opts = {};
         ZipPassThrough.call(this, filename);
-        this.d = new Deflate(opts, function(dat, final) {
+        this.d = new Deflate(opts, function (dat, final) {
           _this.ondata(null, dat, final);
         });
         this.compression = 8;
         this.flag = dbf(opts.level);
       }
-      ZipDeflate2.prototype.process = function(chunk, final) {
+      ZipDeflate2.prototype.process = function (chunk, final) {
         try {
           this.d.push(chunk, final);
         } catch (e) {
           this.ondata(e, null, final);
         }
       };
-      ZipDeflate2.prototype.push = function(chunk, final) {
+      ZipDeflate2.prototype.push = function (chunk, final) {
         ZipPassThrough.prototype.push.call(this, chunk, final);
       };
       return ZipDeflate2;
-    }();
-    AsyncZipDeflate = /* @__PURE__ */ function() {
+    })();
+    AsyncZipDeflate = /* @__PURE__ */ (function () {
       function AsyncZipDeflate2(filename, opts) {
         var _this = this;
-        if (!opts)
-          opts = {};
+        if (!opts) opts = {};
         ZipPassThrough.call(this, filename);
-        this.d = new AsyncDeflate(opts, function(err2, dat, final) {
+        this.d = new AsyncDeflate(opts, function (err2, dat, final) {
           _this.ondata(err2, dat, final);
         });
         this.compression = 8;
         this.flag = dbf(opts.level);
         this.terminate = this.d.terminate;
       }
-      AsyncZipDeflate2.prototype.process = function(chunk, final) {
+      AsyncZipDeflate2.prototype.process = function (chunk, final) {
         this.d.push(chunk, final);
       };
-      AsyncZipDeflate2.prototype.push = function(chunk, final) {
+      AsyncZipDeflate2.prototype.push = function (chunk, final) {
         ZipPassThrough.prototype.push.call(this, chunk, final);
       };
       return AsyncZipDeflate2;
-    }();
-    Zip = /* @__PURE__ */ function() {
+    })();
+    Zip = /* @__PURE__ */ (function () {
       function Zip2(cb) {
         this.ondata = cb;
         this.u = [];
         this.d = 1;
       }
-      Zip2.prototype.add = function(file) {
+      Zip2.prototype.add = function (file) {
         var _this = this;
-        if (!this.ondata)
-          err(5);
+        if (!this.ondata) err(5);
         if (this.d & 2)
           this.ondata(err(4 + (this.d & 1) * 8, 0, 1), null, false);
         else {
-          var f = strToU8(file.filename), fl_1 = f.length;
-          var com = file.comment, o = com && strToU8(com);
-          var u = fl_1 != file.filename.length || o && com.length != o.length;
+          var f = strToU8(file.filename),
+            fl_1 = f.length;
+          var com = file.comment,
+            o = com && strToU8(com);
+          var u = fl_1 != file.filename.length || (o && com.length != o.length);
           var hl_1 = fl_1 + exfl(file.extra) + 30;
-          if (fl_1 > 65535)
-            this.ondata(err(11, 0, 1), null, false);
+          if (fl_1 > 65535) this.ondata(err(11, 0, 1), null, false);
           var header = new u8(hl_1);
           wzh(header, 0, file, f, u, -1);
           var chks_1 = [header];
-          var pAll_1 = function() {
+          var pAll_1 = function () {
             for (var _i = 0, chks_2 = chks_1; _i < chks_2.length; _i++) {
               var chk = chks_2[_i];
               _this.ondata(null, chk, false);
@@ -2048,24 +2335,21 @@ var init_browser = __esm({
             f,
             u,
             o,
-            t: function() {
-              if (file.terminate)
-                file.terminate();
+            t: function () {
+              if (file.terminate) file.terminate();
             },
-            r: function() {
+            r: function () {
               pAll_1();
               if (tr_1) {
                 var nxt = _this.u[ind_1 + 1];
-                if (nxt)
-                  nxt.r();
-                else
-                  _this.d = 1;
+                if (nxt) nxt.r();
+                else _this.d = 1;
               }
               tr_1 = 1;
-            }
+            },
           });
           var cl_1 = 0;
-          file.ondata = function(err2, dat, final) {
+          file.ondata = function (err2, dat, final) {
             if (err2) {
               _this.ondata(err2, dat, final);
               _this.terminate();
@@ -2079,40 +2363,40 @@ var init_browser = __esm({
                 wbytes(dd, 8, cl_1);
                 wbytes(dd, 12, file.size);
                 chks_1.push(dd);
-                uf_1.c = cl_1, uf_1.b = hl_1 + cl_1 + 16, uf_1.crc = file.crc, uf_1.size = file.size;
-                if (tr_1)
-                  uf_1.r();
+                ((uf_1.c = cl_1),
+                  (uf_1.b = hl_1 + cl_1 + 16),
+                  (uf_1.crc = file.crc),
+                  (uf_1.size = file.size));
+                if (tr_1) uf_1.r();
                 tr_1 = 1;
-              } else if (tr_1)
-                pAll_1();
+              } else if (tr_1) pAll_1();
             }
           };
           this.u.push(uf_1);
         }
       };
-      Zip2.prototype.end = function() {
+      Zip2.prototype.end = function () {
         var _this = this;
         if (this.d & 2) {
           this.ondata(err(4 + (this.d & 1) * 8, 0, 1), null, true);
           return;
         }
-        if (this.d)
-          this.e();
+        if (this.d) this.e();
         else
           this.u.push({
-            r: function() {
-              if (!(_this.d & 1))
-                return;
+            r: function () {
+              if (!(_this.d & 1)) return;
               _this.u.splice(-1, 1);
               _this.e();
             },
-            t: function() {
-            }
+            t: function () {},
           });
         this.d = 3;
       };
-      Zip2.prototype.e = function() {
-        var bt = 0, l = 0, tl = 0;
+      Zip2.prototype.e = function () {
+        var bt = 0,
+          l = 0,
+          tl = 0;
         for (var _i = 0, _a2 = this.u; _i < _a2.length; _i++) {
           var f = _a2[_i];
           tl += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0);
@@ -2121,13 +2405,14 @@ var init_browser = __esm({
         for (var _b2 = 0, _c = this.u; _b2 < _c.length; _b2++) {
           var f = _c[_b2];
           wzh(out, bt, f, f.f, f.u, -f.c - 2, l, f.o);
-          bt += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0), l += f.b;
+          ((bt += 46 + f.f.length + exfl(f.extra) + (f.o ? f.o.length : 0)),
+            (l += f.b));
         }
         wzf(out, bt, this.u.length, tl, l);
         this.ondata(null, out, true);
         this.d = 2;
       };
-      Zip2.prototype.terminate = function() {
+      Zip2.prototype.terminate = function () {
         for (var _i = 0, _a2 = this.u; _i < _a2.length; _i++) {
           var f = _a2[_i];
           f.t();
@@ -2135,24 +2420,23 @@ var init_browser = __esm({
         this.d = 2;
       };
       return Zip2;
-    }();
-    UnzipPassThrough = /* @__PURE__ */ function() {
-      function UnzipPassThrough2() {
-      }
-      UnzipPassThrough2.prototype.push = function(data, final) {
+    })();
+    UnzipPassThrough = /* @__PURE__ */ (function () {
+      function UnzipPassThrough2() {}
+      UnzipPassThrough2.prototype.push = function (data, final) {
         this.ondata(null, data, final);
       };
       UnzipPassThrough2.compression = 0;
       return UnzipPassThrough2;
-    }();
-    UnzipInflate = /* @__PURE__ */ function() {
+    })();
+    UnzipInflate = /* @__PURE__ */ (function () {
       function UnzipInflate2() {
         var _this = this;
-        this.i = new Inflate(function(dat, final) {
+        this.i = new Inflate(function (dat, final) {
           _this.ondata(null, dat, final);
         });
       }
-      UnzipInflate2.prototype.push = function(data, final) {
+      UnzipInflate2.prototype.push = function (data, final) {
         try {
           this.i.push(data, final);
         } catch (e) {
@@ -2161,129 +2445,137 @@ var init_browser = __esm({
       };
       UnzipInflate2.compression = 8;
       return UnzipInflate2;
-    }();
-    AsyncUnzipInflate = /* @__PURE__ */ function() {
+    })();
+    AsyncUnzipInflate = /* @__PURE__ */ (function () {
       function AsyncUnzipInflate2(_, sz) {
         var _this = this;
         if (sz < 32e4) {
-          this.i = new Inflate(function(dat, final) {
+          this.i = new Inflate(function (dat, final) {
             _this.ondata(null, dat, final);
           });
         } else {
-          this.i = new AsyncInflate(function(err2, dat, final) {
+          this.i = new AsyncInflate(function (err2, dat, final) {
             _this.ondata(err2, dat, final);
           });
           this.terminate = this.i.terminate;
         }
       }
-      AsyncUnzipInflate2.prototype.push = function(data, final) {
-        if (this.i.terminate)
-          data = slc(data, 0);
+      AsyncUnzipInflate2.prototype.push = function (data, final) {
+        if (this.i.terminate) data = slc(data, 0);
         this.i.push(data, final);
       };
       AsyncUnzipInflate2.compression = 8;
       return AsyncUnzipInflate2;
-    }();
-    Unzip = /* @__PURE__ */ function() {
+    })();
+    Unzip = /* @__PURE__ */ (function () {
       function Unzip2(cb) {
         this.onfile = cb;
         this.k = [];
         this.o = {
-          0: UnzipPassThrough
+          0: UnzipPassThrough,
         };
         this.p = et;
       }
-      Unzip2.prototype.push = function(chunk, final) {
+      Unzip2.prototype.push = function (chunk, final) {
         var _this = this;
-        if (!this.onfile)
-          err(5);
-        if (!this.p)
-          err(4);
+        if (!this.onfile) err(5);
+        if (!this.p) err(4);
         if (this.c > 0) {
           var len = Math.min(this.c, chunk.length);
           var toAdd = chunk.subarray(0, len);
           this.c -= len;
-          if (this.d)
-            this.d.push(toAdd, !this.c);
-          else
-            this.k[0].push(toAdd);
+          if (this.d) this.d.push(toAdd, !this.c);
+          else this.k[0].push(toAdd);
           chunk = chunk.subarray(len);
-          if (chunk.length)
-            return this.push(chunk, final);
+          if (chunk.length) return this.push(chunk, final);
         } else {
-          var f = 0, i = 0, is = void 0, buf = void 0;
-          if (!this.p.length)
-            buf = chunk;
-          else if (!chunk.length)
-            buf = this.p;
+          var f = 0,
+            i = 0,
+            is = void 0,
+            buf = void 0;
+          if (!this.p.length) buf = chunk;
+          else if (!chunk.length) buf = this.p;
           else {
             buf = new u8(this.p.length + chunk.length);
-            buf.set(this.p), buf.set(chunk, this.p.length);
+            (buf.set(this.p), buf.set(chunk, this.p.length));
           }
-          var l = buf.length, oc = this.c, add = oc && this.d;
-          var _loop_2 = function() {
+          var l = buf.length,
+            oc = this.c,
+            add = oc && this.d;
+          var _loop_2 = function () {
             var _a2;
             var sig = b4(buf, i);
             if (sig == 67324752) {
-              f = 1, is = i;
+              ((f = 1), (is = i));
               this_1.d = null;
               this_1.c = 0;
-              var bf = b2(buf, i + 6), cmp_1 = b2(buf, i + 8), u = bf & 2048, dd = bf & 8, fnl = b2(buf, i + 26), es = b2(buf, i + 28);
+              var bf = b2(buf, i + 6),
+                cmp_1 = b2(buf, i + 8),
+                u = bf & 2048,
+                dd = bf & 8,
+                fnl = b2(buf, i + 26),
+                es = b2(buf, i + 28);
               if (l > i + 30 + fnl + es) {
                 var chks_3 = [];
                 this_1.k.unshift(chks_3);
                 f = 2;
-                var sc_1 = b4(buf, i + 18), su_1 = b4(buf, i + 22);
-                var fn_1 = strFromU8(buf.subarray(i + 30, i += 30 + fnl), !u);
+                var sc_1 = b4(buf, i + 18),
+                  su_1 = b4(buf, i + 22);
+                var fn_1 = strFromU8(buf.subarray(i + 30, (i += 30 + fnl)), !u);
                 if (sc_1 == 4294967295) {
-                  _a2 = dd ? [-2] : z64e(buf, i), sc_1 = _a2[0], su_1 = _a2[1];
-                } else if (dd)
-                  sc_1 = -1;
+                  ((_a2 = dd ? [-2] : z64e(buf, i)),
+                    (sc_1 = _a2[0]),
+                    (su_1 = _a2[1]));
+                } else if (dd) sc_1 = -1;
                 i += es;
                 this_1.c = sc_1;
                 var d_1;
                 var file_1 = {
                   name: fn_1,
                   compression: cmp_1,
-                  start: function() {
-                    if (!file_1.ondata)
-                      err(5);
-                    if (!sc_1)
-                      file_1.ondata(null, et, true);
+                  start: function () {
+                    if (!file_1.ondata) err(5);
+                    if (!sc_1) file_1.ondata(null, et, true);
                     else {
                       var ctr = _this.o[cmp_1];
                       if (!ctr)
-                        file_1.ondata(err(14, "unknown compression type " + cmp_1, 1), null, false);
-                      d_1 = sc_1 < 0 ? new ctr(fn_1) : new ctr(fn_1, sc_1, su_1);
-                      d_1.ondata = function(err2, dat3, final2) {
+                        file_1.ondata(
+                          err(14, "unknown compression type " + cmp_1, 1),
+                          null,
+                          false
+                        );
+                      d_1 =
+                        sc_1 < 0 ? new ctr(fn_1) : new ctr(fn_1, sc_1, su_1);
+                      d_1.ondata = function (err2, dat3, final2) {
                         file_1.ondata(err2, dat3, final2);
                       };
-                      for (var _i = 0, chks_4 = chks_3; _i < chks_4.length; _i++) {
+                      for (
+                        var _i = 0, chks_4 = chks_3;
+                        _i < chks_4.length;
+                        _i++
+                      ) {
                         var dat2 = chks_4[_i];
                         d_1.push(dat2, false);
                       }
-                      if (_this.k[0] == chks_3 && _this.c)
-                        _this.d = d_1;
-                      else
-                        d_1.push(et, true);
+                      if (_this.k[0] == chks_3 && _this.c) _this.d = d_1;
+                      else d_1.push(et, true);
                     }
                   },
-                  terminate: function() {
-                    if (d_1 && d_1.terminate)
-                      d_1.terminate();
-                  }
+                  terminate: function () {
+                    if (d_1 && d_1.terminate) d_1.terminate();
+                  },
                 };
                 if (sc_1 >= 0)
-                  file_1.size = sc_1, file_1.originalSize = su_1;
+                  ((file_1.size = sc_1), (file_1.originalSize = su_1));
                 this_1.onfile(file_1);
               }
               return "break";
             } else if (oc) {
               if (sig == 134695760) {
-                is = i += 12 + (oc == -2 && 8), f = 3, this_1.c = 0;
+                ((is = i += 12 + (oc == -2 && 8)), (f = 3), (this_1.c = 0));
                 return "break";
               } else if (sig == 33639248) {
-                is = i -= 4, f = 3, this_1.c = 0;
+                ((is = i -= 4), (f = 3), (this_1.c = 0));
                 return "break";
               }
             }
@@ -2291,36 +2583,44 @@ var init_browser = __esm({
           var this_1 = this;
           for (; i < l - 4; ++i) {
             var state_1 = _loop_2();
-            if (state_1 === "break")
-              break;
+            if (state_1 === "break") break;
           }
           this.p = et;
           if (oc < 0) {
-            var dat = f ? buf.subarray(0, is - 12 - (oc == -2 && 8) - (b4(buf, is - 16) == 134695760 && 4)) : buf.subarray(0, i);
-            if (add)
-              add.push(dat, !!f);
-            else
-              this.k[+(f == 2)].push(dat);
+            var dat = f
+              ? buf.subarray(
+                  0,
+                  is -
+                    12 -
+                    (oc == -2 && 8) -
+                    (b4(buf, is - 16) == 134695760 && 4)
+                )
+              : buf.subarray(0, i);
+            if (add) add.push(dat, !!f);
+            else this.k[+(f == 2)].push(dat);
           }
-          if (f & 2)
-            return this.push(buf.subarray(i), final);
+          if (f & 2) return this.push(buf.subarray(i), final);
           this.p = buf.subarray(i);
         }
         if (final) {
-          if (this.c)
-            err(13);
+          if (this.c) err(13);
           this.p = null;
         }
       };
-      Unzip2.prototype.register = function(decoder) {
+      Unzip2.prototype.register = function (decoder) {
         this.o[decoder.compression] = decoder;
       };
       return Unzip2;
-    }();
-    mt = typeof queueMicrotask == "function" ? queueMicrotask : typeof setTimeout == "function" ? setTimeout : function(fn) {
-      fn();
-    };
-  }
+    })();
+    mt =
+      typeof queueMicrotask == "function"
+        ? queueMicrotask
+        : typeof setTimeout == "function"
+          ? setTimeout
+          : function (fn) {
+              fn();
+            };
+  },
 });
 
 // src/scripts/core/eventBus.ts
@@ -2362,25 +2662,25 @@ var DEFAULT_FIELD_LABELS = {
     fields: {
       creator: {
         label: "Erstellt von",
-        placeholder: "Name der verantwortlichen Person"
+        placeholder: "Name der verantwortlichen Person",
       },
       location: {
         label: "Standort / Abteil",
-        placeholder: "z. B. Gew\xE4chshaus 1"
+        placeholder: "z. B. Gew\xE4chshaus 1",
       },
       crop: {
         label: "Kultur",
-        placeholder: "z. B. Salat"
+        placeholder: "z. B. Salat",
       },
       quantity: {
         label: "Anzahl Kisten",
         placeholder: "z. B. 42",
-        unit: "Kisten"
-      }
+        unit: "Kisten",
+      },
     },
     summary: {
       water: "Gesamtwasser (L)",
-      area: "Fl\xE4che (Ar / m\xB2)"
+      area: "Fl\xE4che (Ar / m\xB2)",
     },
     tableColumns: {
       medium: "Mittel",
@@ -2390,9 +2690,9 @@ var DEFAULT_FIELD_LABELS = {
       perQuantity: "Kisten",
       areaAr: "Ar",
       areaSqm: "m\xB2",
-      total: "Gesamt"
+      total: "Gesamt",
     },
-    resultTitle: "Ben\xF6tigte Mittel"
+    resultTitle: "Ben\xF6tigte Mittel",
   },
   history: {
     tableColumns: {
@@ -2400,17 +2700,17 @@ var DEFAULT_FIELD_LABELS = {
       creator: "Erstellt von",
       location: "Standort",
       crop: "Kultur",
-      quantity: "Kisten"
+      quantity: "Kisten",
     },
     detail: {
       title: "Historieneintrag",
       creator: "Erstellt von",
       location: "Standort / Abteil",
       crop: "Kultur",
-      quantity: "Kisten"
+      quantity: "Kisten",
     },
     summaryTitle: "Historie (Zusammenfassung)",
-    mediumsHeading: "Mittel & Gesamtmengen"
+    mediumsHeading: "Mittel & Gesamtmengen",
   },
   reporting: {
     tableColumns: {
@@ -2419,13 +2719,13 @@ var DEFAULT_FIELD_LABELS = {
       location: "Standort",
       crop: "Kultur",
       quantity: "Kisten",
-      mediums: "Mittel & Gesamtmengen"
+      mediums: "Mittel & Gesamtmengen",
     },
     infoAll: "Alle Eintr\xE4ge",
     infoEmpty: "Keine Eintr\xE4ge vorhanden",
     infoPrefix: "Zeitraum",
-    printTitle: "Auswertung"
-  }
+    printTitle: "Auswertung",
+  },
 };
 function deepMerge(target, source) {
   const result = Array.isArray(target) ? [...target] : { ...target };
@@ -2460,7 +2760,10 @@ function setFieldLabelByPath(labels, path, value) {
     if (i === segments.length - 1) {
       cursor[segment] = value;
     } else {
-      cursor[segment] = cursor[segment] && typeof cursor[segment] === "object" ? { ...cursor[segment] } : {};
+      cursor[segment] =
+        cursor[segment] && typeof cursor[segment] === "object"
+          ? { ...cursor[segment] }
+          : {};
       cursor = cursor[segment];
     }
   }
@@ -2476,7 +2779,7 @@ var state = {
     hasFileAccess: false,
     hasDatabase: false,
     activeSection: "calc",
-    storageDriver: "memory"
+    storageDriver: "memory",
   },
   company: {
     name: "",
@@ -2484,7 +2787,7 @@ var state = {
     logoUrl: "",
     contactEmail: "",
     address: "",
-    accentColor: ""
+    accentColor: "",
   },
   defaults: {
     waterPerKisteL: 5,
@@ -2493,8 +2796,8 @@ var state = {
       creator: "",
       location: "",
       crop: "",
-      quantity: ""
-    }
+      quantity: "",
+    },
   },
   measurementMethods: [],
   mediums: [],
@@ -2506,7 +2809,7 @@ var state = {
       culture: null,
       pest: null,
       text: "",
-      includeExpired: false
+      includeExpired: false,
     },
     results: [],
     lastSync: null,
@@ -2523,15 +2826,15 @@ var state = {
       schema: null,
       lastSyncLog: [],
       manifest: null,
-      lastAutoUpdateCheck: null
+      lastAutoUpdateCheck: null,
     },
     lookups: { cultures: [], pests: [] },
     autoUpdateAvailable: false,
-    autoUpdateVersion: null
+    autoUpdateVersion: null,
   },
   ui: {
-    notifications: []
-  }
+    notifications: [],
+  },
 };
 function getState() {
   return state;
@@ -2557,10 +2860,8 @@ function patchState(patch) {
 }
 function updateSlice(sliceKey, updater) {
   const currentSlice = state[sliceKey];
-  const nextSlice = typeof updater === "function" ? updater(
-    currentSlice,
-    state
-  ) : updater;
+  const nextSlice =
+    typeof updater === "function" ? updater(currentSlice, state) : updater;
   if (nextSlice === currentSlice) {
     return state;
   }
@@ -2569,7 +2870,12 @@ function updateSlice(sliceKey, updater) {
 
 // src/scripts/core/utils.ts
 function escapeHtml(value) {
-  return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 function formatNumber(value, fractionDigits = 2, fallback = "\u2013") {
   const num = Number.parseFloat(value);
@@ -2599,11 +2905,18 @@ function deepMerge2(target, source) {
   const result = Array.isArray(target) ? [...target] : { ...target };
   for (const [key, value] of Object.entries(source)) {
     if (Array.isArray(value)) {
-      result[key] = value.map((item) => item && typeof item === "object" ? clone(item) : item);
+      result[key] = value.map((item) =>
+        item && typeof item === "object" ? clone(item) : item
+      );
       continue;
     }
     if (value && typeof value === "object") {
-      const baseValue = result[key] && typeof result[key] === "object" && !Array.isArray(result[key]) ? result[key] : {};
+      const baseValue =
+        result[key] &&
+        typeof result[key] === "object" &&
+        !Array.isArray(result[key])
+          ? result[key]
+          : {};
       result[key] = deepMerge2(baseValue, value);
       continue;
     }
@@ -2614,8 +2927,8 @@ function deepMerge2(target, source) {
 function mergeDefaults(base = {}, incoming = {}) {
   const merged = { ...base, ...incoming };
   merged.form = {
-    ...base.form || { creator: "", location: "", crop: "", quantity: "" },
-    ...incoming.form || {}
+    ...(base.form || { creator: "", location: "", crop: "", quantity: "" }),
+    ...(incoming.form || {}),
   };
   return merged;
 }
@@ -2626,16 +2939,18 @@ function applyDatabase(data) {
   const current = getState();
   const fieldLabels = resolveFieldLabels(data.meta?.fieldLabels ?? {});
   patchState({
-    company: { ...current.company, ...data.meta?.company ?? {} },
+    company: { ...current.company, ...(data.meta?.company ?? {}) },
     defaults: mergeDefaults(current.defaults, data.meta?.defaults ?? {}),
-    measurementMethods: [...data.meta?.measurementMethods ?? current.measurementMethods],
-    mediums: [...data.mediums ?? []],
-    history: [...data.history ?? []],
+    measurementMethods: [
+      ...(data.meta?.measurementMethods ?? current.measurementMethods),
+    ],
+    mediums: [...(data.mediums ?? [])],
+    history: [...(data.history ?? [])],
     fieldLabels,
     app: {
       ...current.app,
-      hasDatabase: true
-    }
+      hasDatabase: true,
+    },
   });
 }
 function createInitialDatabase(overrides = {}) {
@@ -2652,8 +2967,8 @@ function createInitialDatabase(overrides = {}) {
           creator: "",
           location: "",
           crop: "",
-          quantity: ""
-        }
+          quantity: "",
+        },
       },
       base2.meta.defaults ?? {}
     );
@@ -2666,10 +2981,10 @@ function createInitialDatabase(overrides = {}) {
       company: { ...state2.company },
       defaults: { ...state2.defaults },
       measurementMethods: [...state2.measurementMethods],
-      fieldLabels: { ...state2.fieldLabels }
+      fieldLabels: { ...state2.fieldLabels },
     },
     mediums: [...state2.mediums],
-    history: []
+    history: [],
   };
   return deepMerge2(base, overrides);
 }
@@ -2681,10 +2996,10 @@ function getDatabaseSnapshot() {
       company: { ...state2.company },
       defaults: { ...state2.defaults },
       measurementMethods: [...state2.measurementMethods],
-      fieldLabels: { ...state2.fieldLabels }
+      fieldLabels: { ...state2.fieldLabels },
     },
     mediums: [...state2.mediums],
-    history: [...state2.history]
+    history: [...state2.history],
   };
 }
 
@@ -2696,11 +3011,11 @@ __export(fileSystem_exports, {
   isSupported: () => isSupported,
   open: () => open,
   reset: () => reset,
-  save: () => save
+  save: () => save,
 });
 var FILE_OPTIONS = {
   description: "JSON-Datei",
-  accept: { "application/json": [".json"] }
+  accept: { "application/json": [".json"] },
 };
 var fileHandle = null;
 async function writeFile(handle, data) {
@@ -2713,7 +3028,10 @@ async function readFile(handle) {
   return file.text();
 }
 function isSupported() {
-  return typeof window !== "undefined" && typeof window.showSaveFilePicker === "function";
+  return (
+    typeof window !== "undefined" &&
+    typeof window.showSaveFilePicker === "function"
+  );
 }
 async function create(initialData, suggestedName = "database.json") {
   if (!isSupported()) {
@@ -2721,7 +3039,7 @@ async function create(initialData, suggestedName = "database.json") {
   }
   fileHandle = await window.showSaveFilePicker({
     suggestedName,
-    types: [FILE_OPTIONS]
+    types: [FILE_OPTIONS],
   });
   await writeFile(fileHandle, initialData);
   return { data: initialData, context: { fileHandle } };
@@ -2758,7 +3076,7 @@ __export(fallback_exports, {
   isSupported: () => isSupported2,
   open: () => open2,
   reset: () => reset2,
-  save: () => save2
+  save: () => save2,
 });
 var STORAGE_KEY = "pflanzenschutzliste-db";
 function hasLocalStorage() {
@@ -2834,7 +3152,7 @@ __export(sqlite_exports, {
   queryZulassung: () => queryZulassung,
   reset: () => reset3,
   save: () => save3,
-  setBvlMeta: () => setBvlMeta
+  setBvlMeta: () => setBvlMeta,
 });
 var worker = null;
 var messageId = 0;
@@ -2872,7 +3190,7 @@ async function initWorker() {
   }
   try {
     worker = new Worker(new URL("./sqliteWorker.js", import.meta.url), {
-      type: "module"
+      type: "module",
     });
     worker.onmessage = (event) => {
       const { id, ok, result, error } = event.data;
@@ -2908,9 +3226,9 @@ async function create3(initialData, suggestedName = "pflanzenschutz.sqlite") {
         types: [
           {
             description: "SQLite Database",
-            accept: { "application/x-sqlite3": [".sqlite", ".db"] }
-          }
-        ]
+            accept: { "application/x-sqlite3": [".sqlite", ".db"] },
+          },
+        ],
       });
       const exported = await callWorker("exportDB");
       const writable = await fileHandle2.createWritable();
@@ -2936,10 +3254,10 @@ async function open3() {
             description: "SQLite Database or JSON",
             accept: {
               "application/x-sqlite3": [".sqlite", ".db"],
-              "application/json": [".json"]
-            }
-          }
-        ]
+              "application/json": [".json"],
+            },
+          },
+        ],
       });
       fileHandle2 = handle;
       const file = await handle.getFile();
@@ -3104,7 +3422,7 @@ async function diagnoseBvlSchema() {
 var DRIVERS = {
   sqlite: sqlite_exports,
   filesystem: fileSystem_exports,
-  localstorage: fallback_exports
+  localstorage: fallback_exports,
 };
 function detectPreferredDriver() {
   if (isSupported3()) {
@@ -3128,8 +3446,8 @@ function setActiveDriver(driverKey) {
     app: {
       ...getState().app,
       storageDriver: driverKey,
-      hasFileAccess: driverKey === "filesystem"
-    }
+      hasFileAccess: driverKey === "filesystem",
+    },
   });
 }
 function getActiveDriverKey() {
@@ -3169,7 +3487,7 @@ var COLUMN_FALLBACK_LABELS = {
   perQuantity: "Kisten",
   areaAr: "Ar",
   areaSqm: "m\xB2",
-  total: "Gesamt"
+  total: "Gesamt",
 };
 var VARIANT_CONFIG = {
   calculation: {
@@ -3181,21 +3499,21 @@ var VARIANT_CONFIG = {
       "perQuantity",
       "areaAr",
       "areaSqm",
-      "total"
+      "total",
     ],
     numberFallback: "0.00",
-    missingValue: "-"
+    missingValue: "-",
   },
   detail: {
     columns: ["medium", "unit", "method", "value", "total"],
     numberFallback: "-",
-    missingValue: "-"
+    missingValue: "-",
   },
   summary: {
     columns: ["medium", "total"],
     numberFallback: "-",
-    missingValue: "-"
-  }
+    missingValue: "-",
+  },
 };
 function resolveVariant(variant) {
   return VARIANT_CONFIG[variant] || VARIANT_CONFIG.calculation;
@@ -3209,23 +3527,23 @@ var COLUMN_DEFS = {
     cell: (item, config) => {
       const value = item?.name;
       return value ? escapeHtml(value) : config.missingValue;
-    }
+    },
   },
   unit: {
     cell: (item, config) => {
       const value = item?.unit;
       return value ? escapeHtml(value) : config.missingValue;
     },
-    className: "nowrap"
+    className: "nowrap",
   },
   method: {
     cell: (item, config) => {
       const value = item?.methodLabel || item?.methodId;
       return value ? escapeHtml(value) : config.missingValue;
-    }
+    },
   },
   value: {
-    cell: (item, config) => formatNumber(item?.value, 2, config.numberFallback)
+    cell: (item, config) => formatNumber(item?.value, 2, config.numberFallback),
   },
   perQuantity: {
     cell: (item, config) => {
@@ -3235,13 +3553,15 @@ var COLUMN_DEFS = {
       }
       return escapeHtml(String(raw));
     },
-    className: "nowrap"
+    className: "nowrap",
   },
   areaAr: {
-    cell: (item, config) => formatNumber(item?.inputs?.areaAr, 2, config.numberFallback)
+    cell: (item, config) =>
+      formatNumber(item?.inputs?.areaAr, 2, config.numberFallback),
   },
   areaSqm: {
-    cell: (item, config) => formatNumber(item?.inputs?.areaSqm, 2, config.numberFallback)
+    cell: (item, config) =>
+      formatNumber(item?.inputs?.areaSqm, 2, config.numberFallback),
   },
   total: {
     cell: (item, config) => {
@@ -3252,22 +3572,26 @@ var COLUMN_DEFS = {
       const unit = item?.unit ? ` ${escapeHtml(item.unit)}` : "";
       return `${total}${unit}`;
     },
-    className: "nowrap"
-  }
+    className: "nowrap",
+  },
 };
 function renderHeadCells(columns, labels) {
-  return columns.map((columnKey) => `<th>${resolveLabel(labels, columnKey)}</th>`).join("");
+  return columns
+    .map((columnKey) => `<th>${resolveLabel(labels, columnKey)}</th>`)
+    .join("");
 }
 function renderRowCells(item, columns, config) {
-  return columns.map((columnKey) => {
-    const column = COLUMN_DEFS[columnKey];
-    if (!column) {
-      return "<td>-</td>";
-    }
-    const value = column.cell(item, config);
-    const className = column.className ? ` class="${column.className}"` : "";
-    return `<td${className}>${value}</td>`;
-  }).join("");
+  return columns
+    .map((columnKey) => {
+      const column = COLUMN_DEFS[columnKey];
+      if (!column) {
+        return "<td>-</td>";
+      }
+      const value = column.cell(item, config);
+      const className = column.className ? ` class="${column.className}"` : "";
+      return `<td${className}>${value}</td>`;
+    })
+    .join("");
 }
 function buildMediumTableHead(labels, variant = "calculation") {
   const config = resolveVariant(variant);
@@ -3278,11 +3602,18 @@ function buildMediumTableRows(items = [], variant = "calculation") {
   if (!Array.isArray(items) || !items.length) {
     return "";
   }
-  return items.map((item) => `<tr>${renderRowCells(item, config.columns, config)}</tr>`).join("");
+  return items
+    .map((item) => `<tr>${renderRowCells(item, config.columns, config)}</tr>`)
+    .join("");
 }
-function buildMediumTableHTML(items = [], labels, variant = "calculation", options = {}) {
+function buildMediumTableHTML(
+  items = [],
+  labels,
+  variant = "calculation",
+  options = {}
+) {
   const {
-    classes = "table table-dark table-striped align-middle calc-medium-table"
+    classes = "table table-dark table-striped align-middle calc-medium-table",
   } = options;
   const head = buildMediumTableHead(labels, variant);
   const body = buildMediumTableRows(items, variant);
@@ -3299,7 +3630,7 @@ function createSection(labels, defaultsState) {
     creator: "",
     location: "",
     crop: "",
-    quantity: ""
+    quantity: "",
   };
   const section = document.createElement("section");
   section.className = "section-inner";
@@ -3391,7 +3722,7 @@ function applyFieldLabels(section, labels) {
     "calc-summary-creator": labels.calculation.fields.creator.label,
     "calc-summary-location": labels.calculation.fields.location.label,
     "calc-summary-crop": labels.calculation.fields.crop.label,
-    "calc-summary-date": labels.calculation.summary.dateLabel || "Datum"
+    "calc-summary-date": labels.calculation.summary.dateLabel || "Datum",
   };
   Object.entries(labelMap).forEach(([key, text]) => {
     const element = section.querySelector(`[data-label-id="${key}"]`);
@@ -3404,10 +3735,13 @@ function applyFieldLabels(section, labels) {
     if (!path) {
       return;
     }
-    const value = path.split(".").reduce(
-      (acc, segment) => acc && acc[segment] !== void 0 ? acc[segment] : null,
-      labels
-    );
+    const value = path
+      .split(".")
+      .reduce(
+        (acc, segment) =>
+          acc && acc[segment] !== void 0 ? acc[segment] : null,
+        labels
+      );
     if (typeof value === "string") {
       input.placeholder = value;
       input.dataset.defaultLabel = value;
@@ -3420,12 +3754,10 @@ function applyFieldLabels(section, labels) {
     "calc-form-creator": labels.calculation.fields.creator.placeholder,
     "calc-form-location": labels.calculation.fields.location.placeholder,
     "calc-form-crop": labels.calculation.fields.crop.placeholder,
-    "calc-form-quantity": labels.calculation.fields.quantity.placeholder
+    "calc-form-quantity": labels.calculation.fields.quantity.placeholder,
   };
   Object.entries(placeholderMap).forEach(([key, text]) => {
-    const element = section.querySelector(
-      `[data-placeholder-id="${key}"]`
-    );
+    const element = section.querySelector(`[data-placeholder-id="${key}"]`);
     if (element) {
       element.setAttribute("placeholder", typeof text === "string" ? text : "");
     }
@@ -3445,7 +3777,7 @@ async function persistHistory(services2) {
     await saveDatabase(snapshot);
     services2.events.emit("database:saved", {
       scope: "history",
-      driver: driverKey
+      driver: driverKey,
     });
   } catch (err2) {
     console.error("Automatisches Speichern der Historie fehlgeschlagen", err2);
@@ -3471,7 +3803,7 @@ function executeFormula(medium, method, inputs) {
     }
     case "percentOf": {
       const base = inputs[method.config?.baseField || "waterVolume"] || 0;
-      return base * value / 100;
+      return (base * value) / 100;
     }
     case "fixed":
       return value;
@@ -3485,9 +3817,7 @@ function renderResults(section, calculation, labels) {
   if (!resultCard) {
     return;
   }
-  const resultsTable = resultCard.querySelector(
-    "#calc-results-table"
-  );
+  const resultsTable = resultCard.querySelector("#calc-results-table");
   const resultsHead = resultsTable?.querySelector("thead");
   const resultsBody = resultsTable?.querySelector("tbody");
   const stateSnapshot = getState();
@@ -3511,9 +3841,7 @@ function renderResults(section, calculation, labels) {
   setFieldText("kultur", header.kultur);
   setFieldText("datum", header.datum);
   const updateCompanyRowVisibility = (rowKey, visible) => {
-    const row = resultCard.querySelector(
-      `[data-company-row="${rowKey}"]`
-    );
+    const row = resultCard.querySelector(`[data-company-row="${rowKey}"]`);
     if (row) {
       row.classList.toggle("d-none", !visible);
     }
@@ -3522,16 +3850,12 @@ function renderResults(section, calculation, labels) {
   setFieldText("company-headline", headlineValue);
   updateCompanyRowVisibility("headline", Boolean(headlineValue));
   const addressValue = companyData.address?.trim() || "";
-  const addressEl = resultCard.querySelector(
-    '[data-field="company-address"]'
-  );
+  const addressEl = resultCard.querySelector('[data-field="company-address"]');
   if (addressEl) {
     addressEl.textContent = addressValue;
   }
   updateCompanyRowVisibility("address", Boolean(addressValue));
-  const emailEl = resultCard.querySelector(
-    '[data-field="company-email"]'
-  );
+  const emailEl = resultCard.querySelector('[data-field="company-email"]');
   const emailValue = companyData.contactEmail?.trim() || "";
   if (emailEl) {
     if (emailValue) {
@@ -3543,9 +3867,7 @@ function renderResults(section, calculation, labels) {
     }
   }
   updateCompanyRowVisibility("email", Boolean(emailValue));
-  const companyColumn = resultCard.querySelector(
-    ".calc-summary-company"
-  );
+  const companyColumn = resultCard.querySelector(".calc-summary-company");
   if (companyColumn) {
     const hasVisibleRow = Array.from(
       companyColumn.querySelectorAll("[data-company-row]")
@@ -3575,9 +3897,7 @@ function initCalculation(container2, services2) {
   applyFieldLabels(section, initialState.fieldLabels);
   const form = section.querySelector("#calculationForm");
   const resultCard = section.querySelector("#calc-result");
-  const resultsTable = section.querySelector(
-    "#calc-results-table"
-  );
+  const resultsTable = section.querySelector("#calc-results-table");
   const resultsHead = resultsTable?.querySelector("thead");
   const resultsBody = resultsTable?.querySelector("tbody");
   if (!form || !resultCard || !resultsTable || !resultsHead || !resultsBody) {
@@ -3599,21 +3919,25 @@ function initCalculation(container2, services2) {
         return;
       }
       const trimmed = target.value.trim();
-      const fallback = target.dataset.defaultLabel || target.getAttribute("placeholder") || target.value;
+      const fallback =
+        target.dataset.defaultLabel ||
+        target.getAttribute("placeholder") ||
+        target.value;
       const nextValue = trimmed || fallback || "";
       if (!trimmed) {
         target.value = nextValue;
       }
-      services2.state.updateSlice(
-        "fieldLabels",
-        (currentLabels) => setFieldLabelByPath(currentLabels, path, nextValue)
+      services2.state.updateSlice("fieldLabels", (currentLabels) =>
+        setFieldLabelByPath(currentLabels, path, nextValue)
       );
     });
   });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(form);
-    const rawErsteller = (formData.get("calc-ersteller") || "").toString().trim();
+    const rawErsteller = (formData.get("calc-ersteller") || "")
+      .toString()
+      .trim();
     const rawStandort = (formData.get("calc-standort") || "").toString().trim();
     const rawKultur = (formData.get("calc-kultur") || "").toString().trim();
     const rawKisten = (formData.get("calc-kisten") || "").toString().trim();
@@ -3635,12 +3959,10 @@ function initCalculation(container2, services2) {
       kisten,
       waterVolume,
       areaAr,
-      areaSqm
+      areaSqm,
     };
     const items = state2.mediums.map((medium) => {
-      const method = measurementMethods.find(
-        (m) => m.id === medium.methodId
-      );
+      const method = measurementMethods.find((m) => m.id === medium.methodId);
       const total = executeFormula(medium, method, inputs);
       return {
         id: medium.id,
@@ -3650,7 +3972,7 @@ function initCalculation(container2, services2) {
         methodId: medium.methodId,
         value: medium.value,
         total,
-        inputs
+        inputs,
       };
     });
     const header = {
@@ -3658,33 +3980,33 @@ function initCalculation(container2, services2) {
       standort,
       kultur,
       kisten,
-      datum: (/* @__PURE__ */ new Date()).toLocaleDateString("de-DE", {
+      datum: /* @__PURE__ */ new Date().toLocaleDateString("de-DE", {
         year: "numeric",
         month: "2-digit",
-        day: "2-digit"
+        day: "2-digit",
       }),
       waterVolume,
       areaAr,
-      areaSqm
+      areaSqm,
     };
     const calculation = {
       header,
-      items
+      items,
     };
     services2.state.updateSlice("defaults", (defaultsState) => ({
       ...defaultsState,
       form: {
-        ...defaultsState.form || {
+        ...(defaultsState.form || {
           creator: "",
           location: "",
           crop: "",
-          quantity: ""
-        },
+          quantity: "",
+        }),
         creator: rawErsteller,
         location: rawStandort,
         crop: rawKultur,
-        quantity: rawKisten
-      }
+        quantity: rawKisten,
+      },
     }));
     services2.state.updateSlice("calcContext", () => calculation);
   });
@@ -3706,7 +4028,7 @@ function initCalculation(container2, services2) {
         const entry = {
           ...calc.header,
           items: calc.items,
-          savedAt: (/* @__PURE__ */ new Date()).toISOString()
+          savedAt: /* @__PURE__ */ new Date().toISOString(),
         };
         return [...history, entry];
       });
@@ -3727,7 +4049,12 @@ function sanitizeFilename(name) {
   if (!name) {
     return DOWNLOAD_FILENAME_FALLBACK;
   }
-  const slug = name.toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const slug = name
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   return `${slug || "pflanzenschutz-datenbank"}.json`;
 }
 async function withButtonBusy(button, task) {
@@ -3810,9 +4137,7 @@ function createWizard(baseCompany) {
   if (!form) {
     throw new Error("Wizard-Formular konnte nicht erzeugt werden");
   }
-  const resultCard = section.querySelector(
-    '[data-role="wizard-result"]'
-  );
+  const resultCard = section.querySelector('[data-role="wizard-result"]');
   if (!resultCard) {
     throw new Error("Wizard-Resultat-Container fehlt");
   }
@@ -3820,24 +4145,14 @@ function createWizard(baseCompany) {
     section,
     form,
     resultCard,
-    preview: section.querySelector(
-      '[data-role="wizard-preview"]'
-    ),
-    filenameLabel: section.querySelector(
-      '[data-role="wizard-filename"]'
-    ),
-    saveHint: section.querySelector(
-      '[data-role="wizard-save-hint"]'
-    ),
-    saveButton: section.querySelector(
-      '[data-action="wizard-save"]'
-    ),
+    preview: section.querySelector('[data-role="wizard-preview"]'),
+    filenameLabel: section.querySelector('[data-role="wizard-filename"]'),
+    saveHint: section.querySelector('[data-role="wizard-save-hint"]'),
+    saveButton: section.querySelector('[data-action="wizard-save"]'),
     reset() {
       form.reset();
       resultCard.classList.add("d-none");
-      const preview = section.querySelector(
-        '[data-role="wizard-preview"]'
-      );
+      const preview = section.querySelector('[data-role="wizard-preview"]');
       if (preview) {
         preview.textContent = "";
       }
@@ -3847,7 +4162,7 @@ function createWizard(baseCompany) {
       if (filenameLabel) {
         filenameLabel.textContent = "";
       }
-    }
+    },
   };
 }
 function initStartup(container2, services2) {
@@ -3864,7 +4179,9 @@ function initStartup(container2, services2) {
   landingSection.className = "section-container";
   const activeDriver = getActiveDriverKey();
   const usingSQLite = activeDriver === "sqlite";
-  const storageInfo = usingSQLite ? "" : "Die erzeugte JSON-Datei kann sp\xE4ter erneut geladen oder weitergegeben werden.";
+  const storageInfo = usingSQLite
+    ? ""
+    : "Die erzeugte JSON-Datei kann sp\xE4ter erneut geladen oder weitergegeben werden.";
   landingSection.innerHTML = `
     <div class="section-inner">
       <div class="card card-dark">
@@ -3887,16 +4204,20 @@ function initStartup(container2, services2) {
   host.innerHTML = "";
   host.appendChild(landingSection);
   host.appendChild(wizard.section);
-  const fileSystemSupported = typeof window !== "undefined" && typeof window.showSaveFilePicker === "function";
+  const fileSystemSupported =
+    typeof window !== "undefined" &&
+    typeof window.showSaveFilePicker === "function";
   if (wizard.saveButton) {
     if (!fileSystemSupported) {
       wizard.saveButton.disabled = true;
       wizard.saveButton.textContent = "Datei speichern (nicht verf\xFCgbar)";
       if (wizard.saveHint) {
-        wizard.saveHint.textContent = "Dieser Browser unterst\xFCtzt keinen direkten Dateidialog. Bitte nutze einen Chromium-basierten Browser (z. B. Chrome, Edge) \xFCber HTTPS oder http://localhost.";
+        wizard.saveHint.textContent =
+          "Dieser Browser unterst\xFCtzt keinen direkten Dateidialog. Bitte nutze einen Chromium-basierten Browser (z. B. Chrome, Edge) \xFCber HTTPS oder http://localhost.";
       }
     } else if (wizard.saveHint) {
-      wizard.saveHint.textContent = 'Der Browser fragt nach einem Speicherort. Die erzeugte Datei kannst du sp\xE4ter \xFCber "Bestehende Datei verbinden" erneut laden.';
+      wizard.saveHint.textContent =
+        'Der Browser fragt nach einem Speicherort. Die erzeugte Datei kannst du sp\xE4ter \xFCber "Bestehende Datei verbinden" erneut laden.';
     }
   }
   function updateRegionVisibility(state2 = services2.state.getState()) {
@@ -3928,18 +4249,22 @@ function initStartup(container2, services2) {
         window.alert(
           "Dateisystemzugriff wird nicht unterst\xFCtzt in diesem Browser."
         );
-        throw err2 instanceof Error ? err2 : new Error("Dateisystem nicht verf\xFCgbar");
+        throw err2 instanceof Error
+          ? err2
+          : new Error("Dateisystem nicht verf\xFCgbar");
       }
       try {
         const result = await openDatabase();
         applyDatabase(result.data);
         services2.events.emit("database:connected", {
-          driver: getActiveDriverKey()
+          driver: getActiveDriverKey(),
         });
       } catch (err2) {
         console.error("Fehler beim \xD6ffnen der Datenbank", err2);
         window.alert(
-          err2 instanceof Error ? err2.message : "\xD6ffnen der Datenbank fehlgeschlagen"
+          err2 instanceof Error
+            ? err2.message
+            : "\xD6ffnen der Datenbank fehlgeschlagen"
         );
       }
     });
@@ -3959,12 +4284,14 @@ function initStartup(container2, services2) {
         const initialData = createInitialDatabase();
         applyDatabase(initialData);
         services2.events.emit("database:connected", {
-          driver: getActiveDriverKey() || "memory"
+          driver: getActiveDriverKey() || "memory",
         });
       } catch (err2) {
         console.error("Fehler beim Laden der Defaults", err2);
         window.alert(
-          err2 instanceof Error ? err2.message : "Defaults konnten nicht geladen werden"
+          err2 instanceof Error
+            ? err2.message
+            : "Defaults konnten nicht geladen werden"
         );
       }
     });
@@ -3986,18 +4313,22 @@ function initStartup(container2, services2) {
         window.alert(
           "Dateisystemzugriff wird nicht unterst\xFCtzt in diesem Browser."
         );
-        throw err2 instanceof Error ? err2 : new Error("Dateisystem nicht verf\xFCgbar");
+        throw err2 instanceof Error
+          ? err2
+          : new Error("Dateisystem nicht verf\xFCgbar");
       }
       try {
         const result = await createDatabase(generatedDatabase);
         applyDatabase(result.data);
         services2.events.emit("database:connected", {
-          driver: getActiveDriverKey()
+          driver: getActiveDriverKey(),
         });
       } catch (err2) {
         console.error("Fehler beim Speichern der Datenbank", err2);
         window.alert(
-          err2 instanceof Error ? err2.message : "Die Datei konnte nicht gespeichert werden"
+          err2 instanceof Error
+            ? err2.message
+            : "Die Datei konnte nicht gespeichert werden"
         );
       }
     });
@@ -4010,10 +4341,18 @@ function initStartup(container2, services2) {
       window.alert("Bitte einen Firmennamen angeben.");
       return;
     }
-    const headline = (formData.get("wizard-company-headline") || "").toString().trim();
-    const logoUrl = (formData.get("wizard-company-logo") || "").toString().trim();
-    const contactEmail = (formData.get("wizard-company-email") || "").toString().trim();
-    const address = (formData.get("wizard-company-address") || "").toString().trim();
+    const headline = (formData.get("wizard-company-headline") || "")
+      .toString()
+      .trim();
+    const logoUrl = (formData.get("wizard-company-logo") || "")
+      .toString()
+      .trim();
+    const contactEmail = (formData.get("wizard-company-email") || "")
+      .toString()
+      .trim();
+    const address = (formData.get("wizard-company-address") || "")
+      .toString()
+      .trim();
     const overrides = {
       meta: {
         company: {
@@ -4021,9 +4360,9 @@ function initStartup(container2, services2) {
           headline,
           logoUrl,
           contactEmail,
-          address
-        }
-      }
+          address,
+        },
+      },
     };
     generatedDatabase = createInitialDatabase(overrides);
     generatedFilename = sanitizeFilename(name);
@@ -4044,9 +4383,7 @@ function initStartup(container2, services2) {
     updateRegionVisibility();
   }
   landingSection.addEventListener("click", (event) => {
-    const button = event.target?.closest(
-      "button[data-action]"
-    );
+    const button = event.target?.closest("button[data-action]");
     if (!button) {
       return;
     }
@@ -4063,9 +4400,7 @@ function initStartup(container2, services2) {
   });
   wizard.form.addEventListener("submit", handleWizardSubmit);
   wizard.section.addEventListener("click", (event) => {
-    const button = event.target?.closest(
-      "[data-action]"
-    );
+    const button = event.target?.closest("[data-action]");
     if (!button) {
       return;
     }
@@ -4099,21 +4434,26 @@ function renderCalculationSnapshot(entry, labels, options = {}) {
     showActions = false,
     includeCheckbox = false,
     index,
-    selected = false
+    selected = false,
   } = options;
   const tableLabels = labels?.history?.tableColumns ?? {};
   const detailLabels = labels?.history?.detail ?? {};
   const selectedClass = selected ? " calc-snapshot-card--selected" : "";
   const dataIndex = typeof index === "number" ? ` data-index="${index}"` : "";
-  const checkboxHtml = includeCheckbox && typeof index === "number" ? `<div class="calc-snapshot-card__checkbox no-print">
+  const checkboxHtml =
+    includeCheckbox && typeof index === "number"
+      ? `<div class="calc-snapshot-card__checkbox no-print">
            <input type="checkbox"
                   class="form-check-input"
                   data-action="toggle-select"
                   data-index="${index}"
                   ${selected ? "checked" : ""}
                   aria-label="Eintrag ausw\xE4hlen" />
-         </div>` : "";
-  const actionsHtml = showActions && typeof index === "number" ? `<div class="calc-snapshot-card__actions no-print">
+         </div>`
+      : "";
+  const actionsHtml =
+    showActions && typeof index === "number"
+      ? `<div class="calc-snapshot-card__actions no-print">
            <button class="btn btn-sm btn-info"
                    data-action="view"
                    data-index="${index}">
@@ -4124,13 +4464,14 @@ function renderCalculationSnapshot(entry, labels, options = {}) {
                    data-index="${index}">
              L\xF6schen
            </button>
-         </div>` : "";
+         </div>`
+      : "";
   const mediumTable = buildMediumTableHTML(
     entry.items || [],
     labels,
     "summary",
     {
-      classes: "calc-snapshot-table"
+      classes: "calc-snapshot-table",
     }
   );
   return `
@@ -4161,8 +4502,10 @@ function renderCalculationSnapshot(entry, labels, options = {}) {
           <div class="calc-snapshot-card__info-item">
             <strong>${escapeHtml(detailLabels.quantity || tableLabels.quantity || "Kisten")}:</strong>
             ${escapeHtml(
-    entry?.kisten !== void 0 && entry?.kisten !== null ? String(entry.kisten) : "\u2013"
-  )}
+              entry?.kisten !== void 0 && entry?.kisten !== null
+                ? String(entry.kisten)
+                : "\u2013"
+            )}
           </div>
         </div>
         <div class="calc-snapshot-card__mediums">
@@ -4180,7 +4523,7 @@ function renderCalculationSnapshotForPrint(entry, labels) {
     labels,
     "detail",
     {
-      classes: "history-detail-table"
+      classes: "history-detail-table",
     }
   );
   return `
@@ -4198,8 +4541,10 @@ function renderCalculationSnapshotForPrint(entry, labels) {
           ${escapeHtml(entry?.kultur || "\u2013")}<br />
           <strong>${escapeHtml(detailLabels.quantity || "Kisten")}:</strong>
           ${escapeHtml(
-    entry?.kisten !== void 0 && entry?.kisten !== null ? String(entry.kisten) : "\u2013"
-  )}
+            entry?.kisten !== void 0 && entry?.kisten !== null
+              ? String(entry.kisten)
+              : "\u2013"
+          )}
         </p>
       </div>
       <div class="calc-snapshot-print__mediums">
@@ -4210,15 +4555,14 @@ function renderCalculationSnapshotForPrint(entry, labels) {
 }
 
 // src/scripts/core/virtualList.ts
-function initVirtualList(container2, {
-  itemCount,
-  estimatedItemHeight,
-  renderItem,
-  overscan = 6,
-  onRangeChange
-}) {
+function initVirtualList(
+  container2,
+  { itemCount, estimatedItemHeight, renderItem, overscan = 6, onRangeChange }
+) {
   if (!container2 || typeof renderItem !== "function") {
-    throw new Error("initVirtualList requires a container and renderItem function");
+    throw new Error(
+      "initVirtualList requires a container and renderItem function"
+    );
   }
   let currentItemCount = itemCount || 0;
   let currentEstimatedHeight = estimatedItemHeight || 100;
@@ -4240,7 +4584,10 @@ function initVirtualList(container2, {
   itemsContainer.style.width = "100%";
   container2.appendChild(itemsContainer);
   const nodePool = [];
-  const maxPoolSize = Math.ceil(container2.clientHeight / currentEstimatedHeight) + overscan * 2 + 5;
+  const maxPoolSize =
+    Math.ceil(container2.clientHeight / currentEstimatedHeight) +
+    overscan * 2 +
+    5;
   function getNode() {
     if (nodePool.length > 0) {
       return nodePool.pop();
@@ -4266,7 +4613,9 @@ function initVirtualList(container2, {
     const scrollTop = container2.scrollTop;
     const viewportHeight = container2.clientHeight;
     const startIndex = Math.floor(scrollTop / currentEstimatedHeight);
-    const endIndex = Math.ceil((scrollTop + viewportHeight) / currentEstimatedHeight);
+    const endIndex = Math.ceil(
+      (scrollTop + viewportHeight) / currentEstimatedHeight
+    );
     const start = Math.max(0, startIndex - overscan);
     const end = Math.min(currentItemCount, endIndex + overscan);
     return { start, end };
@@ -4355,7 +4704,7 @@ function initVirtualList(container2, {
       spacer.remove();
       itemsContainer.remove();
       nodePool.length = 0;
-    }
+    },
   };
 }
 
@@ -4381,7 +4730,11 @@ function cleanupOverlay() {
 function openPopup(html, onFail) {
   let popup = null;
   try {
-    popup = window.open("", "_blank", "noopener,noreferrer,width=1024,height=768");
+    popup = window.open(
+      "",
+      "_blank",
+      "noopener,noreferrer,width=1024,height=768"
+    );
   } catch (err2) {
     console.warn("window.open failed", err2);
   }
@@ -4549,7 +4902,7 @@ async function printEntriesChunked(entries, labels, options = {}) {
     chunkSize = 50,
     title = "Druck",
     headerHtml = "",
-    additionalStyles = ""
+    additionalStyles = "",
   } = options;
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error("No entries to print");
@@ -4682,9 +5035,7 @@ function updateCardSelection(listContainer, index, selected) {
     return;
   }
   card.classList.toggle("calc-snapshot-card--selected", selected);
-  const checkbox = card.querySelector(
-    '[data-action="toggle-select"]'
-  );
+  const checkbox = card.querySelector('[data-action="toggle-select"]');
   if (checkbox) {
     checkbox.checked = selected;
   }
@@ -4710,9 +5061,9 @@ function renderCardsList(state2, listContainer, labels) {
             showActions: true,
             includeCheckbox: true,
             index,
-            selected
+            selected,
           });
-        }
+        },
       });
     } else {
       virtualListInstance.updateItemCount(entries.length);
@@ -4731,7 +5082,7 @@ function renderCardsList(state2, listContainer, labels) {
         showActions: true,
         includeCheckbox: true,
         index: i,
-        selected
+        selected,
       });
       const wrapper = document.createElement("div");
       wrapper.innerHTML = cardHtml;
@@ -4752,9 +5103,7 @@ function renderCardsList(state2, listContainer, labels) {
   }
 }
 function renderHistoryTable(section, state2) {
-  const listContainer = section.querySelector(
-    '[data-role="history-list"]'
-  );
+  const listContainer = section.querySelector('[data-role="history-list"]');
   if (!listContainer) {
     return;
   }
@@ -4788,8 +5137,10 @@ function renderDetail(entry, section, index, labels) {
       <strong>${escapeHtml(detailLabels.location || "Standort")}:</strong> ${escapeHtml(entry.standort || "")}<br />
       <strong>${escapeHtml(detailLabels.crop || "Kultur")}:</strong> ${escapeHtml(entry.kultur || "")}<br />
       <strong>${escapeHtml(detailLabels.quantity || "Kisten")}:</strong> ${escapeHtml(
-    entry.kisten !== void 0 && entry.kisten !== null ? String(entry.kisten) : ""
-  )}
+        entry.kisten !== void 0 && entry.kisten !== null
+          ? String(entry.kisten)
+          : ""
+      )}
     </p>
     <div class="table-responsive">
       ${snapshotTable}
@@ -4839,13 +5190,20 @@ var HISTORY_SUMMARY_STYLES = `
 `;
 function buildCompanyHeader(company) {
   const hasContent = Boolean(
-    company?.name || company?.headline || company?.address || company?.contactEmail
+    company?.name ||
+      company?.headline ||
+      company?.address ||
+      company?.contactEmail
   );
   if (!hasContent) {
     return "";
   }
-  const address = company?.address ? escapeHtml(company.address).replace(/\n/g, "<br />") : "";
-  const email = company?.contactEmail ? `<p>${escapeHtml(company.contactEmail)}</p>` : "";
+  const address = company?.address
+    ? escapeHtml(company.address).replace(/\n/g, "<br />")
+    : "";
+  const email = company?.contactEmail
+    ? `<p>${escapeHtml(company.contactEmail)}</p>`
+    : "";
   return `
     <div class="print-meta">
       ${company?.name ? `<h1>${escapeHtml(company.name)}</h1>` : ""}
@@ -4866,7 +5224,7 @@ async function printSummary(entries, labels) {
     await printEntriesChunked(entries, labels, {
       title: "Historie \u2013 \xDCbersicht",
       headerHtml,
-      chunkSize: 50
+      chunkSize: 50,
     });
   } catch (err2) {
     console.error("Printing failed", err2);
@@ -4886,27 +5244,29 @@ function printDetail(entry, labels) {
     resolvedLabels,
     "detail",
     {
-      classes: "history-detail-table"
+      classes: "history-detail-table",
     }
   );
   const content = `${buildCompanyHeader(company)}
     <section class="history-detail">
       <h2>${escapeHtml(detailLabels.title || "Historieneintrag")} \u2013 ${escapeHtml(
-    entry.datum || entry.date || ""
-  )}</h2>
+        entry.datum || entry.date || ""
+      )}</h2>
       <p>
         <strong>${escapeHtml(detailLabels.creator || "Erstellt von")}:</strong> ${escapeHtml(
-    entry.ersteller || ""
-  )}<br />
+          entry.ersteller || ""
+        )}<br />
         <strong>${escapeHtml(detailLabels.location || "Standort")}:</strong> ${escapeHtml(
-    entry.standort || ""
-  )}<br />
+          entry.standort || ""
+        )}<br />
         <strong>${escapeHtml(detailLabels.crop || "Kultur")}:</strong> ${escapeHtml(
-    entry.kultur || ""
-  )}<br />
+          entry.kultur || ""
+        )}<br />
         <strong>${escapeHtml(detailLabels.quantity || "Kisten")}:</strong> ${escapeHtml(
-    entry.kisten !== void 0 && entry.kisten !== null ? String(entry.kisten) : ""
-  )}
+          entry.kisten !== void 0 && entry.kisten !== null
+            ? String(entry.kisten)
+            : ""
+        )}
       </p>
       ${snapshotTable}
     </section>
@@ -4914,18 +5274,16 @@ function printDetail(entry, labels) {
   printHtml({
     title: `Historie \u2013 ${entry.datum || entry.date || ""}`,
     styles: HISTORY_SUMMARY_STYLES,
-    content
+    content,
   });
 }
 function updateSelectionUI(section) {
-  const info = section.querySelector(
-    '[data-role="selection-info"]'
-  );
-  const printButton = section.querySelector(
-    '[data-action="print-selected"]'
-  );
+  const info = section.querySelector('[data-role="selection-info"]');
+  const printButton = section.querySelector('[data-action="print-selected"]');
   if (info) {
-    info.textContent = selectedIndexes.size ? `${selectedIndexes.size} Eintrag(e) ausgew\xE4hlt.` : "Keine Eintr\xE4ge ausgew\xE4hlt.";
+    info.textContent = selectedIndexes.size
+      ? `${selectedIndexes.size} Eintrag(e) ausgew\xE4hlt.`
+      : "Keine Eintr\xE4ge ausgew\xE4hlt.";
   }
   if (printButton) {
     printButton.disabled = !selectedIndexes.size;
@@ -4976,7 +5334,10 @@ function initHistory(container2, services2) {
     if (action === "detail-print") {
       const detailCard = target.closest("#history-detail");
       const indexAttr = detailCard?.dataset.index;
-      const index2 = typeof indexAttr === "string" && indexAttr !== "" ? Number(indexAttr) : NaN;
+      const index2 =
+        typeof indexAttr === "string" && indexAttr !== ""
+          ? Number(indexAttr)
+          : NaN;
       const state3 = services2.state.getState();
       const entry = Number.isInteger(index2) ? state3.history[index2] : null;
       printDetail(entry, state3.fieldLabels);
@@ -4984,7 +5345,10 @@ function initHistory(container2, services2) {
     }
     if (action === "print-selected") {
       const state3 = services2.state.getState();
-      const entries = Array.from(selectedIndexes).sort((a, b) => a - b).map((idx) => state3.history[idx]).filter(Boolean);
+      const entries = Array.from(selectedIndexes)
+        .sort((a, b) => a - b)
+        .map((idx) => state3.history[idx])
+        .filter(Boolean);
       void printSummary(entries, state3.fieldLabels);
       return;
     }
@@ -4996,9 +5360,7 @@ function initHistory(container2, services2) {
         state3.history.length,
         currentLimit + INITIAL_LOAD_LIMIT
       );
-      const listContainer = section.querySelector(
-        '[data-role="history-list"]'
-      );
+      const listContainer = section.querySelector('[data-role="history-list"]');
       if (!listContainer) {
         return;
       }
@@ -5011,7 +5373,7 @@ function initHistory(container2, services2) {
           showActions: true,
           includeCheckbox: true,
           index: i,
-          selected
+          selected,
         });
         const wrapper = document.createElement("div");
         wrapper.innerHTML = cardHtml;
@@ -5205,7 +5567,11 @@ function renderMethodSuggestions(state2) {
   });
 }
 function createMethodId(label) {
-  const slug = label.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const slug = label
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   if (slug) {
     return slug;
   }
@@ -5222,24 +5588,27 @@ function ensureMethodExists(state2, services2) {
     return null;
   }
   const existing = state2.measurementMethods.find(
-    (method) => method.label?.toLowerCase() === rawValue.toLowerCase() || method.id?.toLowerCase() === rawValue.toLowerCase()
+    (method) =>
+      method.label?.toLowerCase() === rawValue.toLowerCase() ||
+      method.id?.toLowerCase() === rawValue.toLowerCase()
   );
   if (existing) {
     return existing.id;
   }
   const id = createMethodId(rawValue);
-  const defaultUnit = state2.fieldLabels?.calculation?.fields?.quantity?.unit || "Kiste";
+  const defaultUnit =
+    state2.fieldLabels?.calculation?.fields?.quantity?.unit || "Kiste";
   const newMethod = {
     id,
     label: rawValue,
     type: "factor",
     unit: defaultUnit,
     requires: ["kisten"],
-    config: { sourceField: "kisten" }
+    config: { sourceField: "kisten" },
   };
   services2.state.updateSlice("measurementMethods", (methods) => [
     ...methods,
-    newMethod
+    newMethod,
   ]);
   return id;
 }
@@ -5250,7 +5619,8 @@ async function persistChanges() {
     window.alert("\xC4nderungen wurden gespeichert.");
   } catch (err2) {
     console.error("Fehler beim Speichern", err2);
-    const message = err2 instanceof Error ? err2.message : "Speichern fehlgeschlagen";
+    const message =
+      err2 instanceof Error ? err2.message : "Speichern fehlgeschlagen";
     window.alert(message);
   }
 }
@@ -5267,15 +5637,9 @@ function initSettings(container2, services2) {
   host.innerHTML = "";
   const section = createSection3();
   host.appendChild(section);
-  mediumsTableBody = section.querySelector(
-    "#settings-mediums-table tbody"
-  );
-  methodInput = section.querySelector(
-    'input[name="medium-method"]'
-  );
-  methodDatalist = section.querySelector(
-    "#settings-method-options"
-  );
+  mediumsTableBody = section.querySelector("#settings-mediums-table tbody");
+  methodInput = section.querySelector('input[name="medium-method"]');
+  methodDatalist = section.querySelector("#settings-method-options");
   addForm = section.querySelector("#settings-medium-form");
   addForm?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -5293,18 +5657,18 @@ function initSettings(container2, services2) {
     if (!methodId) {
       return;
     }
-    const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `medium-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const id =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `medium-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     const medium = {
       id,
       name,
       unit,
       methodId,
-      value
+      value,
     };
-    services2.state.updateSlice("mediums", (mediums) => [
-      ...mediums,
-      medium
-    ]);
+    services2.state.updateSlice("mediums", (mediums) => [...mediums, medium]);
     addForm?.reset();
     renderMethodSuggestions(services2.state.getState());
   });
@@ -5323,9 +5687,11 @@ function initSettings(container2, services2) {
       return copy;
     });
   });
-  section.querySelector('[data-action="persist"]')?.addEventListener("click", () => {
-    void persistChanges();
-  });
+  section
+    .querySelector('[data-action="persist"]')
+    ?.addEventListener("click", () => {
+      void persistChanges();
+    });
   const handleStateChange = (nextState) => {
     toggleSectionVisibility(section, nextState);
     if (nextState.app.activeSection === "settings") {
@@ -5441,9 +5807,9 @@ function renderCardsList2(listContainer, entries, labels) {
           const entry = currentEntries[index];
           node.innerHTML = renderCalculationSnapshot(entry, resolvedLabels, {
             showActions: false,
-            includeCheckbox: false
+            includeCheckbox: false,
           });
-        }
+        },
       });
     } else {
       virtualListInstance2.updateItemCount(entries.length);
@@ -5460,7 +5826,7 @@ function renderCardsList2(listContainer, entries, labels) {
     const entry = entries[i];
     const cardHtml = renderCalculationSnapshot(entry, resolvedLabels, {
       showActions: false,
-      includeCheckbox: false
+      includeCheckbox: false,
     });
     const wrapper = document.createElement("div");
     wrapper.innerHTML = cardHtml;
@@ -5481,9 +5847,7 @@ function renderCardsList2(listContainer, entries, labels) {
 }
 function renderTable(section, entries, labels) {
   currentEntries = entries.slice();
-  const listContainer = section.querySelector(
-    '[data-role="report-list"]'
-  );
+  const listContainer = section.querySelector('[data-role="report-list"]');
   if (listContainer) {
     renderCardsList2(listContainer, entries, labels);
   }
@@ -5491,9 +5855,7 @@ function renderTable(section, entries, labels) {
   if (info) {
     info.textContent = describeFilter(entries.length, labels);
   }
-  const printButton = section.querySelector(
-    '[data-action="print-report"]'
-  );
+  const printButton = section.querySelector('[data-action="print-report"]');
   if (printButton) {
     printButton.disabled = entries.length === 0;
   }
@@ -5505,9 +5867,7 @@ function applyFilter(section, state2, filter) {
     return;
   }
   const filtered = source.filter((entry) => {
-    const isoDate = germanDateToIso(
-      entry.datum || entry.date
-    );
+    const isoDate = germanDateToIso(entry.datum || entry.date);
     if (!isoDate) {
       return false;
     }
@@ -5525,13 +5885,20 @@ function toggleSection(section, state2) {
 }
 function buildCompanyHeader2(company) {
   const hasContent = Boolean(
-    company?.name || company?.headline || company?.address || company?.contactEmail
+    company?.name ||
+      company?.headline ||
+      company?.address ||
+      company?.contactEmail
   );
   if (!hasContent) {
     return "";
   }
-  const address = company?.address ? escapeHtml(company.address).replace(/\n/g, "<br />") : "";
-  const email = company?.contactEmail ? `<p>${escapeHtml(company.contactEmail)}</p>` : "";
+  const address = company?.address
+    ? escapeHtml(company.address).replace(/\n/g, "<br />")
+    : "";
+  const email = company?.contactEmail
+    ? `<p>${escapeHtml(company.contactEmail)}</p>`
+    : "";
   return `
     <div class="print-meta">
       ${company?.name ? `<h1>${escapeHtml(company.name)}</h1>` : ""}
@@ -5558,12 +5925,13 @@ async function printReport(entries, filter, labels) {
   const resolvedLabels = labels || getState().fieldLabels;
   const reportingLabels = resolveReportingLabels(resolvedLabels);
   const company = getState().company || {};
-  const headerHtml = buildCompanyHeader2(company) + buildFilterInfo(filter, resolvedLabels);
+  const headerHtml =
+    buildCompanyHeader2(company) + buildFilterInfo(filter, resolvedLabels);
   try {
     await printEntriesChunked(entries, resolvedLabels, {
       title: reportingLabels.printTitle || "Bericht",
       headerHtml,
-      chunkSize: 50
+      chunkSize: 50,
     });
   } catch (err2) {
     console.error("Printing failed", err2);
@@ -5596,7 +5964,7 @@ function initReporting(container2, services2) {
       start,
       end,
       startLabel: new Intl.DateTimeFormat("de-DE").format(start),
-      endLabel: new Intl.DateTimeFormat("de-DE").format(end)
+      endLabel: new Intl.DateTimeFormat("de-DE").format(end),
     };
     applyFilter(section, services2.state.getState(), activeFilter);
   });
@@ -5612,9 +5980,7 @@ function initReporting(container2, services2) {
     if (target.dataset.action === "load-more") {
       const btn = target;
       const currentLimit = parseInt(btn.dataset.currentLimit || "0", 10);
-      const listContainer = section.querySelector(
-        '[data-role="report-list"]'
-      );
+      const listContainer = section.querySelector('[data-role="report-list"]');
       if (!listContainer) {
         return;
       }
@@ -5628,7 +5994,7 @@ function initReporting(container2, services2) {
         const entry = currentEntries[i];
         const cardHtml = renderCalculationSnapshot(entry, labels, {
           showActions: false,
-          includeCheckbox: false
+          includeCheckbox: false,
         });
         const wrapper = document.createElement("div");
         wrapper.innerHTML = cardHtml;
@@ -5648,9 +6014,7 @@ function initReporting(container2, services2) {
       }
       return;
     }
-    const printTrigger = target.closest(
-      '[data-action="print-report"]'
-    );
+    const printTrigger = target.closest('[data-action="print-report"]');
     if (printTrigger) {
       void printReport(
         currentEntries,
@@ -5695,7 +6059,7 @@ async function fetchCollection(endpoint, options = {}) {
     maxRetries = MAX_RETRIES,
     onProgress = null,
     params = {},
-    pageSize = 1e3
+    pageSize = 1e3,
   } = options;
   let allItems = [];
   let offset = 0;
@@ -5723,14 +6087,17 @@ async function fetchCollection(endpoint, options = {}) {
         const response = await fetch(url, {
           signal: controller.signal,
           headers: {
-            Accept: "application/json"
-          }
+            Accept: "application/json",
+          },
         });
         clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
         if (!response.ok) {
           const responseText = await response.text().catch(() => "");
-          const truncatedBody = responseText.length > 200 ? responseText.substring(0, 200) + "..." : responseText;
+          const truncatedBody =
+            responseText.length > 200
+              ? responseText.substring(0, 200) + "..."
+              : responseText;
           if (response.status >= 500 && attempt < maxRetries) {
             attempt++;
             lastError = new HttpError(
@@ -5766,7 +6133,7 @@ async function fetchCollection(endpoint, options = {}) {
             offset,
             count: items.length,
             total: allItems.length,
-            duration
+            duration,
           });
         }
         if (items.length < pageSize) {
@@ -5811,7 +6178,9 @@ async function hashData(data) {
   const msgBuffer = new TextEncoder().encode(text);
   const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  const hashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
   return hashHex;
 }
 async function computeDatasetHashes(datasets) {
@@ -5827,7 +6196,8 @@ async function computeDatasetHashes(datasets) {
 }
 
 // src/scripts/core/bvlDataset.ts
-var DEFAULT_MANIFEST_URL = "https://abbas-hoseiny.github.io/pflanzenschutzliste-data/latest/manifest.json";
+var DEFAULT_MANIFEST_URL =
+  "https://abbas-hoseiny.github.io/pflanzenschutz-db/manifest.json";
 var MANIFEST_STORAGE_KEY = "bvlManifestUrl";
 var ManifestError = class extends Error {
   constructor(message) {
@@ -5850,9 +6220,13 @@ async function loadFflate() {
   if (!fflateLoader) {
     fflateLoader = (async () => {
       try {
-        return await Promise.resolve().then(() => (init_browser(), browser_exports));
+        return await Promise.resolve().then(
+          () => (init_browser(), browser_exports)
+        );
       } catch (error) {
-        return await import("https://cdn.jsdelivr.net/npm/fflate@0.8.1/esm/browser.js");
+        return await import(
+          "https://cdn.jsdelivr.net/npm/fflate@0.8.1/esm/browser.js"
+        );
       }
     })();
   }
@@ -5878,8 +6252,8 @@ async function fetchManifest(options = {}) {
     const response = await fetch(manifestUrl, {
       signal: controller.signal,
       headers: {
-        Accept: "application/json"
-      }
+        Accept: "application/json",
+      },
     });
     clearTimeout(timeoutId);
     if (!response.ok) {
@@ -5903,7 +6277,8 @@ async function fetchManifest(options = {}) {
         "Failed to resolve manifest base URL, using default",
         resolveError
       );
-      manifest.baseUrlResolved = "https://abbas-hoseiny.github.io/pflanzenschutzliste-data/latest/";
+      manifest.baseUrlResolved =
+        "https://abbas-hoseiny.github.io/pflanzenschutz-db/";
     }
     return manifest;
   } catch (error) {
@@ -5931,22 +6306,24 @@ function supportsStreamDecompression(kind) {
 function selectBestFile(manifest) {
   const files = manifest.files;
   if (supportsStreamDecompression("br")) {
-    const brFile = files.find((f) => f.path.endsWith(".sqlite.br"));
+    const brFile = files.find((f) => (f.path || f.name).endsWith(".sqlite.br"));
     if (brFile) {
       return { file: brFile, format: "brotli" };
     }
   }
-  const gzFile = files.find((f) => f.path.endsWith(".sqlite.gz"));
+  const gzFile = files.find((f) => (f.path || f.name).endsWith(".sqlite.gz"));
   if (gzFile) {
     return { file: gzFile, format: "gzip" };
   }
   const sqliteFile = files.find(
-    (f) => f.path.endsWith(".sqlite") && !f.path.includes(".")
+    (f) =>
+      (f.path || f.name).endsWith(".sqlite") &&
+      !(f.path || f.name).includes(".sqlite.")
   );
   if (sqliteFile) {
     return { file: sqliteFile, format: "plain" };
   }
-  const zipFile = files.find((f) => f.path.endsWith(".sqlite.zip"));
+  const zipFile = files.find((f) => (f.path || f.name).endsWith(".sqlite.zip"));
   if (zipFile) {
     return { file: zipFile, format: "zip" };
   }
@@ -5958,7 +6335,7 @@ async function downloadFile(url, options = {}) {
   const timeoutId = setTimeout(() => controller.abort(), timeout);
   try {
     const response = await fetch(url, {
-      signal: controller.signal
+      signal: controller.signal,
     });
     clearTimeout(timeoutId);
     if (!response.ok) {
@@ -5982,7 +6359,7 @@ async function downloadFile(url, options = {}) {
         onProgress({
           loaded: receivedLength,
           total: contentLength,
-          percent: Math.round(receivedLength / contentLength * 100)
+          percent: Math.round((receivedLength / contentLength) * 100),
         });
       }
     }
@@ -6082,7 +6459,11 @@ async function decompressZip(compressedData) {
 }
 async function downloadDatabase(manifest, options = {}) {
   const { onProgress = null } = options;
-  let baseUrl = manifest.baseUrlResolved || manifest.baseUrl || manifest.base_url || "https://abbas-hoseiny.github.io/pflanzenschutzliste-data/latest/";
+  let baseUrl =
+    manifest.baseUrlResolved ||
+    manifest.baseUrl ||
+    manifest.base_url ||
+    "https://abbas-hoseiny.github.io/pflanzenschutz-db/";
   try {
     baseUrl = new URL(baseUrl, manifest.manifestUrl || baseUrl).toString();
   } catch (resolveError) {
@@ -6090,15 +6471,15 @@ async function downloadDatabase(manifest, options = {}) {
       "Failed to normalize base URL, falling back to default",
       resolveError
     );
-    baseUrl = "https://abbas-hoseiny.github.io/pflanzenschutzliste-data/latest/";
+    baseUrl = "https://abbas-hoseiny.github.io/pflanzenschutz-db/";
   }
   const { file, format } = selectBestFile(manifest);
-  const fileUrl = new URL(file.path, baseUrl).toString();
+  const fileUrl = new URL(file.path || file.name, baseUrl).toString();
   if (onProgress) {
     onProgress({
       step: "download",
       message: `Lade Datenbank (${format})...`,
-      percent: 0
+      percent: 0,
     });
   }
   const compressed = await downloadFile(fileUrl, {
@@ -6109,10 +6490,10 @@ async function downloadDatabase(manifest, options = {}) {
           message: `Lade Datenbank: ${progress.percent}%`,
           percent: Math.round(progress.percent * 0.7),
           // Reserve 30% for decompression
-          ...progress
+          ...progress,
         });
       }
-    }
+    },
   });
   let sqliteData;
   if (format === "brotli") {
@@ -6120,7 +6501,7 @@ async function downloadDatabase(manifest, options = {}) {
       onProgress({
         step: "decompress",
         message: "Entpacke Datenbank...",
-        percent: 70
+        percent: 70,
       });
     }
     sqliteData = await decompressBrotli(compressed);
@@ -6129,7 +6510,7 @@ async function downloadDatabase(manifest, options = {}) {
       onProgress({
         step: "decompress",
         message: "Entpacke Datenbank...",
-        percent: 70
+        percent: 70,
       });
     }
     sqliteData = await decompressGzip(compressed);
@@ -6138,7 +6519,7 @@ async function downloadDatabase(manifest, options = {}) {
       onProgress({
         step: "decompress",
         message: "Entpacke Datenbank...",
-        percent: 70
+        percent: 70,
       });
     }
     sqliteData = await decompressZip(compressed);
@@ -6149,14 +6530,14 @@ async function downloadDatabase(manifest, options = {}) {
     onProgress({
       step: "complete",
       message: "Datenbank heruntergeladen",
-      percent: 100
+      percent: 100,
     });
   }
   return {
     data: sqliteData,
     file,
     format,
-    manifest
+    manifest,
   };
 }
 async function checkForUpdates(currentHash) {
@@ -6166,7 +6547,7 @@ async function checkForUpdates(currentHash) {
     return {
       available: currentHash !== manifestHash,
       manifest,
-      newVersion: manifestHash
+      newVersion: manifestHash,
     };
   } catch (error) {
     console.warn("Failed to check for updates:", error);
@@ -6174,7 +6555,7 @@ async function checkForUpdates(currentHash) {
       available: false,
       manifest: null,
       newVersion: null,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -6188,32 +6569,32 @@ var SYNC_ENDPOINTS = [
     key: "awg_kultur",
     endpoint: "awg_kultur",
     category: "core",
-    label: "Anwendungs-Kulturen"
+    label: "Anwendungs-Kulturen",
   },
   {
     key: "awg_schadorg",
     endpoint: "awg_schadorg",
     category: "core",
-    label: "Anwendungs-Schadorganismen"
+    label: "Anwendungs-Schadorganismen",
   },
   {
     key: "awg_aufwand",
     endpoint: "awg_aufwand",
     category: "core",
-    label: "Anwendungs-Aufw\xE4nde"
+    label: "Anwendungs-Aufw\xE4nde",
   },
   {
     key: "awg_wartezeit",
     endpoint: "awg_wartezeit",
     category: "core",
-    label: "Wartezeiten"
+    label: "Wartezeiten",
   },
   {
     key: "adresse",
     endpoint: "adresse",
     category: "payload",
     label: "Adressen",
-    primaryRefField: "ADRESSE_NR"
+    primaryRefField: "ADRESSE_NR",
   },
   {
     key: "antrag",
@@ -6221,14 +6602,14 @@ var SYNC_ENDPOINTS = [
     category: "payload",
     label: "Antr\xE4ge",
     primaryRefField: "KENNR",
-    secondaryRefField: "ANTRAGNR"
+    secondaryRefField: "ANTRAGNR",
   },
   {
     key: "auflage_redu",
     endpoint: "auflage_redu",
     category: "payload",
     label: "Auflagen reduziert",
-    primaryRefField: "AUFLAGENR"
+    primaryRefField: "AUFLAGENR",
   },
   {
     key: "auflagen",
@@ -6236,14 +6617,14 @@ var SYNC_ENDPOINTS = [
     category: "payload",
     label: "Auflagen",
     primaryRefField: "KENNR",
-    secondaryRefField: "EBENE"
+    secondaryRefField: "EBENE",
   },
   {
     key: "awg_bem",
     endpoint: "awg_bem",
     category: "payload",
     label: "Anwendungs-Bemerkungen",
-    primaryRefField: "AWG_ID"
+    primaryRefField: "AWG_ID",
   },
   {
     key: "awg_partner",
@@ -6251,7 +6632,7 @@ var SYNC_ENDPOINTS = [
     category: "payload",
     label: "Anwendungs-Partner",
     primaryRefField: "AWG_ID",
-    secondaryRefField: "KENNR_PARTNER"
+    secondaryRefField: "KENNR_PARTNER",
   },
   {
     key: "awg_partner_aufwand",
@@ -6259,112 +6640,112 @@ var SYNC_ENDPOINTS = [
     category: "payload",
     label: "Partner-Aufw\xE4nde",
     primaryRefField: "AWG_ID",
-    secondaryRefField: "KENNR_PARTNER"
+    secondaryRefField: "KENNR_PARTNER",
   },
   {
     key: "awg_verwendungszweck",
     endpoint: "awg_verwendungszweck",
     category: "payload",
     label: "Verwendungszwecke",
-    primaryRefField: "AWG_ID"
+    primaryRefField: "AWG_ID",
   },
   {
     key: "awg_wartezeit_ausg_kultur",
     endpoint: "awg_wartezeit_ausg_kultur",
     category: "payload",
     label: "Wartezeit-Ausnahmen",
-    primaryRefField: "AWG_ID"
+    primaryRefField: "AWG_ID",
   },
   {
     key: "awg_zeitpunkt",
     endpoint: "awg_zeitpunkt",
     category: "payload",
     label: "Anwendungszeitpunkte",
-    primaryRefField: "AWG_ID"
+    primaryRefField: "AWG_ID",
   },
   {
     key: "awg_zulassung",
     endpoint: "awg_zulassung",
     category: "payload",
     label: "Zulassungsdetails",
-    primaryRefField: "AWG_ID"
+    primaryRefField: "AWG_ID",
   },
   {
     key: "ghs_gefahrenhinweise",
     endpoint: "ghs_gefahrenhinweise",
     category: "payload",
     label: "GHS Gefahrenhinweise",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "ghs_gefahrensymbole",
     endpoint: "ghs_gefahrensymbole",
     category: "payload",
     label: "GHS Symbole",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "ghs_sicherheitshinweise",
     endpoint: "ghs_sicherheitshinweise",
     category: "payload",
     label: "GHS Sicherheitshinweise",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "ghs_signalwoerter",
     endpoint: "ghs_signalwoerter",
     category: "payload",
     label: "GHS Signalw\xF6rter",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "hinweis",
     endpoint: "hinweis",
     category: "payload",
     label: "Hinweise",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "kodeliste",
     endpoint: "kodeliste",
     category: "payload",
     label: "Kodlisten",
-    primaryRefField: "KODELISTE_NR"
+    primaryRefField: "KODELISTE_NR",
   },
   {
     key: "kodeliste_feldname",
     endpoint: "kodeliste_feldname",
     category: "payload",
     label: "Feldnamen",
-    primaryRefField: "FELD"
+    primaryRefField: "FELD",
   },
   {
     key: "kultur_gruppe",
     endpoint: "kultur_gruppe",
     category: "payload",
     label: "Kulturgruppen",
-    primaryRefField: "GRUPPE"
+    primaryRefField: "GRUPPE",
   },
   {
     key: "mittel_abgelaufen",
     endpoint: "mittel_abgelaufen",
     category: "payload",
     label: "Abgelaufene Mittel",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "mittel_abpackung",
     endpoint: "mittel_abpackung",
     category: "payload",
     label: "Abpackungen",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "mittel_gefahren_symbol",
     endpoint: "mittel_gefahren_symbol",
     category: "payload",
     label: "Gefahrensymbole",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "mittel_vertrieb",
@@ -6372,42 +6753,42 @@ var SYNC_ENDPOINTS = [
     category: "payload",
     label: "Vertrieb",
     primaryRefField: "KENNR",
-    secondaryRefField: "ADRESSE_NR"
+    secondaryRefField: "ADRESSE_NR",
   },
   {
     key: "mittel_wirkbereich",
     endpoint: "mittel_wirkbereich",
     category: "payload",
     label: "Wirkbereiche",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "parallelimport_abgelaufen",
     endpoint: "parallelimport_abgelaufen",
     category: "payload",
     label: "Parallelimport (alt)",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "parallelimport_gueltig",
     endpoint: "parallelimport_gueltig",
     category: "payload",
     label: "Parallelimport (g\xFCltig)",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "schadorg_gruppe",
     endpoint: "schadorg_gruppe",
     category: "payload",
     label: "Schadorganismus-Gruppen",
-    primaryRefField: "GRUPPE"
+    primaryRefField: "GRUPPE",
   },
   {
     key: "staerkung",
     endpoint: "staerkung",
     category: "payload",
     label: "Pflanzenst\xE4rkung",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "staerkung_vertrieb",
@@ -6415,34 +6796,34 @@ var SYNC_ENDPOINTS = [
     category: "payload",
     label: "Pflanzenst\xE4rkung Vertrieb",
     primaryRefField: "KENNR",
-    secondaryRefField: "ADRESSE_NR"
+    secondaryRefField: "ADRESSE_NR",
   },
   {
     key: "stand",
     endpoint: "stand",
     category: "payload",
-    label: "API Stand"
+    label: "API Stand",
   },
   {
     key: "wirkstoff",
     endpoint: "wirkstoff",
     category: "payload",
     label: "Wirkstoffe",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "wirkstoff_gehalt",
     endpoint: "wirkstoff_gehalt",
     category: "payload",
     label: "Wirkstoffgehalt",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "zusatzstoff",
     endpoint: "zusatzstoff",
     category: "payload",
     label: "Zusatzstoffe",
-    primaryRefField: "KENNR"
+    primaryRefField: "KENNR",
   },
   {
     key: "zusatzstoff_vertrieb",
@@ -6450,8 +6831,8 @@ var SYNC_ENDPOINTS = [
     category: "payload",
     label: "Zusatzstoff Vertrieb",
     primaryRefField: "KENNR",
-    secondaryRefField: "ADRESSE_NR"
-  }
+    secondaryRefField: "ADRESSE_NR",
+  },
 ];
 var LOOKUP_CONFIG = [
   {
@@ -6459,15 +6840,15 @@ var LOOKUP_CONFIG = [
     endpoint: "kode",
     params: { kodeliste: 948, sprache: "DE" },
     progressKey: "lookup:kulturen",
-    label: "Kulturen (Klartexte)"
+    label: "Kulturen (Klartexte)",
   },
   {
     key: "lookupPests",
     endpoint: "kode",
     params: { kodeliste: 947, sprache: "DE" },
     progressKey: "lookup:schadorg",
-    label: "Schadorganismen (Klartexte)"
-  }
+    label: "Schadorganismen (Klartexte)",
+  },
 ];
 function extractFieldValue(item, fieldName) {
   if (!item || !fieldName) {
@@ -6476,7 +6857,7 @@ function extractFieldValue(item, fieldName) {
   const candidates = [
     fieldName,
     fieldName.toLowerCase(),
-    fieldName.toUpperCase()
+    fieldName.toUpperCase(),
   ];
   for (const key of candidates) {
     if (Object.prototype.hasOwnProperty.call(item, key)) {
@@ -6490,23 +6871,21 @@ function extractFieldValue(item, fieldName) {
   return null;
 }
 async function syncBvlData(storage, options = {}) {
-  const { onProgress = () => {
-  }, onLog = () => {
-  } } = options;
+  const { onProgress = () => {}, onLog = () => {} } = options;
   const startTime = Date.now();
   const log = (level, message, data = null) => {
     onLog({
       level,
       message,
       data,
-      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      timestamp: /* @__PURE__ */ new Date().toISOString(),
     });
   };
   try {
     onProgress({
       step: "start",
       percent: 0,
-      message: "Starte Synchronisation..."
+      message: "Starte Synchronisation...",
     });
     log("info", "Starting BVL data sync");
     if (!navigator.onLine) {
@@ -6517,7 +6896,7 @@ async function syncBvlData(storage, options = {}) {
         onProgress,
         onLog,
         log,
-        startTime
+        startTime,
       });
     }
     return await syncFromApi(storage, { onProgress, onLog, log, startTime });
@@ -6526,15 +6905,15 @@ async function syncBvlData(storage, options = {}) {
     log("error", "Sync failed", { error: errorMessage, stack: error.stack });
     const meta = {
       lastError: errorMessage,
-      lastErrorTime: (/* @__PURE__ */ new Date()).toISOString()
+      lastErrorTime: /* @__PURE__ */ new Date().toISOString(),
     };
     try {
       await storage.setBvlMeta("lastError", errorMessage);
       await storage.appendBvlSyncLog({
-        synced_at: (/* @__PURE__ */ new Date()).toISOString(),
+        synced_at: /* @__PURE__ */ new Date().toISOString(),
         ok: 0,
         message: errorMessage,
-        payload_hash: null
+        payload_hash: null,
       });
     } catch (e) {
       log("error", "Failed to write error state", { error: e.message });
@@ -6542,22 +6921,25 @@ async function syncBvlData(storage, options = {}) {
     onProgress({
       step: "error",
       percent: 0,
-      message: `Fehler: ${errorMessage}`
+      message: `Fehler: ${errorMessage}`,
     });
     throw error;
   }
 }
-async function syncFromManifest(storage, { onProgress, onLog, log, startTime }) {
+async function syncFromManifest(
+  storage,
+  { onProgress, onLog, log, startTime }
+) {
   onProgress({
     step: "manifest",
     percent: 5,
-    message: "Lade Manifest..."
+    message: "Lade Manifest...",
   });
   log("info", "Fetching manifest");
   const manifest = await fetchManifest();
   log("info", "Manifest loaded", {
     version: manifest.version,
-    files: manifest.files.length
+    files: manifest.files.length,
   });
   const previousHash = await storage.getBvlMeta("lastSyncHash");
   const manifestHash = manifest.hash || manifest.version;
@@ -6565,19 +6947,19 @@ async function syncFromManifest(storage, { onProgress, onLog, log, startTime }) 
     onProgress({
       step: "done",
       percent: 100,
-      message: "Keine Aktualisierung erforderlich"
+      message: "Keine Aktualisierung erforderlich",
     });
     const meta2 = {
       lastSyncHash: manifestHash,
-      lastSyncIso: (/* @__PURE__ */ new Date()).toISOString(),
+      lastSyncIso: /* @__PURE__ */ new Date().toISOString(),
       lastSyncCounts: manifest.counts || manifest.tables || {},
-      lastError: null
+      lastError: null,
     };
     await storage.appendBvlSyncLog({
       synced_at: meta2.lastSyncIso,
       ok: 1,
       message: "no-change (manifest)",
-      payload_hash: manifestHash
+      payload_hash: manifestHash,
     });
     log("info", "No changes detected, sync complete");
     return { status: "no-change", meta: meta2, manifest };
@@ -6585,7 +6967,7 @@ async function syncFromManifest(storage, { onProgress, onLog, log, startTime }) 
   onProgress({
     step: "download",
     percent: 10,
-    message: "Lade Datenbank..."
+    message: "Lade Datenbank...",
   });
   log("info", "Downloading database from manifest");
   const { data, format } = await downloadDatabase(manifest, {
@@ -6595,57 +6977,57 @@ async function syncFromManifest(storage, { onProgress, onLog, log, startTime }) 
           step: "download",
           percent: 10 + Math.round(progress.percent * 0.5),
           // 10-60%
-          message: progress.message
+          message: progress.message,
         });
       } else if (progress.step === "decompress") {
         onProgress({
           step: "decompress",
           percent: 60 + Math.round((progress.percent - 70) * 0.2),
           // 60-70%
-          message: progress.message
+          message: progress.message,
         });
       }
-    }
+    },
   });
   log("info", `Database downloaded (${format}, ${data.length} bytes)`);
   onProgress({
     step: "import",
     percent: 70,
-    message: "Importiere Datenbank..."
+    message: "Importiere Datenbank...",
   });
   log("info", "Importing database");
   const importStart = Date.now();
   const result = await storage.importBvlSqlite(data, manifest);
   const importDuration = Date.now() - importStart;
   log("info", `Database import complete in ${importDuration}ms`, {
-    counts: result.counts
+    counts: result.counts,
   });
   onProgress({
     step: "verify",
     percent: 95,
-    message: "Verifiziere Daten..."
+    message: "Verifiziere Daten...",
   });
   log("info", "Verifying data");
   const totalDuration = Date.now() - startTime;
   await storage.appendBvlSyncLog({
-    synced_at: (/* @__PURE__ */ new Date()).toISOString(),
+    synced_at: /* @__PURE__ */ new Date().toISOString(),
     ok: 1,
     message: `success (manifest, ${totalDuration}ms)`,
-    payload_hash: manifestHash
+    payload_hash: manifestHash,
   });
   onProgress({
     step: "done",
     percent: 100,
-    message: "Synchronisation abgeschlossen"
+    message: "Synchronisation abgeschlossen",
   });
   const meta = {
     lastSyncHash: manifestHash,
-    lastSyncIso: (/* @__PURE__ */ new Date()).toISOString(),
+    lastSyncIso: /* @__PURE__ */ new Date().toISOString(),
     lastSyncCounts: result.counts,
-    dataSource: `pflanzenschutzliste-data@${manifest.version}`,
+    dataSource: `pflanzenschutz-db@${manifest.version}`,
     manifestVersion: manifest.version,
     apiStand: manifest.api_version || manifest.build?.finished_at || null,
-    lastError: null
+    lastError: null,
   };
   log("info", `Sync complete in ${totalDuration}ms`, { meta, manifest });
   return { status: "success", meta, manifest };
@@ -6657,9 +7039,9 @@ async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
   const fetchTasks = [
     ...SYNC_ENDPOINTS.map((definition) => ({
       type: definition.category === "core" ? "dataset" : "payload",
-      definition
+      definition,
     })),
-    ...LOOKUP_CONFIG.map((lookup) => ({ type: "lookup", ...lookup }))
+    ...LOOKUP_CONFIG.map((lookup) => ({ type: "lookup", ...lookup })),
   ];
   const progressPerTask = 70 / fetchTasks.length;
   try {
@@ -6677,17 +7059,21 @@ async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
       onProgress({
         step: `fetch:${progressKey}`,
         percent: Math.round(10 + totalProgress),
-        message
+        message,
       });
       try {
         const items = await fetchCollection(
           task.type === "lookup" ? task.endpoint : task.definition.endpoint,
           {
-            params: task.type === "lookup" ? task.params : task.definition?.params,
+            params:
+              task.type === "lookup" ? task.params : task.definition?.params,
             onProgress: (progress) => {
-              const keyLabel = task.type === "lookup" ? task.progressKey : task.definition?.endpoint;
+              const keyLabel =
+                task.type === "lookup"
+                  ? task.progressKey
+                  : task.definition?.endpoint;
               log("debug", `Fetch progress for ${keyLabel}`, progress);
-            }
+            },
           }
         );
         if (task.type === "lookup") {
@@ -6709,12 +7095,15 @@ async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
         }
         totalProgress += progressPerTask;
       } catch (error) {
-        const identifier = task.type === "lookup" ? task.label : task.definition?.label || task.definition?.endpoint;
+        const identifier =
+          task.type === "lookup"
+            ? task.label
+            : task.definition?.label || task.definition?.endpoint;
         log("error", `Failed to fetch ${identifier}`, {
           error: error.message,
           type: error.name,
           status: error.status,
-          attempt: error.attempt
+          attempt: error.attempt,
         });
         throw new Error(
           `Fehler beim Laden von ${identifier}: ${error.message}`
@@ -6724,7 +7113,7 @@ async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
     onProgress({
       step: "transform",
       percent: 80,
-      message: "Verarbeite Daten..."
+      message: "Verarbeite Daten...",
     });
     log("info", "Transforming data");
     const transformed = transformBvlData(datasets);
@@ -6734,18 +7123,18 @@ async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
         acc[key] = Array.isArray(val) ? val.length : 0;
         return acc;
       }, {}),
-      hashes
+      hashes,
     });
     const previousHash = await storage.getBvlMeta("lastSyncHash");
     if (previousHash === hashes.combined) {
       onProgress({
         step: "done",
         percent: 100,
-        message: "Keine Aktualisierung erforderlich"
+        message: "Keine Aktualisierung erforderlich",
       });
       const meta2 = {
         lastSyncHash: hashes.combined,
-        lastSyncIso: (/* @__PURE__ */ new Date()).toISOString(),
+        lastSyncIso: /* @__PURE__ */ new Date().toISOString(),
         lastSyncCounts: Object.entries(transformed).reduce(
           (acc, [key, val]) => {
             acc[key] = Array.isArray(val) ? val.length : 0;
@@ -6753,13 +7142,13 @@ async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
           },
           {}
         ),
-        lastError: null
+        lastError: null,
       };
       await storage.appendBvlSyncLog({
         synced_at: meta2.lastSyncIso,
         ok: 1,
         message: "no-change",
-        payload_hash: hashes.combined
+        payload_hash: hashes.combined,
       });
       log("info", "No changes detected, sync complete");
       return { status: "no-change", meta: meta2 };
@@ -6767,30 +7156,30 @@ async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
     onProgress({
       step: "write",
       percent: 85,
-      message: "Schreibe in Datenbank..."
+      message: "Schreibe in Datenbank...",
     });
     log("info", "Writing to database");
     const writeStart = Date.now();
     await storage.importBvlDataset(transformed, {
       hash: hashes.combined,
-      fetchTimes
+      fetchTimes,
     });
     const writeDuration = Date.now() - writeStart;
     log("info", `Database write complete in ${writeDuration}ms`);
     onProgress({
       step: "verify",
       percent: 95,
-      message: "Verifiziere Daten..."
+      message: "Verifiziere Daten...",
     });
     log("info", "Verifying data");
     const meta = {
       lastSyncHash: hashes.combined,
-      lastSyncIso: (/* @__PURE__ */ new Date()).toISOString(),
+      lastSyncIso: /* @__PURE__ */ new Date().toISOString(),
       lastSyncCounts: Object.entries(transformed).reduce((acc, [key, val]) => {
         acc[key] = Array.isArray(val) ? val.length : 0;
         return acc;
       }, {}),
-      lastError: null
+      lastError: null,
     };
     for (const [key, value] of Object.entries(meta)) {
       await storage.setBvlMeta(
@@ -6803,12 +7192,12 @@ async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
       synced_at: meta.lastSyncIso,
       ok: 1,
       message: `success (${totalDuration}ms)`,
-      payload_hash: hashes.combined
+      payload_hash: hashes.combined,
     });
     onProgress({
       step: "done",
       percent: 100,
-      message: "Synchronisation abgeschlossen"
+      message: "Synchronisation abgeschlossen",
     });
     log("info", `Sync complete in ${totalDuration}ms`, { meta });
     return { status: "success", meta };
@@ -6816,7 +7205,7 @@ async function syncFromApi(storage, { onProgress, onLog, log, startTime }) {
     const errorMessage = error.message || "Unbekannter Fehler";
     log("error", "API sync failed", {
       error: errorMessage,
-      stack: error.stack
+      stack: error.stack,
     });
     throw error;
   }
@@ -6867,7 +7256,7 @@ function transformBvlData(datasets) {
     culturesLookup: [],
     pestsLookup: [],
     apiPayloads: [],
-    payloadCounts: {}
+    payloadCounts: {},
   };
   const endpointLookup = new Map(
     SYNC_ENDPOINTS.map((definition) => [definition.key, definition])
@@ -6876,18 +7265,25 @@ function transformBvlData(datasets) {
     if (!definition) {
       return;
     }
-    const primaryRef = definition.primaryRefField ? extractFieldValue(item, definition.primaryRefField) : null;
-    const secondaryRef = definition.secondaryRefField ? extractFieldValue(item, definition.secondaryRefField) : null;
-    const tertiaryRef = definition.tertiaryRefField ? extractFieldValue(item, definition.tertiaryRefField) : null;
+    const primaryRef = definition.primaryRefField
+      ? extractFieldValue(item, definition.primaryRefField)
+      : null;
+    const secondaryRef = definition.secondaryRefField
+      ? extractFieldValue(item, definition.secondaryRefField)
+      : null;
+    const tertiaryRef = definition.tertiaryRefField
+      ? extractFieldValue(item, definition.tertiaryRefField)
+      : null;
     result.apiPayloads.push({
       endpoint: definition.endpoint,
       key: definition.key,
       primary_ref: primaryRef,
       secondary_ref: secondaryRef,
       tertiary_ref: tertiaryRef,
-      payload_json: JSON.stringify(item)
+      payload_json: JSON.stringify(item),
     });
-    result.payloadCounts[definition.key] = (result.payloadCounts[definition.key] || 0) + 1;
+    result.payloadCounts[definition.key] =
+      (result.payloadCounts[definition.key] || 0) + 1;
   };
   if (datasets.mittel) {
     result.mittel = datasets.mittel.map((item) => ({
@@ -6897,7 +7293,7 @@ function transformBvlData(datasets) {
       zul_erstmalig: item.zul_erstmalig || null,
       zul_ende: item.zul_ende || null,
       geringes_risiko: item.geringes_risiko === "J" ? 1 : 0,
-      payload_json: JSON.stringify(item)
+      payload_json: JSON.stringify(item),
     }));
   }
   if (datasets.awg) {
@@ -6906,9 +7302,9 @@ function transformBvlData(datasets) {
       kennr: item.kennr || "",
       status_json: JSON.stringify({
         status: item.status || "",
-        wachstumsstadium: item.wachstumsstadium || ""
+        wachstumsstadium: item.wachstumsstadium || "",
       }),
-      zulassungsende: item.zulassungsende || null
+      zulassungsende: item.zulassungsende || null,
     }));
   }
   if (datasets.awg_kultur) {
@@ -6916,7 +7312,7 @@ function transformBvlData(datasets) {
       awg_id: item.awg_id || "",
       kultur: item.kultur || "",
       ausgenommen: item.ausgenommen === "J" ? 1 : 0,
-      sortier_nr: parseInt(item.sortier_nr) || 0
+      sortier_nr: parseInt(item.sortier_nr) || 0,
     }));
   }
   if (datasets.awg_schadorg) {
@@ -6924,7 +7320,7 @@ function transformBvlData(datasets) {
       awg_id: item.awg_id || "",
       schadorg: item.schadorg || "",
       ausgenommen: item.ausgenommen === "J" ? 1 : 0,
-      sortier_nr: parseInt(item.sortier_nr) || 0
+      sortier_nr: parseInt(item.sortier_nr) || 0,
     }));
   }
   if (datasets.awg_aufwand) {
@@ -6941,12 +7337,13 @@ function transformBvlData(datasets) {
           item.aufwandmenge
         )
       ),
-      mittel_einheit: coalesceValue(
-        item.aufwandmenge_einheit,
-        item.m_aufwand_einheit,
-        item.m_aufwand_bis_einheit,
-        item.m_aufwand_von_einheit
-      ) || null,
+      mittel_einheit:
+        coalesceValue(
+          item.aufwandmenge_einheit,
+          item.m_aufwand_einheit,
+          item.m_aufwand_bis_einheit,
+          item.m_aufwand_von_einheit
+        ) || null,
       wasser_menge: parseNullableNumber(
         coalesceValue(
           item.wassermenge,
@@ -6955,14 +7352,15 @@ function transformBvlData(datasets) {
           item.wasseraufwand
         )
       ),
-      wasser_einheit: coalesceValue(
-        item.wassermenge_einheit,
-        item.w_aufwand_einheit,
-        item.wasseraufwand_einheit,
-        item.w_aufwand_von_einheit,
-        item.w_aufwand_bis_einheit
-      ) || null,
-      payload_json: JSON.stringify(item)
+      wasser_einheit:
+        coalesceValue(
+          item.wassermenge_einheit,
+          item.w_aufwand_einheit,
+          item.wasseraufwand_einheit,
+          item.w_aufwand_von_einheit,
+          item.w_aufwand_bis_einheit
+        ) || null,
+      payload_json: JSON.stringify(item),
     }));
   }
   if (datasets.awg_wartezeit) {
@@ -6975,24 +7373,28 @@ function transformBvlData(datasets) {
       bemerkung_kode: item.bemerkung_kode || null,
       anwendungsbereich: item.anwendungsbereich || null,
       erlaeuterung: item.erlaeuterung || null,
-      payload_json: JSON.stringify(item)
+      payload_json: JSON.stringify(item),
     }));
   }
   if (datasets.lookupCultures) {
-    result.culturesLookup = datasets.lookupCultures.filter(
-      (item) => item.sprache ? item.sprache.toUpperCase() === "DE" : true
-    ).map((item) => ({
-      code: item.kode || "",
-      label: item.kodetext || item.kode || ""
-    }));
+    result.culturesLookup = datasets.lookupCultures
+      .filter((item) =>
+        item.sprache ? item.sprache.toUpperCase() === "DE" : true
+      )
+      .map((item) => ({
+        code: item.kode || "",
+        label: item.kodetext || item.kode || "",
+      }));
   }
   if (datasets.lookupPests) {
-    result.pestsLookup = datasets.lookupPests.filter(
-      (item) => item.sprache ? item.sprache.toUpperCase() === "DE" : true
-    ).map((item) => ({
-      code: item.kode || "",
-      label: item.kodetext || item.kode || ""
-    }));
+    result.pestsLookup = datasets.lookupPests
+      .filter((item) =>
+        item.sprache ? item.sprache.toUpperCase() === "DE" : true
+      )
+      .map((item) => ({
+        code: item.kode || "",
+        label: item.kodetext || item.kode || "",
+      }));
   }
   for (const definition of SYNC_ENDPOINTS) {
     if (definition.category !== "payload") {
@@ -7012,7 +7414,7 @@ function transformBvlData(datasets) {
 // src/scripts/features/zulassung/index.ts
 var numberFormatter = new Intl.NumberFormat("de-DE", {
   minimumFractionDigits: 0,
-  maximumFractionDigits: 3
+  maximumFractionDigits: 3,
 });
 var initialized6 = false;
 var container = null;
@@ -7144,10 +7546,17 @@ function formatAddressDetails(adresse) {
       );
     }
   }
-  const reference = adresse.__meta && adresse.__meta.primary_ref ? String(adresse.__meta.primary_ref) : null;
+  const reference =
+    adresse.__meta && adresse.__meta.primary_ref
+      ? String(adresse.__meta.primary_ref)
+      : null;
   const linesHtml = lines.length ? `<div>${lines.join("<br>")}</div>` : "";
-  const contactsHtml = contactParts.length ? `<div>${contactParts.join(" \xB7 ")}</div>` : "";
-  const referenceHtml = reference ? `<div>Nr.: ${escapeHtml(reference)}</div>` : "";
+  const contactsHtml = contactParts.length
+    ? `<div>${contactParts.join(" \xB7 ")}</div>`
+    : "";
+  const referenceHtml = reference
+    ? `<div>Nr.: ${escapeHtml(reference)}</div>`
+    : "";
   const content = `${linesHtml}${contactsHtml}${referenceHtml}`;
   return content ? `<div class="text-muted small mt-1">${content}</div>` : "";
 }
@@ -7230,7 +7639,9 @@ function renderAufwandRow(aufwand) {
       wasserDisplay = toDisplay;
     }
   }
-  const wasserText = wasserDisplay ? `, Wasser: ${escapeHtml(wasserDisplay)}` : "";
+  const wasserText = wasserDisplay
+    ? `, Wasser: ${escapeHtml(wasserDisplay)}`
+    : "";
   return `${escapeHtml(
     aufwand.aufwand_bedingung || "Standard"
   )}: Mittel: ${escapeHtml(mittelDisplay)}${wasserText}`;
@@ -7246,7 +7657,7 @@ async function performAutoUpdateCheck() {
       return;
     }
     const updateCheck = await checkForUpdates(currentHash);
-    const checkTime = (/* @__PURE__ */ new Date()).toISOString();
+    const checkTime = /* @__PURE__ */ new Date().toISOString();
     services.state.updateSlice("zulassung", (prev) => ({
       ...prev,
       autoUpdateAvailable: updateCheck.available,
@@ -7255,9 +7666,11 @@ async function performAutoUpdateCheck() {
         ...prev.debug,
         lastAutoUpdateCheck: {
           time: checkTime,
-          result: updateCheck.available ? `Update verf\xFCgbar: ${updateCheck.newVersion}` : "Keine Updates"
-        }
-      }
+          result: updateCheck.available
+            ? `Update verf\xFCgbar: ${updateCheck.newVersion}`
+            : "Keine Updates",
+        },
+      },
     }));
     if (updateCheck.available) {
       renderIfVisible();
@@ -7270,13 +7683,12 @@ function toggleVisibility(state2) {
   if (!container) {
     return;
   }
-  const section = container.querySelector(
-    '[data-section="zulassung"]'
-  );
+  const section = container.querySelector('[data-section="zulassung"]');
   if (!section) {
     return;
   }
-  const shouldShow = state2.app.activeSection === "zulassung" && state2.app.hasDatabase;
+  const shouldShow =
+    state2.app.activeSection === "zulassung" && state2.app.hasDatabase;
   section.classList.toggle("d-none", !shouldShow);
   if (shouldShow && !isSectionVisible) {
     isSectionVisible = true;
@@ -7300,7 +7712,7 @@ async function loadInitialData() {
       apiStand,
       manifestVersion,
       lastSyncHash,
-      manifestJson
+      manifestJson,
     ] = await Promise.all([
       getBvlMeta("lastSyncIso"),
       getBvlMeta("lastSyncCounts"),
@@ -7308,28 +7720,30 @@ async function loadInitialData() {
       getBvlMeta("apiStand"),
       getBvlMeta("manifestVersion"),
       getBvlMeta("lastSyncHash"),
-      getBvlMeta("manifest")
+      getBvlMeta("manifest"),
     ]);
     services.state.updateSlice("zulassung", (prev) => ({
       ...prev,
       lastSync: lastSync || null,
-      lastResultCounts: lastSyncCounts ? JSON.parse(String(lastSyncCounts)) : null,
+      lastResultCounts: lastSyncCounts
+        ? JSON.parse(String(lastSyncCounts))
+        : null,
       dataSource: dataSource || null,
       apiStand: apiStand || null,
       manifestVersion: manifestVersion || null,
       lastSyncHash: lastSyncHash || null,
       debug: {
         ...prev.debug,
-        manifest: manifestJson ? JSON.parse(String(manifestJson)) : null
-      }
+        manifest: manifestJson ? JSON.parse(String(manifestJson)) : null,
+      },
     }));
     const [cultures, pests] = await Promise.all([
       listBvlCultures(),
-      listBvlSchadorg()
+      listBvlSchadorg(),
     ]);
     services.state.updateSlice("zulassung", (prev) => ({
       ...prev,
-      lookups: { cultures, pests }
+      lookups: { cultures, pests },
     }));
     renderIfVisible();
   } catch (error) {
@@ -7340,9 +7754,7 @@ function render() {
   if (!container || !services) {
     return;
   }
-  let section = container.querySelector(
-    '[data-section="zulassung"]'
-  );
+  let section = container.querySelector('[data-section="zulassung"]');
   if (!section) {
     section = document.createElement("div");
     section.setAttribute("data-section", "zulassung");
@@ -7408,12 +7820,12 @@ function renderSyncSection(zulassungState) {
     manifest: {
       icon: "bi-cloud-download",
       color: "bg-info",
-      label: "Manifest"
+      label: "Manifest",
     },
     download: {
       icon: "bi-cloud-arrow-down",
       color: "bg-info",
-      label: "Download"
+      label: "Download",
     },
     decompress: { icon: "bi-archive", color: "bg-primary", label: "Entpacken" },
     import: { icon: "bi-cpu", color: "bg-warning", label: "Import" },
@@ -7421,15 +7833,19 @@ function renderSyncSection(zulassungState) {
     done: {
       icon: "bi-check-circle-fill",
       color: "bg-success",
-      label: "Fertig"
-    }
+      label: "Fertig",
+    },
   };
-  const currentStep = progress.step ? stepInfo[progress.step] || stepInfo.done : null;
+  const currentStep = progress.step
+    ? stepInfo[progress.step] || stepInfo.done
+    : null;
   return `
     <div class="card mb-3">
       <div class="card-body">
         <h5 class="card-title"><i class="bi bi-arrow-repeat me-2"></i>Synchronisation</h5>
-        ${zulassungState.autoUpdateAvailable ? `
+        ${
+          zulassungState.autoUpdateAvailable
+            ? `
           <div class="alert alert-warning d-flex align-items-center" role="alert">
             <i class="bi bi-exclamation-triangle-fill me-2"></i>
             <div class="flex-grow-1">
@@ -7440,12 +7856,16 @@ function renderSyncSection(zulassungState) {
               <i class="bi bi-download me-1"></i>Jetzt aktualisieren
             </button>
           </div>
-        ` : ""}
+        `
+            : ""
+        }
         <button id="btn-sync" class="btn btn-primary" ${isBusy ? "disabled" : ""}>
           ${isBusy ? `<span class="spinner-border spinner-border-sm me-2"></span><i class="${currentStep?.icon || "bi-arrow-repeat"} me-1"></i>` : '<i class="bi bi-arrow-repeat me-1"></i>'}
           ${isBusy ? "Synchronisiere..." : "Daten aktualisieren"}
         </button>
-        ${progress.step && isBusy ? `
+        ${
+          progress.step && isBusy
+            ? `
           <div class="mt-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <small class="text-muted">
@@ -7460,8 +7880,12 @@ function renderSyncSection(zulassungState) {
               </div>
             </div>
           </div>
-        ` : ""}
-        ${error ? `
+        `
+            : ""
+        }
+        ${
+          error
+            ? `
           <div class="alert alert-danger mt-3 d-flex align-items-start">
             <i class="bi bi-exclamation-triangle-fill me-2 mt-1"></i>
             <div class="flex-grow-1">
@@ -7471,7 +7895,9 @@ function renderSyncSection(zulassungState) {
               <i class="bi bi-bug me-1"></i>Debug anzeigen
             </button>
           </div>
-        ` : ""}
+        `
+            : ""
+        }
       </div>
     </div>
   `;
@@ -7496,9 +7922,12 @@ function renderFilterSection(zulassungState) {
             </label>
             <select id="filter-culture" class="form-select">
               <option value="">Alle Kulturen</option>
-              ${cultures.map(
-    (culture) => `<option value="${escapeHtml(culture.code)}" ${filters.culture === culture.code ? "selected" : ""}>${escapeHtml(culture.label || culture.code)} (${escapeHtml(culture.code)})</option>`
-  ).join("")}
+              ${cultures
+                .map(
+                  (culture) =>
+                    `<option value="${escapeHtml(culture.code)}" ${filters.culture === culture.code ? "selected" : ""}>${escapeHtml(culture.label || culture.code)} (${escapeHtml(culture.code)})</option>`
+                )
+                .join("")}
             </select>
           </div>
           <div class="col-md-4">
@@ -7507,9 +7936,12 @@ function renderFilterSection(zulassungState) {
             </label>
             <select id="filter-pest" class="form-select">
               <option value="">Alle Schadorganismen</option>
-              ${pests.map(
-    (pest) => `<option value="${escapeHtml(pest.code)}" ${filters.pest === pest.code ? "selected" : ""}>${escapeHtml(pest.label || pest.code)} (${escapeHtml(pest.code)})</option>`
-  ).join("")}
+              ${pests
+                .map(
+                  (pest) =>
+                    `<option value="${escapeHtml(pest.code)}" ${filters.pest === pest.code ? "selected" : ""}>${escapeHtml(pest.label || pest.code)} (${escapeHtml(pest.code)})</option>`
+                )
+                .join("")}
             </select>
           </div>
           <div class="col-md-4">
@@ -7559,7 +7991,9 @@ function renderResultsSection(zulassungState) {
   `;
 }
 function renderResultItem(result) {
-  const status = result.status_json ? safeParseJson(result.status_json) || {} : {};
+  const status = result.status_json
+    ? safeParseJson(result.status_json) || {}
+    : {};
   return `
     <div class="list-group-item">
       <div class="d-flex w-100 justify-content-between align-items-start">
@@ -7609,16 +8043,21 @@ function renderResultWirkstoffe(result) {
   if (!Array.isArray(result.wirkstoffe) || result.wirkstoffe.length === 0) {
     return "";
   }
-  const list = result.wirkstoffe.map((entry) => {
-    const gehalt = coerceNumber(entry.gehalt);
-    const gehaltStr = gehalt !== null ? numberFormatter.format(gehalt) : String(entry.gehalt || "");
-    return `
+  const list = result.wirkstoffe
+    .map((entry) => {
+      const gehalt = coerceNumber(entry.gehalt);
+      const gehaltStr =
+        gehalt !== null
+          ? numberFormatter.format(gehalt)
+          : String(entry.gehalt || "");
+      return `
         <li>
           ${escapeHtml(entry.wirkstoff_name || entry.wirkstoff || "-")}
           ${entry.gehalt ? ` - ${escapeHtml(gehaltStr)} ${escapeHtml(entry.einheit || "")}` : ""}
         </li>
       `;
-  }).join("");
+    })
+    .join("");
   return `
     <div class="mt-2">
       <strong><i class="bi bi-droplet me-1"></i>Wirkstoffe:</strong>
@@ -7631,34 +8070,50 @@ function renderResultVertrieb(result) {
     return "";
   }
   const dedupe = /* @__PURE__ */ new Set();
-  const entries = result.vertrieb.map((entry) => {
-    const adresse = entry.adresse || null;
-    const keyCandidate = adresse && adresse.__meta && adresse.__meta.primary_ref || entry.adresse_nr || entry.vertriebsfirma_nr || entry.hersteller_nr || entry.vertriebsfirma || null;
-    const key = keyCandidate ? String(keyCandidate) : JSON.stringify(entry);
-    if (dedupe.has(key)) {
-      return null;
-    }
-    dedupe.add(key);
-    const displayName = firstNonEmpty(
-      entry.hersteller_name,
-      entry.hersteller,
-      entry.firmenname,
-      entry.firma,
-      entry.vertriebsfirma_name,
-      entry.vertriebsfirma,
-      adresse?.firmenname,
-      adresse?.firma
-    ) || "-";
-    const websiteSource = firstNonEmpty(
-      entry.website,
-      adresse?.website,
-      adresse?.homepage
-    );
-    const websiteLink = websiteSource && String(websiteSource).trim() ? ` <a href="${escapeHtml(String(websiteSource).trim())}" target="_blank" rel="noopener" class="text-decoration-none"><i class="bi bi-box-arrow-up-right"></i></a>` : "";
-    const addressDetails = formatAddressDetails(adresse);
-    const fallbackReference = !addressDetails && keyCandidate ? `<div class="text-muted small mt-1">Nr.: ${escapeHtml(String(keyCandidate))}</div>` : "";
-    return `<div class="mb-2"><div class="small fw-semibold">${escapeHtml(displayName)}${websiteLink}</div>${addressDetails || fallbackReference}</div>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const entries = result.vertrieb
+    .map((entry) => {
+      const adresse = entry.adresse || null;
+      const keyCandidate =
+        (adresse && adresse.__meta && adresse.__meta.primary_ref) ||
+        entry.adresse_nr ||
+        entry.vertriebsfirma_nr ||
+        entry.hersteller_nr ||
+        entry.vertriebsfirma ||
+        null;
+      const key = keyCandidate ? String(keyCandidate) : JSON.stringify(entry);
+      if (dedupe.has(key)) {
+        return null;
+      }
+      dedupe.add(key);
+      const displayName =
+        firstNonEmpty(
+          entry.hersteller_name,
+          entry.hersteller,
+          entry.firmenname,
+          entry.firma,
+          entry.vertriebsfirma_name,
+          entry.vertriebsfirma,
+          adresse?.firmenname,
+          adresse?.firma
+        ) || "-";
+      const websiteSource = firstNonEmpty(
+        entry.website,
+        adresse?.website,
+        adresse?.homepage
+      );
+      const websiteLink =
+        websiteSource && String(websiteSource).trim()
+          ? ` <a href="${escapeHtml(String(websiteSource).trim())}" target="_blank" rel="noopener" class="text-decoration-none"><i class="bi bi-box-arrow-up-right"></i></a>`
+          : "";
+      const addressDetails = formatAddressDetails(adresse);
+      const fallbackReference =
+        !addressDetails && keyCandidate
+          ? `<div class="text-muted small mt-1">Nr.: ${escapeHtml(String(keyCandidate))}</div>`
+          : "";
+      return `<div class="mb-2"><div class="small fw-semibold">${escapeHtml(displayName)}${websiteLink}</div>${addressDetails || fallbackReference}</div>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!entries) {
     return "";
   }
@@ -7670,18 +8125,23 @@ function renderResultVertrieb(result) {
   `;
 }
 function renderResultGefahrhinweise(result) {
-  if (!Array.isArray(result.gefahrhinweise) || result.gefahrhinweise.length === 0) {
+  if (
+    !Array.isArray(result.gefahrhinweise) ||
+    result.gefahrhinweise.length === 0
+  ) {
     return "";
   }
-  const badges = result.gefahrhinweise.map((hint) => {
-    const code = hint.hinweis_kode || hint.h_code || hint.h_saetze || "";
-    const text = hint.hinweis_text || hint.text || "";
-    return `
+  const badges = result.gefahrhinweise
+    .map((hint) => {
+      const code = hint.hinweis_kode || hint.h_code || hint.h_saetze || "";
+      const text = hint.hinweis_text || hint.text || "";
+      return `
         <span class="badge bg-danger" title="${escapeHtml(text)}" data-bs-toggle="tooltip">
           ${escapeHtml(code)}${text ? ' <i class="bi bi-info-circle-fill ms-1"></i>' : ""}
         </span>
       `;
-  }).join("");
+    })
+    .join("");
   return `
     <div class="mt-2">
       <strong><i class="bi bi-exclamation-triangle me-1"></i>Gefahrenhinweise:</strong>
@@ -7690,46 +8150,55 @@ function renderResultGefahrhinweise(result) {
   `;
 }
 function renderResultWirkstoffGehalt(result) {
-  if (!Array.isArray(result.wirkstoff_gehalt) || result.wirkstoff_gehalt.length === 0) {
+  if (
+    !Array.isArray(result.wirkstoff_gehalt) ||
+    result.wirkstoff_gehalt.length === 0
+  ) {
     return "";
   }
-  const entries = result.wirkstoff_gehalt.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const wirknr = normalizeText(
-      entry.wirknr ?? entry.wirkstoffnr ?? entry.wirk_nr
-    );
-    const variant = normalizeText(entry.wirkvar ?? entry.variante);
-    const gehaltPrim = firstNonEmpty(
-      entry.gehalt_rein_grundstruktur,
-      entry.gehalt_rein,
-      entry.gehalt
-    );
-    const gehaltEinheit = firstNonEmpty(
-      entry.gehalt_einheit,
-      entry.einheit,
-      entry.gehalt_einheit
-    );
-    const gehalt = gehaltPrim !== null ? formatAmount(gehaltPrim, gehaltEinheit) : null;
-    const bio = formatAmount(entry.gehalt_bio, entry.gehalt_bio_einheit);
-    const detailParts = [];
-    if (gehalt) {
-      detailParts.push(`Gehalt: ${escapeHtml(gehalt)}`);
-    }
-    if (bio) {
-      detailParts.push(`Bio: ${escapeHtml(bio)}`);
-    }
-    if (variant) {
-      detailParts.push(`Variante: ${escapeHtml(variant)}`);
-    }
-    const header = wirknr ? `<span class="fw-semibold">${escapeHtml(wirknr)}</span>` : "";
-    if (!header && detailParts.length === 0) {
-      return null;
-    }
-    const details = detailParts.join(" \xB7 ");
-    return `<li>${header}${header && details ? " \u2013 " : ""}${details}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const entries = result.wirkstoff_gehalt
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const wirknr = normalizeText(
+        entry.wirknr ?? entry.wirkstoffnr ?? entry.wirk_nr
+      );
+      const variant = normalizeText(entry.wirkvar ?? entry.variante);
+      const gehaltPrim = firstNonEmpty(
+        entry.gehalt_rein_grundstruktur,
+        entry.gehalt_rein,
+        entry.gehalt
+      );
+      const gehaltEinheit = firstNonEmpty(
+        entry.gehalt_einheit,
+        entry.einheit,
+        entry.gehalt_einheit
+      );
+      const gehalt =
+        gehaltPrim !== null ? formatAmount(gehaltPrim, gehaltEinheit) : null;
+      const bio = formatAmount(entry.gehalt_bio, entry.gehalt_bio_einheit);
+      const detailParts = [];
+      if (gehalt) {
+        detailParts.push(`Gehalt: ${escapeHtml(gehalt)}`);
+      }
+      if (bio) {
+        detailParts.push(`Bio: ${escapeHtml(bio)}`);
+      }
+      if (variant) {
+        detailParts.push(`Variante: ${escapeHtml(variant)}`);
+      }
+      const header = wirknr
+        ? `<span class="fw-semibold">${escapeHtml(wirknr)}</span>`
+        : "";
+      if (!header && detailParts.length === 0) {
+        return null;
+      }
+      const details = detailParts.join(" \xB7 ");
+      return `<li>${header}${header && details ? " \u2013 " : ""}${details}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!entries) {
     return "";
   }
@@ -7744,36 +8213,39 @@ function renderResultZusatzstoffe(result) {
   if (!Array.isArray(result.zusatzstoffe) || result.zusatzstoffe.length === 0) {
     return "";
   }
-  const list = result.zusatzstoffe.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const name = normalizeText(
-      entry.mittelname ?? entry.mittel ?? entry.name ?? "-"
-    );
-    const start = formatDateHtml(entry.genehmigung_am);
-    const end = formatDateHtml(entry.genehmigungsende);
-    const applicant = normalizeText(
-      entry.antragsteller ?? entry.antragsteller_name
-    );
-    const applicantNr = normalizeText(entry.antragsteller_nr);
-    const metaParts = [];
-    if (start) {
-      metaParts.push(`ab ${start}`);
-    }
-    if (end) {
-      metaParts.push(`bis ${end}`);
-    }
-    if (applicant) {
-      metaParts.push(`Antragsteller: ${escapeHtml(applicant)}`);
-    }
-    if (applicantNr) {
-      metaParts.push(`Nr.: ${escapeHtml(applicantNr)}`);
-    }
-    return `<li><span class="fw-semibold">${escapeHtml(
-      name || "-"
-    )}</span>${metaParts.length ? ` \u2013 ${metaParts.join(" \xB7 ")}` : ""}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const list = result.zusatzstoffe
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const name = normalizeText(
+        entry.mittelname ?? entry.mittel ?? entry.name ?? "-"
+      );
+      const start = formatDateHtml(entry.genehmigung_am);
+      const end = formatDateHtml(entry.genehmigungsende);
+      const applicant = normalizeText(
+        entry.antragsteller ?? entry.antragsteller_name
+      );
+      const applicantNr = normalizeText(entry.antragsteller_nr);
+      const metaParts = [];
+      if (start) {
+        metaParts.push(`ab ${start}`);
+      }
+      if (end) {
+        metaParts.push(`bis ${end}`);
+      }
+      if (applicant) {
+        metaParts.push(`Antragsteller: ${escapeHtml(applicant)}`);
+      }
+      if (applicantNr) {
+        metaParts.push(`Nr.: ${escapeHtml(applicantNr)}`);
+      }
+      return `<li><span class="fw-semibold">${escapeHtml(
+        name || "-"
+      )}</span>${metaParts.length ? ` \u2013 ${metaParts.join(" \xB7 ")}` : ""}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -7785,31 +8257,40 @@ function renderResultZusatzstoffe(result) {
   `;
 }
 function renderResultZusatzstoffVertrieb(result) {
-  if (!Array.isArray(result.zusatzstoff_vertrieb) || result.zusatzstoff_vertrieb.length === 0) {
+  if (
+    !Array.isArray(result.zusatzstoff_vertrieb) ||
+    result.zusatzstoff_vertrieb.length === 0
+  ) {
     return "";
   }
-  const list = result.zusatzstoff_vertrieb.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const name = normalizeText(
-      entry.vertriebsfirma_name ?? entry.vertriebsfirma ?? entry.firma ?? entry.hersteller
-    );
-    const number = normalizeText(entry.vertriebsfirma_nr ?? entry.nr);
-    if (!name && !number) {
-      return null;
-    }
-    const parts = [];
-    if (name) {
-      parts.push(escapeHtml(name));
-    }
-    if (number) {
-      parts.push(
-        `<span class="text-muted">Nr.: ${escapeHtml(number)}</span>`
+  const list = result.zusatzstoff_vertrieb
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const name = normalizeText(
+        entry.vertriebsfirma_name ??
+          entry.vertriebsfirma ??
+          entry.firma ??
+          entry.hersteller
       );
-    }
-    return `<li>${parts.join(" \xB7 ")}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+      const number = normalizeText(entry.vertriebsfirma_nr ?? entry.nr);
+      if (!name && !number) {
+        return null;
+      }
+      const parts = [];
+      if (name) {
+        parts.push(escapeHtml(name));
+      }
+      if (number) {
+        parts.push(
+          `<span class="text-muted">Nr.: ${escapeHtml(number)}</span>`
+        );
+      }
+      return `<li>${parts.join(" \xB7 ")}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -7824,28 +8305,31 @@ function renderResultStaerkung(result) {
   if (!Array.isArray(result.staerkung) || result.staerkung.length === 0) {
     return "";
   }
-  const list = result.staerkung.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const name = normalizeText(entry.mittelname ?? entry.mittel ?? "-");
-    const start = formatDateHtml(entry.genehmigung_am);
-    const applicant = normalizeText(entry.antragsteller);
-    const applicantNr = normalizeText(entry.antragsteller_nr);
-    const metaParts = [];
-    if (start) {
-      metaParts.push(`Genehmigt am ${start}`);
-    }
-    if (applicant) {
-      metaParts.push(`Antragsteller: ${escapeHtml(applicant)}`);
-    }
-    if (applicantNr) {
-      metaParts.push(`Nr.: ${escapeHtml(applicantNr)}`);
-    }
-    return `<li><span class="fw-semibold">${escapeHtml(
-      name || "-"
-    )}</span>${metaParts.length ? ` \u2013 ${metaParts.join(" \xB7 ")}` : ""}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const list = result.staerkung
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const name = normalizeText(entry.mittelname ?? entry.mittel ?? "-");
+      const start = formatDateHtml(entry.genehmigung_am);
+      const applicant = normalizeText(entry.antragsteller);
+      const applicantNr = normalizeText(entry.antragsteller_nr);
+      const metaParts = [];
+      if (start) {
+        metaParts.push(`Genehmigt am ${start}`);
+      }
+      if (applicant) {
+        metaParts.push(`Antragsteller: ${escapeHtml(applicant)}`);
+      }
+      if (applicantNr) {
+        metaParts.push(`Nr.: ${escapeHtml(applicantNr)}`);
+      }
+      return `<li><span class="fw-semibold">${escapeHtml(
+        name || "-"
+      )}</span>${metaParts.length ? ` \u2013 ${metaParts.join(" \xB7 ")}` : ""}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -7857,31 +8341,40 @@ function renderResultStaerkung(result) {
   `;
 }
 function renderResultStaerkungVertrieb(result) {
-  if (!Array.isArray(result.staerkung_vertrieb) || result.staerkung_vertrieb.length === 0) {
+  if (
+    !Array.isArray(result.staerkung_vertrieb) ||
+    result.staerkung_vertrieb.length === 0
+  ) {
     return "";
   }
-  const list = result.staerkung_vertrieb.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const company = normalizeText(
-      entry.vertriebsfirma_name ?? entry.vertriebsfirma ?? entry.firma ?? entry.hersteller
-    );
-    const number = normalizeText(entry.vertriebsfirma_nr ?? entry.nr);
-    if (!company && !number) {
-      return null;
-    }
-    const parts = [];
-    if (company) {
-      parts.push(escapeHtml(company));
-    }
-    if (number) {
-      parts.push(
-        `<span class="text-muted">Nr.: ${escapeHtml(number)}</span>`
+  const list = result.staerkung_vertrieb
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const company = normalizeText(
+        entry.vertriebsfirma_name ??
+          entry.vertriebsfirma ??
+          entry.firma ??
+          entry.hersteller
       );
-    }
-    return `<li>${parts.join(" \xB7 ")}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+      const number = normalizeText(entry.vertriebsfirma_nr ?? entry.nr);
+      if (!company && !number) {
+        return null;
+      }
+      const parts = [];
+      if (company) {
+        parts.push(escapeHtml(company));
+      }
+      if (number) {
+        parts.push(
+          `<span class="text-muted">Nr.: ${escapeHtml(number)}</span>`
+        );
+      }
+      return `<li>${parts.join(" \xB7 ")}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -7896,32 +8389,35 @@ function renderResultAntraege(result) {
   if (!Array.isArray(result.antraege) || result.antraege.length === 0) {
     return "";
   }
-  const list = result.antraege.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const number = normalizeText(entry.antragnr ?? entry.nr);
-    const applicant = normalizeText(
-      entry.antragsteller ?? entry.antragsteller_name
-    );
-    const applicantNr = normalizeText(entry.antragsteller_nr);
-    if (!number && !applicant && !applicantNr) {
-      return null;
-    }
-    const parts = [];
-    if (number) {
-      parts.push(`Antrag ${escapeHtml(number)}`);
-    }
-    if (applicant) {
-      parts.push(`von ${escapeHtml(applicant)}`);
-    }
-    if (applicantNr) {
-      parts.push(
-        `<span class="text-muted">Nr.: ${escapeHtml(applicantNr)}</span>`
+  const list = result.antraege
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const number = normalizeText(entry.antragnr ?? entry.nr);
+      const applicant = normalizeText(
+        entry.antragsteller ?? entry.antragsteller_name
       );
-    }
-    return `<li>${parts.join(" \xB7 ")}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+      const applicantNr = normalizeText(entry.antragsteller_nr);
+      if (!number && !applicant && !applicantNr) {
+        return null;
+      }
+      const parts = [];
+      if (number) {
+        parts.push(`Antrag ${escapeHtml(number)}`);
+      }
+      if (applicant) {
+        parts.push(`von ${escapeHtml(applicant)}`);
+      }
+      if (applicantNr) {
+        parts.push(
+          `<span class="text-muted">Nr.: ${escapeHtml(applicantNr)}</span>`
+        );
+      }
+      return `<li>${parts.join(" \xB7 ")}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -7954,18 +8450,24 @@ function renderResultHinweise(result) {
   if (!hintMap.size) {
     return "";
   }
-  const rows = Array.from(hintMap.entries()).map(([level, codes]) => {
-    const uniqueCodes = Array.from(new Set(codes.filter(Boolean)));
-    if (!uniqueCodes.length) {
-      return null;
-    }
-    const badges = uniqueCodes.map(
-      (code) => `<span class="badge bg-secondary">${escapeHtml(code)}</span>`
-    ).join(" ");
-    return `<li><span class="fw-semibold">${escapeHtml(
-      level
-    )}</span>: ${badges}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const rows = Array.from(hintMap.entries())
+    .map(([level, codes]) => {
+      const uniqueCodes = Array.from(new Set(codes.filter(Boolean)));
+      if (!uniqueCodes.length) {
+        return null;
+      }
+      const badges = uniqueCodes
+        .map(
+          (code) =>
+            `<span class="badge bg-secondary">${escapeHtml(code)}</span>`
+        )
+        .join(" ");
+      return `<li><span class="fw-semibold">${escapeHtml(
+        level
+      )}</span>: ${badges}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!rows) {
     return "";
   }
@@ -7977,22 +8479,32 @@ function renderResultHinweise(result) {
   `;
 }
 function renderResultGefahrensymbole(result) {
-  if (!Array.isArray(result.gefahrensymbole) || result.gefahrensymbole.length === 0) {
+  if (
+    !Array.isArray(result.gefahrensymbole) ||
+    result.gefahrensymbole.length === 0
+  ) {
     return "";
   }
   const unique = Array.from(
     new Set(
-      result.gefahrensymbole.map(
-        (entry) => entry && typeof entry === "object" ? normalizeText(entry.gefahrensymbol ?? entry.symbol ?? entry.code) : ""
-      ).filter((code) => code)
+      result.gefahrensymbole
+        .map((entry) =>
+          entry && typeof entry === "object"
+            ? normalizeText(entry.gefahrensymbol ?? entry.symbol ?? entry.code)
+            : ""
+        )
+        .filter((code) => code)
     )
   );
   if (!unique.length) {
     return "";
   }
-  const badges = unique.map(
-    (code) => `<span class="badge bg-dark text-light border border-light">${escapeHtml(code)}</span>`
-  ).join(" ");
+  const badges = unique
+    .map(
+      (code) =>
+        `<span class="badge bg-dark text-light border border-light">${escapeHtml(code)}</span>`
+    )
+    .join(" ");
   return `
     <div class="mt-2">
       <strong><i class="bi bi-sign-stop me-1"></i>Gefahrensymbole:</strong>
@@ -8001,24 +8513,37 @@ function renderResultGefahrensymbole(result) {
   `;
 }
 function renderResultSicherheitshinweise(result) {
-  if (!Array.isArray(result.sicherheitshinweise) || result.sicherheitshinweise.length === 0) {
+  if (
+    !Array.isArray(result.sicherheitshinweise) ||
+    result.sicherheitshinweise.length === 0
+  ) {
     return "";
   }
   const unique = Array.from(
     new Set(
-      result.sicherheitshinweise.map(
-        (entry) => entry && typeof entry === "object" ? normalizeText(
-          entry.sicherheitshinweis ?? entry.p_code ?? entry.p_satz ?? entry.code
-        ) : ""
-      ).filter((code) => code)
+      result.sicherheitshinweise
+        .map((entry) =>
+          entry && typeof entry === "object"
+            ? normalizeText(
+                entry.sicherheitshinweis ??
+                  entry.p_code ??
+                  entry.p_satz ??
+                  entry.code
+              )
+            : ""
+        )
+        .filter((code) => code)
     )
   );
   if (!unique.length) {
     return "";
   }
-  const badges = unique.map(
-    (code) => `<span class="badge bg-warning text-dark">${escapeHtml(code)}</span>`
-  ).join(" ");
+  const badges = unique
+    .map(
+      (code) =>
+        `<span class="badge bg-warning text-dark">${escapeHtml(code)}</span>`
+    )
+    .join(" ");
   return `
     <div class="mt-2">
       <strong><i class="bi bi-shield-exclamation me-1"></i>Sicherheitshinweise:</strong>
@@ -8027,22 +8552,31 @@ function renderResultSicherheitshinweise(result) {
   `;
 }
 function renderResultSignalwoerter(result) {
-  if (!Array.isArray(result.signalwoerter) || result.signalwoerter.length === 0) {
+  if (
+    !Array.isArray(result.signalwoerter) ||
+    result.signalwoerter.length === 0
+  ) {
     return "";
   }
   const unique = Array.from(
     new Set(
-      result.signalwoerter.map(
-        (entry) => entry && typeof entry === "object" ? normalizeText(entry.signalwort ?? entry.signal_word ?? entry.code) : ""
-      ).filter((code) => code)
+      result.signalwoerter
+        .map((entry) =>
+          entry && typeof entry === "object"
+            ? normalizeText(entry.signalwort ?? entry.signal_word ?? entry.code)
+            : ""
+        )
+        .filter((code) => code)
     )
   );
   if (!unique.length) {
     return "";
   }
-  const badges = unique.map(
-    (value) => `<span class="badge bg-secondary">${escapeHtml(value)}</span>`
-  ).join(" ");
+  const badges = unique
+    .map(
+      (value) => `<span class="badge bg-secondary">${escapeHtml(value)}</span>`
+    )
+    .join(" ");
   return `
     <div class="mt-2">
       <strong><i class="bi bi-signpost me-1"></i>Signalw\xF6rter:</strong>
@@ -8056,67 +8590,77 @@ function renderResultParallelimporte(result) {
     if (!Array.isArray(entries) || entries.length === 0) {
       return;
     }
-    const items = entries.map((entry) => {
-      if (!entry || typeof entry !== "object") {
-        return null;
-      }
-      const name = normalizeText(
-        entry.pi_mittelname ?? entry.mittelname ?? "-"
-      );
-      const importer = normalizeText(
-        entry.importeur_txt ?? entry.importeur_name ?? entry.importeur
-      );
-      const importerCode = normalizeText(entry.importeur);
-      const importerNr = normalizeText(entry.importeur_nr);
-      const reference = normalizeText(
-        entry.pi_referenz_kennr ?? entry.referenz_kennr
-      );
-      const kennziffer = normalizeText(
-        entry.pi_kennziffer ?? entry.kennziffer
-      );
-      const status = normalizeText(entry.pi_status ?? entry.status);
-      const gueltig = formatDateHtml(entry.gueltig);
-      const bescheidNr = normalizeText(
-        entry.pi_bescheidnr ?? entry.bescheid_nr
-      );
-      const bescheidDatum = formatDateHtml(entry.bescheid_datum);
-      const bescheinigung = normalizeText(entry.bescheinigung);
-      const headline = `<span class="fw-semibold">${escapeHtml(
-        name || "-"
-      )}</span>`;
-      const metaParts = [];
-      if (importer) {
-        const suffix = importerCode && importerCode !== importer ? ` (${escapeHtml(importerCode)})` : "";
-        metaParts.push(`Importeur: ${escapeHtml(importer)}${suffix}`);
-      }
-      if (importerNr) {
-        metaParts.push(`Nr.: ${escapeHtml(importerNr)}`);
-      }
-      if (reference) {
-        metaParts.push(`Referenz: ${escapeHtml(reference)}`);
-      }
-      if (kennziffer) {
-        metaParts.push(`Kennziffer: ${escapeHtml(kennziffer)}`);
-      }
-      if (status) {
-        metaParts.push(`Status: ${escapeHtml(status)}`);
-      }
-      if (gueltig) {
-        const label = variant === "expired" ? "Ausgelaufen am" : "G\xFCltig bis";
-        metaParts.push(`${label} ${gueltig}`);
-      }
-      if (bescheidNr) {
-        metaParts.push(`Bescheid ${escapeHtml(bescheidNr)}`);
-      }
-      if (bescheidDatum) {
-        metaParts.push(`vom ${bescheidDatum}`);
-      }
-      if (bescheinigung) {
-        metaParts.push(`Bescheinigung: ${escapeHtml(bescheinigung)}`);
-      }
-      const meta = metaParts.length > 0 ? `<div class="small text-muted">${metaParts.join(" \xB7 ")}</div>` : "";
-      return `<li>${headline}${meta}</li>`;
-    }).filter((entry) => Boolean(entry)).join("");
+    const items = entries
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") {
+          return null;
+        }
+        const name = normalizeText(
+          entry.pi_mittelname ?? entry.mittelname ?? "-"
+        );
+        const importer = normalizeText(
+          entry.importeur_txt ?? entry.importeur_name ?? entry.importeur
+        );
+        const importerCode = normalizeText(entry.importeur);
+        const importerNr = normalizeText(entry.importeur_nr);
+        const reference = normalizeText(
+          entry.pi_referenz_kennr ?? entry.referenz_kennr
+        );
+        const kennziffer = normalizeText(
+          entry.pi_kennziffer ?? entry.kennziffer
+        );
+        const status = normalizeText(entry.pi_status ?? entry.status);
+        const gueltig = formatDateHtml(entry.gueltig);
+        const bescheidNr = normalizeText(
+          entry.pi_bescheidnr ?? entry.bescheid_nr
+        );
+        const bescheidDatum = formatDateHtml(entry.bescheid_datum);
+        const bescheinigung = normalizeText(entry.bescheinigung);
+        const headline = `<span class="fw-semibold">${escapeHtml(
+          name || "-"
+        )}</span>`;
+        const metaParts = [];
+        if (importer) {
+          const suffix =
+            importerCode && importerCode !== importer
+              ? ` (${escapeHtml(importerCode)})`
+              : "";
+          metaParts.push(`Importeur: ${escapeHtml(importer)}${suffix}`);
+        }
+        if (importerNr) {
+          metaParts.push(`Nr.: ${escapeHtml(importerNr)}`);
+        }
+        if (reference) {
+          metaParts.push(`Referenz: ${escapeHtml(reference)}`);
+        }
+        if (kennziffer) {
+          metaParts.push(`Kennziffer: ${escapeHtml(kennziffer)}`);
+        }
+        if (status) {
+          metaParts.push(`Status: ${escapeHtml(status)}`);
+        }
+        if (gueltig) {
+          const label =
+            variant === "expired" ? "Ausgelaufen am" : "G\xFCltig bis";
+          metaParts.push(`${label} ${gueltig}`);
+        }
+        if (bescheidNr) {
+          metaParts.push(`Bescheid ${escapeHtml(bescheidNr)}`);
+        }
+        if (bescheidDatum) {
+          metaParts.push(`vom ${bescheidDatum}`);
+        }
+        if (bescheinigung) {
+          metaParts.push(`Bescheinigung: ${escapeHtml(bescheinigung)}`);
+        }
+        const meta =
+          metaParts.length > 0
+            ? `<div class="small text-muted">${metaParts.join(" \xB7 ")}</div>`
+            : "";
+        return `<li>${headline}${meta}</li>`;
+      })
+      .filter((entry) => Boolean(entry))
+      .join("");
     if (!items) {
       return;
     }
@@ -8127,7 +8671,11 @@ function renderResultParallelimporte(result) {
       </div>
     `);
   };
-  buildList(result.parallelimporte_gueltig, "G\xFCltige Parallelimporte", "valid");
+  buildList(
+    result.parallelimporte_gueltig,
+    "G\xFCltige Parallelimporte",
+    "valid"
+  );
   buildList(
     result.parallelimporte_abgelaufen,
     "Abgelaufene Parallelimporte",
@@ -8147,61 +8695,79 @@ function renderResultAuflagen(result) {
   if (!Array.isArray(result.auflagen) || result.auflagen.length === 0) {
     return "";
   }
-  const list = result.auflagen.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const code = normalizeText(entry.auflage ?? entry.code);
-    const level = normalizeText(entry.ebene);
-    const culture = normalizeText(entry.kultur);
-    const condition = normalizeText(entry.weitere_bedingung);
-    const technique = normalizeText(entry.anwendungstechnik);
-    const distance = normalizeText(entry.abstand);
-    const reducedDistance = normalizeText(entry.redu_abstand);
-    const requirement = normalizeText(entry.anwendbest);
-    const metaParts = [];
-    if (level) {
-      metaParts.push(`Ebene: ${escapeHtml(level)}`);
-    }
-    if (culture) {
-      metaParts.push(`Kultur: ${escapeHtml(culture)}`);
-    }
-    if (condition) {
-      metaParts.push(escapeHtml(condition));
-    }
-    if (technique) {
-      metaParts.push(`Technik: ${escapeHtml(technique)}`);
-    }
-    if (distance) {
-      metaParts.push(`Abstand: ${escapeHtml(distance)}`);
-    }
-    if (reducedDistance) {
-      metaParts.push(`reduz. Abstand: ${escapeHtml(reducedDistance)}`);
-    }
-    const reductions = Array.isArray(entry.reduzierung) && entry.reduzierung.length > 0 ? entry.reduzierung.map((redu) => {
-      if (!redu || typeof redu !== "object") {
+  const list = result.auflagen
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
         return null;
       }
-      const category = normalizeText(redu.kategorie);
-      const value = normalizeText(redu.redu_abstand ?? redu.wert);
-      const parts = [];
-      if (category) {
-        parts.push(escapeHtml(category));
+      const code = normalizeText(entry.auflage ?? entry.code);
+      const level = normalizeText(entry.ebene);
+      const culture = normalizeText(entry.kultur);
+      const condition = normalizeText(entry.weitere_bedingung);
+      const technique = normalizeText(entry.anwendungstechnik);
+      const distance = normalizeText(entry.abstand);
+      const reducedDistance = normalizeText(entry.redu_abstand);
+      const requirement = normalizeText(entry.anwendbest);
+      const metaParts = [];
+      if (level) {
+        metaParts.push(`Ebene: ${escapeHtml(level)}`);
       }
-      if (value) {
-        parts.push(escapeHtml(value));
+      if (culture) {
+        metaParts.push(`Kultur: ${escapeHtml(culture)}`);
       }
-      if (!parts.length) {
-        return null;
+      if (condition) {
+        metaParts.push(escapeHtml(condition));
       }
-      return `<span class="badge bg-light text-dark border">${parts.join(" \u2013 ")}</span>`;
-    }).filter((redu) => Boolean(redu)).join(" ") : "";
-    const header = code ? `<span class="fw-semibold">${escapeHtml(code)}</span>` : `<span class="fw-semibold">Auflage</span>`;
-    const requirementBadge = requirement ? ` <span class="badge bg-secondary">${escapeHtml(requirement)}</span>` : "";
-    const metaHtml = metaParts.length > 0 ? `<div class="small text-muted">${metaParts.join(" \xB7 ")}</div>` : "";
-    const reductionHtml = reductions ? `<div class="mt-1 d-flex flex-wrap gap-1">${reductions}</div>` : "";
-    return `<li>${header}${requirementBadge}${metaHtml}${reductionHtml}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+      if (technique) {
+        metaParts.push(`Technik: ${escapeHtml(technique)}`);
+      }
+      if (distance) {
+        metaParts.push(`Abstand: ${escapeHtml(distance)}`);
+      }
+      if (reducedDistance) {
+        metaParts.push(`reduz. Abstand: ${escapeHtml(reducedDistance)}`);
+      }
+      const reductions =
+        Array.isArray(entry.reduzierung) && entry.reduzierung.length > 0
+          ? entry.reduzierung
+              .map((redu) => {
+                if (!redu || typeof redu !== "object") {
+                  return null;
+                }
+                const category = normalizeText(redu.kategorie);
+                const value = normalizeText(redu.redu_abstand ?? redu.wert);
+                const parts = [];
+                if (category) {
+                  parts.push(escapeHtml(category));
+                }
+                if (value) {
+                  parts.push(escapeHtml(value));
+                }
+                if (!parts.length) {
+                  return null;
+                }
+                return `<span class="badge bg-light text-dark border">${parts.join(" \u2013 ")}</span>`;
+              })
+              .filter((redu) => Boolean(redu))
+              .join(" ")
+          : "";
+      const header = code
+        ? `<span class="fw-semibold">${escapeHtml(code)}</span>`
+        : `<span class="fw-semibold">Auflage</span>`;
+      const requirementBadge = requirement
+        ? ` <span class="badge bg-secondary">${escapeHtml(requirement)}</span>`
+        : "";
+      const metaHtml =
+        metaParts.length > 0
+          ? `<div class="small text-muted">${metaParts.join(" \xB7 ")}</div>`
+          : "";
+      const reductionHtml = reductions
+        ? `<div class="mt-1 d-flex flex-wrap gap-1">${reductions}</div>`
+        : "";
+      return `<li>${header}${requirementBadge}${metaHtml}${reductionHtml}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -8216,24 +8782,27 @@ function renderResultAwgPartner(result) {
   if (!Array.isArray(result.awg_partner) || result.awg_partner.length === 0) {
     return "";
   }
-  const list = result.awg_partner.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const partnerKennr = normalizeText(entry.partner_kennr ?? entry.kennr);
-    const art = normalizeText(entry.mischung_art ?? entry.art);
-    if (!partnerKennr && !art) {
-      return null;
-    }
-    const parts = [];
-    if (partnerKennr) {
-      parts.push(`Partner: ${escapeHtml(partnerKennr)}`);
-    }
-    if (art) {
-      parts.push(`Art: ${escapeHtml(art)}`);
-    }
-    return `<li>${parts.join(" \xB7 ")}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const list = result.awg_partner
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const partnerKennr = normalizeText(entry.partner_kennr ?? entry.kennr);
+      const art = normalizeText(entry.mischung_art ?? entry.art);
+      if (!partnerKennr && !art) {
+        return null;
+      }
+      const parts = [];
+      if (partnerKennr) {
+        parts.push(`Partner: ${escapeHtml(partnerKennr)}`);
+      }
+      if (art) {
+        parts.push(`Art: ${escapeHtml(art)}`);
+      }
+      return `<li>${parts.join(" \xB7 ")}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -8245,36 +8814,42 @@ function renderResultAwgPartner(result) {
   `;
 }
 function renderResultAwgPartnerAufwand(result) {
-  if (!Array.isArray(result.awg_partner_aufwand) || result.awg_partner_aufwand.length === 0) {
+  if (
+    !Array.isArray(result.awg_partner_aufwand) ||
+    result.awg_partner_aufwand.length === 0
+  ) {
     return "";
   }
-  const list = result.awg_partner_aufwand.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const partnerKennr = normalizeText(entry.partner_kennr ?? entry.kennr);
-    const condition = normalizeText(
-      entry.aufwandbedingung ?? entry.aufwand_bedingung
-    );
-    const amount = formatAmount(
-      entry.m_aufwand ?? entry.mittel_menge,
-      entry.m_aufwand_einheit ?? entry.mittel_einheit
-    );
-    const parts = [];
-    if (partnerKennr) {
-      parts.push(`Partner: ${escapeHtml(partnerKennr)}`);
-    }
-    if (condition) {
-      parts.push(`Bedingung: ${escapeHtml(condition)}`);
-    }
-    if (amount) {
-      parts.push(`Menge: ${escapeHtml(amount)}`);
-    }
-    if (!parts.length) {
-      return null;
-    }
-    return `<li>${parts.join(" \xB7 ")}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const list = result.awg_partner_aufwand
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const partnerKennr = normalizeText(entry.partner_kennr ?? entry.kennr);
+      const condition = normalizeText(
+        entry.aufwandbedingung ?? entry.aufwand_bedingung
+      );
+      const amount = formatAmount(
+        entry.m_aufwand ?? entry.mittel_menge,
+        entry.m_aufwand_einheit ?? entry.mittel_einheit
+      );
+      const parts = [];
+      if (partnerKennr) {
+        parts.push(`Partner: ${escapeHtml(partnerKennr)}`);
+      }
+      if (condition) {
+        parts.push(`Bedingung: ${escapeHtml(condition)}`);
+      }
+      if (amount) {
+        parts.push(`Menge: ${escapeHtml(amount)}`);
+      }
+      if (!parts.length) {
+        return null;
+      }
+      return `<li>${parts.join(" \xB7 ")}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -8286,29 +8861,35 @@ function renderResultAwgPartnerAufwand(result) {
   `;
 }
 function renderResultAwgBemerkungen(result) {
-  if (!Array.isArray(result.awg_bemerkungen) || result.awg_bemerkungen.length === 0) {
+  if (
+    !Array.isArray(result.awg_bemerkungen) ||
+    result.awg_bemerkungen.length === 0
+  ) {
     return "";
   }
-  const list = result.awg_bemerkungen.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const note = normalizeText(entry.auflage_bem ?? entry.bemerkung);
-    const area = normalizeText(entry.auflage_bereich ?? entry.bereich);
-    if (!note && !area) {
-      return null;
-    }
-    const parts = [];
-    if (note) {
-      parts.push(escapeHtml(note));
-    }
-    if (area) {
-      parts.push(
-        `<span class="text-muted">Bereich: ${escapeHtml(area)}</span>`
-      );
-    }
-    return `<li>${parts.join(" \xB7 ")}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const list = result.awg_bemerkungen
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const note = normalizeText(entry.auflage_bem ?? entry.bemerkung);
+      const area = normalizeText(entry.auflage_bereich ?? entry.bereich);
+      if (!note && !area) {
+        return null;
+      }
+      const parts = [];
+      if (note) {
+        parts.push(escapeHtml(note));
+      }
+      if (area) {
+        parts.push(
+          `<span class="text-muted">Bereich: ${escapeHtml(area)}</span>`
+        );
+      }
+      return `<li>${parts.join(" \xB7 ")}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -8320,20 +8901,29 @@ function renderResultAwgBemerkungen(result) {
   `;
 }
 function renderResultAwgVerwendungszwecke(result) {
-  if (!Array.isArray(result.awg_verwendungszwecke) || result.awg_verwendungszwecke.length === 0) {
+  if (
+    !Array.isArray(result.awg_verwendungszwecke) ||
+    result.awg_verwendungszwecke.length === 0
+  ) {
     return "";
   }
   const unique = Array.from(
     new Set(
-      result.awg_verwendungszwecke.map(
-        (entry) => entry && typeof entry === "object" ? normalizeText(entry.verwendungszweck ?? entry.code) : ""
-      ).filter((code) => code)
+      result.awg_verwendungszwecke
+        .map((entry) =>
+          entry && typeof entry === "object"
+            ? normalizeText(entry.verwendungszweck ?? entry.code)
+            : ""
+        )
+        .filter((code) => code)
     )
   );
   if (!unique.length) {
     return "";
   }
-  const badges = unique.map((code) => `<span class="badge bg-primary">${escapeHtml(code)}</span>`).join(" ");
+  const badges = unique
+    .map((code) => `<span class="badge bg-primary">${escapeHtml(code)}</span>`)
+    .join(" ");
   return `
     <div class="mt-2">
       <strong><i class="bi bi-list-task me-1"></i>Verwendungszwecke:</strong>
@@ -8342,7 +8932,10 @@ function renderResultAwgVerwendungszwecke(result) {
   `;
 }
 function renderResultAwgWartezeitAusnahmen(result) {
-  if (!Array.isArray(result.awg_wartezeit_ausnahmen) || result.awg_wartezeit_ausnahmen.length === 0) {
+  if (
+    !Array.isArray(result.awg_wartezeit_ausnahmen) ||
+    result.awg_wartezeit_ausnahmen.length === 0
+  ) {
     return "";
   }
   const labelMap = /* @__PURE__ */ new Map();
@@ -8370,27 +8963,32 @@ function renderResultAwgWartezeitAusnahmen(result) {
       }
     }
   }
-  const list = result.awg_wartezeit_ausnahmen.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const wartezeitNr = normalizeText(entry.awg_wartezeit_nr);
-    const kulturCode = normalizeText(entry.kultur);
-    if (!wartezeitNr && !kulturCode) {
-      return null;
-    }
-    const displayLabel = kulturCode ? labelMap.get(kulturCode) || kulturCode : "";
-    const parts = [];
-    if (displayLabel) {
-      parts.push(escapeHtml(displayLabel));
-    }
-    if (wartezeitNr) {
-      parts.push(
-        `<span class="text-muted">Nr.: ${escapeHtml(wartezeitNr)}</span>`
-      );
-    }
-    return `<li>${parts.join(" \xB7 ")}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const list = result.awg_wartezeit_ausnahmen
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const wartezeitNr = normalizeText(entry.awg_wartezeit_nr);
+      const kulturCode = normalizeText(entry.kultur);
+      if (!wartezeitNr && !kulturCode) {
+        return null;
+      }
+      const displayLabel = kulturCode
+        ? labelMap.get(kulturCode) || kulturCode
+        : "";
+      const parts = [];
+      if (displayLabel) {
+        parts.push(escapeHtml(displayLabel));
+      }
+      if (wartezeitNr) {
+        parts.push(
+          `<span class="text-muted">Nr.: ${escapeHtml(wartezeitNr)}</span>`
+        );
+      }
+      return `<li>${parts.join(" \xB7 ")}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -8402,35 +9000,41 @@ function renderResultAwgWartezeitAusnahmen(result) {
   `;
 }
 function renderResultAwgZeitpunkte(result) {
-  if (!Array.isArray(result.awg_zeitpunkte) || result.awg_zeitpunkte.length === 0) {
+  if (
+    !Array.isArray(result.awg_zeitpunkte) ||
+    result.awg_zeitpunkte.length === 0
+  ) {
     return "";
   }
-  const list = result.awg_zeitpunkte.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const zeitpunkt = normalizeText(entry.zeitpunkt ?? entry.code);
-    const sortierNr = normalizeText(entry.sortier_nr);
-    const operand = normalizeText(entry.operand_zu_vorher ?? entry.operand);
-    if (!zeitpunkt && !sortierNr && !operand) {
-      return null;
-    }
-    const parts = [];
-    if (zeitpunkt) {
-      parts.push(escapeHtml(zeitpunkt));
-    }
-    if (sortierNr) {
-      parts.push(
-        `<span class="text-muted">Pos.: ${escapeHtml(sortierNr)}</span>`
-      );
-    }
-    if (operand) {
-      parts.push(
-        `<span class="text-muted">Operand: ${escapeHtml(operand)}</span>`
-      );
-    }
-    return `<li>${parts.join(" \xB7 ")}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const list = result.awg_zeitpunkte
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const zeitpunkt = normalizeText(entry.zeitpunkt ?? entry.code);
+      const sortierNr = normalizeText(entry.sortier_nr);
+      const operand = normalizeText(entry.operand_zu_vorher ?? entry.operand);
+      if (!zeitpunkt && !sortierNr && !operand) {
+        return null;
+      }
+      const parts = [];
+      if (zeitpunkt) {
+        parts.push(escapeHtml(zeitpunkt));
+      }
+      if (sortierNr) {
+        parts.push(
+          `<span class="text-muted">Pos.: ${escapeHtml(sortierNr)}</span>`
+        );
+      }
+      if (operand) {
+        parts.push(
+          `<span class="text-muted">Operand: ${escapeHtml(operand)}</span>`
+        );
+      }
+      return `<li>${parts.join(" \xB7 ")}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -8442,19 +9046,25 @@ function renderResultAwgZeitpunkte(result) {
   `;
 }
 function renderResultAwgZulassung(result) {
-  if (!Array.isArray(result.awg_zulassung) || result.awg_zulassung.length === 0) {
+  if (
+    !Array.isArray(result.awg_zulassung) ||
+    result.awg_zulassung.length === 0
+  ) {
     return "";
   }
-  const list = result.awg_zulassung.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return null;
-    }
-    const end = formatDateHtml(entry.zul_ende ?? entry.gueltig_bis);
-    if (!end) {
-      return null;
-    }
-    return `<li>G\xFCltig bis ${end}</li>`;
-  }).filter((entry) => Boolean(entry)).join("");
+  const list = result.awg_zulassung
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const end = formatDateHtml(entry.zul_ende ?? entry.gueltig_bis);
+      if (!end) {
+        return null;
+      }
+      return `<li>G\xFCltig bis ${end}</li>`;
+    })
+    .filter((entry) => Boolean(entry))
+    .join("");
   if (!list) {
     return "";
   }
@@ -8469,11 +9079,14 @@ function renderResultKulturen(result) {
   if (!Array.isArray(result.kulturen) || result.kulturen.length === 0) {
     return "";
   }
-  const badges = result.kulturen.map(
-    (entry) => `<span class="badge ${entry.ausgenommen ? "bg-danger" : "bg-info"}" title="${escapeHtml(entry.kultur)}">${escapeHtml(
-      entry.label || entry.kultur
-    )}${entry.ausgenommen ? " (ausgenommen)" : ""}</span>`
-  ).join(" ");
+  const badges = result.kulturen
+    .map(
+      (entry) =>
+        `<span class="badge ${entry.ausgenommen ? "bg-danger" : "bg-info"}" title="${escapeHtml(entry.kultur)}">${escapeHtml(
+          entry.label || entry.kultur
+        )}${entry.ausgenommen ? " (ausgenommen)" : ""}</span>`
+    )
+    .join(" ");
   return `
     <div class="mt-2">
       <strong><i class="bi bi-flower1 me-1"></i>Kulturen:</strong>
@@ -8482,14 +9095,20 @@ function renderResultKulturen(result) {
   `;
 }
 function renderResultSchadorganismen(result) {
-  if (!Array.isArray(result.schadorganismen) || result.schadorganismen.length === 0) {
+  if (
+    !Array.isArray(result.schadorganismen) ||
+    result.schadorganismen.length === 0
+  ) {
     return "";
   }
-  const badges = result.schadorganismen.map(
-    (entry) => `<span class="badge ${entry.ausgenommen ? "bg-danger" : "bg-secondary"}" title="${escapeHtml(entry.schadorg)}">${escapeHtml(
-      entry.label || entry.schadorg
-    )}${entry.ausgenommen ? " (ausgenommen)" : ""}</span>`
-  ).join(" ");
+  const badges = result.schadorganismen
+    .map(
+      (entry) =>
+        `<span class="badge ${entry.ausgenommen ? "bg-danger" : "bg-secondary"}" title="${escapeHtml(entry.schadorg)}">${escapeHtml(
+          entry.label || entry.schadorg
+        )}${entry.ausgenommen ? " (ausgenommen)" : ""}</span>`
+    )
+    .join(" ");
   return `
     <div class="mt-2">
       <strong><i class="bi bi-bug me-1"></i>Schadorganismen:</strong>
@@ -8501,7 +9120,9 @@ function renderResultAufwaende(result) {
   if (!Array.isArray(result.aufwaende) || result.aufwaende.length === 0) {
     return "";
   }
-  const list = result.aufwaende.map((entry) => `<li>${renderAufwandRow(entry)}</li>`).join("");
+  const list = result.aufwaende
+    .map((entry) => `<li>${renderAufwandRow(entry)}</li>`)
+    .join("");
   return `
     <div class="mt-2">
       <strong><i class="bi bi-activity me-1"></i>Aufw\xE4nde:</strong>
@@ -8513,14 +9134,18 @@ function renderResultWartezeiten(result) {
   if (!Array.isArray(result.wartezeiten) || result.wartezeiten.length === 0) {
     return "";
   }
-  const list = result.wartezeiten.map((entry) => {
-    const anwendungsbereich = entry.anwendungsbereich ? ` (${escapeHtml(entry.anwendungsbereich)})` : "";
-    return `
+  const list = result.wartezeiten
+    .map((entry) => {
+      const anwendungsbereich = entry.anwendungsbereich
+        ? ` (${escapeHtml(entry.anwendungsbereich)})`
+        : "";
+      return `
         <li>
           ${escapeHtml(entry.kultur_label || entry.kultur)}: ${escapeHtml(entry.tage || "-")} Tage${anwendungsbereich}
         </li>
       `;
-  }).join("");
+    })
+    .join("");
   return `
     <div class="mt-2">
       <strong><i class="bi bi-clock me-1"></i>Wartezeiten:</strong>
@@ -8530,53 +9155,76 @@ function renderResultWartezeiten(result) {
 }
 function renderDebugSection(zulassungState) {
   const { debug, logs } = zulassungState;
-  const manifestHtml = debug.manifest ? `
+  const manifestHtml = debug.manifest
+    ? `
       <div class="mt-3">
         <h6><i class="bi bi-file-code me-1"></i>Manifest</h6>
         <details>
           <summary class="btn btn-sm btn-outline-secondary">JSON anzeigen</summary>
           <pre class="bg-dark text-light p-2 mt-2" style="font-size: 11px; max-height: 300px; overflow-y: auto;">${escapeHtml(
-    JSON.stringify(debug.manifest, null, 2)
-  )}</pre>
+            JSON.stringify(debug.manifest, null, 2)
+          )}</pre>
         </details>
       </div>
-    ` : "";
-  const autoUpdateHtml = debug.lastAutoUpdateCheck ? `
+    `
+    : "";
+  const autoUpdateHtml = debug.lastAutoUpdateCheck
+    ? `
       <div class="mt-3">
         <h6><i class="bi bi-clock-history me-1"></i>Letzter Auto-Update-Check</h6>
         <p class="small mb-0">
           <strong>Zeit:</strong> ${escapeHtml(
-    new Date(debug.lastAutoUpdateCheck.time).toLocaleString("de-DE")
-  )}<br>
+            new Date(debug.lastAutoUpdateCheck.time).toLocaleString("de-DE")
+          )}<br>
           <strong>Ergebnis:</strong> ${escapeHtml(debug.lastAutoUpdateCheck.result || "OK")}
         </p>
       </div>
-    ` : "";
-  const syncLogHtml = Array.isArray(debug.lastSyncLog) && debug.lastSyncLog.length > 0 ? debug.lastSyncLog.map(
-    (log) => `
+    `
+    : "";
+  const syncLogHtml =
+    Array.isArray(debug.lastSyncLog) && debug.lastSyncLog.length > 0
+      ? debug.lastSyncLog
+          .map(
+            (log) => `
             <tr>
               <td><small>${escapeHtml(new Date(log.synced_at).toLocaleString("de-DE"))}</small></td>
               <td>${log.ok ? '<span class="badge bg-success"><i class="bi bi-check-lg"></i> OK</span>' : '<span class="badge bg-danger"><i class="bi bi-x-lg"></i> Fehler</span>'}</td>
               <td><small>${escapeHtml(log.message)}</small></td>
             </tr>
           `
-  ).join("") : '<tr><td colspan="3" class="text-muted">Keine Logs vorhanden</td></tr>';
-  const sessionLogsHtml = logs.length ? logs.slice(-50).map((log) => {
-    const badgeClass = log.level === "error" ? "bg-danger" : log.level === "warn" ? "bg-warning" : log.level === "debug" ? "bg-secondary" : "bg-primary";
-    return `<div><span class="badge ${badgeClass} me-1">${escapeHtml(log.level.toUpperCase())}</span> ${escapeHtml(log.message)}</div>`;
-  }).join("") : "";
-  const schemaHtml = debug.schema ? `
+          )
+          .join("")
+      : '<tr><td colspan="3" class="text-muted">Keine Logs vorhanden</td></tr>';
+  const sessionLogsHtml = logs.length
+    ? logs
+        .slice(-50)
+        .map((log) => {
+          const badgeClass =
+            log.level === "error"
+              ? "bg-danger"
+              : log.level === "warn"
+                ? "bg-warning"
+                : log.level === "debug"
+                  ? "bg-secondary"
+                  : "bg-primary";
+          return `<div><span class="badge ${badgeClass} me-1">${escapeHtml(log.level.toUpperCase())}</span> ${escapeHtml(log.message)}</div>`;
+        })
+        .join("")
+    : "";
+  const schemaHtml = debug.schema
+    ? `
       <div class="mt-3">
         <h6><i class="bi bi-diagram-3 me-1"></i>Schema-Informationen</h6>
         <p><strong>User Version:</strong> ${escapeHtml(debug.schema.user_version)}</p>
         <details>
           <summary class="btn btn-sm btn-outline-secondary">Tabellen anzeigen</summary>
           <pre class="bg-dark text-light p-2 mt-2" style="font-size: 11px; max-height: 400px; overflow-y: auto;">${escapeHtml(
-    JSON.stringify(debug.schema.tables, null, 2)
-  )}</pre>
+            JSON.stringify(debug.schema.tables, null, 2)
+          )}</pre>
         </details>
       </div>
-    ` : "";
+    `
+    : "";
   return `
     <div class="card mb-3">
       <div class="card-body">
@@ -8603,14 +9251,18 @@ function renderDebugSection(zulassungState) {
               </table>
             </div>
           </div>
-          ${sessionLogsHtml ? `
+          ${
+            sessionLogsHtml
+              ? `
             <div class="mt-3">
               <h6><i class="bi bi-terminal me-1"></i>Aktuelle Session Logs</h6>
               <div class="bg-dark text-light p-2" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;">
                 ${sessionLogsHtml}
               </div>
             </div>
-          ` : ""}
+          `
+              : ""
+          }
           ${schemaHtml}
         </div>
       </div>
@@ -8634,7 +9286,11 @@ function attachEventHandlers(section) {
   if (btnShowDebug) {
     btnShowDebug.addEventListener("click", () => {
       const debugPanel = section.querySelector("#debug-panel");
-      if (debugPanel && typeof bootstrap !== "undefined" && bootstrap?.Collapse) {
+      if (
+        debugPanel &&
+        typeof bootstrap !== "undefined" &&
+        bootstrap?.Collapse
+      ) {
         new bootstrap.Collapse(debugPanel, { toggle: true });
       }
     });
@@ -8649,7 +9305,7 @@ function attachEventHandlers(section) {
       const target = event.target;
       services.state.updateSlice("zulassung", (prev) => ({
         ...prev,
-        filters: { ...prev.filters, culture: target.value || null }
+        filters: { ...prev.filters, culture: target.value || null },
       }));
     });
   }
@@ -8658,7 +9314,7 @@ function attachEventHandlers(section) {
       const target = event.target;
       services.state.updateSlice("zulassung", (prev) => ({
         ...prev,
-        filters: { ...prev.filters, pest: target.value || null }
+        filters: { ...prev.filters, pest: target.value || null },
       }));
     });
   }
@@ -8667,11 +9323,15 @@ function attachEventHandlers(section) {
       const target = event.target;
       services.state.updateSlice("zulassung", (prev) => ({
         ...prev,
-        filters: { ...prev.filters, text: target.value }
+        filters: { ...prev.filters, text: target.value },
       }));
     });
     filterText.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && services && !services.state.getState().zulassung.busy) {
+      if (
+        event.key === "Enter" &&
+        services &&
+        !services.state.getState().zulassung.busy
+      ) {
         handleSearch();
       }
     });
@@ -8681,7 +9341,7 @@ function attachEventHandlers(section) {
       const target = event.target;
       services.state.updateSlice("zulassung", (prev) => ({
         ...prev,
-        filters: { ...prev.filters, includeExpired: target.checked }
+        filters: { ...prev.filters, includeExpired: target.checked },
       }));
     });
   }
@@ -8700,7 +9360,7 @@ async function handleSync() {
     busy: true,
     error: null,
     logs: [],
-    progress: { step: "start", percent: 0, message: "Starte..." }
+    progress: { step: "start", percent: 0, message: "Starte..." },
   }));
   render();
   try {
@@ -8708,16 +9368,16 @@ async function handleSync() {
       onProgress: (progress) => {
         services.state.updateSlice("zulassung", (prev) => ({
           ...prev,
-          progress
+          progress,
         }));
         render();
       },
       onLog: (log) => {
         services.state.updateSlice("zulassung", (prev) => ({
           ...prev,
-          logs: [...prev.logs, log]
+          logs: [...prev.logs, log],
         }));
-      }
+      },
     });
     const meta = result.meta;
     services.state.updateSlice("zulassung", (prev) => ({
@@ -8731,20 +9391,20 @@ async function handleSync() {
       lastSyncHash: meta.lastSyncHash ?? prev.lastSyncHash,
       progress: { step: null, percent: 0, message: "" },
       autoUpdateAvailable: false,
-      autoUpdateVersion: null
+      autoUpdateVersion: null,
     }));
     await loadInitialData();
     const [syncLog, schema] = await Promise.all([
       listBvlSyncLog({ limit: 10 }),
-      diagnoseBvlSchema()
+      diagnoseBvlSchema(),
     ]);
     services.state.updateSlice("zulassung", (prev) => ({
       ...prev,
       debug: {
         ...prev.debug,
         schema,
-        lastSyncLog: syncLog
-      }
+        lastSyncLog: syncLog,
+      },
     }));
     render();
   } catch (error) {
@@ -8752,7 +9412,7 @@ async function handleSync() {
       ...prev,
       busy: false,
       error: error?.message || "Unbekannter Fehler",
-      progress: { step: null, percent: 0, message: "" }
+      progress: { step: null, percent: 0, message: "" },
     }));
     render();
   }
@@ -8765,11 +9425,11 @@ async function handleSearch() {
   const { filters } = state2.zulassung;
   const normalizedFilters = {
     ...filters,
-    text: filters.text ? filters.text.trim() : ""
+    text: filters.text ? filters.text.trim() : "",
   };
   services.state.updateSlice("zulassung", (prev) => ({
     ...prev,
-    busy: true
+    busy: true,
   }));
   render();
   try {
@@ -8778,14 +9438,14 @@ async function handleSearch() {
       ...prev,
       busy: false,
       filters: { ...prev.filters, text: normalizedFilters.text },
-      results
+      results,
     }));
     render();
   } catch (error) {
     services.state.updateSlice("zulassung", (prev) => ({
       ...prev,
       busy: false,
-      error: error?.message || "Unbekannter Fehler"
+      error: error?.message || "Unbekannter Fehler",
     }));
     render();
   }
@@ -8800,9 +9460,9 @@ function handleClearFilters() {
       culture: null,
       pest: null,
       text: "",
-      includeExpired: false
+      includeExpired: false,
     },
-    results: []
+    results: [],
   }));
   render();
 }
@@ -8837,17 +9497,17 @@ function initZulassung(target, providedServices) {
 
 // src/scripts/pages/indexClient.ts
 if (typeof document !== "undefined") {
-  let initIndex = function() {
+  let initIndex = function () {
     const services2 = {
       state: {
         getState,
         updateSlice,
-        subscribe: subscribeState
+        subscribe: subscribeState,
       },
       events: {
         emit,
-        subscribe
-      }
+        subscribe,
+      },
     };
     const startupRegion = document.querySelector('[data-region="startup"]');
     const shellRegion = document.querySelector('[data-region="shell"]');

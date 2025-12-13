@@ -294,15 +294,16 @@ function renderAufwandRow(aufwand: Record<string, any>): string {
   const payload =
     safeParseJson<Record<string, any>>(aufwand.payload_json) || {};
 
+  // Official API field names: m_aufwand, m_aufwand_einheit
   const mittelUnit = firstNonEmpty(
-    aufwand.mittel_einheit,
-    payload.aufwandmenge_einheit,
+    aufwand.m_aufwand_einheit,
     payload.m_aufwand_einheit,
+    payload.aufwandmenge_einheit,
     payload.max_aufwandmenge_einheit
   );
 
   const mittelValue = firstNonEmpty(
-    aufwand.mittel_menge,
+    aufwand.m_aufwand,
     payload.m_aufwand,
     payload.max_aufwandmenge,
     payload.m_aufwand_bis,
@@ -335,28 +336,31 @@ function renderAufwandRow(aufwand: Record<string, any>): string {
     mittelDisplay = "keine Angabe";
   }
 
+  // Official API field names: w_aufwand_von, w_aufwand_bis, w_aufwand_einheit
   const wasserUnit = firstNonEmpty(
-    aufwand.wasser_einheit,
-    payload.wassermenge_einheit,
+    aufwand.w_aufwand_einheit,
     payload.w_aufwand_einheit,
+    payload.wassermenge_einheit,
     payload.w_aufwand_von_einheit,
     payload.w_aufwand_bis_einheit
   );
 
   const wasserValue = firstNonEmpty(
-    aufwand.wasser_menge,
-    payload.wassermenge,
-    payload.w_aufwand,
-    payload.w_aufwand_bis,
+    aufwand.w_aufwand_von,
+    aufwand.w_aufwand_bis,
     payload.w_aufwand_von,
+    payload.w_aufwand_bis,
+    payload.wassermenge,
     payload.wasseraufwand
   );
 
   const wasserFrom = firstNonEmpty(
+    aufwand.w_aufwand_von,
     payload.w_aufwand_von,
     payload.wassermenge_von
   );
   const wasserTo = firstNonEmpty(
+    aufwand.w_aufwand_bis,
     payload.w_aufwand_bis,
     payload.wassermenge_bis
   );
@@ -1194,11 +1198,12 @@ function renderResultItem(result: ReportingResult): string {
       : "";
 
   // Wartezeit aus BVL: Kombiniere Tage und Anwendungsbereich-Code
+  // Official API field name: gesetzt_wartezeit
   const wartezeit =
     Array.isArray(result.wartezeiten) && result.wartezeiten.length > 0
       ? (() => {
           const w = result.wartezeiten[0];
-          const tage = w.gesetzt_wartezeit || w.tage || "";
+          const tage = w.gesetzt_wartezeit || "";
           const code = w.anwendungsbereich || "";
           if (tage && code) return `${tage} Tage (${code})`;
           if (tage) return `${tage} Tage`;
@@ -2220,10 +2225,8 @@ function renderResultAwgPartnerAufwand(result: ReportingResult): string {
       const condition = normalizeText(
         entry.aufwandbedingung ?? entry.aufwand_bedingung
       );
-      const amount = formatAmount(
-        entry.m_aufwand ?? entry.mittel_menge,
-        entry.m_aufwand_einheit ?? entry.mittel_einheit
-      );
+      // Official API field names: m_aufwand, m_aufwand_einheit
+      const amount = formatAmount(entry.m_aufwand, entry.m_aufwand_einheit);
 
       const parts: string[] = [];
       if (partnerKennr) {
@@ -2587,10 +2590,11 @@ function renderResultWartezeiten(result: ReportingResult): string {
       const anwendungsbereich = entry.anwendungsbereich
         ? ` (${escapeHtml(entry.anwendungsbereich)})`
         : "";
+      // Official API field name: gesetzt_wartezeit
       return `
         <li>
           ${escapeHtml(entry.kultur_label || entry.kultur)}: ${escapeHtml(
-            entry.tage || "-"
+            entry.gesetzt_wartezeit || "-"
           )} Tage${anwendungsbereich}
         </li>
       `;

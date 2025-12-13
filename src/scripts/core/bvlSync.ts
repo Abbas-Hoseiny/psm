@@ -516,7 +516,7 @@ async function syncFromManifest(
     lastSyncHash: manifestHash,
     lastSyncIso: new Date().toISOString(),
     lastSyncCounts: result.counts,
-    dataSource: `pflanzenschutzliste-data@${manifest.version}`,
+    dataSource: `pflanzenschutz-db@${manifest.version}`,
     manifestVersion: manifest.version,
     apiStand: manifest.api_version || manifest.build?.finished_at || null,
     lastError: null,
@@ -869,37 +869,34 @@ function transformBvlData(datasets) {
       awg_id: item.awg_id || "",
       aufwand_bedingung: item.aufwandbedingung || "",
       sortier_nr: parseInt(item.sortier_nr) || 0,
-      mittel_menge: parseNullableNumber(
+      // Official API field names
+      m_aufwand: parseNullableNumber(
         coalesceValue(
-          item.max_aufwandmenge,
           item.m_aufwand,
+          item.max_aufwandmenge,
           item.m_aufwand_bis,
           item.m_aufwand_von,
           item.aufwandmenge
         )
       ),
-      mittel_einheit:
+      m_aufwand_einheit:
         coalesceValue(
-          item.aufwandmenge_einheit,
           item.m_aufwand_einheit,
+          item.aufwandmenge_einheit,
           item.m_aufwand_bis_einheit,
           item.m_aufwand_von_einheit
         ) || null,
-      wasser_menge: parseNullableNumber(
-        coalesceValue(
-          item.wassermenge,
-          item.w_aufwand_bis,
-          item.w_aufwand_von,
-          item.wasseraufwand
-        )
+      w_aufwand_von: parseNullableNumber(
+        coalesceValue(item.w_aufwand_von, item.wassermenge, item.wasseraufwand)
       ),
-      wasser_einheit:
+      w_aufwand_bis: parseNullableNumber(
+        coalesceValue(item.w_aufwand_bis, item.wassermenge, item.wasseraufwand)
+      ),
+      w_aufwand_einheit:
         coalesceValue(
-          item.wassermenge_einheit,
           item.w_aufwand_einheit,
-          item.wasseraufwand_einheit,
-          item.w_aufwand_von_einheit,
-          item.w_aufwand_bis_einheit
+          item.wassermenge_einheit,
+          item.wasseraufwand_einheit
         ) || null,
       payload_json: JSON.stringify(item),
     }));
@@ -911,8 +908,13 @@ function transformBvlData(datasets) {
       awg_id: item.awg_id || "",
       kultur: item.kultur || "",
       sortier_nr: parseInt(item.sortier_nr) || 0,
-      tage: parseInt(item.wartezeit_tage) || null,
-      bemerkung_kode: item.bemerkung_kode || null,
+      // Official API field names
+      gesetzt_wartezeit:
+        parseInt(item.gesetzt_wartezeit) ||
+        parseInt(item.wartezeit_tage) ||
+        null,
+      gesetzt_wartezeit_bem:
+        item.gesetzt_wartezeit_bem || item.bemerkung_kode || null,
       anwendungsbereich: item.anwendungsbereich || null,
       erlaeuterung: item.erlaeuterung || null,
       payload_json: JSON.stringify(item),

@@ -413,8 +413,8 @@ function updatePagerWidget(section: HTMLElement): void {
         totalKnown ? ` von ${numberFormatter.format(totalKnown)}` : ""
       }`
     : totalLoaded === 0 && isLoadingHistory
-    ? "Lade Historie..."
-    : "Keine Einträge auf dieser Seite.";
+      ? "Lade Historie..."
+      : "Keine Einträge auf dieser Seite.";
 
   if (totalLoaded === 0 && !isLoadingHistory) {
     widget.update({ status: "disabled", info });
@@ -797,8 +797,8 @@ function renderDetail(
   detailBody.innerHTML = `
     <p>
       <strong>${escapeHtml(tableLabels.date || "Datum")}:</strong> ${escapeHtml(
-    resolveHistoryDate(entry)
-  )}<br />
+        resolveHistoryDate(entry)
+      )}<br />
       <strong>${escapeHtml(
         detailLabels.creator || "Erstellt von"
       )}:</strong> ${escapeHtml(entry.ersteller || "")}<br />
@@ -977,8 +977,8 @@ function printDetail(
           detailLabels.invekos || "InVeKoS-Schlag"
         )}:</strong> ${escapeHtml(entry.invekos || "")}<br />
         <strong>${escapeHtml(gpsNoteLabel)}:</strong> ${escapeHtml(
-    gpsNoteValue || ""
-  )}<br />
+          gpsNoteValue || ""
+        )}<br />
         <strong>${escapeHtml(gpsCoordsLabel)}:</strong> ${gpsCoordsHtml}<br />
         <strong>${escapeHtml(
           detailLabels.time || "Uhrzeit"
@@ -1067,8 +1067,8 @@ export function initHistory(
           status === "success"
             ? `"${fallbackName}" wurde aktiviert.`
             : status === "pending"
-            ? `"${fallbackName}" wird aktiviert...`
-            : `GPS-Aktivierung für "${fallbackName}" konnte nicht abgeschlossen werden.`;
+              ? `"${fallbackName}" wird aktiviert...`
+              : `GPS-Aktivierung für "${fallbackName}" konnte nicht abgeschlossen werden.`;
         const text = data.message || defaultMessage;
         showHistoryFeedback(section, text, variant, autoHide);
       }

@@ -227,7 +227,7 @@ async function syncFromManifest(
     lastSyncHash: manifestHash,
     lastSyncIso: new Date().toISOString(),
     lastSyncCounts: result.counts,
-    dataSource: `pflanzenschutzliste-data@${manifest.version}`,
+    dataSource: `pflanzenschutz-db@${manifest.version}`,
     manifestVersion: manifest.version,
     apiStand: manifest.api_version || manifest.build?.finished_at || null,
     lastError: null,
