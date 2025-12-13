@@ -218,6 +218,13 @@ export function initStartup(
             </button>
           </div>
           
+          <!-- Info & Lizenz Link unten links -->
+          <div style="position: absolute; bottom: 1rem; left: 1rem;">
+            <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer" class="text-muted small" style="opacity: 0.7; text-decoration: none;">
+              <i class="bi bi-info-circle me-1"></i>Info & Lizenz
+            </a>
+          </div>
+          
           <i class="bi bi-database fs-1 mb-3 d-block" style="color: var(--color-primary); opacity: 0.8;"></i>
           <h2 class="mb-3" style="font-size: 1.75rem; color: var(--color-primary);">Datenbank öffnen</h2>
           <p class="mb-4">
