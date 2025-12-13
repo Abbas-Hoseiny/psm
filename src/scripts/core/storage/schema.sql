@@ -1,4 +1,4 @@
--- SQLite Schema for Pflanzenschutzliste
+-- SQLite Schema for Digitale PSM
 -- Version 1
 
 -- Meta table for storing configuration and settings

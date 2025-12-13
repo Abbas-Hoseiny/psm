@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'pflanzenschutzliste-db';
+const STORAGE_KEY = 'digitale-psm-db';
 
 function hasLocalStorage(): boolean {
   try {

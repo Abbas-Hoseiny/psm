@@ -1,43 +1,66 @@
-# Pflanzenschutz-Aufzeichnung
+# Digitale PSM
 
-Eine einfache, kostenlose Web-App für Gärtner:innen, Höfe und Betriebe, die ihre Pflanzenschutzmaßnahmen sauber dokumentieren möchten. Die Anwendung läuft komplett im Browser – ohne Registrierung, ohne Cloud-Zwang.
+**Digitale Pflanzenschutz-Dokumentation** – Eine moderne Web-Anwendung zur Erfassung, Berechnung und Dokumentation von Pflanzenschutzmaßnahmen im biologischen und konventionellen Landbau.
 
-## Warum ihr uns vertrauen könnt
+🌐 **Live-Demo:** [www.digitale-psm.de](https://www.digitale-psm.de)
 
-- **Alles bleibt lokal:** Berechnungen, Historie und Stammdaten werden nur auf deinem Gerät gespeichert. Du entscheidest selbst, ob du eine Datei exportierst.
-- **Offline nutzbar:** Nach dem ersten Laden funktioniert die App auch ohne Internetverbindung weiter.
-- **Open Source:** Der gesamte Code liegt hier auf GitHub. Jede Änderung ist nachvollziehbar.
-- **Keine versteckten Kosten:** Das Tool ist dauerhaft kostenlos und darf frei genutzt werden (MIT-Lizenz).
+## Features
 
-## So startest du in 2 Minuten
+### 🧮 Berechnung
+- Intelligente Pflanzenschutzmittel-Berechnung basierend auf Fläche/Menge
+- EPPO-Code und BBCH-Stadium Unterstützung mit Schnellauswahl
+- Automatische Umrechnung verschiedener Aufwandmengen
+- Mittel-Profile für häufig verwendete Kombinationen
 
-1. Öffne **https://abbas-hoseiny.github.io/pestalozzi/** in Chrome, Edge oder Firefox.
-2. Klicke auf **„Defaults testen“**, um mit Beispieldaten zu spielen. Dafür ist keine Datei und kein Login nötig.
-3. Gefällt dir der Ablauf? Dann kannst du später eine eigene Datenbank erstellen oder eine vorhandene JSON/SQLite-Datei verbinden.
+### 📋 Dokumentation
+- Vollständige Aufzeichnung aller Anwendungen
+- Kalenderansicht mit Filter-Funktionen
+- Export als PDF oder CSV
+- QS-konforme Dokumentation
 
-## Wichtige Sicherheits-Vorteile
+### 🗄️ BVL-Datenbank
+- Direkter Zugriff auf die offizielle BVL-Zulassungsdatenbank
+- Automatische Updates der Zulassungsdaten
+- Suche nach Kulturen, Schaderreger und Wirkstoffen
 
-- Deine Daten verlassen den Browser nur, wenn du sie selbst exportierst oder teilst.
-- Beim Schließen der Seite erhältst du einen Hinweis, falls eine Datenbank noch geöffnet ist.
-- Optionaler SQLite-Modus speichert die Daten als Datei auf deinem Rechner – perfekt für Backups.
+### 📍 GPS-Standorte
+- Speichern häufig genutzter Standorte
+- Koordinaten-Erfassung via Geolocation
 
-## Tipps zur Datensicherung
+### ⚙️ Einstellungen
+- Eigene Mittel und Profile verwalten
+- EPPO/BBCH-Codes speichern
+- Individuelle Anpassungen
 
-- Exportiere von Zeit zu Zeit eine Datei (`.sqlite` oder `.json`).
-- Lege Backups an einem sicheren Ort ab (USB-Stick, NAS, Nextcloud).
-- Wenn du nur schauen willst, reicht der Default-Modus: alle Daten können jederzeit gelöscht werden.
+## Technologie
 
-## Für Entwickler:innen
+- **Frontend:** Astro, TypeScript, Bootstrap 5
+- **Datenbank:** SQLite WASM (läuft komplett im Browser)
+- **Offline-First:** Funktioniert ohne Internetverbindung
+- **Datenschutz:** Alle Daten bleiben lokal auf Ihrem Gerät
+
+## Installation (Entwicklung)
 
 ```bash
-git clone https://github.com/Abbas-Hoseiny/pestalozzi.git
-cd pestalozzi
-npm install
-npm run dev
-```
+# Repository klonen
+git clone https://github.com/Abbas-Hoseiny/psm.git
+cd psm
 
-Der Build liegt unter `dist/` (`npm run build`). Deployments laufen über GitHub Pages.
+# Abhängigkeiten installieren
+npm install
+
+# Entwicklungsserver starten
+npm run dev
+
+# Produktion bauen
+npm run build
+```
 
 ## Lizenz
 
-MIT – Nutzung, Anpassung und Weitergabe sind ausdrücklich erlaubt. Wir freuen uns über Feedback und Beiträge über Issues oder Pull Requests.
+MIT-Lizenz – siehe [LICENSE](LICENSE)
+
+## Kontakt
+
+- Website: [www.digitale-psm.de](https://www.digitale-psm.de)
+- Entwickler: Abbas Hoseiny
