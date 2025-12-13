@@ -1,9 +1,9 @@
-const STORAGE_KEY = 'digitale-psm-db';
+const STORAGE_KEY = "digitale-psm-db";
 
 function hasLocalStorage(): boolean {
   try {
-    const key = '__storage_test__';
-    window.localStorage.setItem(key, '1');
+    const key = "__storage_test__";
+    window.localStorage.setItem(key, "1");
     window.localStorage.removeItem(key);
     return true;
   } catch (err) {
@@ -12,12 +12,14 @@ function hasLocalStorage(): boolean {
 }
 
 export function isSupported(): boolean {
-  return typeof window !== 'undefined' && hasLocalStorage();
+  return typeof window !== "undefined" && hasLocalStorage();
 }
 
-export async function create(initialData: any): Promise<{ data: any; context: any }> {
+export async function create(
+  initialData: any
+): Promise<{ data: any; context: any }> {
   if (!isSupported()) {
-    throw new Error('LocalStorage nicht verfügbar');
+    throw new Error("LocalStorage nicht verfügbar");
   }
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
   return { data: initialData, context: { storageKey: STORAGE_KEY } };
@@ -25,18 +27,18 @@ export async function create(initialData: any): Promise<{ data: any; context: an
 
 export async function open(): Promise<{ data: any; context: any }> {
   if (!isSupported()) {
-    throw new Error('LocalStorage nicht verfügbar');
+    throw new Error("LocalStorage nicht verfügbar");
   }
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    throw new Error('Keine gespeicherten Daten gefunden');
+    throw new Error("Keine gespeicherten Daten gefunden");
   }
   return { data: JSON.parse(raw), context: { storageKey: STORAGE_KEY } };
 }
 
 export async function save(data: any): Promise<{ context: any }> {
   if (!isSupported()) {
-    throw new Error('LocalStorage nicht verfügbar');
+    throw new Error("LocalStorage nicht verfügbar");
   }
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   return { context: { storageKey: STORAGE_KEY } };
