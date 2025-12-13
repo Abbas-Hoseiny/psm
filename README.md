@@ -7,27 +7,32 @@
 ## Features
 
 ### 🧮 Berechnung
+
 - Intelligente Pflanzenschutzmittel-Berechnung basierend auf Fläche/Menge
 - EPPO-Code und BBCH-Stadium Unterstützung mit Schnellauswahl
 - Automatische Umrechnung verschiedener Aufwandmengen
 - Mittel-Profile für häufig verwendete Kombinationen
 
 ### 📋 Dokumentation
+
 - Vollständige Aufzeichnung aller Anwendungen
 - Kalenderansicht mit Filter-Funktionen
 - Export als PDF oder CSV
 - QS-konforme Dokumentation
 
 ### 🗄️ BVL-Datenbank
+
 - Direkter Zugriff auf die offizielle BVL-Zulassungsdatenbank
 - Automatische Updates der Zulassungsdaten
 - Suche nach Kulturen, Schaderreger und Wirkstoffen
 
 ### 📍 GPS-Standorte
+
 - Speichern häufig genutzter Standorte
 - Koordinaten-Erfassung via Geolocation
 
 ### ⚙️ Einstellungen
+
 - Eigene Mittel und Profile verwalten
 - EPPO/BBCH-Codes speichern
 - Individuelle Anpassungen
