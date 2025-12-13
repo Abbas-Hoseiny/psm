@@ -220,7 +220,7 @@ export function initStartup(
           
           <!-- Info & Lizenz Link unten links -->
           <div style="position: absolute; bottom: 1rem; left: 1rem;">
-            <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer" class="text-muted small" style="opacity: 0.7; text-decoration: none;">
+            <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.6); text-decoration: none; font-size: 0.85rem; transition: color 0.2s;">
               <i class="bi bi-info-circle me-1"></i>Info & Lizenz
             </a>
           </div>
