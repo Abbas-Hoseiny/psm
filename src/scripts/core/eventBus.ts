@@ -142,6 +142,34 @@ export function emit(eventName: string, payload?: unknown): void {
 }
 
 /**
+ * Emit a typed event asynchronously using microtasks
+ * Performance: Non-blocking - handlers run after current call stack clears
+ * Use for events that don't require immediate handling
+ * @param eventName - Name of the event from EventMap
+ * @param payload - Typed payload for the event
+ */
+export function emitAsync<K extends keyof EventMap>(
+  eventName: K,
+  payload?: EventMap[K]
+): void;
+export function emitAsync<T = unknown>(eventName: string, payload?: T): void;
+export function emitAsync(eventName: string, payload?: unknown): void {
+  const handlers = subscribers.get(eventName);
+  if (!handlers) {
+    return;
+  }
+  for (const handler of handlers.values()) {
+    queueMicrotask(() => {
+      try {
+        handler(payload);
+      } catch (err) {
+        console.error(`eventBus async handler error for ${eventName}`, err);
+      }
+    });
+  }
+}
+
+/**
  * Check if an event has any subscribers
  */
 export function hasSubscribers(eventName: string): boolean {

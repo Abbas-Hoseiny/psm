@@ -407,12 +407,14 @@ function updatePagerWidget(section: HTMLElement): void {
     historyTotalCount > 0 ? historyTotalCount : Math.max(totalLoaded, 0);
 
   const info = visibleCount
-    ? `Einträge ${numberFormatter.format(pageOffset + 1)}–${numberFormatter.format(
-        pageOffset + visibleCount
-      )}${totalKnown ? ` von ${numberFormatter.format(totalKnown)}` : ""}`
+    ? `Einträge ${numberFormatter.format(
+        pageOffset + 1
+      )}–${numberFormatter.format(pageOffset + visibleCount)}${
+        totalKnown ? ` von ${numberFormatter.format(totalKnown)}` : ""
+      }`
     : totalLoaded === 0 && isLoadingHistory
-      ? "Lade Historie..."
-      : "Keine Einträge auf dieser Seite.";
+    ? "Lade Historie..."
+    : "Keine Einträge auf dieser Seite.";
 
   if (totalLoaded === 0 && !isLoadingHistory) {
     widget.update({ status: "disabled", info });
@@ -795,8 +797,8 @@ function renderDetail(
   detailBody.innerHTML = `
     <p>
       <strong>${escapeHtml(tableLabels.date || "Datum")}:</strong> ${escapeHtml(
-        resolveHistoryDate(entry)
-      )}<br />
+    resolveHistoryDate(entry)
+  )}<br />
       <strong>${escapeHtml(
         detailLabels.creator || "Erstellt von"
       )}:</strong> ${escapeHtml(entry.ersteller || "")}<br />
@@ -975,8 +977,8 @@ function printDetail(
           detailLabels.invekos || "InVeKoS-Schlag"
         )}:</strong> ${escapeHtml(entry.invekos || "")}<br />
         <strong>${escapeHtml(gpsNoteLabel)}:</strong> ${escapeHtml(
-          gpsNoteValue || ""
-        )}<br />
+    gpsNoteValue || ""
+  )}<br />
         <strong>${escapeHtml(gpsCoordsLabel)}:</strong> ${gpsCoordsHtml}<br />
         <strong>${escapeHtml(
           detailLabels.time || "Uhrzeit"
@@ -1065,8 +1067,8 @@ export function initHistory(
           status === "success"
             ? `"${fallbackName}" wurde aktiviert.`
             : status === "pending"
-              ? `"${fallbackName}" wird aktiviert...`
-              : `GPS-Aktivierung für "${fallbackName}" konnte nicht abgeschlossen werden.`;
+            ? `"${fallbackName}" wird aktiviert...`
+            : `GPS-Aktivierung für "${fallbackName}" konnte nicht abgeschlossen werden.`;
         const text = data.message || defaultMessage;
         showHistoryFeedback(section, text, variant, autoHide);
       }
@@ -1088,8 +1090,17 @@ export function initHistory(
     });
   }
 
+  // Performance: Track previous state slices to avoid unnecessary re-renders
+  let prevHistorySlice: typeof state.history | null = null;
+  let prevHasDatabase = false;
+  let prevActiveSection: string | null = null;
+
   const handleStateChange = (nextState: AppState) => {
     const nextMode: DataMode = shouldUseSqlite(nextState) ? "sqlite" : "memory";
+    const nextHistorySlice = nextState.history;
+    const nextHasDatabase = Boolean(nextState.app?.hasDatabase);
+    const nextActiveSection = nextState.app?.activeSection;
+
     if (nextMode !== dataMode) {
       dataMode = nextMode;
       selectedIndexes.clear();
@@ -1105,7 +1116,7 @@ export function initHistory(
       dataMode === "sqlite" &&
       !isLoadingHistory &&
       historyEntries.length === 0 &&
-      nextState.app?.hasDatabase
+      nextHasDatabase
     ) {
       void loadHistoryEntries(section, nextState.fieldLabels, { reset: true });
     }
@@ -1121,7 +1132,23 @@ export function initHistory(
       void loadHistoryEntries(section, nextState.fieldLabels, { reset: true });
     }
 
-    renderHistoryTable(section, nextState);
+    // Performance: Only re-render table if relevant state actually changed
+    const historyChanged = nextHistorySlice !== prevHistorySlice;
+    const databaseChanged = nextHasDatabase !== prevHasDatabase;
+    const sectionChanged = nextActiveSection !== prevActiveSection;
+
+    if (
+      historyChanged ||
+      databaseChanged ||
+      sectionChanged ||
+      dataMode === "sqlite"
+    ) {
+      prevHistorySlice = nextHistorySlice;
+      prevHasDatabase = nextHasDatabase;
+      prevActiveSection = nextActiveSection ?? null;
+      renderHistoryTable(section, nextState);
+    }
+
     const detailCard = section.querySelector<HTMLElement>("#history-detail");
     if (detailCard && !detailCard.classList.contains("d-none")) {
       const detailIndex = Number(detailCard.dataset.index);

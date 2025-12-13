@@ -104,12 +104,22 @@ export function initVirtualList(
   itemsContainer.style.width = "100%";
   container.appendChild(itemsContainer);
 
-  // Pool of recycled nodes
-  const nodePool = [];
-  const maxPoolSize =
+  // Pool of recycled nodes - Performance: dynamic size based on container
+  const nodePool: HTMLElement[] = [];
+  let maxPoolSize =
     Math.ceil(container.clientHeight / currentEstimatedHeight) +
     overscan * 2 +
     5;
+
+  /**
+   * Performance: Recalculate pool size when container resizes
+   */
+  function updatePoolSize(): void {
+    maxPoolSize =
+      Math.ceil(container.clientHeight / currentEstimatedHeight) +
+      overscan * 2 +
+      5;
+  }
 
   /**
    * Gets or creates a DOM node from the pool
@@ -286,6 +296,18 @@ export function initVirtualList(
   // Attach scroll listener
   container.addEventListener("scroll", handleScroll);
 
+  // Performance: Add ResizeObserver to handle container size changes
+  let resizeObserver: ResizeObserver | null = null;
+  if (typeof ResizeObserver !== "undefined") {
+    resizeObserver = new ResizeObserver(() => {
+      if (!isDestroyed) {
+        updatePoolSize();
+        render();
+      }
+    });
+    resizeObserver.observe(container);
+  }
+
   // Initial render
   render();
 
@@ -328,6 +350,12 @@ export function initVirtualList(
 
       container.removeEventListener("scroll", handleScroll);
       scrollScheduled = false;
+
+      // Performance: Disconnect ResizeObserver
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+      }
 
       // Clean up all nodes
       Array.from(itemsContainer.children).forEach((node) => {
