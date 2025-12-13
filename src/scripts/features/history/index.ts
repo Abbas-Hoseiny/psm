@@ -1091,7 +1091,7 @@ export function initHistory(
   }
 
   // Performance: Track previous state slices to avoid unnecessary re-renders
-  let prevHistorySlice: typeof state.history | null = null;
+  let prevHistorySlice: AppState["history"] | null = null;
   let prevHasDatabase = false;
   let prevActiveSection: string | null = null;
 
