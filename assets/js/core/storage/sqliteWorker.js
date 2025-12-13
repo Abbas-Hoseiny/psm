@@ -1255,11 +1255,24 @@ async function importBvlSqlite(payload) {
     },
   });
 
+  // Priority order: base/meta tables first, then parent tables, then child tables
+  // Foreign key targets must be created before their referencing tables
   const tablePriority = {
     bvl_meta: 10,
+    bvl_stand: 15,
     bvl_lookup_kultur: 20,
     bvl_lookup_schadorg: 20,
+    // Base entity tables (no FK dependencies or only to bvl_mittel)
+    bvl_wirkstoff: 25,
+    bvl_ghs_gefahrenhinweise: 25,
+    bvl_vertriebsfirma: 25,
     bvl_mittel: 30,
+    // Tables referencing bvl_mittel
+    bvl_mittel_enrichments: 35,
+    bvl_mittel_wirkstoff: 35,
+    bvl_mittel_ghs_gefahrenhinweis: 35,
+    bvl_mittel_vertrieb: 35,
+    // AWG hierarchy
     bvl_awg: 40,
     bvl_awg_kultur: 50,
     bvl_awg_schadorg: 50,
@@ -1284,6 +1297,11 @@ async function importBvlSqlite(payload) {
     `Found ${bvlTables.length} BVL tables in remote database:`,
     bvlTables
   );
+
+  // Disable foreign keys for the entire import process
+  // This is critical because we're creating tables in priority order
+  // but some tables may have circular or complex FK dependencies
+  db.exec("PRAGMA foreign_keys = OFF");
 
   // Begin transaction on main database
   db.exec("BEGIN TRANSACTION");
@@ -1410,7 +1428,7 @@ async function importBvlSqlite(payload) {
     // Update metadata from manifest
     if (manifest) {
       const metaUpdates = {
-        dataSource: `pflanzenschutzliste-data@${manifest.version}`,
+        dataSource: `pflanzenschutz-db@${manifest.version}`,
         lastSyncIso: new Date().toISOString(),
         lastSyncHash: manifest.hash || manifest.version,
       };
@@ -1449,12 +1467,160 @@ async function importBvlSqlite(payload) {
     }
 
     db.exec("COMMIT");
+
+    // Create compatibility aliases for column name differences
+    // The DB-Repo uses different column names than the app expects
+    try {
+      // Check if bvl_mittel has 'mittelname' instead of 'name'
+      let hasMittelname = false;
+      let hasName = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_mittel)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "mittelname") hasMittelname = true;
+          if (colName === "name") hasName = true;
+        },
+      });
+
+      // If we have 'mittelname' but not 'name', add a generated column alias
+      // SQLite doesn't support ALTER COLUMN, so we use a computed column
+      if (hasMittelname && !hasName) {
+        console.log("Adding 'name' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_mittel ADD COLUMN name TEXT GENERATED ALWAYS AS (mittelname) STORED"
+          );
+        } catch (e) {
+          // Column might already exist or ALTER failed
+          console.warn("Could not add 'name' column:", e.message);
+        }
+      }
+
+      // Check if bvl_mittel has 'zulassungsende' instead of 'zul_ende'
+      let hasZulassungsende = false;
+      let hasZulEnde = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_mittel)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "zulassungsende") hasZulassungsende = true;
+          if (colName === "zul_ende") hasZulEnde = true;
+        },
+      });
+
+      if (hasZulassungsende && !hasZulEnde) {
+        console.log("Adding 'zul_ende' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_mittel ADD COLUMN zul_ende TEXT GENERATED ALWAYS AS (zulassungsende) STORED"
+          );
+        } catch (e) {
+          console.warn("Could not add 'zul_ende' column:", e.message);
+        }
+      }
+
+      // Check bvl_awg_kultur for 'kultur_kode' vs 'kultur'
+      let hasKulturKode = false;
+      let hasKultur = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_awg_kultur)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "kultur_kode") hasKulturKode = true;
+          if (colName === "kultur") hasKultur = true;
+        },
+      });
+
+      if (hasKulturKode && !hasKultur) {
+        console.log("Adding 'kultur' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg_kultur ADD COLUMN kultur TEXT GENERATED ALWAYS AS (kultur_kode) STORED"
+          );
+        } catch (e) {
+          console.warn("Could not add 'kultur' column:", e.message);
+        }
+      }
+
+      // Check bvl_awg_schadorg for 'schadorg_kode' vs 'schadorg'
+      let hasSchadorgKode = false;
+      let hasSchadorg = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_awg_schadorg)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "schadorg_kode") hasSchadorgKode = true;
+          if (colName === "schadorg") hasSchadorg = true;
+        },
+      });
+
+      if (hasSchadorgKode && !hasSchadorg) {
+        console.log("Adding 'schadorg' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg_schadorg ADD COLUMN schadorg TEXT GENERATED ALWAYS AS (schadorg_kode) STORED"
+          );
+        } catch (e) {
+          console.warn("Could not add 'schadorg' column:", e.message);
+        }
+      }
+
+      // Check bvl_awg_aufwand for column name differences
+      let hasAufwandCols = {
+        mittel_aufwand: false,
+        mittel_menge: false,
+        mittel_aufwand_einheit: false,
+        mittel_einheit: false,
+      };
+      db.exec({
+        sql: "PRAGMA table_info(bvl_awg_aufwand)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName in hasAufwandCols) hasAufwandCols[colName] = true;
+        },
+      });
+
+      if (hasAufwandCols.mittel_aufwand && !hasAufwandCols.mittel_menge) {
+        console.log("Adding 'mittel_menge' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg_aufwand ADD COLUMN mittel_menge TEXT GENERATED ALWAYS AS (mittel_aufwand) STORED"
+          );
+        } catch (e) {
+          console.warn("Could not add 'mittel_menge' column:", e.message);
+        }
+      }
+
+      if (
+        hasAufwandCols.mittel_aufwand_einheit &&
+        !hasAufwandCols.mittel_einheit
+      ) {
+        console.log("Adding 'mittel_einheit' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg_aufwand ADD COLUMN mittel_einheit TEXT GENERATED ALWAYS AS (mittel_aufwand_einheit) STORED"
+          );
+        } catch (e) {
+          console.warn("Could not add 'mittel_einheit' column:", e.message);
+        }
+      }
+    } catch (compatError) {
+      console.warn("Error creating compatibility columns:", compatError);
+      // Don't fail the import for compatibility issues
+    }
+
+    // Re-enable foreign keys after successful import
+    db.exec("PRAGMA foreign_keys = ON");
+
     remoteDb.close();
 
     console.log("BVL SQLite import complete", counts);
     return { success: true, counts };
   } catch (error) {
     db.exec("ROLLBACK");
+    // Re-enable foreign keys even on error
+    db.exec("PRAGMA foreign_keys = ON");
     remoteDb.close();
     console.error("Failed to import BVL SQLite:", error);
     throw error;

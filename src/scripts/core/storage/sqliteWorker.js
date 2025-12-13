@@ -1615,10 +1615,11 @@ async function applySchema() {
           awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE,
           aufwand_bedingung TEXT,
           sortier_nr INTEGER,
-          mittel_menge REAL,
-          mittel_einheit TEXT,
-          wasser_menge REAL,
-          wasser_einheit TEXT,
+          m_aufwand REAL,
+          m_aufwand_einheit TEXT,
+          w_aufwand_von REAL,
+          w_aufwand_bis REAL,
+          w_aufwand_einheit TEXT,
           payload_json TEXT,
           PRIMARY KEY (awg_id, aufwand_bedingung, sortier_nr)
         );
@@ -1628,8 +1629,8 @@ async function applySchema() {
           awg_id TEXT REFERENCES bvl_awg(awg_id) ON DELETE CASCADE,
           kultur TEXT,
           sortier_nr INTEGER,
-          tage INTEGER,
-          bemerkung_kode TEXT,
+          gesetzt_wartezeit INTEGER,
+          gesetzt_wartezeit_bem TEXT,
           anwendungsbereich TEXT,
           erlaeuterung TEXT,
           payload_json TEXT,
@@ -3738,9 +3739,9 @@ async function importBvlDataset(payload) {
     if (awg_aufwand && awg_aufwand.length > 0) {
       const stmt = db.prepare(`
         INSERT OR REPLACE INTO bvl_awg_aufwand 
-        (awg_id, aufwand_bedingung, sortier_nr, mittel_menge, mittel_einheit, 
-         wasser_menge, wasser_einheit, payload_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (awg_id, aufwand_bedingung, sortier_nr, m_aufwand, m_aufwand_einheit, 
+         w_aufwand_von, w_aufwand_bis, w_aufwand_einheit, payload_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       for (const item of awg_aufwand) {
@@ -3749,10 +3750,11 @@ async function importBvlDataset(payload) {
             item.awg_id,
             item.aufwand_bedingung,
             item.sortier_nr,
-            item.mittel_menge,
-            item.mittel_einheit,
-            item.wasser_menge,
-            item.wasser_einheit,
+            item.m_aufwand,
+            item.m_aufwand_einheit,
+            item.w_aufwand_von,
+            item.w_aufwand_bis,
+            item.w_aufwand_einheit,
             item.payload_json,
           ])
           .step();
@@ -3767,8 +3769,8 @@ async function importBvlDataset(payload) {
     if (awg_wartezeit && awg_wartezeit.length > 0) {
       const stmt = db.prepare(`
         INSERT OR REPLACE INTO bvl_awg_wartezeit 
-        (awg_wartezeit_nr, awg_id, kultur, sortier_nr, tage, 
-         bemerkung_kode, anwendungsbereich, erlaeuterung, payload_json)
+        (awg_wartezeit_nr, awg_id, kultur, sortier_nr, gesetzt_wartezeit, 
+         gesetzt_wartezeit_bem, anwendungsbereich, erlaeuterung, payload_json)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
@@ -3779,8 +3781,8 @@ async function importBvlDataset(payload) {
             item.awg_id,
             item.kultur,
             item.sortier_nr,
-            item.tage,
-            item.bemerkung_kode,
+            item.gesetzt_wartezeit,
+            item.gesetzt_wartezeit_bem,
             item.anwendungsbereich,
             item.erlaeuterung,
             item.payload_json,
@@ -3922,16 +3924,69 @@ async function importBvlSqlite(payload) {
     },
   });
 
+  // Priority order: base/meta tables first, then parent tables, then child tables
+  // Foreign key targets must be created before their referencing tables
+  // All 41 BVL API tables from pflanzenschutz-db
   const tablePriority = {
+    // Meta/Status tables (no dependencies)
     bvl_meta: 10,
+    bvl_stand: 15,
+    
+    // Lookup tables (no dependencies)
     bvl_lookup_kultur: 20,
     bvl_lookup_schadorg: 20,
+    bvl_kodeliste: 20,
+    bvl_kodeliste_feldname: 21,
+    bvl_kode: 22,
+    bvl_kultur_gruppe: 20,
+    bvl_schadorg_gruppe: 20,
+    bvl_hinweis: 20,
+    
+    // Base entity tables (no FK dependencies)
+    bvl_wirkstoff: 25,
+    bvl_adresse: 25,
+    bvl_ghs_gefahrenhinweise: 25,
+    bvl_ghs_gefahrensymbole: 25,
+    bvl_ghs_sicherheitshinweise: 25,
+    bvl_ghs_signalwoerter: 25,
+    
+    // Main product tables
     bvl_mittel: 30,
+    bvl_mittel_abgelaufen: 30,
+    bvl_staerkung: 30,
+    bvl_zusatzstoff: 30,
+    bvl_parallelimport_gueltig: 30,
+    bvl_parallelimport_abgelaufen: 30,
+    
+    // Tables referencing bvl_mittel
+    bvl_antrag: 35,
+    bvl_auflagen: 35,
+    bvl_auflage_redu: 35,
+    bvl_mittel_vertrieb: 35,
+    bvl_mittel_abpackung: 35,
+    bvl_mittel_gefahren_symbol: 35,
+    bvl_mittel_wirkbereich: 35,
+    bvl_wirkstoff_gehalt: 35,
+    bvl_staerkung_vertrieb: 35,
+    bvl_zusatzstoff_vertrieb: 35,
+    
+    // AWG hierarchy (depends on bvl_mittel)
     bvl_awg: 40,
+    bvl_awg_zulassung: 45,
+    
+    // AWG child tables (depend on bvl_awg)
     bvl_awg_kultur: 50,
     bvl_awg_schadorg: 50,
+    bvl_awg_bem: 50,
+    bvl_awg_partner: 50,
+    bvl_awg_verwendungszweck: 50,
+    bvl_awg_zeitpunkt: 50,
+    
+    // AWG grandchild tables
     bvl_awg_aufwand: 60,
     bvl_awg_wartezeit: 60,
+    bvl_awg_partner_aufwand: 60,
+    bvl_awg_wartezeit_ausg_kultur: 65,
   };
 
   bvlTables.sort((a, b) => {
@@ -3951,6 +4006,11 @@ async function importBvlSqlite(payload) {
     `Found ${bvlTables.length} BVL tables in remote database:`,
     bvlTables
   );
+
+  // Disable foreign keys for the entire import process
+  // This is critical because we're creating tables in priority order
+  // but some tables may have circular or complex FK dependencies
+  db.exec("PRAGMA foreign_keys = OFF");
 
   // Begin transaction on main database
   db.exec("BEGIN TRANSACTION");
@@ -4077,7 +4137,7 @@ async function importBvlSqlite(payload) {
     // Update metadata from manifest
     if (manifest) {
       const metaUpdates = {
-        dataSource: `pflanzenschutzliste-data@${manifest.version}`,
+        dataSource: `pflanzenschutz-db@${manifest.version}`,
         lastSyncIso: new Date().toISOString(),
         lastSyncHash: manifest.hash || manifest.version,
       };
@@ -4116,12 +4176,124 @@ async function importBvlSqlite(payload) {
     }
 
     db.exec("COMMIT");
+
+    // Create compatibility aliases for column name differences
+    // The DB-Repo uses different column names than the app expects
+    try {
+      // Check if bvl_mittel has 'mittelname' instead of 'name'
+      let hasMittelname = false;
+      let hasName = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_mittel)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "mittelname") hasMittelname = true;
+          if (colName === "name") hasName = true;
+        },
+      });
+
+      // If we have 'mittelname' but not 'name', add a generated column alias
+      // SQLite doesn't support ALTER COLUMN, so we use a computed column
+      if (hasMittelname && !hasName) {
+        console.log("Adding 'name' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_mittel ADD COLUMN name TEXT GENERATED ALWAYS AS (mittelname) STORED"
+          );
+        } catch (e) {
+          // Column might already exist or ALTER failed
+          console.warn("Could not add 'name' column:", e.message);
+        }
+      }
+
+      // Check if bvl_mittel has 'zulassungsende' instead of 'zul_ende'
+      let hasZulassungsende = false;
+      let hasZulEnde = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_mittel)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "zulassungsende") hasZulassungsende = true;
+          if (colName === "zul_ende") hasZulEnde = true;
+        },
+      });
+
+      if (hasZulassungsende && !hasZulEnde) {
+        console.log("Adding 'zul_ende' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_mittel ADD COLUMN zul_ende TEXT GENERATED ALWAYS AS (zulassungsende) STORED"
+          );
+        } catch (e) {
+          console.warn("Could not add 'zul_ende' column:", e.message);
+        }
+      }
+
+      // Check bvl_awg_kultur for 'kultur_kode' vs 'kultur'
+      let hasKulturKode = false;
+      let hasKultur = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_awg_kultur)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "kultur_kode") hasKulturKode = true;
+          if (colName === "kultur") hasKultur = true;
+        },
+      });
+
+      if (hasKulturKode && !hasKultur) {
+        console.log("Adding 'kultur' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg_kultur ADD COLUMN kultur TEXT GENERATED ALWAYS AS (kultur_kode) STORED"
+          );
+        } catch (e) {
+          console.warn("Could not add 'kultur' column:", e.message);
+        }
+      }
+
+      // Check bvl_awg_schadorg for 'schadorg_kode' vs 'schadorg'
+      let hasSchadorgKode = false;
+      let hasSchadorg = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_awg_schadorg)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "schadorg_kode") hasSchadorgKode = true;
+          if (colName === "schadorg") hasSchadorg = true;
+        },
+      });
+
+      if (hasSchadorgKode && !hasSchadorg) {
+        console.log("Adding 'schadorg' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg_schadorg ADD COLUMN schadorg TEXT GENERATED ALWAYS AS (schadorg_kode) STORED"
+          );
+        } catch (e) {
+          console.warn("Could not add 'schadorg' column:", e.message);
+        }
+      }
+
+      // Note: bvl_awg_aufwand now uses official API field names directly:
+      // m_aufwand, m_aufwand_einheit, w_aufwand_von, w_aufwand_bis, w_aufwand_einheit
+      // No compatibility aliases needed
+    } catch (compatError) {
+      console.warn("Error creating compatibility columns:", compatError);
+      // Don't fail the import for compatibility issues
+    }
+
+    // Re-enable foreign keys after successful import
+    db.exec("PRAGMA foreign_keys = ON");
+
     remoteDb.close();
 
     console.log("BVL SQLite import complete", counts);
     return { success: true, counts };
   } catch (error) {
     db.exec("ROLLBACK");
+    // Re-enable foreign keys even on error
+    db.exec("PRAGMA foreign_keys = ON");
     remoteDb.close();
     console.error("Failed to import BVL SQLite:", error);
     throw error;
@@ -4457,8 +4629,8 @@ async function queryZulassung(payload) {
     const placeholders = allAwgIds.map(() => "?").join(",");
     db.exec({
       sql: `
-        SELECT awg_id, aufwand_bedingung, sortier_nr, mittel_menge, mittel_einheit,
-               wasser_menge, wasser_einheit, payload_json
+        SELECT awg_id, aufwand_bedingung, sortier_nr, m_aufwand, m_aufwand_einheit,
+               w_aufwand_von, w_aufwand_bis, w_aufwand_einheit, payload_json
         FROM bvl_awg_aufwand 
         WHERE awg_id IN (${placeholders})
         ORDER BY awg_id, sortier_nr
@@ -4472,11 +4644,12 @@ async function queryZulassung(payload) {
         aufwaendeMap.get(awgId).push({
           aufwand_bedingung: row[1],
           sortier_nr: row[2],
-          mittel_menge: row[3],
-          mittel_einheit: row[4],
-          wasser_menge: row[5],
-          wasser_einheit: row[6],
-          payload_json: row[7],
+          m_aufwand: row[3],
+          m_aufwand_einheit: row[4],
+          w_aufwand_von: row[5],
+          w_aufwand_bis: row[6],
+          w_aufwand_einheit: row[7],
+          payload_json: row[8],
         });
       },
     });
@@ -4488,8 +4661,8 @@ async function queryZulassung(payload) {
     const placeholders = allAwgIds.map(() => "?").join(",");
     db.exec({
       sql: `
-        SELECT w.awg_id, w.awg_wartezeit_nr, w.kultur, w.sortier_nr, w.tage, 
-               w.bemerkung_kode, w.anwendungsbereich, w.erlaeuterung, w.payload_json,
+        SELECT w.awg_id, w.awg_wartezeit_nr, w.kultur, w.sortier_nr, w.gesetzt_wartezeit, 
+               w.gesetzt_wartezeit_bem, w.anwendungsbereich, w.erlaeuterung, w.payload_json,
                IFNULL(lk.label, w.kultur) as kultur_label
         FROM bvl_awg_wartezeit w
         LEFT JOIN bvl_lookup_kultur lk ON lk.code = w.kultur
@@ -4506,8 +4679,8 @@ async function queryZulassung(payload) {
           awg_wartezeit_nr: row[1],
           kultur: row[2],
           sortier_nr: row[3],
-          tage: row[4],
-          bemerkung_kode: row[5],
+          gesetzt_wartezeit: row[4],
+          gesetzt_wartezeit_bem: row[5],
           anwendungsbereich: row[6],
           erlaeuterung: row[7],
           payload_json: row[8],

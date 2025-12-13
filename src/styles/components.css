@@ -1348,3 +1348,184 @@ html.qs-mode .card-dark {
 .bvl-section:last-child {
   margin-bottom: 0;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   BVL FIELD BADGES & CHIPS
+   Für API-Datenfelder: Wartezeit, Aufwand, Kultur, Schadorg, etc.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Wartezeit Badge - Numerische Tage-Anzeige */
+.badge-wartezeit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--r-full);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-wartezeit-kurz {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--primary-600);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge-wartezeit-mittel {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning-600);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.badge-wartezeit-lang {
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.badge-wartezeit-special {
+  background: rgba(34, 211, 238, 0.15);
+  color: var(--info-600);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.badge-wartezeit-none {
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border-1);
+}
+
+/* Aufwand-Anzeige */
+.aufwand-display {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.aufwand-value {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.aufwand-einheit {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+/* Kultur/Schadorg Chips */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--r-full);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.chip-kultur {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--primary-600);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.chip-schadorg {
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--warning-600);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.chip-wirkstoff {
+  background: rgba(168, 85, 247, 0.12);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+/* GHS Gefahren-Badges */
+.ghs-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ghs-gefahr {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger-600);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.ghs-warnung {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning-600);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+/* Zulassungs-Status */
+.status-zulassung {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--font-size-sm);
+}
+
+.status-gueltig {
+  color: var(--primary-600);
+}
+
+.status-abgelaufen {
+  color: var(--danger-600);
+}
+
+.status-auslaufend {
+  color: var(--warning-600);
+}
+
+/* Detail-Feld Anzeige */
+.field-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.field-value {
+  font-size: var(--font-size-base);
+  color: var(--text);
+}
+
+.field-value-muted {
+  color: var(--text-muted);
+}
+
+/* Icons für BVL-Felder */
+.bvl-icon {
+  width: 1.25em;
+  height: 1.25em;
+  vertical-align: -0.2em;
+}
+
+.bvl-icon-sm {
+  width: 1em;
+  height: 1em;
+}
+
+/* Chip-Liste (mehrere Kulturen/Schadorgs) */
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* Compact Mode für Tabellen */
+.table-compact .badge-wartezeit,
+.table-compact .chip {
+  padding: 0.1rem 0.35rem;
+  font-size: var(--font-size-xs);
+}

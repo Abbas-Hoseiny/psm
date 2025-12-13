@@ -1,11 +1,11 @@
 // @ts-nocheck
 /**
  * BVL Dataset Module
- * Handles manifest-based data fetching from pflanzenschutzliste-data repository
+ * Handles manifest-based data fetching from pflanzenschutz-db repository
  */
 
 const DEFAULT_MANIFEST_URL =
-  "https://abbas-hoseiny.github.io/pflanzenschutzliste-data/latest/manifest.json";
+  "https://abbas-hoseiny.github.io/pflanzenschutz-db/manifest.json";
 const MANIFEST_STORAGE_KEY = "bvlManifestUrl";
 
 export class ManifestError extends Error {
@@ -122,7 +122,7 @@ export async function fetchManifest(options = {}) {
         resolveError
       );
       manifest.baseUrlResolved =
-        "https://abbas-hoseiny.github.io/pflanzenschutzliste-data/latest/";
+        "https://abbas-hoseiny.github.io/pflanzenschutz-db/";
     }
 
     return manifest;
@@ -161,28 +161,30 @@ export function selectBestFile(manifest) {
 
   // Prefer .sqlite.br if brotli is supported
   if (supportsStreamDecompression("br")) {
-    const brFile = files.find((f) => f.path.endsWith(".sqlite.br"));
+    const brFile = files.find((f) => (f.path || f.name).endsWith(".sqlite.br"));
     if (brFile) {
       return { file: brFile, format: "brotli" };
     }
   }
 
   // Prefer gzip next (fallback to JS decompressor if stream API missing)
-  const gzFile = files.find((f) => f.path.endsWith(".sqlite.gz"));
+  const gzFile = files.find((f) => (f.path || f.name).endsWith(".sqlite.gz"));
   if (gzFile) {
     return { file: gzFile, format: "gzip" };
   }
 
   // Fallback to plain .sqlite
   const sqliteFile = files.find(
-    (f) => f.path.endsWith(".sqlite") && !f.path.includes(".")
+    (f) =>
+      (f.path || f.name).endsWith(".sqlite") &&
+      !(f.path || f.name).includes(".sqlite.")
   );
   if (sqliteFile) {
     return { file: sqliteFile, format: "plain" };
   }
 
   // Fallback to .sqlite.zip
-  const zipFile = files.find((f) => f.path.endsWith(".sqlite.zip"));
+  const zipFile = files.find((f) => (f.path || f.name).endsWith(".sqlite.zip"));
   if (zipFile) {
     return { file: zipFile, format: "zip" };
   }
@@ -371,7 +373,7 @@ export async function downloadDatabase(manifest, options = {}) {
     manifest.baseUrlResolved ||
     manifest.baseUrl ||
     manifest.base_url ||
-    "https://abbas-hoseiny.github.io/pflanzenschutzliste-data/latest/";
+    "https://abbas-hoseiny.github.io/pflanzenschutz-db/";
 
   try {
     baseUrl = new URL(baseUrl, manifest.manifestUrl || baseUrl).toString();
@@ -380,13 +382,12 @@ export async function downloadDatabase(manifest, options = {}) {
       "Failed to normalize base URL, falling back to default",
       resolveError
     );
-    baseUrl =
-      "https://abbas-hoseiny.github.io/pflanzenschutzliste-data/latest/";
+    baseUrl = "https://abbas-hoseiny.github.io/pflanzenschutz-db/";
   }
 
   // Select best file format
   const { file, format } = selectBestFile(manifest);
-  const fileUrl = new URL(file.path, baseUrl).toString();
+  const fileUrl = new URL(file.path || file.name, baseUrl).toString();
 
   if (onProgress) {
     onProgress({

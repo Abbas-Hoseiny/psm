@@ -143,16 +143,64 @@ const COLUMN_DEFS: Record<keyof typeof COLUMN_FALLBACK_LABELS, ColumnRenderer> =
       cell: (item, config) => {
         const value = item?.wartezeit;
         if (value === null || value === undefined) {
-          return config.missingValue;
+          return `<span class="badge-wartezeit badge-wartezeit-none">-</span>`;
         }
-        return `${escapeHtml(String(value))} Tage`;
+
+        // Spezialfälle: F (Festsetzung), N (nicht relevant)
+        const strValue = String(value).trim().toUpperCase();
+        if (strValue === "F" || strValue === "N") {
+          const label = strValue === "F" ? "F" : "N";
+          return `<span class="badge-wartezeit badge-wartezeit-special" title="${strValue === "F" ? "Nach Festsetzung" : "Nicht relevant"}">
+            <i class="bi bi-info-circle bvl-icon-sm"></i>${label}
+          </span>`;
+        }
+
+        // Numerischer Wert
+        const numValue = parseInt(String(value), 10);
+        if (isNaN(numValue)) {
+          return `<span class="badge-wartezeit badge-wartezeit-none">${escapeHtml(String(value))}</span>`;
+        }
+
+        // Farbkodierung nach Tagen
+        let badgeClass = "badge-wartezeit-kurz"; // Grün: 0-7 Tage
+        let icon = "bi-check-circle";
+        if (numValue > 21) {
+          badgeClass = "badge-wartezeit-lang"; // Orange: >21 Tage
+          icon = "bi-exclamation-triangle";
+        } else if (numValue > 7) {
+          badgeClass = "badge-wartezeit-mittel"; // Gelb: 8-21 Tage
+          icon = "bi-hourglass-split";
+        }
+
+        return `<span class="badge-wartezeit ${badgeClass}" title="${numValue} Tage Wartezeit">
+          <i class="bi ${icon} bvl-icon-sm"></i>${numValue}T
+        </span>`;
       },
       className: "nowrap",
     },
     wirkstoff: {
       cell: (item, config) => {
         const value = item?.wirkstoff;
-        return value ? escapeHtml(value) : config.missingValue;
+        if (!value) return config.missingValue;
+
+        // Mehrere Wirkstoffe? (komma-getrennt)
+        const wirkstoffe = String(value)
+          .split(",")
+          .map((w) => w.trim())
+          .filter(Boolean);
+        if (wirkstoffe.length === 1) {
+          return `<span class="chip chip-wirkstoff" title="Wirkstoff">
+            <i class="bi bi-capsule bvl-icon-sm"></i>${escapeHtml(wirkstoffe[0])}
+          </span>`;
+        }
+
+        // Mehrere Wirkstoffe als Chip-Liste
+        return `<div class="chip-list">${wirkstoffe
+          .map(
+            (w) =>
+              `<span class="chip chip-wirkstoff"><i class="bi bi-capsule bvl-icon-sm"></i>${escapeHtml(w)}</span>`
+          )
+          .join("")}</div>`;
       },
     },
     method: {
