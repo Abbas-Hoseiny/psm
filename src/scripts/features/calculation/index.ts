@@ -549,8 +549,15 @@ function setupLookupAutocompletes(section: HTMLElement): void {
 // EPPO/BBCH Quick Select Functions
 // ============================================
 
+// Performance: Add loading flag to prevent duplicate concurrent requests
+let quickSelectLoading = false;
+
 async function loadQuickSelectData(forceReload = false): Promise<void> {
+  // Performance: Prevent concurrent loading
+  if (quickSelectLoading) return;
   if (quickSelectLoaded && !forceReload) return;
+
+  quickSelectLoading = true;
 
   try {
     const [savedEppo, savedBbch, frequentEppo, frequentBbch] =
@@ -638,6 +645,9 @@ async function loadQuickSelectData(forceReload = false): Promise<void> {
     quickSelectLoaded = true;
   } catch (error) {
     console.warn("Failed to load quick select data:", error);
+  } finally {
+    // Performance: Always reset loading flag
+    quickSelectLoading = false;
   }
 }
 
@@ -654,7 +664,11 @@ function renderDropdownContent(type: "eppo" | "bbch"): string {
       <div class="dropdown-empty">
         <small class="text-muted">
           <i class="bi bi-info-circle me-1"></i>
-          ${type === "eppo" ? "Keine gespeicherten EPPO-Codes" : "Keine gespeicherten BBCH-Stadien"}
+          ${
+            type === "eppo"
+              ? "Keine gespeicherten EPPO-Codes"
+              : "Keine gespeicherten BBCH-Stadien"
+          }
         </small>
         <div class="mt-1">
           <small class="text-muted">Tippen Sie zum Suchen oder speichern Sie Codes unter "Zulassung & Codes"</small>
@@ -670,8 +684,14 @@ function renderDropdownContent(type: "eppo" | "bbch"): string {
       const isFav = item.isFavorite;
 
       return `
-      <button type="button" class="dropdown-item" data-code="${escapeHtml(code)}" data-index="${index}">
-        ${isFav ? '<i class="bi bi-star-fill text-warning me-2"></i>' : '<i class="bi bi-clock-history text-muted me-2"></i>'}
+      <button type="button" class="dropdown-item" data-code="${escapeHtml(
+        code
+      )}" data-index="${index}">
+        ${
+          isFav
+            ? '<i class="bi bi-star-fill text-warning me-2"></i>'
+            : '<i class="bi bi-clock-history text-muted me-2"></i>'
+        }
         <strong>${escapeHtml(code)}</strong>
         <span class="text-muted ms-2">${escapeHtml(label)}</span>
       </button>
@@ -681,7 +701,9 @@ function renderDropdownContent(type: "eppo" | "bbch"): string {
 
   return `
     <div class="dropdown-header">
-      <small><i class="bi bi-bookmark-star me-1"></i>Gespeicherte ${type === "eppo" ? "Codes" : "Stadien"}</small>
+      <small><i class="bi bi-bookmark-star me-1"></i>Gespeicherte ${
+        type === "eppo" ? "Codes" : "Stadien"
+      }</small>
     </div>
     ${listItems}
   `;
@@ -1138,9 +1160,9 @@ export function initCalculation(
     if (form) {
       form.reset();
       form
-        .querySelectorAll<
-          HTMLInputElement | HTMLTextAreaElement
-        >("input:not([type='checkbox']):not([type='button']):not([type='submit']), textarea")
+        .querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+          "input:not([type='checkbox']):not([type='button']):not([type='submit']), textarea"
+        )
         .forEach((field) => {
           field.value = "";
           updateHasValueClass(field);

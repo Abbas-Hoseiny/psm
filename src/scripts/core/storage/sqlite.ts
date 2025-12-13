@@ -103,6 +103,17 @@ async function initWorker(): Promise<void> {
 
     worker.onerror = (error) => {
       console.error("Worker error:", error);
+      // Performance/Stability: Reject all pending messages and reset worker on error
+      for (const [id, pending] of pendingMessages) {
+        if (pending.timeoutId) {
+          clearTimeout(pending.timeoutId);
+        }
+        pending.reject(
+          new Error(`Worker crashed: ${error.message || "Unknown error"}`)
+        );
+      }
+      pendingMessages.clear();
+      worker = null;
     };
 
     // Initialize database in worker
@@ -210,15 +221,28 @@ export async function open(): Promise<{ data: any; context: any }> {
 
 /**
  * Save current state to database
+ * Performance: Track whether new changes occurred during pending persist
  */
+let needsRepersist = false;
+
 async function persistFileHandleIfNeeded(): Promise<void> {
   if (!worker || !fileHandle) {
     return;
   }
+
+  // Performance: If persist is already running, mark for re-persist and wait
   if (pendingFilePersist) {
+    needsRepersist = true;
     await pendingFilePersist;
+    // After waiting, check if we need to persist again (new changes came in)
+    if (needsRepersist) {
+      needsRepersist = false;
+      return persistFileHandleIfNeeded();
+    }
     return;
   }
+
+  needsRepersist = false;
   pendingFilePersist = (async () => {
     try {
       const exported = await callWorker("exportDB");
@@ -306,11 +330,19 @@ export function getContext(): any {
  * Reset and close database
  */
 export function reset(): void {
+  // Performance: Reject all pending promises before clearing to prevent hanging operations
+  for (const [id, pending] of pendingMessages) {
+    if (pending.timeoutId) {
+      clearTimeout(pending.timeoutId);
+    }
+    pending.reject(new Error("Worker reset - Database connection closed"));
+  }
+  pendingMessages.clear();
+
   if (worker) {
     worker.terminate();
     worker = null;
   }
-  pendingMessages.clear();
   fileHandle = null;
   messageId = 0;
 }

@@ -324,6 +324,16 @@ function notify(prevState: AppState): void {
 }
 
 export function patchState(patch: Partial<AppState>): AppState {
+  // Performance: Check if any values actually changed before creating new state
+  const changedKeys = Object.keys(patch).filter(
+    (key) => patch[key as keyof AppState] !== state[key as keyof AppState]
+  );
+
+  // Skip update if nothing changed (reference equality for top-level values)
+  if (changedKeys.length === 0) {
+    return state;
+  }
+
   const prevState = state;
   state = { ...state, ...patch };
   notify(prevState);
