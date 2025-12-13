@@ -11,8 +11,16 @@ import { initQsMode } from "./qsMode";
 import { initInfos } from "../features/infos/infosClient";
 import { initToastContainer } from "./toast";
 
+// Flag to temporarily skip beforeunload warning for external links
+let skipBeforeUnloadOnce = false;
+
 function setupUnloadWarning(stateService: any): void {
   const handler = (event: BeforeUnloadEvent) => {
+    // Skip warning if an external link was just clicked
+    if (skipBeforeUnloadOnce) {
+      skipBeforeUnloadOnce = false;
+      return;
+    }
     event.preventDefault();
     event.returnValue =
       "Die Verbindung zur Datenbank wird getrennt. Ungespeicherte Änderungen können verloren gehen.";
@@ -31,6 +39,18 @@ function setupUnloadWarning(stateService: any): void {
   };
   update(stateService.getState());
   stateService.subscribe(update);
+
+  // Listen for clicks on external links to skip beforeunload warning
+  document.addEventListener("click", (e) => {
+    const link = (e.target as HTMLElement).closest("a");
+    if (link && link.target === "_blank") {
+      skipBeforeUnloadOnce = true;
+      // Reset flag after a short delay in case navigation didn't happen
+      setTimeout(() => {
+        skipBeforeUnloadOnce = false;
+      }, 100);
+    }
+  });
 }
 
 function getRegions() {
