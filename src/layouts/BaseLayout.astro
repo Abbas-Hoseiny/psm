@@ -5,7 +5,7 @@ import '../styles/layout.css';
 import '../styles/components.css';
 import '../styles/infos.css';
 import '../styles/guidedInput.css';
-import previewAsset from '../assets/img/preview.png';
+import previewAsset from '../assets/img/preview.svg';
 import { getImage } from 'astro:assets';
 
 interface Props {
@@ -13,15 +13,15 @@ interface Props {
   description?: string;
 }
 
-const baseTitle = 'Pflanzenschutz-Aufzeichnung';
+const baseTitle = 'Digitale PSM';
 const {
   title: pageTitle = 'Pflanzenschutz',
   description =
-    'Digitale Berechnung, Dokumentation und Synchronisierung von Pflanzenschutz-Anwendungen inklusive BVL-Daten.',
+    'Digitale Berechnung, Dokumentation und Verwaltung von Pflanzenschutzmittel-Anwendungen mit offiziellen BVL-Daten.',
 } = Astro.props as Props;
 const fullTitle = `${pageTitle} · ${baseTitle}`;
 const canonicalUrl = Astro.url?.href ??
-  (Astro.site ? new URL(Astro.site).href : 'https://abbas-hoseiny.github.io/pestalozzi/');
+  (Astro.site ? new URL(Astro.site).href : 'https://www.digitale-psm.de/');
 const {
   src: previewImageUrl,
   attributes: previewImageAttributes,
@@ -53,15 +53,15 @@ const previewImageHeight = previewImageAttributes.height ?? 630;
   <meta property="og:image" content={previewImageUrl} />
   <meta property="og:image:width" content={previewImageWidth.toString()} />
   <meta property="og:image:height" content={previewImageHeight.toString()} />
-  <meta property="og:image:alt" content="Anwendungs-Vorschau der Pflanzenschutz-Aufzeichnung" />
+  <meta property="og:image:alt" content="Digitale PSM - Pflanzenschutzmittel-Dokumentation" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={fullTitle} />
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image" content={previewImageUrl} />
-  <meta name="twitter:image:alt" content="Anwendungs-Vorschau der Pflanzenschutz-Aufzeichnung" />
-  <link rel="icon" type="image/svg+xml" href="/assets/img/baerthele-logo.svg" />
-  <link rel="shortcut icon" href="/assets/img/baerthele-logo.svg" />
-  <link rel="apple-touch-icon" href="/assets/img/baerthele-logo.svg" />
+  <meta name="twitter:image:alt" content="Digitale PSM - Pflanzenschutzmittel-Dokumentation" />
+  <link rel="icon" type="image/svg+xml" href="/assets/img/psm-icon.svg" />
+  <link rel="shortcut icon" href="/assets/img/psm-icon.svg" />
+  <link rel="apple-touch-icon" href="/assets/img/psm-icon.svg" />
   
   <!-- Bootstrap CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
