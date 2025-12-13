@@ -3,8 +3,8 @@ import { defineConfig } from "astro/config";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://abbas-hoseiny.github.io/psm",
-  base: "/psm",
+  site: "https://www.digitale-psm.de",
+  base: "/",
   output: "static",
   build: {
     inlineStylesheets: "auto",
