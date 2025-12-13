@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://abbas-hoseiny.github.io/pflanzenschutzliste/schema.json",
-  "title": "Pflanzenschutzliste Database Schema",
+  "$id": "https://www.digitale-psm.de/schema.json",
+  "title": "Digitale PSM Database Schema",
   "type": "object",
   "required": ["meta", "mediums", "history"],
   "properties": {
