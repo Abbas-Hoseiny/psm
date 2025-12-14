@@ -11,13 +11,13 @@ interface Props {
   description?: string;
 }
 
-const baseTitle = 'Digitale PSM';
+const baseTitle = 'DigitalePSM';
 const {
-  title: pageTitle = 'Pflanzenschutz',
+  title: pageTitle = '',
   description =
     'Digitale Berechnung, Dokumentation und Verwaltung von Pflanzenschutzmittel-Anwendungen mit offiziellen BVL-Daten.',
 } = Astro.props as Props;
-const fullTitle = `${pageTitle} · ${baseTitle}`;
+const fullTitle = pageTitle ? `${pageTitle} · ${baseTitle}` : baseTitle;
 const canonicalUrl = Astro.url?.href ??
   (Astro.site ? new URL(Astro.site).href : 'https://www.digitale-psm.de/');
 const previewImageUrl = '/assets/img/psm-icon.svg';

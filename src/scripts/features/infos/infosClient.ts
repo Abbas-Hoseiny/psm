@@ -66,8 +66,7 @@ const SOURCES: SourceConfig[] = [
     key: "bvlpdf",
     icon: "megaphone",
     label: "BVL-PDF",
-    description:
-      "Offizielle BVL-Dokumente und Pflanzenschutz-Informationen",
+    description: "Offizielle BVL-Dokumente und Pflanzenschutz-Informationen",
   },
   {
     key: "stader",
