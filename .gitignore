@@ -29,6 +29,11 @@ pnpm-debug.log*
 .astro/
 _vendor/
 
+# local BVL database artifacts (keep only compressed files in git)
+public/data/bvl/*.sqlite
+public/data/bvl/*.sqlite-*
+database/*.sqlite
+
 # cloned repos
 pflanzenschutzmittelzulassung-api/
 pflanzenschutz-db/

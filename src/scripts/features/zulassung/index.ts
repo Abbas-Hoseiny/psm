@@ -2513,20 +2513,21 @@ function renderResultAwgZulassung(result: ReportingResult): string {
 }
 
 function renderResultKulturen(result: ReportingResult): string {
-  if (!Array.isArray(result.kulturen) || result.kulturen.length === 0) {
-    return "";
-  }
+  const kulturen = result.kulturen ?? [];
+  const hasEntries = Array.isArray(kulturen) && kulturen.length > 0;
 
-  const badges = result.kulturen
-    .map(
-      (entry) =>
-        `<span class="badge ${
-          entry.ausgenommen ? "bg-danger" : "bg-info"
-        }" title="${escapeHtml(entry.kultur)}">${escapeHtml(
-          entry.label || entry.kultur
-        )}${entry.ausgenommen ? " (ausgenommen)" : ""}</span>`
-    )
-    .join(" ");
+  const badges = hasEntries
+    ? kulturen
+        .map(
+          (entry) =>
+            `<span class="badge ${
+              entry.ausgenommen ? "bg-danger" : "bg-info"
+            }" title="${escapeHtml(entry.kultur)}">${escapeHtml(
+              entry.label || entry.kultur
+            )}${entry.ausgenommen ? " (ausgenommen)" : ""}</span>`
+        )
+        .join(" ")
+    : '<span class="badge bg-secondary">Keine Angabe</span>';
 
   return `
     <div class="mt-2">
@@ -2537,23 +2538,22 @@ function renderResultKulturen(result: ReportingResult): string {
 }
 
 function renderResultSchadorganismen(result: ReportingResult): string {
-  if (
-    !Array.isArray(result.schadorganismen) ||
-    result.schadorganismen.length === 0
-  ) {
-    return "";
-  }
+  const schadorganismen = result.schadorganismen ?? [];
+  const hasEntries =
+    Array.isArray(schadorganismen) && schadorganismen.length > 0;
 
-  const badges = result.schadorganismen
-    .map(
-      (entry) =>
-        `<span class="badge ${
-          entry.ausgenommen ? "bg-danger" : "bg-secondary"
-        }" title="${escapeHtml(entry.schadorg)}">${escapeHtml(
-          entry.label || entry.schadorg
-        )}${entry.ausgenommen ? " (ausgenommen)" : ""}</span>`
-    )
-    .join(" ");
+  const badges = hasEntries
+    ? schadorganismen
+        .map(
+          (entry) =>
+            `<span class="badge ${
+              entry.ausgenommen ? "bg-danger" : "bg-secondary"
+            }" title="${escapeHtml(entry.schadorg)}">${escapeHtml(
+              entry.label || entry.schadorg
+            )}${entry.ausgenommen ? " (ausgenommen)" : ""}</span>`
+        )
+        .join(" ")
+    : '<span class="badge bg-secondary">Keine Angabe</span>';
 
   return `
     <div class="mt-2">
@@ -2581,29 +2581,39 @@ function renderResultAufwaende(result: ReportingResult): string {
 }
 
 function renderResultWartezeiten(result: ReportingResult): string {
-  if (!Array.isArray(result.wartezeiten) || result.wartezeiten.length === 0) {
-    return "";
-  }
+  const wartezeiten = result.wartezeiten ?? [];
+  const hasEntries = Array.isArray(wartezeiten) && wartezeiten.length > 0;
 
-  const list = result.wartezeiten
-    .map((entry) => {
-      const anwendungsbereich = entry.anwendungsbereich
-        ? ` (${escapeHtml(entry.anwendungsbereich)})`
-        : "";
-      // Official API field name: gesetzt_wartezeit
-      return `
+  const list = hasEntries
+    ? wartezeiten
+        .map((entry) => {
+          const anwendungsbereich = entry.anwendungsbereich
+            ? ` (${escapeHtml(entry.anwendungsbereich)})`
+            : "";
+          const hatWerte =
+            entry.gesetzt_wartezeit !== null &&
+            entry.gesetzt_wartezeit !== undefined &&
+            String(entry.gesetzt_wartezeit).trim() !== "";
+          const wartezeitValue = hatWerte
+            ? escapeHtml(entry.gesetzt_wartezeit)
+            : "-";
+          const bem = entry.gesetzt_wartezeit_bem
+            ? ` (${escapeHtml(entry.gesetzt_wartezeit_bem)})`
+            : "";
+          return `
         <li>
-          ${escapeHtml(entry.kultur_label || entry.kultur)}: ${escapeHtml(
-            entry.gesetzt_wartezeit || "-"
-          )} Tage${anwendungsbereich}
+          ${escapeHtml(entry.kultur_label || entry.kultur || "-")}: ${escapeHtml(
+            wartezeitValue
+          )} Tage${bem}${anwendungsbereich}
         </li>
       `;
-    })
-    .join("");
+        })
+        .join("")
+    : '<li><span class="text-muted">Keine Wartezeit hinterlegt</span></li>';
 
   return `
     <div class="mt-2">
-      <strong><i class="bi bi-clock me-1"></i>Wartezeiten:</strong>
+      <strong><i class="bi bi-hourglass-split me-1"></i>Wartezeiten:</strong>
       <ul class="small mb-0">${list}</ul>
     </div>
   `;
@@ -2821,8 +2831,13 @@ function createAddMediumDialog(): HTMLElement {
               <input type="text" name="modal-method" value="perHektar" readonly style="width: 100%; padding: 10px 12px; border: 1px solid #555; border-radius: 4px; background: #3a3a3a; color: #ccc; font-size: 14px; cursor: not-allowed;" />
             </div>
             <div>
-              <label style="display: block; margin-bottom: 6px; color: #888; font-size: 14px;">Wartezeit (BVL)</label>
-              <input type="text" name="modal-wartezeit" readonly style="width: 100%; padding: 10px 12px; border: 1px solid #555; border-radius: 4px; background: #3a3a3a; color: #ccc; font-size: 14px; cursor: not-allowed;" />
+              <label style="display: block; margin-bottom: 6px; color: #888; font-size: 14px;">Wartezeit (BVL, optional)</label>
+              <input
+                type="text"
+                name="modal-wartezeit"
+                style="width: 100%; padding: 10px 12px; border: 1px solid #666; border-radius: 4px; background: #2f2f2f; color: #e0e0e0; font-size: 14px;"
+              />
+              <small style="display: block; margin-top: 4px; color: #777; font-size: 12px;">Vorbelegt aus BVL, bei Bedarf anpassen.</small>
             </div>
           </div>
         </form>

@@ -1,0 +1,200 @@
+# BVL API Endpoints Configuration - 25 ESSENTIAL ENDPOINTS
+# Reduced from 41 to improve build time and database size
+# Reference: https://github.com/bundesAPI/pflanzenschutzmittelzulassung-api
+
+base_url: "https://psm-api.bvl.bund.de/ords/psm/api-v1/"
+
+# ==============================================================================
+# CORE ENDPOINTS (11) - Essential for main functionality
+# ==============================================================================
+endpoints:
+  # 1. Stand - API status/date
+  - name: "stand"
+    path: "stand"
+    table: "bvl_stand"
+    primary_key: "id"
+    description: "API status and data date"
+
+  # 2. Mittel - Plant protection products
+  - name: "mittel"
+    path: "mittel"
+    table: "bvl_mittel"
+    primary_key: "kennr"
+    description: "Plant protection products"
+
+  # 3. AWG - Application areas
+  - name: "awg"
+    path: "awg"
+    table: "bvl_awg"
+    primary_key: "awg_id"
+    description: "Application areas"
+
+  # 4. AWG Kultur - Cultures per AWG
+  - name: "awg_kultur"
+    path: "awg_kultur"
+    table: "bvl_awg_kultur"
+    primary_key: ["awg_id", "kultur"]
+    description: "Cultures for application areas"
+
+  # 5. AWG Schadorganismus - Pests per AWG
+  - name: "awg_schadorg"
+    path: "awg_schadorg"
+    table: "bvl_awg_schadorg"
+    primary_key: ["awg_id", "schadorg"]
+    description: "Pest organisms for application areas"
+
+  # 6. AWG Aufwand - Application rates
+  - name: "awg_aufwand"
+    path: "awg_aufwand"
+    table: "bvl_awg_aufwand"
+    primary_key: ["awg_id", "sortier_nr"]
+    description: "Application rates"
+
+  # 7. AWG Wartezeit - Waiting periods
+  - name: "awg_wartezeit"
+    path: "awg_wartezeit"
+    table: "bvl_awg_wartezeit"
+    primary_key: "awg_wartezeit_nr"
+    description: "Waiting periods"
+
+  # 8. Wirkstoff - Active substances
+  - name: "wirkstoff"
+    path: "wirkstoff"
+    table: "bvl_wirkstoff"
+    primary_key: "wirknr"
+    description: "Active substances"
+
+  # 9. Wirkstoff Gehalt - Active substance content
+  - name: "wirkstoff_gehalt"
+    path: "wirkstoff_gehalt"
+    table: "bvl_wirkstoff_gehalt"
+    primary_key: ["kennr", "wirknr"]
+    description: "Active substance content per product"
+
+  # 10. Mittel Vertrieb - Product distributors
+  - name: "mittel_vertrieb"
+    path: "mittel_vertrieb"
+    table: "bvl_mittel_vertrieb"
+    primary_key: ["kennr", "vertriebsfirma_nr"]
+    description: "Product distributors"
+
+  # 11. Adresse - Addresses
+  - name: "adresse"
+    path: "adresse"
+    table: "bvl_adresse"
+    primary_key: "adresse_nr"
+    description: "Company addresses"
+
+# ==============================================================================
+# GHS/HAZARD ENDPOINTS (5) - Safety information
+# ==============================================================================
+
+  # 12. GHS Gefahrenhinweise - Hazard statements (H-codes)
+  - name: "ghs_gefahrenhinweise"
+    path: "ghs_gefahrenhinweise"
+    table: "bvl_ghs_gefahrenhinweise"
+    primary_key: ["kennr", "gh_kode"]
+    description: "GHS hazard statements"
+
+  # 13. GHS Gefahrensymbole - Hazard symbols
+  - name: "ghs_gefahrensymbole"
+    path: "ghs_gefahrensymbole"
+    table: "bvl_ghs_gefahrensymbole"
+    primary_key: ["kennr", "gs_kode"]
+    description: "GHS hazard symbols"
+
+  # 14. GHS Sicherheitshinweise - Precautionary statements (P-codes)
+  - name: "ghs_sicherheitshinweise"
+    path: "ghs_sicherheitshinweise"
+    table: "bvl_ghs_sicherheitshinweise"
+    primary_key: ["kennr", "sh_kode"]
+    description: "GHS precautionary statements"
+
+  # 15. GHS Signalwörter - Signal words
+  - name: "ghs_signalwoerter"
+    path: "ghs_signalwoerter"
+    table: "bvl_ghs_signalwoerter"
+    primary_key: ["kennr", "sw_kode"]
+    description: "GHS signal words"
+
+  # 16. Mittel Gefahren Symbol - Product hazard symbol mapping
+  - name: "mittel_gefahren_symbol"
+    path: "mittel_gefahren_symbol"
+    table: "bvl_mittel_gefahren_symbol"
+    primary_key: ["kennr", "symbol"]
+    description: "Product to hazard symbol mapping"
+
+# ==============================================================================
+# REGULATIONS & LOOKUP ENDPOINTS (9) - Reference data
+# ==============================================================================
+
+  # 17. Auflagen - Application conditions
+  - name: "auflagen"
+    path: "auflagen"
+    table: "bvl_auflagen"
+    primary_key: ["kennr", "awg_id", "auflagenr"]
+    description: "Application conditions and restrictions"
+
+  # 18. Hinweis - Notes/hints
+  - name: "hinweis"
+    path: "hinweis"
+    table: "bvl_hinweis"
+    primary_key: ["kennr", "hinweisnr"]
+    description: "Product notes and hints"
+
+  # 19. Kode - Code values
+  - name: "kode"
+    path: "kode"
+    table: "bvl_kode"
+    primary_key: ["kodeliste", "kode", "sprache"]
+    description: "Code lookup values"
+
+  # 20. Kodeliste - Code lists
+  - name: "kodeliste"
+    path: "kodeliste"
+    table: "bvl_kodeliste"
+    primary_key: "kodeliste"
+    description: "Code list definitions"
+
+  # 21. Kodeliste Feldname - Code list field names
+  - name: "kodeliste_feldname"
+    path: "kodeliste_feldname"
+    table: "bvl_kodeliste_feldname"
+    primary_key: ["kodeliste", "feldname"]
+    description: "Code list field mappings"
+
+  # 22. Kultur Gruppe - Culture groups
+  - name: "kultur_gruppe"
+    path: "kultur_gruppe"
+    table: "bvl_kultur_gruppe"
+    primary_key: ["gruppe", "kultur"]
+    description: "Culture group definitions"
+
+  # 23. Schadorg Gruppe - Pest groups
+  - name: "schadorg_gruppe"
+    path: "schadorg_gruppe"
+    table: "bvl_schadorg_gruppe"
+    primary_key: ["gruppe", "schadorg"]
+    description: "Pest organism group definitions"
+
+  # 24. AWG Zulassung - Approval status
+  - name: "awg_zulassung"
+    path: "awg_zulassung"
+    table: "bvl_awg_zulassung"
+    primary_key: "awg_id"
+    description: "AWG approval status"
+
+  # 25. Antrag - Applications
+  - name: "antrag"
+    path: "antrag"
+    table: "bvl_antrag"
+    primary_key: ["kennr", "antragnr"]
+    description: "Product applications"
+
+# ==============================================================================
+# STATIC DATA SOURCES
+# ==============================================================================
+static_sources:
+  bio_flags:
+    file: "data/external/bio_flags.csv"
+    table: "bvl_mittel_enrichments"

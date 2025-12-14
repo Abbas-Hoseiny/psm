@@ -1,0 +1,94 @@
+name: Sync BVL Data
+
+on:
+  schedule:
+    # Run every 2 days at 3:00 UTC
+    - cron: "0 3 1-31/2 * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: "Force complete rebuild of database"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: tools/bvl-sync/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r tools/bvl-sync/requirements.txt
+
+      - name: Fetch BVL data
+        run: |
+          cd tools/bvl-sync
+          python scripts/fetch_bvl_data.py \
+            --output-dir ../../public/data/bvl \
+            --verbose
+        env:
+          FORCE_REBUILD: ${{ github.event.inputs.force_rebuild }}
+
+      - name: Validate export
+        run: |
+          python tools/bvl-sync/scripts/validate_export.py \
+            public/data/bvl/pflanzenschutz.sqlite
+
+      - name: Remove raw sqlite (keep compressed only)
+        run: |
+          rm -f public/data/bvl/pflanzenschutz.sqlite public/data/bvl/pflanzenschutz.sqlite-*
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [ -n "$(git status --porcelain public/data/bvl/)" ]; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit changes
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/data/bvl/manifest.json
+          if ls public/data/bvl/*.sqlite.br >/dev/null 2>&1; then
+            git add public/data/bvl/*.sqlite.br
+          fi
+          if ls public/data/bvl/*.sqlite.zip >/dev/null 2>&1; then
+            git add public/data/bvl/*.sqlite.zip
+          fi
+          git commit -m "chore: update BVL database $(date +%Y-%m-%d)"
+          git push
+
+      - name: Summary
+        run: |
+          echo "## BVL Sync Summary" >> $GITHUB_STEP_SUMMARY
+          if [ -f public/data/bvl/pflanzenschutz.sqlite.br ]; then
+            SIZE=$(du -h public/data/bvl/pflanzenschutz.sqlite.br | cut -f1)
+            echo "- Database (br): $SIZE" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f public/data/bvl/pflanzenschutz.sqlite.zip ]; then
+            SIZEZIP=$(du -h public/data/bvl/pflanzenschutz.sqlite.zip | cut -f1)
+            echo "- Database (zip): $SIZEZIP" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- Changes committed: ${{ steps.check_changes.outputs.changes }}" >> $GITHUB_STEP_SUMMARY

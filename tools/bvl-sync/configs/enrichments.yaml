@@ -1,0 +1,40 @@
+# Bio/Organic Product Enrichment Configuration
+
+# Manual bio flags from CSV
+bio_flags:
+  file: "data/external/bio_flags.csv"
+  description: "Manually curated bio/organic certification flags"
+  columns:
+    - kennr
+    - is_bio
+    - certification_body
+    - notes
+
+# Heuristic rules for detecting bio products
+bio_heuristics:
+  enabled: true
+  name_patterns:
+    - "bio"
+    - "öko"
+    - "organic"
+    - "naturalis"
+  exclude_patterns:
+    - "antibio"
+    - "antibiotic"
+  description: "Pattern-based detection in product names"
+
+# Manufacturer URLs and additional info
+manufacturer_urls:
+  file: "data/external/manufacturer_urls.csv"
+  description: "Manufacturer website URLs"
+  columns:
+    - firma_name
+    - website
+
+# Marketing/trade names
+marketing_names:
+  file: "data/external/marketing_names.csv"
+  description: "Additional marketing names for products"
+  columns:
+    - kennr
+    - marketing_name

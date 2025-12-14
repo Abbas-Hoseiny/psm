@@ -663,7 +663,6 @@ async function upsertGpsPoint(payload = {}) {
   }
   return row;
 }
-
 async function deleteGpsPoint(payload = {}) {
   if (!db) {
     throw new Error("Database not initialized");
@@ -1139,7 +1138,8 @@ function openDatabaseFromBytes(bytes) {
   if (!sqlite3) {
     throw new Error("SQLite not initialized");
   }
-  const remoteDb = new sqlite3.oo1.DB();
+  // Force in-memory VFS to avoid OPFS/CANTOPEN issues in browsers without COOP/COEP
+  const remoteDb = new sqlite3.oo1.DB(":memory:");
   const scope = sqlite3.wasm.scopedAllocPush();
   try {
     const pData = sqlite3.wasm.allocFromTypedArray(bytes);
@@ -3885,7 +3885,17 @@ async function importBvlSqlite(payload) {
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
 
   // Create a temporary in-memory database with the imported data
-  const remoteDb = new sqlite3.oo1.DB();
+  // Explicit ":memory:" avoids VFS/OPFS opens that can fail in browsers
+  // without COOP/COEP (resulting in SQLITE_CANTOPEN during downloads).
+  let remoteDb;
+  try {
+    remoteDb = new sqlite3.oo1.DB(":memory:");
+  } catch (err) {
+    console.error("importBvlSqlite: failed to open temp in-memory DB", err);
+    throw new Error(
+      `importBvlSqlite: temp DB open failed: ${err?.message || err}`
+    );
+  }
 
   // Deserialize the database
   const scope = sqlite3.wasm.scopedAllocPush();
@@ -3911,6 +3921,9 @@ async function importBvlSqlite(payload) {
         }`
       );
     }
+  } catch (deserializeError) {
+    console.error("importBvlSqlite: deserialize failed", deserializeError);
+    throw deserializeError;
   } finally {
     sqlite3.wasm.scopedAllocPop(scope);
   }
@@ -3931,7 +3944,7 @@ async function importBvlSqlite(payload) {
     // Meta/Status tables (no dependencies)
     bvl_meta: 10,
     bvl_stand: 15,
-    
+
     // Lookup tables (no dependencies)
     bvl_lookup_kultur: 20,
     bvl_lookup_schadorg: 20,
@@ -3941,7 +3954,7 @@ async function importBvlSqlite(payload) {
     bvl_kultur_gruppe: 20,
     bvl_schadorg_gruppe: 20,
     bvl_hinweis: 20,
-    
+
     // Base entity tables (no FK dependencies)
     bvl_wirkstoff: 25,
     bvl_adresse: 25,
@@ -3949,7 +3962,7 @@ async function importBvlSqlite(payload) {
     bvl_ghs_gefahrensymbole: 25,
     bvl_ghs_sicherheitshinweise: 25,
     bvl_ghs_signalwoerter: 25,
-    
+
     // Main product tables
     bvl_mittel: 30,
     bvl_mittel_abgelaufen: 30,
@@ -3957,7 +3970,7 @@ async function importBvlSqlite(payload) {
     bvl_zusatzstoff: 30,
     bvl_parallelimport_gueltig: 30,
     bvl_parallelimport_abgelaufen: 30,
-    
+
     // Tables referencing bvl_mittel
     bvl_antrag: 35,
     bvl_auflagen: 35,
@@ -3969,11 +3982,11 @@ async function importBvlSqlite(payload) {
     bvl_wirkstoff_gehalt: 35,
     bvl_staerkung_vertrieb: 35,
     bvl_zusatzstoff_vertrieb: 35,
-    
+
     // AWG hierarchy (depends on bvl_mittel)
     bvl_awg: 40,
     bvl_awg_zulassung: 45,
-    
+
     // AWG child tables (depend on bvl_awg)
     bvl_awg_kultur: 50,
     bvl_awg_schadorg: 50,
@@ -3981,7 +3994,7 @@ async function importBvlSqlite(payload) {
     bvl_awg_partner: 50,
     bvl_awg_verwendungszweck: 50,
     bvl_awg_zeitpunkt: 50,
-    
+
     // AWG grandchild tables
     bvl_awg_aufwand: 60,
     bvl_awg_wartezeit: 60,
@@ -4049,6 +4062,14 @@ async function importBvlSqlite(payload) {
         },
       });
 
+      // For BVL tables, always drop and recreate from remote schema
+      // This ensures we use the exact schema from the pflanzenschutz-db
+      if (tableExists) {
+        console.log(`Dropping existing table ${tableName} for reimport`);
+        db.exec(`DROP TABLE IF EXISTS ${tableName}`);
+        tableExists = false;
+      }
+
       if (!tableExists) {
         // Create the table by copying schema from remote
         const createSql = remoteDb.selectValue(
@@ -4066,7 +4087,7 @@ async function importBvlSqlite(payload) {
         }
       }
 
-      // Get columns that exist in main table
+      // Get columns that exist in main table (now same as remote)
       const mainColumns = [];
       db.exec({
         sql: `PRAGMA table_info(${tableName})`,
@@ -4075,17 +4096,9 @@ async function importBvlSqlite(payload) {
         },
       });
 
-      // Find common columns
-      const commonColumns = columns.filter((col) => mainColumns.includes(col));
-
-      if (commonColumns.length === 0) {
-        console.warn(
-          `No common columns between remote and main ${tableName}, skipping`
-        );
-        continue;
-      }
-
-      const colList = commonColumns.join(", ");
+      // Use all remote columns since we just recreated the table
+      const commonColumns = columns; // Keep variable for compatibility
+      const colList = columns.join(", ");
 
       let hasForeignKey = 0;
       db.exec({
@@ -4117,8 +4130,17 @@ async function importBvlSqlite(payload) {
           const stmt = db.prepare(insertSql);
 
           for (const row of rows) {
-            stmt.bind(row).step();
-            stmt.reset();
+            try {
+              stmt.bind(row).step();
+            } catch (rowError) {
+              console.error(
+                `importBvlSqlite: insert failed in ${tableName}`,
+                rowError
+              );
+              throw rowError;
+            } finally {
+              stmt.reset();
+            }
           }
           stmt.finalize();
 
@@ -4127,11 +4149,21 @@ async function importBvlSqlite(payload) {
         } else {
           counts[tableName] = 0;
         }
+      } catch (tableError) {
+        console.error(`importBvlSqlite: table ${tableName} failed`, tableError);
+        throw tableError;
       } finally {
         if (hasForeignKey > 0) {
           db.exec("PRAGMA defer_foreign_keys = OFF");
         }
       }
+    }
+
+    // Ensure bvl_meta table exists before writing metadata
+    if (!hasTable(db, "bvl_meta")) {
+      db.exec(
+        `CREATE TABLE IF NOT EXISTS bvl_meta (key TEXT PRIMARY KEY, value TEXT)`
+      );
     }
 
     // Update metadata from manifest
@@ -4198,11 +4230,56 @@ async function importBvlSqlite(payload) {
         console.log("Adding 'name' alias column for compatibility");
         try {
           db.exec(
-            "ALTER TABLE bvl_mittel ADD COLUMN name TEXT GENERATED ALWAYS AS (mittelname) STORED"
+            "ALTER TABLE bvl_mittel ADD COLUMN name TEXT GENERATED ALWAYS AS (mittelname) VIRTUAL"
           );
         } catch (e) {
           // Column might already exist or ALTER failed
           console.warn("Could not add 'name' column:", e.message);
+        }
+      }
+
+      // Check if bvl_mittel has 'formulierung_art' instead of 'formulierung'
+      let hasFormulierungArt = false;
+      let hasFormulierung = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_mittel)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "formulierung_art") hasFormulierungArt = true;
+          if (colName === "formulierung") hasFormulierung = true;
+        },
+      });
+
+      if (hasFormulierungArt && !hasFormulierung) {
+        console.log("Adding 'formulierung' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_mittel ADD COLUMN formulierung TEXT GENERATED ALWAYS AS (formulierung_art) VIRTUAL"
+          );
+        } catch (e) {
+          console.warn("Could not add 'formulierung' column:", e.message);
+        }
+      }
+
+      // Check if bvl_mittel has 'geringes_risiko' column
+      let hasGeringesRisiko = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_mittel)",
+        callback: (row) => {
+          if (row[1] === "geringes_risiko") hasGeringesRisiko = true;
+        },
+      });
+
+      if (!hasGeringesRisiko) {
+        console.log(
+          "Adding 'geringes_risiko' column to bvl_mittel for compatibility"
+        );
+        try {
+          db.exec(
+            "ALTER TABLE bvl_mittel ADD COLUMN geringes_risiko INTEGER DEFAULT 0"
+          );
+        } catch (e) {
+          console.warn("Could not add 'geringes_risiko' column:", e.message);
         }
       }
 
@@ -4222,7 +4299,7 @@ async function importBvlSqlite(payload) {
         console.log("Adding 'zul_ende' alias column for compatibility");
         try {
           db.exec(
-            "ALTER TABLE bvl_mittel ADD COLUMN zul_ende TEXT GENERATED ALWAYS AS (zulassungsende) STORED"
+            "ALTER TABLE bvl_mittel ADD COLUMN zul_ende TEXT GENERATED ALWAYS AS (zulassungsende) VIRTUAL"
           );
         } catch (e) {
           console.warn("Could not add 'zul_ende' column:", e.message);
@@ -4245,7 +4322,7 @@ async function importBvlSqlite(payload) {
         console.log("Adding 'kultur' alias column for compatibility");
         try {
           db.exec(
-            "ALTER TABLE bvl_awg_kultur ADD COLUMN kultur TEXT GENERATED ALWAYS AS (kultur_kode) STORED"
+            "ALTER TABLE bvl_awg_kultur ADD COLUMN kultur TEXT GENERATED ALWAYS AS (kultur_kode) VIRTUAL"
           );
         } catch (e) {
           console.warn("Could not add 'kultur' column:", e.message);
@@ -4268,16 +4345,120 @@ async function importBvlSqlite(payload) {
         console.log("Adding 'schadorg' alias column for compatibility");
         try {
           db.exec(
-            "ALTER TABLE bvl_awg_schadorg ADD COLUMN schadorg TEXT GENERATED ALWAYS AS (schadorg_kode) STORED"
+            "ALTER TABLE bvl_awg_schadorg ADD COLUMN schadorg TEXT GENERATED ALWAYS AS (schadorg_kode) VIRTUAL"
           );
         } catch (e) {
           console.warn("Could not add 'schadorg' column:", e.message);
         }
       }
 
-      // Note: bvl_awg_aufwand now uses official API field names directly:
-      // m_aufwand, m_aufwand_einheit, w_aufwand_von, w_aufwand_bis, w_aufwand_einheit
-      // No compatibility aliases needed
+      // Check bvl_awg_aufwand for 'aufwandbedingung' vs 'aufwand_bedingung'
+      let hasAufwandbedingung = false;
+      let hasAufwandBedingung = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_awg_aufwand)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "aufwandbedingung") hasAufwandbedingung = true;
+          if (colName === "aufwand_bedingung") hasAufwandBedingung = true;
+        },
+      });
+
+      if (hasAufwandbedingung && !hasAufwandBedingung) {
+        console.log(
+          "Adding 'aufwand_bedingung' alias column for compatibility"
+        );
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg_aufwand ADD COLUMN aufwand_bedingung TEXT GENERATED ALWAYS AS (aufwandbedingung) VIRTUAL"
+          );
+        } catch (e) {
+          console.warn("Could not add 'aufwand_bedingung' column:", e.message);
+        }
+      }
+
+      // Add payload_json column to bvl_awg_aufwand if missing (for compatibility)
+      let hasPayloadJson = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_awg_aufwand)",
+        callback: (row) => {
+          if (row[1] === "payload_json") hasPayloadJson = true;
+        },
+      });
+
+      if (!hasPayloadJson) {
+        console.log(
+          "Adding 'payload_json' column to bvl_awg_aufwand for compatibility"
+        );
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg_aufwand ADD COLUMN payload_json TEXT DEFAULT NULL"
+          );
+        } catch (e) {
+          console.warn("Could not add 'payload_json' column:", e.message);
+        }
+      }
+
+      // Check bvl_awg for 'status_json' and 'zulassungsende' columns (needed by app queries)
+      let hasStatusJson = false;
+      let hasZulassungsendeAwg = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_awg)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "status_json") hasStatusJson = true;
+          if (colName === "zulassungsende") hasZulassungsendeAwg = true;
+        },
+      });
+
+      if (!hasStatusJson) {
+        console.log("Adding 'status_json' column to bvl_awg for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg ADD COLUMN status_json TEXT DEFAULT NULL"
+          );
+        } catch (e) {
+          console.warn("Could not add 'status_json' column:", e.message);
+        }
+      }
+
+      if (!hasZulassungsendeAwg) {
+        console.log(
+          "Adding 'zulassungsende' column to bvl_awg for compatibility"
+        );
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg ADD COLUMN zulassungsende TEXT DEFAULT NULL"
+          );
+        } catch (e) {
+          console.warn("Could not add 'zulassungsende' column:", e.message);
+        }
+      }
+
+      // Check bvl_awg_wartezeit for 'payload_json' column
+      let hasWartezeitPayloadJson = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_awg_wartezeit)",
+        callback: (row) => {
+          if (row[1] === "payload_json") hasWartezeitPayloadJson = true;
+        },
+      });
+
+      if (!hasWartezeitPayloadJson) {
+        console.log(
+          "Adding 'payload_json' column to bvl_awg_wartezeit for compatibility"
+        );
+        try {
+          db.exec(
+            "ALTER TABLE bvl_awg_wartezeit ADD COLUMN payload_json TEXT DEFAULT NULL"
+          );
+        } catch (e) {
+          console.warn(
+            "Could not add 'payload_json' to bvl_awg_wartezeit:",
+            e.message
+          );
+        }
+      }
     } catch (compatError) {
       console.warn("Error creating compatibility columns:", compatError);
       // Don't fail the import for compatibility issues
@@ -4302,6 +4483,13 @@ async function importBvlSqlite(payload) {
 
 async function getBvlMeta(key) {
   if (!db) throw new Error("Database not initialized");
+
+  // Ensure bvl_meta table exists (self-healing for older databases)
+  if (!hasTable(db, "bvl_meta")) {
+    db.exec(
+      `CREATE TABLE IF NOT EXISTS bvl_meta (key TEXT PRIMARY KEY, value TEXT)`
+    );
+  }
 
   let value = null;
   db.exec({
@@ -4387,7 +4575,12 @@ async function queryZulassung(payload) {
   const offset = normalizedPage * normalizedPageSize;
   const fetchLimit = normalizedPageSize + 1;
 
+  const hasAwgZulassungTable = hasTable(db, "bvl_awg_zulassung");
+
   const joins = ["JOIN bvl_awg a ON m.kennr = a.kennr"];
+  if (hasAwgZulassungTable) {
+    joins.push("LEFT JOIN bvl_awg_zulassung az ON a.awg_id = az.awg_id");
+  }
   const conditions = [];
   const bindings = [];
 
@@ -4462,7 +4655,7 @@ async function queryZulassung(payload) {
         m.geringes_risiko,
         a.awg_id,
         a.status_json,
-        a.zulassungsende
+        ${hasAwgZulassungTable ? "az.zulassungsende" : "a.zulassungsende"}
       ${fromClause}
       ${whereClause}
       ${orderClause}
@@ -4690,176 +4883,825 @@ async function queryZulassung(payload) {
     });
   }
 
-  for (const result of results) {
-    // Use pre-fetched data instead of individual queries
-    result.kulturen = kulturenMap.get(result.awg_id) || [];
-    result.schadorganismen = schadorgMap.get(result.awg_id) || [];
-    result.aufwaende = aufwaendeMap.get(result.awg_id) || [];
-    result.wartezeiten = wartezeitenMap.get(result.awg_id) || [];
+  const hasNormalizedBvl =
+    hasTable(db, "bvl_wirkstoff_gehalt") &&
+    hasTable(db, "bvl_antrag") &&
+    hasTable(db, "bvl_hinweis");
 
-    // Hole wirkstoff_gehalt Einträge für dieses Mittel (über kennr)
-    const wirkstoffGehaltEntries = getPayloadsForKey("wirkstoff_gehalt", {
-      primaryRef: result.kennr,
-    });
-
-    // Hilfsfunktion: Suche Wirkstoffname direkt in der Payload-Tabelle via SQL
-    const getWirkstoffNameByWirknr = (wirknr) => {
-      if (!wirknr) return null;
-      let wirkstoffName = null;
-      db.exec({
-        sql: `
-          SELECT payload_json FROM bvl_api_payloads 
-          WHERE key = 'wirkstoff' 
-          AND (primary_ref = ? OR payload_json LIKE ?)
-          LIMIT 1
-        `,
-        bind: [wirknr, `%"wirknr":"${wirknr}"%`],
-        callback: (row) => {
-          const payload = safeParseJson(row[0]);
-          if (payload) {
-            wirkstoffName =
-              getFieldValue(payload, "wirkstoffname") ||
-              getFieldValue(payload, "WIRKSTOFFNAME");
-          }
-        },
-      });
-      return wirkstoffName;
+  if (hasNormalizedBvl) {
+    const parseJsonOrNull = (value) => {
+      if (typeof value !== "string" || !value.trim()) {
+        return null;
+      }
+      return safeParseJson(value) || null;
     };
 
-    // Anreichern mit Wirkstoffnamen aus der wirkstoff-Tabelle (über wirknr)
-    result.wirkstoffe = wirkstoffGehaltEntries.map((gehaltEntry) => {
-      const wirknr =
-        getFieldValue(gehaltEntry, "wirknr") ||
-        getFieldValue(gehaltEntry, "WIRKNR");
+    const now = new Date();
+    const toStatusJson = (zulEnde) => {
+      if (!zulEnde) {
+        return null;
+      }
+      const parsed = new Date(zulEnde);
+      if (Number.isNaN(parsed.getTime())) {
+        return JSON.stringify({ status: String(zulEnde) });
+      }
+      return JSON.stringify({ status: parsed < now ? "abgelaufen" : "gültig" });
+    };
 
-      // Versuche erst über Payload-Cache, dann direkt via SQL
-      let wirkstoffData = wirknr
-        ? getFirstPayload("wirkstoff", { primaryRef: wirknr })
-        : null;
+    // Pre-fetch payload-based tables per kennr
+    const wirkstoffGehaltMap = new Map();
+    const wirkstoffeMap = new Map();
+    const antraegeMap = new Map();
+    const hinweiseMap = new Map();
+    const gefahrhinweiseMap = new Map();
+    const gefahrensymboleMap = new Map();
+    const sicherheitshinweiseMap = new Map();
+    const signalwoerterMap = new Map();
+    const parallelGueltigMap = new Map();
+    const parallelAbgelaufenMap = new Map();
+    const staerkungMap = new Map();
+    const staerkungVertriebMap = new Map();
+    const zusatzstoffMap = new Map();
+    const zusatzstoffVertriebMap = new Map();
+    const vertriebMap = new Map();
+    const auflagenByKennr = new Map();
+    const auflagenByAwg = new Map();
+    const auflageReduMap = new Map();
 
-      let wirkstoffName = wirkstoffData
-        ? getFieldValue(wirkstoffData, "wirkstoffname") ||
-          getFieldValue(wirkstoffData, "WIRKSTOFFNAME")
-        : null;
+    const awgBemMap = new Map();
+    const awgPartnerMap = new Map();
+    const awgPartnerAufwandMap = new Map();
+    const awgVerwendungszweckMap = new Map();
+    const awgWartezeitAusgMap = new Map();
+    const awgZeitpunktMap = new Map();
+    const awgZulassungMap = new Map();
 
-      // Fallback: Direkte SQL-Suche wenn Cache nichts liefert
-      if (!wirkstoffName && wirknr) {
-        wirkstoffName = getWirkstoffNameByWirknr(wirknr);
+    const ensureList = (map, key) => {
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      return map.get(key);
+    };
+
+    const fetchByKennr = (sql, bind, onRow) => {
+      if (!bind || bind.length === 0) return;
+      db.exec({
+        sql,
+        bind,
+        callback: (row) => onRow(row),
+      });
+    };
+
+    const fetchByAwg = (sql, bind, onRow) => {
+      if (!bind || bind.length === 0) return;
+      db.exec({
+        sql,
+        bind,
+        callback: (row) => onRow(row),
+      });
+    };
+
+    // wirkstoff_gehalt + wirkstoff names
+    if (allKennrs.length > 0) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `
+          SELECT g.kennr, g.wirknr, g.wirkvar, g.gehalt_rein, g.gehalt_rein_grundstruktur,
+                 g.gehalt_einheit, g.gehalt_bio, g.gehalt_bio_einheit, g.payload_json,
+                 w.wirkstoffname, w.wirkstoffname_en
+          FROM bvl_wirkstoff_gehalt g
+          LEFT JOIN bvl_wirkstoff w ON w.wirknr = g.wirknr
+          WHERE g.kennr IN (${placeholders})
+          ORDER BY g.kennr, g.wirknr
+        `,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const entry = {
+            kennr,
+            wirknr: row[1],
+            wirkvar: row[2],
+            gehalt_rein: row[3],
+            gehalt_rein_grundstruktur: row[4],
+            gehalt_einheit: row[5],
+            gehalt_bio: row[6],
+            gehalt_bio_einheit: row[7],
+            payload_json: row[8],
+          };
+          ensureList(wirkstoffGehaltMap, kennr).push(entry);
+          ensureList(wirkstoffeMap, kennr).push({
+            ...entry,
+            wirkstoff_name: row[9] || null,
+            wirkstoff_name_en: row[10] || null,
+          });
+        }
+      );
+    }
+
+    // antraege
+    if (allKennrs.length > 0) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, payload_json, antragnr, zulassungsnummer, zulassungsdatum, zul_ende, antragsteller_nr, zulassungsinhaber_nr
+         FROM bvl_antrag WHERE kennr IN (${placeholders}) ORDER BY kennr, antragnr`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const payload = parseJsonOrNull(row[1]) || {};
+          ensureList(antraegeMap, kennr).push({
+            ...payload,
+            kennr,
+            antragnr: row[2],
+            zulassungsnummer: row[3],
+            zulassungsdatum: row[4],
+            zul_ende: row[5],
+            antragsteller_nr: row[6],
+            zulassungsinhaber_nr: row[7],
+          });
+        }
+      );
+    }
+
+    // hinweise
+    if (allKennrs.length > 0) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, hinweis_art, hinweis, sortier_nr, payload_json FROM bvl_hinweis WHERE kennr IN (${placeholders}) ORDER BY kennr, sortier_nr`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const payload = parseJsonOrNull(row[4]);
+          ensureList(hinweiseMap, kennr).push({
+            ...(payload || {}),
+            kennr,
+            hinweis_art: row[1],
+            hinweis: row[2],
+            sortier_nr: row[3],
+          });
+        }
+      );
+    }
+
+    // GHS gefahrenhinweise
+    if (
+      allKennrs.length > 0 &&
+      hasTable(db, "bvl_mittel_ghs_gefahrenhinweis")
+    ) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, hinweis_kode, hinweis_text FROM bvl_mittel_ghs_gefahrenhinweis WHERE kennr IN (${placeholders}) ORDER BY kennr, hinweis_kode`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          ensureList(gefahrhinweiseMap, kennr).push({
+            hinweis_kode: row[1],
+            hinweis_text: row[2],
+          });
+        }
+      );
+    }
+
+    // GHS gefahrensymbole
+    if (allKennrs.length > 0 && hasTable(db, "bvl_ghs_gefahrensymbole")) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, symbol_kode, symbol_text, sortier_nr, payload_json FROM bvl_ghs_gefahrensymbole WHERE kennr IN (${placeholders}) ORDER BY kennr, sortier_nr`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const payload = parseJsonOrNull(row[4]);
+          ensureList(gefahrensymboleMap, kennr).push({
+            ...(payload || {}),
+            gefahrensymbol: row[1],
+            symbol_text: row[2],
+            sortier_nr: row[3],
+          });
+        }
+      );
+    }
+
+    // GHS sicherheitshinweise
+    if (allKennrs.length > 0 && hasTable(db, "bvl_ghs_sicherheitshinweise")) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, hinweis_kode, hinweis_text, sortier_nr, payload_json FROM bvl_ghs_sicherheitshinweise WHERE kennr IN (${placeholders}) ORDER BY kennr, sortier_nr`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const payload = parseJsonOrNull(row[4]);
+          ensureList(sicherheitshinweiseMap, kennr).push({
+            ...(payload || {}),
+            sicherheitshinweis: row[1],
+            hinweis_text: row[2],
+            sortier_nr: row[3],
+          });
+        }
+      );
+    }
+
+    // GHS signalwoerter
+    if (allKennrs.length > 0 && hasTable(db, "bvl_ghs_signalwoerter")) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, signalwort, payload_json FROM bvl_ghs_signalwoerter WHERE kennr IN (${placeholders}) ORDER BY kennr`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const payload = parseJsonOrNull(row[2]);
+          ensureList(signalwoerterMap, kennr).push({
+            ...(payload || {}),
+            signalwort: row[1],
+          });
+        }
+      );
+    }
+
+    // parallelimporte
+    if (allKennrs.length > 0 && hasTable(db, "bvl_parallelimport_gueltig")) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, payload_json FROM bvl_parallelimport_gueltig WHERE kennr IN (${placeholders}) ORDER BY kennr`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const payload = parseJsonOrNull(row[1]) || {};
+          ensureList(parallelGueltigMap, kennr).push({ ...payload, kennr });
+        }
+      );
+    }
+    if (allKennrs.length > 0 && hasTable(db, "bvl_parallelimport_abgelaufen")) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, payload_json FROM bvl_parallelimport_abgelaufen WHERE kennr IN (${placeholders}) ORDER BY kennr`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const payload = parseJsonOrNull(row[1]) || {};
+          ensureList(parallelAbgelaufenMap, kennr).push({ ...payload, kennr });
+        }
+      );
+    }
+
+    // staerkung + vertrieb
+    if (allKennrs.length > 0 && hasTable(db, "bvl_staerkung")) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, payload_json, mittelname, antragsteller_nr, listung_ende FROM bvl_staerkung WHERE kennr IN (${placeholders}) ORDER BY kennr`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const payload = parseJsonOrNull(row[1]) || {};
+          ensureList(staerkungMap, kennr).push({
+            ...payload,
+            kennr,
+            mittelname: row[2],
+            antragsteller_nr: row[3],
+            listung_ende: row[4],
+          });
+        }
+      );
+    }
+    if (
+      allKennrs.length > 0 &&
+      hasTable(db, "bvl_staerkung_vertrieb") &&
+      hasTable(db, "bvl_adresse")
+    ) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `
+          SELECT sv.kennr, sv.vertriebsfirma_nr, a.payload_json
+          FROM bvl_staerkung_vertrieb sv
+          LEFT JOIN bvl_adresse a ON a.adresse_nr = sv.vertriebsfirma_nr
+          WHERE sv.kennr IN (${placeholders})
+          ORDER BY sv.kennr, sv.vertriebsfirma_nr
+        `,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const adresseNr = row[1];
+          const adressePayload = parseJsonOrNull(row[2]) || {};
+          adressePayload.__meta = { primary_ref: adresseNr };
+          ensureList(staerkungVertriebMap, kennr).push({
+            vertriebsfirma_nr: adresseNr,
+            adresse_nr: adresseNr,
+            adresse: adressePayload,
+          });
+        }
+      );
+    }
+
+    // zusatzstoff + vertrieb
+    if (allKennrs.length > 0 && hasTable(db, "bvl_zusatzstoff")) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, payload_json, mittelname, antragsteller_nr, zul_ende FROM bvl_zusatzstoff WHERE kennr IN (${placeholders}) ORDER BY kennr`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const payload = parseJsonOrNull(row[1]) || {};
+          ensureList(zusatzstoffMap, kennr).push({
+            ...payload,
+            kennr,
+            mittelname: row[2],
+            antragsteller_nr: row[3],
+            zul_ende: row[4],
+          });
+        }
+      );
+    }
+    if (
+      allKennrs.length > 0 &&
+      hasTable(db, "bvl_zusatzstoff_vertrieb") &&
+      hasTable(db, "bvl_adresse")
+    ) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `
+          SELECT zv.kennr, zv.vertriebsfirma_nr, a.payload_json
+          FROM bvl_zusatzstoff_vertrieb zv
+          LEFT JOIN bvl_adresse a ON a.adresse_nr = zv.vertriebsfirma_nr
+          WHERE zv.kennr IN (${placeholders})
+          ORDER BY zv.kennr, zv.vertriebsfirma_nr
+        `,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const adresseNr = row[1];
+          const adressePayload = parseJsonOrNull(row[2]) || {};
+          adressePayload.__meta = { primary_ref: adresseNr };
+          ensureList(zusatzstoffVertriebMap, kennr).push({
+            vertriebsfirma_nr: adresseNr,
+            adresse_nr: adresseNr,
+            adresse: adressePayload,
+          });
+        }
+      );
+    }
+
+    // vertrieb (mittel_vertrieb) via adresse
+    if (
+      allKennrs.length > 0 &&
+      hasTable(db, "bvl_mittel_vertrieb") &&
+      hasTable(db, "bvl_adresse")
+    ) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `
+          SELECT mv.kennr, mv.vertriebsfirma_nr, a.payload_json
+          FROM bvl_mittel_vertrieb mv
+          LEFT JOIN bvl_adresse a ON a.adresse_nr = mv.vertriebsfirma_nr
+          WHERE mv.kennr IN (${placeholders})
+          ORDER BY mv.kennr, mv.vertriebsfirma_nr
+        `,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const adresseNr = row[1];
+          const adressePayload = parseJsonOrNull(row[2]) || {};
+          adressePayload.__meta = { primary_ref: adresseNr };
+          ensureList(vertriebMap, kennr).push({
+            vertriebsfirma_nr: adresseNr,
+            adresse_nr: adresseNr,
+            adresse: adressePayload,
+          });
+        }
+      );
+    }
+
+    // auflagen (by kennr and/or awg_id)
+    if (allKennrs.length > 0 && hasTable(db, "bvl_auflagen")) {
+      const placeholders = allKennrs.map(() => "?").join(",");
+      fetchByKennr(
+        `SELECT kennr, awg_id, ebene, auflagenr, auflage, payload_json FROM bvl_auflagen WHERE kennr IN (${placeholders}) ORDER BY kennr, auflagenr`,
+        allKennrs,
+        (row) => {
+          const kennr = row[0];
+          const entry = parseJsonOrNull(row[5]) || {};
+          entry.kennr = kennr;
+          entry.awg_id = row[1];
+          entry.ebene = row[2];
+          entry.auflagenr = row[3];
+          entry.auflage = row[4];
+          ensureList(auflagenByKennr, kennr).push(entry);
+        }
+      );
+    }
+    if (allAwgIds.length > 0 && hasTable(db, "bvl_auflagen")) {
+      const placeholders = allAwgIds.map(() => "?").join(",");
+      fetchByAwg(
+        `SELECT awg_id, kennr, ebene, auflagenr, auflage, payload_json FROM bvl_auflagen WHERE awg_id IN (${placeholders}) ORDER BY awg_id, auflagenr`,
+        allAwgIds,
+        (row) => {
+          const awgId = row[0];
+          const entry = parseJsonOrNull(row[5]) || {};
+          entry.awg_id = awgId;
+          entry.kennr = row[1];
+          entry.ebene = row[2];
+          entry.auflagenr = row[3];
+          entry.auflage = row[4];
+          ensureList(auflagenByAwg, awgId).push(entry);
+        }
+      );
+    }
+
+    // auflage_redu for all referenced auflagenr
+    if (hasTable(db, "bvl_auflage_redu")) {
+      const auflagenrSet = new Set();
+      for (const list of auflagenByKennr.values()) {
+        for (const entry of list) {
+          const nr = entry.auflagenr || entry.auflagenr_nr || null;
+          if (nr) auflagenrSet.add(String(nr));
+        }
+      }
+      for (const list of auflagenByAwg.values()) {
+        for (const entry of list) {
+          const nr = entry.auflagenr || entry.auflagenr_nr || null;
+          if (nr) auflagenrSet.add(String(nr));
+        }
+      }
+      const allAuflagenr = Array.from(auflagenrSet);
+      if (allAuflagenr.length > 0) {
+        const placeholders = allAuflagenr.map(() => "?").join(",");
+        db.exec({
+          sql: `SELECT auflagenr, auflage, auflage_abstand_redu, auflage_abstand_redu_bem, payload_json FROM bvl_auflage_redu WHERE auflagenr IN (${placeholders}) ORDER BY auflagenr`,
+          bind: allAuflagenr,
+          callback: (row) => {
+            const nr = row[0];
+            const payload = parseJsonOrNull(row[4]) || {};
+            ensureList(auflageReduMap, nr).push({
+              ...payload,
+              auflagenr: nr,
+              auflage: row[1],
+              auflage_abstand_redu: row[2],
+              auflage_abstand_redu_bem: row[3],
+            });
+          },
+        });
+      }
+    }
+
+    // AWG related tables
+    if (allAwgIds.length > 0 && hasTable(db, "bvl_awg_bem")) {
+      const placeholders = allAwgIds.map(() => "?").join(",");
+      fetchByAwg(
+        `SELECT awg_id, payload_json FROM bvl_awg_bem WHERE awg_id IN (${placeholders}) ORDER BY awg_id`,
+        allAwgIds,
+        (row) => {
+          const awgId = row[0];
+          const payload = parseJsonOrNull(row[1]) || {};
+          ensureList(awgBemMap, awgId).push({ ...payload, awg_id: awgId });
+        }
+      );
+    }
+    if (allAwgIds.length > 0 && hasTable(db, "bvl_awg_partner")) {
+      const placeholders = allAwgIds.map(() => "?").join(",");
+      fetchByAwg(
+        `SELECT awg_id, payload_json FROM bvl_awg_partner WHERE awg_id IN (${placeholders}) ORDER BY awg_id`,
+        allAwgIds,
+        (row) => {
+          const awgId = row[0];
+          const payload = parseJsonOrNull(row[1]) || {};
+          ensureList(awgPartnerMap, awgId).push({ ...payload, awg_id: awgId });
+        }
+      );
+    }
+    if (allAwgIds.length > 0 && hasTable(db, "bvl_awg_partner_aufwand")) {
+      const placeholders = allAwgIds.map(() => "?").join(",");
+      fetchByAwg(
+        `SELECT awg_id, payload_json FROM bvl_awg_partner_aufwand WHERE awg_id IN (${placeholders}) ORDER BY awg_id`,
+        allAwgIds,
+        (row) => {
+          const awgId = row[0];
+          const payload = parseJsonOrNull(row[1]) || {};
+          ensureList(awgPartnerAufwandMap, awgId).push({
+            ...payload,
+            awg_id: awgId,
+          });
+        }
+      );
+    }
+    if (allAwgIds.length > 0 && hasTable(db, "bvl_awg_verwendungszweck")) {
+      const placeholders = allAwgIds.map(() => "?").join(",");
+      fetchByAwg(
+        `SELECT awg_id, payload_json FROM bvl_awg_verwendungszweck WHERE awg_id IN (${placeholders}) ORDER BY awg_id`,
+        allAwgIds,
+        (row) => {
+          const awgId = row[0];
+          const payload = parseJsonOrNull(row[1]) || {};
+          ensureList(awgVerwendungszweckMap, awgId).push({
+            ...payload,
+            awg_id: awgId,
+          });
+        }
+      );
+    }
+    if (
+      allAwgIds.length > 0 &&
+      hasTable(db, "bvl_awg_wartezeit_ausg_kultur") &&
+      hasTable(db, "bvl_awg_wartezeit")
+    ) {
+      const placeholders = allAwgIds.map(() => "?").join(",");
+      fetchByAwg(
+        `
+          SELECT w.awg_id, wak.awg_wartezeit_nr, wak.kultur, wak.sortier_nr, wak.payload_json
+          FROM bvl_awg_wartezeit_ausg_kultur wak
+          JOIN bvl_awg_wartezeit w ON w.awg_wartezeit_nr = wak.awg_wartezeit_nr
+          WHERE w.awg_id IN (${placeholders})
+          ORDER BY w.awg_id, wak.sortier_nr
+        `,
+        allAwgIds,
+        (row) => {
+          const awgId = row[0];
+          const payload = parseJsonOrNull(row[4]) || {};
+          ensureList(awgWartezeitAusgMap, awgId).push({
+            ...payload,
+            awg_id: awgId,
+            awg_wartezeit_nr: row[1],
+            kultur: row[2],
+            sortier_nr: row[3],
+          });
+        }
+      );
+    }
+    if (allAwgIds.length > 0 && hasTable(db, "bvl_awg_zeitpunkt")) {
+      const placeholders = allAwgIds.map(() => "?").join(",");
+      fetchByAwg(
+        `SELECT awg_id, payload_json FROM bvl_awg_zeitpunkt WHERE awg_id IN (${placeholders}) ORDER BY awg_id`,
+        allAwgIds,
+        (row) => {
+          const awgId = row[0];
+          const payload = parseJsonOrNull(row[1]) || {};
+          ensureList(awgZeitpunktMap, awgId).push({
+            ...payload,
+            awg_id: awgId,
+          });
+        }
+      );
+    }
+    if (allAwgIds.length > 0 && hasTable(db, "bvl_awg_zulassung")) {
+      const placeholders = allAwgIds.map(() => "?").join(",");
+      fetchByAwg(
+        `SELECT awg_id, zulassungsanfang, zulassungsende, aufbrauchfrist, payload_json FROM bvl_awg_zulassung WHERE awg_id IN (${placeholders}) ORDER BY awg_id`,
+        allAwgIds,
+        (row) => {
+          const awgId = row[0];
+          const payload = parseJsonOrNull(row[4]) || {};
+          ensureList(awgZulassungMap, awgId).push({
+            ...payload,
+            awg_id: awgId,
+            zulassungsanfang: row[1],
+            zulassungsende: row[2],
+            aufbrauchfrist: row[3],
+          });
+        }
+      );
+    }
+
+    // Apply to results
+    for (const result of results) {
+      result.kulturen = kulturenMap.get(result.awg_id) || [];
+      result.schadorganismen = schadorgMap.get(result.awg_id) || [];
+      result.aufwaende = aufwaendeMap.get(result.awg_id) || [];
+      result.wartezeiten = wartezeitenMap.get(result.awg_id) || [];
+
+      result.wirkstoff_gehalt = wirkstoffGehaltMap.get(result.kennr) || [];
+      result.wirkstoffe = wirkstoffeMap.get(result.kennr) || [];
+      result.antraege = antraegeMap.get(result.kennr) || [];
+      result.hinweise = hinweiseMap.get(result.kennr) || [];
+      result.gefahrhinweise = gefahrhinweiseMap.get(result.kennr) || [];
+      result.gefahrensymbole = gefahrensymboleMap.get(result.kennr) || [];
+      result.sicherheitshinweise =
+        sicherheitshinweiseMap.get(result.kennr) || [];
+      result.signalwoerter = signalwoerterMap.get(result.kennr) || [];
+
+      result.parallelimporte_gueltig =
+        parallelGueltigMap.get(result.kennr) || [];
+      result.parallelimporte_abgelaufen =
+        parallelAbgelaufenMap.get(result.kennr) || [];
+
+      result.staerkung = staerkungMap.get(result.kennr) || [];
+      result.staerkung_vertrieb = staerkungVertriebMap.get(result.kennr) || [];
+
+      result.zusatzstoffe = zusatzstoffMap.get(result.kennr) || [];
+      result.zusatzstoff_vertrieb =
+        zusatzstoffVertriebMap.get(result.kennr) || [];
+
+      result.vertrieb = vertriebMap.get(result.kennr) || [];
+
+      const auflagenForKennr = auflagenByKennr.get(result.kennr) || [];
+      const auflagenForAwg = auflagenByAwg.get(result.awg_id) || [];
+      const combinedAuflagen = [...auflagenForKennr, ...auflagenForAwg];
+      result.auflagen = combinedAuflagen.map((auflage) => {
+        const nummer = auflage.auflagenr || null;
+        return {
+          ...auflage,
+          reduzierung: nummer ? auflageReduMap.get(String(nummer)) || [] : [],
+        };
+      });
+
+      result.awg_bemerkungen = awgBemMap.get(result.awg_id) || [];
+      result.awg_partner = awgPartnerMap.get(result.awg_id) || [];
+      result.awg_partner_aufwand =
+        awgPartnerAufwandMap.get(result.awg_id) || [];
+      result.awg_verwendungszwecke =
+        awgVerwendungszweckMap.get(result.awg_id) || [];
+      result.awg_wartezeit_ausnahmen =
+        awgWartezeitAusgMap.get(result.awg_id) || [];
+      result.awg_zeitpunkte = awgZeitpunktMap.get(result.awg_id) || [];
+      result.awg_zulassung = awgZulassungMap.get(result.awg_id) || [];
+
+      // Status: derive from medium validity date if no status_json present
+      if (!result.status_json) {
+        result.status_json = toStatusJson(result.zul_ende);
       }
 
-      return {
-        ...gehaltEntry,
-        wirkstoff_name: wirkstoffName,
-        wirkstoff_name_en: wirkstoffData
-          ? getFieldValue(wirkstoffData, "wirkstoffname_en") ||
-            getFieldValue(wirkstoffData, "WIRKSTOFFNAME_EN")
-          : null,
-      };
-    });
+      // Derive zulassungsende if not selected (fallback from awg_zulassung)
+      if (
+        !result.zulassungsende &&
+        Array.isArray(result.awg_zulassung) &&
+        result.awg_zulassung.length > 0
+      ) {
+        const first = result.awg_zulassung[0];
+        result.zulassungsende = first.zulassungsende || null;
+      }
+    }
+  } else {
+    for (const result of results) {
+      // Use pre-fetched data instead of individual queries
+      result.kulturen = kulturenMap.get(result.awg_id) || [];
+      result.schadorganismen = schadorgMap.get(result.awg_id) || [];
+      result.aufwaende = aufwaendeMap.get(result.awg_id) || [];
+      result.wartezeiten = wartezeitenMap.get(result.awg_id) || [];
 
-    result.wirkstoff_gehalt = wirkstoffGehaltEntries;
-    result.zusatzstoffe = getPayloadsForKey("zusatzstoff", {
-      primaryRef: result.kennr,
-    });
-    result.zusatzstoff_vertrieb = getPayloadsForKey("zusatzstoff_vertrieb", {
-      primaryRef: result.kennr,
-    });
-    result.parallelimporte_gueltig = getPayloadsForKey(
-      "parallelimport_gueltig",
-      {
+      // Hole wirkstoff_gehalt Einträge für dieses Mittel (über kennr)
+      const wirkstoffGehaltEntries = getPayloadsForKey("wirkstoff_gehalt", {
         primaryRef: result.kennr,
-      }
-    );
-    result.parallelimporte_abgelaufen = getPayloadsForKey(
-      "parallelimport_abgelaufen",
-      { primaryRef: result.kennr }
-    );
-    result.staerkung = getPayloadsForKey("staerkung", {
-      primaryRef: result.kennr,
-    });
-    result.staerkung_vertrieb = getPayloadsForKey("staerkung_vertrieb", {
-      primaryRef: result.kennr,
-    });
+      });
 
-    const vertriebseintraege = getPayloadsForKey("mittel_vertrieb", {
-      primaryRef: result.kennr,
-    }).map((payload) => {
-      const adresseNr =
-        getFieldValue(payload, "adresse_nr") ||
-        getFieldValue(payload, "vertriebsfirma_nr") ||
-        getFieldValue(payload, "vertriebsfirma_adresse_nr") ||
-        getFieldValue(payload, "hersteller_nr") ||
-        getFieldValue(payload, "hersteller_adresse_nr") ||
-        getFieldValue(payload, "zulassungsinhaber_adresse_nr") ||
-        getFieldValue(payload, "zulassungsinhaber_nr") ||
-        null;
-      const adresse = getAdresseByNumber(adresseNr);
-      const enriched = { ...payload };
-      if (adresse) {
-        enriched.adresse = adresse;
-        enriched.adresse_nr =
-          adresseNr !== null && adresseNr !== undefined ? adresseNr : null;
-      }
-      return enriched;
-    });
-    result.vertrieb = vertriebseintraege;
-
-    result.gefahrhinweise = getPayloadsForKey("ghs_gefahrenhinweise", {
-      primaryRef: result.kennr,
-    });
-    result.gefahrensymbole = getPayloadsForKey("ghs_gefahrensymbole", {
-      primaryRef: result.kennr,
-    });
-    result.sicherheitshinweise = getPayloadsForKey("ghs_sicherheitshinweise", {
-      primaryRef: result.kennr,
-    });
-    result.signalwoerter = getPayloadsForKey("ghs_signalwoerter", {
-      primaryRef: result.kennr,
-    });
-    result.hinweise = getPayloadsForKey("hinweis", {
-      primaryRef: result.kennr,
-    });
-
-    result.antraege = getPayloadsForKey("antrag", { primaryRef: result.kennr });
-
-    const auflagenPayloads = [
-      ...getPayloadsForKey("auflagen", { primaryRef: result.kennr }),
-      ...getPayloadsForKey("auflagen", { secondaryRef: result.awg_id }),
-    ];
-
-    result.auflagen = auflagenPayloads.map((auflage) => {
-      const nummer = getFieldValue(auflage, "auflagenr");
-      const reduzierungen = nummer
-        ? getPayloadsForKey("auflage_redu", { primaryRef: nummer })
-        : [];
-      return {
-        ...auflage,
-        reduzierung: reduzierungen,
+      // Hilfsfunktion: Suche Wirkstoffname direkt in der Payload-Tabelle via SQL
+      const getWirkstoffNameByWirknr = (wirknr) => {
+        if (!wirknr) return null;
+        let wirkstoffName = null;
+        db.exec({
+          sql: `
+            SELECT payload_json FROM bvl_api_payloads 
+            WHERE key = 'wirkstoff' 
+            AND (primary_ref = ? OR payload_json LIKE ?)
+            LIMIT 1
+          `,
+          bind: [wirknr, `%"wirknr":"${wirknr}"%`],
+          callback: (row) => {
+            const payload = safeParseJson(row[0]);
+            if (payload) {
+              wirkstoffName =
+                getFieldValue(payload, "wirkstoffname") ||
+                getFieldValue(payload, "WIRKSTOFFNAME");
+            }
+          },
+        });
+        return wirkstoffName;
       };
-    });
 
-    result.awg_bemerkungen = getPayloadsForKey("awg_bem", {
-      primaryRef: result.awg_id,
-    });
-    result.awg_partner = getPayloadsForKey("awg_partner", {
-      primaryRef: result.awg_id,
-    });
-    result.awg_partner_aufwand = getPayloadsForKey("awg_partner_aufwand", {
-      primaryRef: result.awg_id,
-    });
-    result.awg_verwendungszwecke = getPayloadsForKey("awg_verwendungszweck", {
-      primaryRef: result.awg_id,
-    });
-    result.awg_wartezeit_ausnahmen = getPayloadsForKey(
-      "awg_wartezeit_ausg_kultur",
-      { primaryRef: result.awg_id }
-    );
-    result.awg_zeitpunkte = getPayloadsForKey("awg_zeitpunkt", {
-      primaryRef: result.awg_id,
-    });
-    result.awg_zulassung = getPayloadsForKey("awg_zulassung", {
-      primaryRef: result.awg_id,
-    });
+      // Anreichern mit Wirkstoffnamen aus der wirkstoff-Tabelle (über wirknr)
+      result.wirkstoffe = wirkstoffGehaltEntries.map((gehaltEntry) => {
+        const wirknr =
+          getFieldValue(gehaltEntry, "wirknr") ||
+          getFieldValue(gehaltEntry, "WIRKNR");
+
+        // Versuche erst über Payload-Cache, dann direkt via SQL
+        let wirkstoffData = wirknr
+          ? getFirstPayload("wirkstoff", { primaryRef: wirknr })
+          : null;
+
+        let wirkstoffName = wirkstoffData
+          ? getFieldValue(wirkstoffData, "wirkstoffname") ||
+            getFieldValue(wirkstoffData, "WIRKSTOFFNAME")
+          : null;
+
+        // Fallback: Direkte SQL-Suche wenn Cache nichts liefert
+        if (!wirkstoffName && wirknr) {
+          wirkstoffName = getWirkstoffNameByWirknr(wirknr);
+        }
+
+        return {
+          ...gehaltEntry,
+          wirkstoff_name: wirkstoffName,
+          wirkstoff_name_en: wirkstoffData
+            ? getFieldValue(wirkstoffData, "wirkstoffname_en") ||
+              getFieldValue(wirkstoffData, "WIRKSTOFFNAME_EN")
+            : null,
+        };
+      });
+
+      result.wirkstoff_gehalt = wirkstoffGehaltEntries;
+      result.zusatzstoffe = getPayloadsForKey("zusatzstoff", {
+        primaryRef: result.kennr,
+      });
+      result.zusatzstoff_vertrieb = getPayloadsForKey("zusatzstoff_vertrieb", {
+        primaryRef: result.kennr,
+      });
+      result.parallelimporte_gueltig = getPayloadsForKey(
+        "parallelimport_gueltig",
+        {
+          primaryRef: result.kennr,
+        }
+      );
+      result.parallelimporte_abgelaufen = getPayloadsForKey(
+        "parallelimport_abgelaufen",
+        { primaryRef: result.kennr }
+      );
+      result.staerkung = getPayloadsForKey("staerkung", {
+        primaryRef: result.kennr,
+      });
+      result.staerkung_vertrieb = getPayloadsForKey("staerkung_vertrieb", {
+        primaryRef: result.kennr,
+      });
+
+      const vertriebseintraege = getPayloadsForKey("mittel_vertrieb", {
+        primaryRef: result.kennr,
+      }).map((payload) => {
+        const adresseNr =
+          getFieldValue(payload, "adresse_nr") ||
+          getFieldValue(payload, "vertriebsfirma_nr") ||
+          getFieldValue(payload, "vertriebsfirma_adresse_nr") ||
+          getFieldValue(payload, "hersteller_nr") ||
+          getFieldValue(payload, "hersteller_adresse_nr") ||
+          getFieldValue(payload, "zulassungsinhaber_adresse_nr") ||
+          getFieldValue(payload, "zulassungsinhaber_nr") ||
+          null;
+        const adresse = getAdresseByNumber(adresseNr);
+        const enriched = { ...payload };
+        if (adresse) {
+          enriched.adresse = adresse;
+          enriched.adresse_nr =
+            adresseNr !== null && adresseNr !== undefined ? adresseNr : null;
+        }
+        return enriched;
+      });
+      result.vertrieb = vertriebseintraege;
+
+      result.gefahrhinweise = getPayloadsForKey("ghs_gefahrenhinweise", {
+        primaryRef: result.kennr,
+      });
+      result.gefahrensymbole = getPayloadsForKey("ghs_gefahrensymbole", {
+        primaryRef: result.kennr,
+      });
+      result.sicherheitshinweise = getPayloadsForKey(
+        "ghs_sicherheitshinweise",
+        {
+          primaryRef: result.kennr,
+        }
+      );
+      result.signalwoerter = getPayloadsForKey("ghs_signalwoerter", {
+        primaryRef: result.kennr,
+      });
+      result.hinweise = getPayloadsForKey("hinweis", {
+        primaryRef: result.kennr,
+      });
+
+      result.antraege = getPayloadsForKey("antrag", {
+        primaryRef: result.kennr,
+      });
+
+      const auflagenPayloads = [
+        ...getPayloadsForKey("auflagen", { primaryRef: result.kennr }),
+        ...getPayloadsForKey("auflagen", { secondaryRef: result.awg_id }),
+      ];
+
+      result.auflagen = auflagenPayloads.map((auflage) => {
+        const nummer = getFieldValue(auflage, "auflagenr");
+        const reduzierungen = nummer
+          ? getPayloadsForKey("auflage_redu", { primaryRef: nummer })
+          : [];
+        return {
+          ...auflage,
+          reduzierung: reduzierungen,
+        };
+      });
+
+      result.awg_bemerkungen = getPayloadsForKey("awg_bem", {
+        primaryRef: result.awg_id,
+      });
+      result.awg_partner = getPayloadsForKey("awg_partner", {
+        primaryRef: result.awg_id,
+      });
+      result.awg_partner_aufwand = getPayloadsForKey("awg_partner_aufwand", {
+        primaryRef: result.awg_id,
+      });
+      result.awg_verwendungszwecke = getPayloadsForKey("awg_verwendungszweck", {
+        primaryRef: result.awg_id,
+      });
+      result.awg_wartezeit_ausnahmen = getPayloadsForKey(
+        "awg_wartezeit_ausg_kultur",
+        { primaryRef: result.awg_id }
+      );
+      result.awg_zeitpunkte = getPayloadsForKey("awg_zeitpunkt", {
+        primaryRef: result.awg_id,
+      });
+      result.awg_zulassung = getPayloadsForKey("awg_zulassung", {
+        primaryRef: result.awg_id,
+      });
+    }
   }
 
   let totalCount = null;
