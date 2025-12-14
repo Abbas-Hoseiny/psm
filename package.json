@@ -10,9 +10,10 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/sitemap": "^3.6.0",
     "astro": "^4.16.18",
-    "interactjs": "^1.10.27",
-    "fflate": "^0.8.2"
+    "fflate": "^0.8.2",
+    "interactjs": "^1.10.27"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",

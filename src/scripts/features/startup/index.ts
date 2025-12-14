@@ -97,13 +97,17 @@ function createWizard(baseCompany: CompanyState): WizardElements {
                 <label class="form-label d-block mb-2" for="wizard-company-name">
                   Firmenname <span class="text-danger">*</span>
                 </label>
-                <input class="form-control" id="wizard-company-name" name="wizard-company-name" required value="${escapeAttr(baseCompany.name)}" placeholder="z.B. Gärtnerei Müller" />
+                <input class="form-control" id="wizard-company-name" name="wizard-company-name" required value="${escapeAttr(
+                  baseCompany.name
+                )}" placeholder="z.B. Gärtnerei Müller" />
               </div>
               <div class="col-md-6">
                 <label class="form-label d-block mb-2" for="wizard-company-headline">
                   Überschrift <span class="text-muted small">(optional)</span>
                 </label>
-                <input class="form-control" id="wizard-company-headline" name="wizard-company-headline" value="${escapeAttr(baseCompany.headline)}" placeholder="z.B. Pflanzenschutz-Dokumentation 2025" />
+                <input class="form-control" id="wizard-company-headline" name="wizard-company-headline" value="${escapeAttr(
+                  baseCompany.headline
+                )}" placeholder="z.B. Pflanzenschutz-Dokumentation 2025" />
               </div>
             </div>
             <div class="row mb-4">
@@ -111,7 +115,9 @@ function createWizard(baseCompany: CompanyState): WizardElements {
                 <label class="form-label d-block mb-2" for="wizard-company-address">
                   Adresse <span class="text-muted small">(optional)</span>
                 </label>
-                <textarea class="form-control" id="wizard-company-address" name="wizard-company-address" rows="2" placeholder="Straße, PLZ Ort">${escapeHtml(baseCompany.address)}</textarea>
+                <textarea class="form-control" id="wizard-company-address" name="wizard-company-address" rows="2" placeholder="Straße, PLZ Ort">${escapeHtml(
+                  baseCompany.address
+                )}</textarea>
               </div>
             </div>
             <div class="d-flex gap-3">
