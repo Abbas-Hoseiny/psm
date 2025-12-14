@@ -1497,6 +1497,29 @@ async function importBvlSqlite(payload) {
         }
       }
 
+      // Check if bvl_mittel has 'formulierung_art' instead of 'formulierung'
+      let hasFormulierungArt = false;
+      let hasFormulierung = false;
+      db.exec({
+        sql: "PRAGMA table_info(bvl_mittel)",
+        callback: (row) => {
+          const colName = row[1];
+          if (colName === "formulierung_art") hasFormulierungArt = true;
+          if (colName === "formulierung") hasFormulierung = true;
+        },
+      });
+
+      if (hasFormulierungArt && !hasFormulierung) {
+        console.log("Adding 'formulierung' alias column for compatibility");
+        try {
+          db.exec(
+            "ALTER TABLE bvl_mittel ADD COLUMN formulierung TEXT GENERATED ALWAYS AS (formulierung_art) STORED"
+          );
+        } catch (e) {
+          console.warn("Could not add 'formulierung' column:", e.message);
+        }
+      }
+
       // Check if bvl_mittel has 'zulassungsende' instead of 'zul_ende'
       let hasZulassungsende = false;
       let hasZulEnde = false;
