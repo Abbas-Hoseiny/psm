@@ -9,7 +9,8 @@ let worker: Worker | null = null;
 let messageId = 0;
 const DEFAULT_WORKER_TIMEOUT = 30000;
 const LONG_RUNNING_ACTION_TIMEOUTS: Record<string, number> = {
-  importBvlSqlite: 3 * 60 * 1000,
+  // BVL-DB (100+ MB) import can exceed 3 minutes in browsers with throttled timers
+  importBvlSqlite: 8 * 60 * 1000,
   importBvlDataset: 2 * 60 * 1000,
   exportHistoryRange: 60 * 1000,
   exportDB: 60 * 1000,

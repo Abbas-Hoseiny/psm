@@ -2,7 +2,11 @@
 /**
  * BVL Dataset Module
  * Handles manifest-based data fetching from pflanzenschutz-db repository
+ * Also supports local database from monorepo build
  */
+
+// Local database path (monorepo build)
+const LOCAL_DB_PATH = "/data/bvl/pflanzenschutz.sqlite";
 
 const DEFAULT_MANIFEST_URL =
   "https://abbas-hoseiny.github.io/pflanzenschutz-db/manifest.json";
@@ -21,6 +25,64 @@ export class DownloadError extends Error {
     this.name = "DownloadError";
     this.url = url;
   }
+}
+
+/**
+ * Check if local database is available (monorepo mode)
+ * @returns {Promise<boolean>}
+ */
+export async function hasLocalDatabase() {
+  try {
+    const response = await fetch(LOCAL_DB_PATH, { method: "HEAD" });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Download the local database (no decompression needed)
+ * @param {Object} options - Download options
+ * @returns {Promise<{data: Uint8Array, source: string}>}
+ */
+export async function downloadLocalDatabase(options = {}) {
+  const { onProgress = null } = options;
+
+  if (onProgress) {
+    onProgress({
+      step: "download",
+      message: "Lade lokale Datenbank...",
+      percent: 0,
+    });
+  }
+
+  const data = await downloadFile(LOCAL_DB_PATH, {
+    onProgress: (progress) => {
+      if (onProgress) {
+        onProgress({
+          step: "download",
+          message: `Lade lokale Datenbank: ${progress.percent}%`,
+          percent: progress.percent,
+          ...progress,
+        });
+      }
+    },
+  });
+
+  if (onProgress) {
+    onProgress({
+      step: "complete",
+      message: "Lokale Datenbank geladen",
+      percent: 100,
+    });
+  }
+
+  return {
+    data,
+    source: "local",
+    file: { path: LOCAL_DB_PATH },
+    format: "plain",
+  };
 }
 
 let fflateLoader = null;
@@ -173,7 +235,13 @@ export function selectBestFile(manifest) {
     return { file: gzFile, format: "gzip" };
   }
 
-  // Fallback to plain .sqlite
+  // Prefer zip before raw sqlite (zip is always <100MB)
+  const zipFile = files.find((f) => (f.path || f.name).endsWith(".sqlite.zip"));
+  if (zipFile) {
+    return { file: zipFile, format: "zip" };
+  }
+
+  // Fallback to plain .sqlite (only if present)
   const sqliteFile = files.find(
     (f) =>
       (f.path || f.name).endsWith(".sqlite") &&
@@ -181,12 +249,6 @@ export function selectBestFile(manifest) {
   );
   if (sqliteFile) {
     return { file: sqliteFile, format: "plain" };
-  }
-
-  // Fallback to .sqlite.zip
-  const zipFile = files.find((f) => (f.path || f.name).endsWith(".sqlite.zip"));
-  if (zipFile) {
-    return { file: zipFile, format: "zip" };
   }
 
   throw new ManifestError("No suitable database file found in manifest");
@@ -357,11 +419,52 @@ async function decompressGzip(compressedData) {
  * Decompress ZIP-compressed data (assumes single file in archive)
  */
 async function decompressZip(compressedData) {
-  // For ZIP we'll need JSZip or similar library
-  // For now, throw error as this needs external dependency
-  throw new Error(
-    "ZIP decompression not yet implemented. Please use .sqlite or .sqlite.br format."
-  );
+  try {
+    const fflate = await loadFflate();
+    const unzipSync = fflate.unzipSync || null;
+
+    if (unzipSync) {
+      const files = unzipSync(compressedData);
+      const names = Object.keys(files || {});
+      if (!names.length) {
+        throw new Error("ZIP archive is empty");
+      }
+      // Nimm die erste Datei im Archiv (Manifest enthält nur eine SQLite)
+      const first = names[0];
+      const content = files[first];
+      if (!(content instanceof Uint8Array)) {
+        throw new Error("ZIP entry is not a Uint8Array");
+      }
+      return content;
+    }
+
+    if (typeof fflate.unzip === "function") {
+      return await new Promise((resolve, reject) => {
+        fflate.unzip(compressedData, (err, result) => {
+          if (err) {
+            reject(err);
+          } else {
+            const names = Object.keys(result || {});
+            if (!names.length) {
+              reject(new Error("ZIP archive is empty"));
+              return;
+            }
+            const first = names[0];
+            const content = result[first];
+            if (!(content instanceof Uint8Array)) {
+              reject(new Error("ZIP entry is not a Uint8Array"));
+              return;
+            }
+            resolve(content);
+          }
+        });
+      });
+    }
+
+    throw new Error("No ZIP decompressor available");
+  } catch (error) {
+    throw new Error(`ZIP decompression failed: ${error.message}`);
+  }
 }
 
 /**
