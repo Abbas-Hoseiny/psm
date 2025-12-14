@@ -357,7 +357,7 @@ export async function syncBvlData(storage, options = {}) {
       throw new Error("Keine Internetverbindung verfügbar");
     }
 
-    // Use manifest-based sync by default
+    // Immer Manifest-Sync verwenden (kein lokaler DB-Pfad mehr)
     if (USE_MANIFEST_SYNC) {
       return await syncFromManifest(storage, {
         onProgress,
