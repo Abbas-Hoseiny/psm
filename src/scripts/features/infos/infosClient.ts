@@ -1,7 +1,7 @@
 /**
  * Infos Client - UI Rendering
  * Moderne Darstellung mit Quellen-Kacheln, Artikelansicht und PDF-Lightbox
- * 3 Hauptquellen: Beratungsdienst, Peter Stader, Christian Bärthele
+ * 3 Hauptquellen: BVL-PDF, Peter Stader, Christian Bärthele
  */
 
 import type {
@@ -52,7 +52,7 @@ let contentElement: HTMLElement | null = null;
 // QUELLEN-KONFIGURATION (3 hardcodierte Quellen)
 // ══════════════════════════════════════════════════════════════════════
 
-type SourceKey = "beratung" | "stader" | "baerthele";
+type SourceKey = "bvlpdf" | "stader" | "baerthele";
 
 interface SourceConfig {
   key: SourceKey;
@@ -63,11 +63,11 @@ interface SourceConfig {
 
 const SOURCES: SourceConfig[] = [
   {
-    key: "beratung",
+    key: "bvlpdf",
     icon: "megaphone",
-    label: "Beratungsdienst",
+    label: "BVL-PDF",
     description:
-      "Aktuelle Hinweise und Empfehlungen vom regionalen Beratungsdienst",
+      "Offizielle BVL-Dokumente und Pflanzenschutz-Informationen",
   },
   {
     key: "stader",
@@ -92,7 +92,7 @@ interface SourceState {
 }
 
 const sourceStates: Record<SourceKey, SourceState> = {
-  beratung: {
+  bvlpdf: {
     repoName: "",
     isConfigured: false,
     isLoading: false,
@@ -435,7 +435,7 @@ function getSourceIcon(iconName: string): string {
     />`;
   }
 
-  // Beratungsdienst Megaphone
+  // BVL-PDF Megaphone
   if (iconName === "megaphone") {
     return "📢";
   }
@@ -813,7 +813,7 @@ function showSourceConfigModal(source: SourceKey): void {
       <div class="infos-modal-body">
         <p class="text-muted mb-3">
           Geben Sie den Zugangsschlüssel ein, um die Inhalte von ${escapeHtml(config.label)} zu laden.
-          ${source === "beratung" ? "Den Zugangsschlüssel erhalten Sie von Ihrem regionalen Beratungsdienst." : `Den Zugangsschlüssel erhalten Sie direkt von ${escapeHtml(config.label)}.`}
+          Den Zugangsschlüssel erhalten Sie direkt von ${escapeHtml(config.label)}.
         </p>
         <div class="mb-3">
           <label class="form-label">Zugangsschlüssel</label>
