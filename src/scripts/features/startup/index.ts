@@ -228,10 +228,13 @@ export function initStartup(
             </button>
           </div>
           
-          <!-- Info & Lizenz Link unten links -->
-          <div style="position: absolute; bottom: 0.75rem; left: 0.75rem;">
+          <!-- Info & Lizenz + Statistik Links unten links -->
+          <div style="position: absolute; bottom: 0.75rem; left: 0.75rem; display: flex; gap: 1rem;">
             <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.8rem; transition: color 0.2s;">
               <i class="bi bi-info-circle me-1"></i>Info & Lizenz
+            </a>
+            <a href="https://st.digitale-psm.de" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.8rem; transition: color 0.2s;">
+              <i class="bi bi-bar-chart-line me-1"></i>Statistik
             </a>
           </div>
           
