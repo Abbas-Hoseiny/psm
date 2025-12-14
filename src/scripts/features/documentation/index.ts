@@ -2284,8 +2284,11 @@ function exportEntries(entries: HistoryEntry[]): void {
     return;
   }
   const payload = entries.map((entry) => ({ ...entry }));
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: "application/json",
+  // Explizit UTF-8 encodieren um Umlaut-Probleme zu vermeiden
+  const jsonString = JSON.stringify(payload, null, 2);
+  const utf8Bytes = new TextEncoder().encode(jsonString);
+  const blob = new Blob([utf8Bytes], {
+    type: "application/json; charset=utf-8",
   });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   triggerDownload(blob, `pflanzenschutz-dokumentation-${timestamp}.json`);

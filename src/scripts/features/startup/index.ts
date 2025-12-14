@@ -211,30 +211,42 @@ export function initStartup(
     <div class="section-inner">
       <div class="card startup-card" style="position: relative;">
         <div class="card-body text-center py-5">
+          <!-- Branding Logo oben links -->
+          <div style="position: absolute; top: 0.75rem; left: 0.75rem;">
+            <div class="d-flex align-items-center gap-2">
+              <img src="/assets/img/favicon.svg" alt="PSM" style="width: 28px; height: 28px;" />
+              <div style="text-align: left; line-height: 1.1;">
+                <span style="font-size: 0.9rem; font-weight: 600; color: var(--text);">Digitale PSM</span>
+              </div>
+            </div>
+          </div>
+          
           <!-- Neue Datenbank Button oben rechts (selten gebraucht) -->
-          <div style="position: absolute; top: 1rem; right: 1rem;">
+          <div style="position: absolute; top: 0.75rem; right: 0.75rem;">
             <button class="btn btn-sm btn-psm-secondary-outline" data-action="start-wizard">
               <i class="bi bi-plus-circle me-1"></i>Neu erstellen
             </button>
           </div>
           
           <!-- Info & Lizenz Link unten links -->
-          <div style="position: absolute; bottom: 1rem; left: 1rem;">
-            <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.6); text-decoration: none; font-size: 0.85rem; transition: color 0.2s;">
+          <div style="position: absolute; bottom: 0.75rem; left: 0.75rem;">
+            <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.8rem; transition: color 0.2s;">
               <i class="bi bi-info-circle me-1"></i>Info & Lizenz
             </a>
           </div>
           
-          <i class="bi bi-database fs-1 mb-3 d-block" style="color: var(--color-primary); opacity: 0.8;"></i>
-          <h2 class="mb-3" style="font-size: 1.75rem; color: var(--color-primary);">Datenbank öffnen</h2>
-          <p class="mb-4">
-            Wähle deine bestehende Datei
-          </p>
-          
-          <!-- Hauptaktion: Datei öffnen (zentral, groß, grün) -->
-          <button class="btn btn-psm-primary btn-lg px-5 py-3" style="font-size: 1.1rem;" data-action="open">
-            <i class="bi bi-folder2-open me-2"></i>Datei öffnen
-          </button>
+          <div style="padding-top: 1rem;">
+            <i class="bi bi-database fs-1 mb-3 d-block" style="color: var(--color-primary); opacity: 0.8;"></i>
+            <h2 class="mb-3" style="font-size: 1.5rem; color: var(--color-primary);">Datenbank öffnen</h2>
+            <p class="mb-4" style="color: var(--text-muted);">
+              Wähle deine bestehende Datei
+            </p>
+            
+            <!-- Hauptaktion: Datei öffnen (zentral, groß, grün) -->
+            <button class="btn btn-psm-primary btn-lg px-4 py-2" style="font-size: 1rem;" data-action="open">
+              <i class="bi bi-folder2-open me-2"></i>Datei öffnen
+            </button>
+          </div>
         </div>
       </div>
     </div>
