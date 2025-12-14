@@ -5,8 +5,6 @@ import '../styles/layout.css';
 import '../styles/components.css';
 import '../styles/infos.css';
 import '../styles/guidedInput.css';
-import previewAsset from '../assets/img/preview.png';
-import { getImage } from 'astro:assets';
 
 interface Props {
   title?: string;
@@ -22,19 +20,9 @@ const {
 const fullTitle = `${pageTitle} · ${baseTitle}`;
 const canonicalUrl = Astro.url?.href ??
   (Astro.site ? new URL(Astro.site).href : 'https://www.digitale-psm.de/');
-const {
-  src: previewImageUrl,
-  attributes: previewImageAttributes,
-} = await getImage({
-  src: previewAsset,
-  width: 1200,
-  height: 630,
-  format: 'png',
-  quality: 90,
-  fit: 'cover',
-});
-const previewImageWidth = previewImageAttributes.width ?? 1200;
-const previewImageHeight = previewImageAttributes.height ?? 630;
+const previewImageUrl = '/assets/img/psm-icon.svg';
+const previewImageWidth = 1200;
+const previewImageHeight = 630;
 ---
 
 <!DOCTYPE html>
