@@ -1612,7 +1612,8 @@ export function initCalculation(
       kultur,
       eppoCode,
       bbch,
-      gps: gpsDisplayValue,
+      // GPS-Notiz nur speichern wenn KEIN GPS-Punkt verknüpft ist (verhindert Duplikate)
+      gps: selectedGpsPoint ? "" : rawGps,
       gpsCoordinates,
       gpsPointId: selectedGpsPoint?.id ?? null,
       invekos,
