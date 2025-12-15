@@ -1212,12 +1212,36 @@ function renderResultItem(result: ReportingResult): string {
         })()
       : "-";
 
+  // Aufwand aus BVL extrahieren (erster verfügbarer Eintrag)
+  // Official API field names: m_aufwand, m_aufwand_einheit
+  const firstAufwand = Array.isArray(result.aufwaende) && result.aufwaende.length > 0
+    ? (() => {
+        const a = result.aufwaende[0];
+        const payload = safeParseJson<Record<string, any>>(a.payload_json) || {};
+        const aufwandValue = firstNonEmpty(
+          a.m_aufwand,
+          payload.m_aufwand,
+          payload.max_aufwandmenge,
+          payload.aufwandmenge
+        );
+        const aufwandEinheit = firstNonEmpty(
+          a.m_aufwand_einheit,
+          payload.m_aufwand_einheit,
+          payload.aufwandmenge_einheit
+        );
+        return { value: aufwandValue, einheit: aufwandEinheit };
+      })()
+    : null;
+
   // JSON für data-Attribut - Base64 encodiert um Escaping-Probleme zu vermeiden
   const addToMediumDataObj = {
     name: result.name || "",
     kennr: result.kennr || "",
     wirkstoff: wirkstoff,
     wartezeit: wartezeit,
+    // NEU: Aufwand-Daten für vorbefüllte Felder
+    aufwandValue: firstAufwand?.value ?? null,
+    aufwandEinheit: firstAufwand?.einheit ?? null,
   };
   const addToMediumData = btoa(
     encodeURIComponent(JSON.stringify(addToMediumDataObj))
@@ -2802,19 +2826,24 @@ function createAddMediumDialog(): HTMLElement {
           
           <div style="margin: 20px 0; padding: 10px 0; border-top: 1px dashed #555;">
             <span style="color: #28a745; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
-              <i class="bi bi-pencil-square me-1"></i>Editierbares Feld
+              <i class="bi bi-pencil-square me-1"></i>Editierbare Felder
             </span>
           </div>
           
-          <!-- Editierbares Feld (grün umrandet) -->
+          <!-- Editierbare Felder (grün umrandet) -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div>
-              <label style="display: block; margin-bottom: 6px; color: #28a745; font-size: 14px; font-weight: 500;">Wert (ml/ha) *</label>
-              <input type="number" step="any" name="modal-value" placeholder="z.B. 500" required style="width: 100%; padding: 10px 12px; border: 2px solid #28a745; border-radius: 4px; background: #2a3a2a; color: #fff; font-size: 14px;" />
+              <label style="display: block; margin-bottom: 6px; color: #28a745; font-size: 14px; font-weight: 500;">Wert (pro ha) *</label>
+              <input type="number" step="any" name="modal-value" placeholder="z.B. 0.5" required style="width: 100%; padding: 10px 12px; border: 2px solid #28a745; border-radius: 4px; background: #2a3a2a; color: #fff; font-size: 14px;" />
+              <small style="display: block; margin-top: 4px; color: #777; font-size: 12px;">Vorbelegt aus BVL, bei Bedarf anpassen.</small>
             </div>
             <div>
-              <label style="display: block; margin-bottom: 6px; color: #888; font-size: 14px;">Einheit</label>
-              <input type="text" name="modal-unit" value="ml" readonly style="width: 100%; padding: 10px 12px; border: 1px solid #555; border-radius: 4px; background: #3a3a3a; color: #ccc; font-size: 14px; cursor: not-allowed;" />
+              <label style="display: block; margin-bottom: 6px; color: #28a745; font-size: 14px; font-weight: 500;">Einheit</label>
+              <select name="modal-unit" style="width: 100%; padding: 10px 12px; border: 2px solid #28a745; border-radius: 4px; background: #2a3a2a; color: #fff; font-size: 14px; cursor: pointer;">
+                <option value="L">L (Liter pro ha)</option>
+                <option value="kg">kg (Kilogramm pro ha)</option>
+              </select>
+              <small style="display: block; margin-top: 4px; color: #777; font-size: 12px;">Aus BVL-Einheit abgeleitet.</small>
             </div>
           </div>
           
@@ -2882,11 +2911,34 @@ function closeAddMediumDialog(): void {
   }
 }
 
+// Hilfsfunktion: BVL-Einheit zu L/kg parsen
+function parseUnitFromBvl(einheit: string | null | undefined): "L" | "kg" {
+  if (!einheit) return "L";
+  const lower = String(einheit).toLowerCase();
+  if (lower.includes("kg") || lower.startsWith("g/") || lower.startsWith("g ")) return "kg";
+  return "L"; // Default: Liter (l/ha, ml/ha, etc.)
+}
+
+// Hilfsfunktion: BVL-Wert in Basiseinheit konvertieren (ml→L, g→kg)
+function convertValueToBaseUnit(value: number | null | undefined, einheit: string | null | undefined): number | null {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return null;
+  const numValue = Number(value);
+  if (!einheit) return numValue;
+  const lower = String(einheit).toLowerCase();
+  // ml/ha → L/ha (÷1000), g/ha → kg/ha (÷1000)
+  if (lower.startsWith("ml") || lower.startsWith("g/") || lower.startsWith("g ")) {
+    return numValue / 1000;
+  }
+  return numValue;
+}
+
 function showAddMediumModal(data: {
   name: string;
   kennr: string;
   wirkstoff: string;
   wartezeit: string;
+  aufwandValue?: number | string | null;
+  aufwandEinheit?: string | null;
 }): void {
   const dialog = createAddMediumDialog();
   const form = dialog.querySelector<HTMLFormElement>("#add-medium-modal-form");
@@ -2900,13 +2952,23 @@ function showAddMediumModal(data: {
       data.wirkstoff;
     (form.querySelector('[name="modal-wartezeit"]') as HTMLInputElement).value =
       data.wartezeit || "-";
-    (form.querySelector('[name="modal-unit"]') as HTMLInputElement).value =
-      "ml";
+    
+    // Einheit aus BVL ableiten (L oder kg)
+    const parsedUnit = parseUnitFromBvl(data.aufwandEinheit);
+    (form.querySelector('[name="modal-unit"]') as HTMLSelectElement).value = parsedUnit;
+    
+    // Wert aus BVL vorbefüllen (konvertiert in Basiseinheit)
+    const rawValue = data.aufwandValue !== null && data.aufwandValue !== undefined 
+      ? Number(data.aufwandValue) 
+      : null;
+    const convertedValue = convertValueToBaseUnit(rawValue, data.aufwandEinheit);
+    (form.querySelector('[name="modal-value"]') as HTMLInputElement).value = 
+      convertedValue !== null ? String(convertedValue) : "";
+    
     (form.querySelector('[name="modal-method"]') as HTMLInputElement).value =
       "perHektar";
-    (form.querySelector('[name="modal-value"]') as HTMLInputElement).value = "";
 
-    // Fokus auf Wert-Feld (einziges editierbares Feld)
+    // Fokus auf Wert-Feld
     setTimeout(() => {
       (form.querySelector('[name="modal-value"]') as HTMLInputElement)?.focus();
     }, 100);

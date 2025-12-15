@@ -103,30 +103,60 @@ export interface CalculationSnapshotLabels {
   };
 }
 
+/**
+ * Resolve GPS coordinates for display.
+ * Priority: gpsCoordinates object > gps string (fallback for manual input)
+ */
 function resolveSnapshotGps(entry: CalculationSnapshotEntry): string {
+  // Zuerst: gpsCoordinates Objekt (von verknüpftem GPS-Punkt)
   if (entry?.gpsCoordinates) {
     const formatted = formatGpsCoordinates(entry.gpsCoordinates);
     if (formatted) {
       return formatted;
     }
   }
+  // Fallback: gps String (manuelle Eingabe)
+  // Wird als Koordinaten verwendet wenn kein GPS-Punkt verknüpft ist
+  if (entry?.gps) {
+    return entry.gps.trim();
+  }
   return "";
 }
 
+/**
+ * Resolve GPS note (only used when different from coordinates)
+ */
 function resolveSnapshotGpsNote(entry: CalculationSnapshotEntry): string {
   return entry?.gps || "";
 }
 
-function shouldDisplayGpsNote(note: string, coordinates: string): boolean {
-  const normalizedNote = (note || "").trim();
-  if (!normalizedNote) {
+/**
+ * Check if GPS coordinates come from gpsCoordinates object (not manual gps string)
+ */
+function hasStructuredGpsCoordinates(entry: CalculationSnapshotEntry): boolean {
+  if (!entry?.gpsCoordinates) return false;
+  const formatted = formatGpsCoordinates(entry.gpsCoordinates);
+  return Boolean(formatted);
+}
+
+/**
+ * Determine if GPS note should be displayed separately.
+ * Only show note if:
+ * 1. There are structured gpsCoordinates AND
+ * 2. The gps note string is different from the formatted coordinates
+ */
+function shouldDisplayGpsNote(entry: CalculationSnapshotEntry): boolean {
+  // Nur wenn strukturierte Koordinaten existieren UND eine Notiz existiert
+  if (!hasStructuredGpsCoordinates(entry)) {
+    return false; // Keine Notiz zeigen - gps wird bereits als Koordinaten verwendet
+  }
+  const noteValue = (entry?.gps || "").trim();
+  if (!noteValue) {
     return false;
   }
-  const normalizedCoords = (coordinates || "").trim();
-  if (!normalizedCoords) {
-    return true;
-  }
-  return normalizedNote !== normalizedCoords;
+  const coordsValue = formatGpsCoordinates(entry.gpsCoordinates) || "";
+  // Notiz nur zeigen wenn anders als Koordinaten
+  return noteValue !== coordsValue;
 }
 
 export function renderCalculationSnapshot(
@@ -148,7 +178,7 @@ export function renderCalculationSnapshot(
     detailLabels.usageType || tableLabels.usageType || "Art der Verwendung";
   const gpsNoteValue = resolveSnapshotGpsNote(entry);
   const gpsCoordinateValue = resolveSnapshotGps(entry);
-  const showGpsNote = shouldDisplayGpsNote(gpsNoteValue, gpsCoordinateValue);
+  const showGpsNote = shouldDisplayGpsNote(entry);
   const gpsNoteHtml = showGpsNote ? escapeHtml(gpsNoteValue) : "–";
   const gpsMapUrl = entry?.gpsCoordinates
     ? buildGoogleMapsUrl(entry.gpsCoordinates)
@@ -372,7 +402,7 @@ export function renderCalculationSnapshotForPrint(
   );
   const gpsNoteValue = resolveSnapshotGpsNote(entry);
   const gpsCoordinateValue = resolveSnapshotGps(entry);
-  const showGpsNote = shouldDisplayGpsNote(gpsNoteValue, gpsCoordinateValue);
+  const showGpsNote = shouldDisplayGpsNote(entry);
   const gpsMapUrl = entry?.gpsCoordinates
     ? buildGoogleMapsUrl(entry.gpsCoordinates)
     : null;

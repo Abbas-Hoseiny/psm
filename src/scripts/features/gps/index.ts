@@ -1152,49 +1152,48 @@ function readFormValues(): {
 
 async function handleFormSubmit(event: SubmitEvent): Promise<void> {
   event.preventDefault();
+  // Note: saveGpsPoint already uses gpsLock internally - don't wrap again to avoid deadlock!
   if (gpsLock.isLocked()) {
     setMessage("Speichern läuft bereits ...", "info");
     return;
   }
 
-  void gpsLock.acquire(async () => {
-    try {
-      const values = readFormValues();
-      if (hasDuplicateCoordinates(values.latitude, values.longitude)) {
-        setMessage(
-          "Ein GPS-Punkt mit identischen Koordinaten ist bereits vorhanden.",
-          "warning",
-          6000
-        );
-        return;
-      }
-      updateBusyUi(getState().gps, evaluateAvailability(getState().app));
-      await saveGpsPoint(
-        {
-          name: values.name,
-          description: values.description || null,
-          latitude: values.latitude,
-          longitude: values.longitude,
-          source: values.source || null,
-        },
-        { activate: values.activate }
+  try {
+    const values = readFormValues();
+    if (hasDuplicateCoordinates(values.latitude, values.longitude)) {
+      setMessage(
+        "Ein GPS-Punkt mit identischen Koordinaten ist bereits vorhanden.",
+        "warning",
+        6000
       );
-      toast.success(`GPS-Punkt "${values.name}" gespeichert.`);
-      recordAction(
-        `GPS-Punkt gespeichert${values.activate ? " und aktiv gesetzt" : ""}: ${values.name}`
-      );
-      refs?.form?.reset();
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "GPS-Punkt konnte nicht gespeichert werden.";
-      toast.error(message);
-      recordAction(`Speichern fehlgeschlagen: ${message}`);
-    } finally {
-      updateBusyUi(getState().gps, evaluateAvailability(getState().app));
+      return;
     }
-  });
+    updateBusyUi(getState().gps, evaluateAvailability(getState().app));
+    await saveGpsPoint(
+      {
+        name: values.name,
+        description: values.description || null,
+        latitude: values.latitude,
+        longitude: values.longitude,
+        source: values.source || null,
+      },
+      { activate: values.activate }
+    );
+    toast.success(`GPS-Punkt "${values.name}" gespeichert.`);
+    recordAction(
+      `GPS-Punkt gespeichert${values.activate ? " und aktiv gesetzt" : ""}: ${values.name}`
+    );
+    refs?.form?.reset();
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "GPS-Punkt konnte nicht gespeichert werden.";
+    toast.error(message);
+    recordAction(`Speichern fehlgeschlagen: ${message}`);
+  } finally {
+    updateBusyUi(getState().gps, evaluateAvailability(getState().app));
+  }
 }
 
 function fillCurrentPosition(): void {
