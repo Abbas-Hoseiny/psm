@@ -2,21 +2,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1.0.0",
   "api_version": "v1",
-  "generated_at": "2025-12-15T03:41:59.938267Z",
+  "generated_at": "2025-12-15T08:56:24.957396Z",
   "files": [
     {
       "name": "pflanzenschutz.sqlite.br",
       "url": "https://abbas-hoseiny.github.io/pflanzenschutz-db/pflanzenschutz.sqlite.br",
-      "size": 6584763,
-      "sha256": "2e0ae62b47da0807a2e26fec0da390807361606b65458ffb84424eb4778c38ff",
+      "size": 6584267,
+      "sha256": "d1166b4148f13fff09a23851538b0bd245e760f00db46aeecbd86d102f75d8ec",
       "encoding": "brotli",
       "type": "sqlite"
     },
     {
       "name": "pflanzenschutz.sqlite.zip",
       "url": "https://abbas-hoseiny.github.io/pflanzenschutz-db/pflanzenschutz.sqlite.zip",
-      "size": 12051148,
-      "sha256": "17dc0a069d10082d9975a2cdc7a1e23a02b94708f4adca3be0b4c48a0178c53a",
+      "size": 12051143,
+      "sha256": "178e7fe35f426b55f424cdad83933e4136106f81342c283b3aa249f048e44039",
       "encoding": "zip",
       "type": "sqlite"
     }
@@ -35,9 +35,9 @@
     "bvl_mittel_enrichments": 58
   },
   "build": {
-    "start_time": "2025-12-15T03:34:54.246042Z",
-    "end_time": "2025-12-15T03:41:59.938196Z",
-    "duration_seconds": 425.692154,
+    "start_time": "2025-12-15T08:49:11.429194Z",
+    "end_time": "2025-12-15T08:56:24.957329Z",
+    "duration_seconds": 433.528135,
     "python_version": "3.11.14",
     "runner": "github-actions"
   }
