@@ -110,6 +110,11 @@ CREATE TABLE IF NOT EXISTS history (
   qs_verantwortlicher TEXT,         -- Responsible person (QS)
   qs_wetter TEXT,                   -- Weather conditions
   qs_behandlungsart TEXT,           -- Treatment type
+  -- Company data snapshot (für vollständige Dokumentation pro Anwendung)
+  company_name TEXT,                -- Firmenname zum Zeitpunkt der Anwendung
+  company_address TEXT,             -- Firmenadresse
+  company_headline TEXT,            -- Firmen-Überschrift/Slogan
+  company_email TEXT,               -- Kontakt-E-Mail
   -- Legacy JSON for backward compatibility (will be removed in future)
   header_json TEXT                  -- Deprecated: JSON blob for migration
 );

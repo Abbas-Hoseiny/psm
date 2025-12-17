@@ -48,28 +48,14 @@
   },
   "mediums": [
     {
-      "id": "water",
-      "name": "Wasser",
+      "id": "neemazal",
+      "name": "NeemAzal-T/S",
       "unit": "L",
       "methodId": "perHektar",
-      "value": 0.0166,
-      "zulassungsnummer": ""
-    },
-    {
-      "id": "elotVis",
-      "name": "Elot-Vis",
-      "unit": "ml",
-      "methodId": "perHektar",
-      "value": 0.83,
-      "zulassungsnummer": ""
-    },
-    {
-      "id": "schachtelhalm",
-      "name": "Schachtelhalm",
-      "unit": "ml",
-      "methodId": "perHektar",
-      "value": 0.83,
-      "zulassungsnummer": ""
+      "value": 2.5,
+      "zulassungsnummer": "024785-00",
+      "wartezeit": "F",
+      "wirkstoff": "Azadirachtin"
     }
   ],
   "mediumProfiles": [],

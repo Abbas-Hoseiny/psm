@@ -1606,6 +1606,14 @@ export function initCalculation(
       };
     });
 
+    // Company-Daten Snapshot für vollständige Dokumentation
+    const companySnapshot = {
+      name: state.company?.name || "",
+      address: state.company?.address || "",
+      headline: state.company?.headline || "",
+      contactEmail: state.company?.contactEmail || "",
+    };
+
     const header = {
       ersteller,
       standort,
@@ -1632,6 +1640,8 @@ export function initCalculation(
       qsVerantwortlicher: qsFields.verantwortlicher || null,
       qsWetter: qsFields.wetter || null,
       qsBehandlungsart: qsFields.behandlungsart || null,
+      // Company-Snapshot für EU-konforme Dokumentation
+      company: companySnapshot,
     };
 
     const calculation: CalculationResult = {
