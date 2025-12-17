@@ -2030,6 +2030,83 @@ async function applySchema() {
       throw error;
     }
   }
+
+  // Migration to version 11: Add company data columns to history table
+  // (für vollständige Dokumentation pro Anwendung)
+  postMigrationVersion = db.selectValue("PRAGMA user_version") || 0;
+  const companyColumnsNeeded = !hasColumn(db, "history", "company_name");
+  if (companyColumnsNeeded || postMigrationVersion < 11) {
+    console.log("Migrating database to version 11 (company data in history)...");
+    db.exec("BEGIN TRANSACTION");
+    try {
+      // Add company columns to history table
+      const companyColumns = [
+        { name: "company_name", type: "TEXT" },
+        { name: "company_address", type: "TEXT" },
+        { name: "company_headline", type: "TEXT" },
+        { name: "company_email", type: "TEXT" },
+      ];
+
+      for (const col of companyColumns) {
+        if (!hasColumn(db, "history", col.name)) {
+          db.exec(`ALTER TABLE history ADD COLUMN ${col.name} ${col.type}`);
+        }
+      }
+
+      // Migrate existing JSON data to extract company info if available
+      const existingEntries = [];
+      db.exec({
+        sql: "SELECT id, header_json FROM history WHERE header_json IS NOT NULL AND company_name IS NULL",
+        rowMode: "object",
+        callback: (row) => existingEntries.push(row),
+      });
+
+      if (existingEntries.length > 0) {
+        console.log(
+          `Migrating ${existingEntries.length} history entries for company data...`
+        );
+        const updateStmt = db.prepare(`
+          UPDATE history SET
+            company_name = ?,
+            company_address = ?,
+            company_headline = ?,
+            company_email = ?
+          WHERE id = ?
+        `);
+
+        for (const row of existingEntries) {
+          try {
+            const header = JSON.parse(row.header_json || "{}");
+            const company = header.company || {};
+            updateStmt
+              .bind([
+                company.name || null,
+                company.address || null,
+                company.headline || null,
+                company.contactEmail || null,
+                row.id,
+              ])
+              .step();
+            updateStmt.reset();
+          } catch (parseErr) {
+            console.warn(
+              `Could not migrate company data for history entry ${row.id}:`,
+              parseErr
+            );
+          }
+        }
+        updateStmt.finalize();
+      }
+
+      db.exec("PRAGMA user_version = 11");
+      db.exec("COMMIT");
+      console.log("Database migrated to version 11 successfully");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      console.error("Migration to version 11 failed:", error);
+      throw error;
+    }
+  }
 }
 
 /**
@@ -2896,7 +2973,8 @@ async function listHistoryPaged({
         history.datum, history.date_iso, history.uhrzeit, history.usage_type,
         history.area_ha, history.area_ar, history.area_sqm, history.water_volume,
         history.invekos, history.gps, history.gps_latitude, history.gps_longitude, history.gps_point_id,
-        history.qs_maschine, history.qs_schaderreger, history.qs_verantwortlicher, history.qs_wetter, history.qs_behandlungsart
+        history.qs_maschine, history.qs_schaderreger, history.qs_verantwortlicher, history.qs_wetter, history.qs_behandlungsart,
+        history.company_name, history.company_address, history.company_headline, history.company_email
       FROM history
       ${combinedWhereSql}
       ORDER BY datetime(cursor_created_at) ${sanitizedDirection}, history.id ${sanitizedDirection}
@@ -2931,7 +3009,14 @@ async function listHistoryPaged({
       console.warn("Konnte History-Header nicht parsen", error);
     }
     // Build entry from normalized columns where available
+    // Company data snapshot kommt zuerst für bessere Lesbarkeit im Export
     const entry = {
+      company: {
+        name: row.company_name ?? header.company?.name ?? null,
+        address: row.company_address ?? header.company?.address ?? null,
+        headline: row.company_headline ?? header.company?.headline ?? null,
+        contactEmail: row.company_email ?? header.company?.contactEmail ?? null,
+      },
       id: row.id,
       createdAt: row.created_at,
       ersteller: row.ersteller ?? header.ersteller,
@@ -3320,7 +3405,8 @@ async function getHistoryEntry(id) {
             ersteller, standort, kultur, eppo_code, bbch, datum, date_iso,
             uhrzeit, usage_type, area_ha, area_ar, area_sqm, water_volume,
             invekos, gps, gps_latitude, gps_longitude, gps_point_id,
-            qs_maschine, qs_schaderreger, qs_verantwortlicher, qs_wetter, qs_behandlungsart
+            qs_maschine, qs_schaderreger, qs_verantwortlicher, qs_wetter, qs_behandlungsart,
+            company_name, company_address, company_headline, company_email
           FROM history WHERE id = ?`,
     bind: [id],
     rowMode: "object",
@@ -3335,7 +3421,14 @@ async function getHistoryEntry(id) {
         }
       }
       // Build entry from normalized columns (override JSON if columns are populated)
+      // Company data snapshot kommt zuerst für bessere Lesbarkeit im Export
       entry = {
+        company: {
+          name: row.company_name ?? header.company?.name ?? null,
+          address: row.company_address ?? header.company?.address ?? null,
+          headline: row.company_headline ?? header.company?.headline ?? null,
+          contactEmail: row.company_email ?? header.company?.contactEmail ?? null,
+        },
         id: row.id,
         createdAt: row.created_at,
         ersteller: row.ersteller ?? header.ersteller,
@@ -3437,6 +3530,9 @@ async function appendHistoryEntry(entry) {
     // Extract GPS coordinates
     const gpsCoords = header.gpsCoordinates || {};
 
+    // Extract company data snapshot
+    const company = header.company || {};
+
     // Insert with both normalized columns AND legacy JSON for backward compatibility
     const stmt = db.prepare(`
       INSERT INTO history (
@@ -3444,8 +3540,9 @@ async function appendHistoryEntry(entry) {
         ersteller, standort, kultur, eppo_code, bbch, datum, date_iso,
         uhrzeit, usage_type, area_ha, area_ar, area_sqm, water_volume,
         invekos, gps, gps_latitude, gps_longitude, gps_point_id,
-        qs_maschine, qs_schaderreger, qs_verantwortlicher, qs_wetter, qs_behandlungsart
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        qs_maschine, qs_schaderreger, qs_verantwortlicher, qs_wetter, qs_behandlungsart,
+        company_name, company_address, company_headline, company_email
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt
       .bind([
@@ -3474,6 +3571,10 @@ async function appendHistoryEntry(entry) {
         header.qsVerantwortlicher || null,
         header.qsWetter || null,
         header.qsBehandlungsart || null,
+        company.name || null,
+        company.address || null,
+        company.headline || null,
+        company.contactEmail || null,
       ])
       .step();
     const historyId = db.selectValue("SELECT last_insert_rowid()");
