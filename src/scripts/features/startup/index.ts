@@ -9,6 +9,7 @@ import { applyDatabase, createInitialDatabase } from "@scripts/core/database";
 import { getState, subscribeState } from "@scripts/core/state";
 import { escapeHtml } from "@scripts/core/utils";
 import { toast } from "@scripts/core/toast";
+import { countView, formatViewCountCompact } from "@scripts/core/viewCounter";
 import type { emit as emitEvent } from "@scripts/core/eventBus";
 
 interface Services {
@@ -235,13 +236,17 @@ export function initStartup(
           </div>
           
           <!-- Info & Lizenz + Statistik Links unten links -->
-          <div style="position: absolute; bottom: 0.75rem; left: 0.75rem; display: flex; gap: 1rem;">
+          <div style="position: absolute; bottom: 0.75rem; left: 0.75rem; display: flex; gap: 1rem; align-items: center;">
             <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.8rem; transition: color 0.2s;">
               <i class="bi bi-info-circle me-1"></i>Info & Lizenz
             </a>
             <a href="https://st.digitale-psm.de" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.8rem; transition: color 0.2s;">
               <i class="bi bi-bar-chart-line me-1"></i>Statistik
             </a>
+            <span id="startup-view-counter" style="color: rgba(255,255,255,0.35); font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+              <i class="bi bi-eye"></i>
+              <span data-role="view-count">–</span>
+            </span>
           </div>
           
           <div style="padding-top: 1rem;">
@@ -508,6 +513,18 @@ export function initStartup(
         console.warn("Bevorzugter Speicher konnte nicht gesetzt werden", err);
       }
     }
+  }
+
+  // View Counter laden und anzeigen
+  const viewCountEl = landingSection.querySelector<HTMLElement>(
+    '[data-role="view-count"]'
+  );
+  if (viewCountEl) {
+    countView("app").then((views) => {
+      if (views !== null) {
+        viewCountEl.textContent = formatViewCountCompact(views);
+      }
+    });
   }
 
   initialized = true;
