@@ -2,42 +2,42 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1.0.0",
   "api_version": "v1",
-  "generated_at": "2026-01-11T03:43:04.091221Z",
+  "generated_at": "2026-01-13T03:41:48.313126Z",
   "files": [
     {
       "name": "pflanzenschutz.sqlite.br",
       "url": "https://abbas-hoseiny.github.io/pflanzenschutz-db/pflanzenschutz.sqlite.br",
-      "size": 6586567,
-      "sha256": "1a5b82afd29300b25c96aacd0ee10a046b04545c2c74bd47ce3426350ea0b7e4",
+      "size": 6553004,
+      "sha256": "2cf0567250bd6dd1a7b97a32aba78fb5f50569891b0c258c2562a606ec0c427c",
       "encoding": "brotli",
       "type": "sqlite"
     },
     {
       "name": "pflanzenschutz.sqlite.zip",
       "url": "https://abbas-hoseiny.github.io/pflanzenschutz-db/pflanzenschutz.sqlite.zip",
-      "size": 12051181,
-      "sha256": "fc627d0187fafcb0ca7fe46efe76b1ed55db81d5e45cc107574a2db81e493875",
+      "size": 12049927,
+      "sha256": "82b6d45897cee7408db6405082d1378b5d78b83da95e15f988ebdda0044f5362",
       "encoding": "zip",
       "type": "sqlite"
     }
   ],
   "tables": {
     "bvl_stand": 1,
-    "bvl_mittel": 2098,
-    "bvl_awg": 29393,
-    "bvl_awg_kultur": 40446,
-    "bvl_awg_schadorg": 44633,
-    "bvl_awg_aufwand": 37664,
-    "bvl_awg_wartezeit": 16211,
-    "bvl_wirkstoff": 478,
+    "bvl_mittel": 2084,
+    "bvl_awg": 29336,
+    "bvl_awg_kultur": 40359,
+    "bvl_awg_schadorg": 44480,
+    "bvl_awg_aufwand": 37687,
+    "bvl_awg_wartezeit": 16255,
+    "bvl_wirkstoff": 479,
     "bvl_mittel_wirkstoff": 0,
-    "bvl_mittel_vertrieb": 1704,
-    "bvl_mittel_enrichments": 58
+    "bvl_mittel_vertrieb": 1723,
+    "bvl_mittel_enrichments": 59
   },
   "build": {
-    "start_time": "2026-01-11T03:36:18.817148Z",
-    "end_time": "2026-01-11T03:43:04.091160Z",
-    "duration_seconds": 405.274012,
+    "start_time": "2026-01-13T03:33:59.252898Z",
+    "end_time": "2026-01-13T03:41:48.313058Z",
+    "duration_seconds": 469.06016,
     "python_version": "3.11.14",
     "runner": "github-actions"
   }
