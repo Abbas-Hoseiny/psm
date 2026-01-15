@@ -143,7 +143,12 @@ function createSection(): HTMLElement {
               </div>
               <div class="col-6 col-md-1">
                 <label class="form-label small">Einheit *</label>
-                <input class="form-control form-control-sm" name="medium-unit" placeholder="ml" required />
+                <select class="form-select form-select-sm" name="medium-unit" required>
+                  <option value="L">L (Liter/ha)</option>
+                  <option value="ml">ml (ml/ha)</option>
+                  <option value="kg">kg (kg/ha)</option>
+                  <option value="g">g (g/ha)</option>
+                </select>
               </div>
               <div class="col-6 col-md-2">
                 <label class="form-label small">Methode *</label>

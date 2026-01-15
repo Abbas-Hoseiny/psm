@@ -2841,7 +2841,9 @@ function createAddMediumDialog(): HTMLElement {
               <label style="display: block; margin-bottom: 6px; color: #28a745; font-size: 14px; font-weight: 500;">Einheit</label>
               <select name="modal-unit" style="width: 100%; padding: 10px 12px; border: 2px solid #28a745; border-radius: 4px; background: #2a3a2a; color: #fff; font-size: 14px; cursor: pointer;">
                 <option value="L">L (Liter pro ha)</option>
+                <option value="ml">ml (Milliliter pro ha)</option>
                 <option value="kg">kg (Kilogramm pro ha)</option>
+                <option value="g">g (Gramm pro ha)</option>
               </select>
               <small style="display: block; margin-top: 4px; color: #777; font-size: 12px;">Aus BVL-Einheit abgeleitet.</small>
             </div>
@@ -2912,24 +2914,25 @@ function closeAddMediumDialog(): void {
 }
 
 // Hilfsfunktion: BVL-Einheit zu L/kg parsen
-function parseUnitFromBvl(einheit: string | null | undefined): "L" | "kg" {
+function parseUnitFromBvl(einheit: string | null | undefined): "L" | "ml" | "kg" | "g" {
   if (!einheit) return "L";
-  const lower = String(einheit).toLowerCase();
-  if (lower.includes("kg") || lower.startsWith("g/") || lower.startsWith("g ")) return "kg";
-  return "L"; // Default: Liter (l/ha, ml/ha, etc.)
+  const lower = String(einheit).toLowerCase().trim();
+  // Check for ml (milliliter)
+  if (lower.startsWith("ml") || lower.includes("ml/")) return "ml";
+  // Check for g (gram) - must be before kg check
+  if (lower.match(/^g[\s\/]/) || lower === "g") return "g";
+  // Check for kg (kilogram)
+  if (lower.includes("kg")) return "kg";
+  // Check for L (liter)
+  if (lower.startsWith("l") || lower.includes("l/")) return "L";
+  return "L"; // Default: Liter
 }
 
-// Hilfsfunktion: BVL-Wert in Basiseinheit konvertieren (ml→L, g→kg)
-function convertValueToBaseUnit(value: number | null | undefined, einheit: string | null | undefined): number | null {
+// Hilfsfunktion: BVL-Wert beibehalten (ml und g als eigenständige Einheiten)
+function convertValueToBaseUnit(value: number | null | undefined, _einheit: string | null | undefined): number | null {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return null;
-  const numValue = Number(value);
-  if (!einheit) return numValue;
-  const lower = String(einheit).toLowerCase();
-  // ml/ha → L/ha (÷1000), g/ha → kg/ha (÷1000)
-  if (lower.startsWith("ml") || lower.startsWith("g/") || lower.startsWith("g ")) {
-    return numValue / 1000;
-  }
-  return numValue;
+  // Wert unverändert zurückgeben - die Einheit wird separat über parseUnitFromBvl bestimmt
+  return Number(value);
 }
 
 function showAddMediumModal(data: {
