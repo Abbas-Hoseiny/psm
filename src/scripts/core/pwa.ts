@@ -193,6 +193,16 @@ export function initInstallPrompt(): void {
     e.preventDefault();
     deferredPrompt = e as BeforeInstallPromptEvent;
     console.log("[PWA] Install Prompt verfügbar");
+    
+    // WICHTIG: Wenn Chrome beforeinstallprompt feuert, ist die App NICHT installiert
+    // Das localStorage-Flag könnte veraltet sein (z.B. nach Deinstallation)
+    if (localStorage.getItem("psm-app-installed") === "true") {
+      console.log("[PWA] Widerspruch erkannt: Flag sagt installiert, aber Prompt verfügbar");
+      // Wir vertrauen Chrome mehr als dem localStorage
+      localStorage.removeItem("psm-app-installed");
+      console.log("[PWA] Veraltetes Installations-Flag entfernt");
+    }
+    
     dispatchPwaEvent("pwa:install-available");
   });
 

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1a1a2e"/>
+  <circle cx="256" cy="256" r="180" fill="#0e1d2a" stroke="#22c55e" stroke-width="12"/>
+  <!-- Blatt/Pflanze Symbol -->
+  <path d="M256 120 C256 120 160 200 160 300 C160 380 200 420 256 420 C312 420 352 380 352 300 C352 200 256 120 256 120" fill="#22c55e"/>
+  <ellipse cx="256" cy="300" rx="50" ry="70" fill="#16a34a"/>
+  <path d="M256 130 L256 300" stroke="#0e1d2a" stroke-width="10" stroke-linecap="round"/>
+  <!-- Tropfen oben -->
+  <circle cx="256" cy="160" r="24" fill="#4ade80"/>
+</svg>
