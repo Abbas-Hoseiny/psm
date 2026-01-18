@@ -23,6 +23,7 @@ import {
   setAutoStart,
   getPwaCapabilities,
   getInstallStatus,
+  getInstallStatusAsync,
   markAsInstalled,
   checkIfInstalled,
 } from "@scripts/core/pwa";
@@ -767,11 +768,26 @@ export function initStartup(
     });
 
     console.log("[Startup] PWA Capabilities:", getPwaCapabilities());
+
+    // Async Install-Check beim Start (genauere Erkennung)
+    const asyncStatus = await getInstallStatusAsync();
+    console.log("[Startup] PWA Install Status (async):", asyncStatus);
+    updatePwaStatusBannerWithStatus(asyncStatus);
   })();
 
-  // Hilfsfunktion: PWA-Status Banner aktualisieren
+  // Hilfsfunktion: PWA-Status Banner aktualisieren (sync für Event-Handler)
   function updatePwaStatusBanner(): void {
     const status = getInstallStatus();
+    updatePwaStatusBannerWithStatus(status);
+  }
+
+  // Hilfsfunktion: PWA-Status Banner mit gegebenem Status aktualisieren
+  function updatePwaStatusBannerWithStatus(status: {
+    canInstall: boolean;
+    isInstalled: boolean;
+    isStandalone: boolean;
+    showBanner: boolean;
+  }): void {
     const banner = landingSection.querySelector<HTMLElement>(
       "#pwa-install-banner",
     );

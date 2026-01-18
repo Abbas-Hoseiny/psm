@@ -244,11 +244,21 @@ export function isProbablyInstalled(): boolean {
   // 2. Prüfe ob die App schon mal installiert wurde (localStorage Flag)
   if (localStorage.getItem("psm-app-installed") === "true") return true;
 
+  // 3. Prüfe display-mode Media Query für verschiedene Modi
+  if (
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    window.matchMedia("(display-mode: minimal-ui)").matches ||
+    window.matchMedia("(display-mode: window-controls-overlay)").matches
+  ) {
+    return true;
+  }
+
   return false;
 }
 
 /**
  * Async Version mit getInstalledRelatedApps API (Chrome only, aber zuverlässig)
+ * WICHTIG: Diese Funktion sollte beim App-Start aufgerufen werden!
  */
 export async function checkIfInstalled(): Promise<boolean> {
   // 1. Schnelle Prüfungen zuerst
@@ -258,6 +268,7 @@ export async function checkIfInstalled(): Promise<boolean> {
   try {
     if ("getInstalledRelatedApps" in navigator) {
       const apps = await (navigator as any).getInstalledRelatedApps();
+      console.log("[PWA] getInstalledRelatedApps result:", apps);
       if (apps && apps.length > 0) {
         // Flag setzen für zukünftige schnelle Prüfungen
         markAsInstalled();
@@ -265,8 +276,13 @@ export async function checkIfInstalled(): Promise<boolean> {
       }
     }
   } catch (e) {
-    // API nicht verfügbar oder Fehler - ignorieren
+    console.warn("[PWA] getInstalledRelatedApps API Fehler:", e);
   }
+
+  // 3. Fallback: Prüfe ob beforeinstallprompt NICHT gefeuert wurde
+  // Wenn nach 3 Sekunden kein Prompt verfügbar ist und wir nicht im Browser-Mode sind,
+  // könnte die App bereits installiert sein
+  // (Nur als Heuristik, nicht 100% zuverlässig)
 
   return false;
 }
@@ -276,11 +292,20 @@ export async function checkIfInstalled(): Promise<boolean> {
  */
 export function markAsInstalled(): void {
   localStorage.setItem("psm-app-installed", "true");
+  console.log("[PWA] App als installiert markiert");
 }
 
 /**
- * Gibt PWA-Installations-Status und Anweisungen zurück
- * Vereinfacht: Nur relevante Infos, keine überflüssigen Hinweise
+ * Entfernt das Installations-Flag (für Debugging/Reset)
+ */
+export function clearInstalledFlag(): void {
+  localStorage.removeItem("psm-app-installed");
+  console.log("[PWA] Installations-Flag entfernt");
+}
+
+/**
+ * Gibt PWA-Installations-Status und Anweisungen zurück (synchron)
+ * Für schnelle UI-Updates, nutzt nur lokale Prüfungen
  */
 export function getInstallStatus(): {
   canInstall: boolean;
@@ -292,6 +317,36 @@ export function getInstallStatus(): {
   const browser = detectBrowser();
   const standalone = isStandalone();
   const installed = isProbablyInstalled();
+  const canInstall = isInstallAvailable();
+
+  // Kein Banner wenn bereits in der App (standalone)
+  const showBanner = !standalone;
+
+  return {
+    canInstall,
+    isInstalled: installed && !standalone,
+    isStandalone: standalone,
+    browser,
+    showBanner,
+  };
+}
+
+/**
+ * Async Version von getInstallStatus - nutzt getInstalledRelatedApps API
+ * Sollte beim App-Start aufgerufen werden für genauere Erkennung
+ */
+export async function getInstallStatusAsync(): Promise<{
+  canInstall: boolean;
+  isInstalled: boolean;
+  isStandalone: boolean;
+  browser: string;
+  showBanner: boolean;
+}> {
+  const browser = detectBrowser();
+  const standalone = isStandalone();
+
+  // Async Prüfung mit getInstalledRelatedApps API
+  const installed = await checkIfInstalled();
   const canInstall = isInstallAvailable();
 
   // Kein Banner wenn bereits in der App (standalone)
@@ -612,4 +667,74 @@ export async function initPwa(options?: {
   }
 
   console.log("[PWA] Capabilities:", getPwaCapabilities());
+}
+
+// ===== DEBUG HELPERS (für Browser-Konsole) =====
+
+/**
+ * Debugging-Funktion für PWA-Status
+ * Kann in der Browser-Konsole aufgerufen werden: window.pwaDebug()
+ */
+export async function debugPwaStatus(): Promise<void> {
+  console.group("🔧 PWA Debug Status");
+
+  console.log("📱 Standalone Mode:", isStandalone());
+  console.log(
+    "💾 localStorage Flag:",
+    localStorage.getItem("psm-app-installed"),
+  );
+  console.log("🔔 Install Prompt verfügbar:", isInstallAvailable());
+  console.log("🌐 Browser:", detectBrowser());
+
+  // Display Mode Checks
+  console.group("📺 Display Mode Checks");
+  console.log(
+    "standalone:",
+    window.matchMedia("(display-mode: standalone)").matches,
+  );
+  console.log(
+    "fullscreen:",
+    window.matchMedia("(display-mode: fullscreen)").matches,
+  );
+  console.log(
+    "minimal-ui:",
+    window.matchMedia("(display-mode: minimal-ui)").matches,
+  );
+  console.log(
+    "window-controls-overlay:",
+    window.matchMedia("(display-mode: window-controls-overlay)").matches,
+  );
+  console.log("browser:", window.matchMedia("(display-mode: browser)").matches);
+  console.groupEnd();
+
+  // getInstalledRelatedApps API
+  console.group("🔍 getInstalledRelatedApps API");
+  if ("getInstalledRelatedApps" in navigator) {
+    try {
+      const apps = await (navigator as any).getInstalledRelatedApps();
+      console.log("Installierte Apps:", apps);
+    } catch (e) {
+      console.log("API Fehler:", e);
+    }
+  } else {
+    console.log("API nicht verfügbar");
+  }
+  console.groupEnd();
+
+  // Sync vs Async Status
+  console.group("📊 Status Vergleich");
+  console.log("Sync (isProbablyInstalled):", isProbablyInstalled());
+  console.log("Async (checkIfInstalled):", await checkIfInstalled());
+  console.log("getInstallStatus():", getInstallStatus());
+  console.log("getInstallStatusAsync():", await getInstallStatusAsync());
+  console.groupEnd();
+
+  console.log("💡 Tipp: clearInstalledFlag() zum Zurücksetzen des Flags");
+  console.groupEnd();
+}
+
+// Globale Debugging-Funktionen exponieren
+if (typeof window !== "undefined") {
+  (window as any).pwaDebug = debugPwaStatus;
+  (window as any).pwaClearFlag = clearInstalledFlag;
 }
