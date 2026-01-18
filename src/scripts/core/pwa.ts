@@ -1,6 +1,6 @@
 /**
  * PWA Manager für Digitale PSM
- * 
+ *
  * Funktionen:
  * - Service Worker Registration
  * - Auto-Startup ohne Dialog (wenn Datenbank vorhanden)
@@ -17,7 +17,7 @@ interface DbState {
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
 interface LaunchParams {
@@ -26,12 +26,16 @@ interface LaunchParams {
 
 // File System Access API Erweiterungen (noch nicht in Standard-TypeScript)
 interface FileSystemHandlePermissionDescriptor {
-  mode?: 'read' | 'readwrite';
+  mode?: "read" | "readwrite";
 }
 
 interface ExtendedFileSystemFileHandle extends FileSystemFileHandle {
-  queryPermission(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
-  requestPermission(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
+  queryPermission(
+    descriptor?: FileSystemHandlePermissionDescriptor,
+  ): Promise<PermissionState>;
+  requestPermission(
+    descriptor?: FileSystemHandlePermissionDescriptor,
+  ): Promise<PermissionState>;
 }
 
 declare global {
@@ -48,51 +52,54 @@ let swRegistration: ServiceWorkerRegistration | null = null;
 // ===== SERVICE WORKER =====
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (!('serviceWorker' in navigator)) {
-    console.warn('[PWA] Service Workers nicht unterstützt');
+  if (!("serviceWorker" in navigator)) {
+    console.warn("[PWA] Service Workers nicht unterstützt");
     return null;
   }
 
   try {
-    swRegistration = await navigator.serviceWorker.register('/sw.js', {
-      scope: '/',
-      updateViaCache: 'none'
+    swRegistration = await navigator.serviceWorker.register("/sw.js", {
+      scope: "/",
+      updateViaCache: "none",
     });
-    
-    console.log('[PWA] Service Worker registriert:', swRegistration.scope);
-    
+
+    console.log("[PWA] Service Worker registriert:", swRegistration.scope);
+
     // Auto-Update Check
-    swRegistration.addEventListener('updatefound', () => {
+    swRegistration.addEventListener("updatefound", () => {
       const newWorker = swRegistration?.installing;
       if (newWorker) {
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[PWA] Neues Update verfügbar');
-            dispatchPwaEvent('pwa:update-available');
+        newWorker.addEventListener("statechange", () => {
+          if (
+            newWorker.state === "installed" &&
+            navigator.serviceWorker.controller
+          ) {
+            console.log("[PWA] Neues Update verfügbar");
+            dispatchPwaEvent("pwa:update-available");
           }
         });
       }
     });
-    
+
     // Message Handler für SW-Kommunikation
-    navigator.serviceWorker.addEventListener('message', handleSwMessage);
-    
+    navigator.serviceWorker.addEventListener("message", handleSwMessage);
+
     return swRegistration;
   } catch (error) {
-    console.error('[PWA] Service Worker Registrierung fehlgeschlagen:', error);
+    console.error("[PWA] Service Worker Registrierung fehlgeschlagen:", error);
     return null;
   }
 }
 
 function handleSwMessage(event: MessageEvent): void {
   const { type, payload } = event.data || {};
-  
+
   switch (type) {
-    case 'DB_STATE':
-      dispatchPwaEvent('pwa:db-state', payload);
+    case "DB_STATE":
+      dispatchPwaEvent("pwa:db-state", payload);
       break;
-    case 'CACHES_CLEARED':
-      dispatchPwaEvent('pwa:caches-cleared');
+    case "CACHES_CLEARED":
+      dispatchPwaEvent("pwa:caches-cleared");
       break;
   }
 }
@@ -106,16 +113,19 @@ function handleSwMessage(event: MessageEvent): void {
 export async function saveDbState(state: DbState): Promise<void> {
   if (!navigator.serviceWorker.controller) {
     // Fallback: LocalStorage wenn SW nicht aktiv
-    localStorage.setItem('psm-db-state', JSON.stringify({
-      ...state,
-      updatedAt: new Date().toISOString()
-    }));
+    localStorage.setItem(
+      "psm-db-state",
+      JSON.stringify({
+        ...state,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
     return;
   }
-  
+
   navigator.serviceWorker.controller.postMessage({
-    type: 'SET_DB_STATE',
-    payload: state
+    type: "SET_DB_STATE",
+    payload: state,
   });
 }
 
@@ -124,7 +134,7 @@ export async function saveDbState(state: DbState): Promise<void> {
  */
 export async function getDbState(): Promise<DbState | null> {
   // Erst LocalStorage prüfen (schneller)
-  const localState = localStorage.getItem('psm-db-state');
+  const localState = localStorage.getItem("psm-db-state");
   if (localState) {
     try {
       return JSON.parse(localState);
@@ -132,28 +142,28 @@ export async function getDbState(): Promise<DbState | null> {
       // Ignore
     }
   }
-  
+
   // Dann SW fragen
   if (navigator.serviceWorker?.controller) {
     return new Promise((resolve) => {
       const handler = (event: MessageEvent) => {
-        if (event.data?.type === 'DB_STATE') {
-          navigator.serviceWorker.removeEventListener('message', handler);
+        if (event.data?.type === "DB_STATE") {
+          navigator.serviceWorker.removeEventListener("message", handler);
           resolve(event.data.payload);
         }
       };
-      
-      navigator.serviceWorker.addEventListener('message', handler);
-      navigator.serviceWorker.controller!.postMessage({ type: 'GET_DB_STATE' });
-      
+
+      navigator.serviceWorker.addEventListener("message", handler);
+      navigator.serviceWorker.controller!.postMessage({ type: "GET_DB_STATE" });
+
       // Timeout nach 1s
       setTimeout(() => {
-        navigator.serviceWorker.removeEventListener('message', handler);
+        navigator.serviceWorker.removeEventListener("message", handler);
         resolve(null);
       }, 1000);
     });
   }
-  
+
   return null;
 }
 
@@ -169,27 +179,29 @@ export async function shouldAutoStart(): Promise<boolean> {
  * Aktiviert/Deaktiviert Auto-Startup
  */
 export async function setAutoStart(enabled: boolean): Promise<void> {
-  const currentState = await getDbState() || { hasDatabase: false };
+  const currentState = (await getDbState()) || { hasDatabase: false };
   await saveDbState({
     ...currentState,
-    autoStartEnabled: enabled
+    autoStartEnabled: enabled,
   });
 }
 
 // ===== INSTALL PROMPT =====
 
 export function initInstallPrompt(): void {
-  window.addEventListener('beforeinstallprompt', (e) => {
+  window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e as BeforeInstallPromptEvent;
-    console.log('[PWA] Install Prompt verfügbar');
-    dispatchPwaEvent('pwa:install-available');
+    console.log("[PWA] Install Prompt verfügbar");
+    dispatchPwaEvent("pwa:install-available");
   });
 
-  window.addEventListener('appinstalled', () => {
+  window.addEventListener("appinstalled", () => {
     deferredPrompt = null;
-    console.log('[PWA] App installiert');
-    dispatchPwaEvent('pwa:installed');
+    // WICHTIG: Flag setzen egal wie installiert wurde (Button oder Browser-Menü)
+    markAsInstalled();
+    console.log("[PWA] App installiert - Flag gesetzt");
+    dispatchPwaEvent("pwa:installed");
   });
 }
 
@@ -198,35 +210,64 @@ export function isInstallAvailable(): boolean {
 }
 
 export function isStandalone(): boolean {
-  return window.matchMedia('(display-mode: standalone)').matches ||
-         (window.navigator as any).standalone === true;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as any).standalone === true
+  );
 }
 
 /**
  * Erkennt den Browser-Typ für PWA-spezifische Hinweise
  */
-export function detectBrowser(): 'chrome' | 'edge' | 'firefox' | 'safari' | 'other' {
+export function detectBrowser():
+  | "chrome"
+  | "edge"
+  | "firefox"
+  | "safari"
+  | "other" {
   const ua = navigator.userAgent.toLowerCase();
-  if (ua.includes('edg/')) return 'edge';
-  if (ua.includes('chrome') && !ua.includes('edg')) return 'chrome';
-  if (ua.includes('firefox')) return 'firefox';
-  if (ua.includes('safari') && !ua.includes('chrome')) return 'safari';
-  return 'other';
+  if (ua.includes("edg/")) return "edge";
+  if (ua.includes("chrome") && !ua.includes("edg")) return "chrome";
+  if (ua.includes("firefox")) return "firefox";
+  if (ua.includes("safari") && !ua.includes("chrome")) return "safari";
+  return "other";
 }
 
 /**
  * Prüft ob die App wahrscheinlich bereits installiert ist
- * Hinweis: Nicht 100% zuverlässig, aber gute Heuristik
+ * Nutzt mehrere Methoden für beste Zuverlässigkeit
  */
 export function isProbablyInstalled(): boolean {
-  // Wenn im Standalone-Modus läuft, ist sie definitiv installiert
+  // 1. Wenn im Standalone-Modus läuft, ist sie definitiv installiert
   if (isStandalone()) return true;
-  
-  // Prüfe ob die App schon mal installiert wurde (localStorage Flag)
-  if (localStorage.getItem('psm-app-installed') === 'true') return true;
-  
-  // Wenn beforeinstallprompt nie gefeuert wurde in Chrome/Edge,
-  // könnte die App bereits installiert sein
+
+  // 2. Prüfe ob die App schon mal installiert wurde (localStorage Flag)
+  if (localStorage.getItem("psm-app-installed") === "true") return true;
+
+  return false;
+}
+
+/**
+ * Async Version mit getInstalledRelatedApps API (Chrome only, aber zuverlässig)
+ */
+export async function checkIfInstalled(): Promise<boolean> {
+  // 1. Schnelle Prüfungen zuerst
+  if (isProbablyInstalled()) return true;
+
+  // 2. getInstalledRelatedApps API (nur Chrome/Edge)
+  try {
+    if ("getInstalledRelatedApps" in navigator) {
+      const apps = await (navigator as any).getInstalledRelatedApps();
+      if (apps && apps.length > 0) {
+        // Flag setzen für zukünftige schnelle Prüfungen
+        markAsInstalled();
+        return true;
+      }
+    }
+  } catch (e) {
+    // API nicht verfügbar oder Fehler - ignorieren
+  }
+
   return false;
 }
 
@@ -234,7 +275,7 @@ export function isProbablyInstalled(): boolean {
  * Markiert die App als installiert (für zukünftige Besuche)
  */
 export function markAsInstalled(): void {
-  localStorage.setItem('psm-app-installed', 'true');
+  localStorage.setItem("psm-app-installed", "true");
 }
 
 /**
@@ -252,40 +293,40 @@ export function getInstallStatus(): {
   const standalone = isStandalone();
   const installed = isProbablyInstalled();
   const canInstall = isInstallAvailable();
-  
+
   // Kein Banner wenn bereits in der App (standalone)
   const showBanner = !standalone;
-  
+
   return {
     canInstall,
     isInstalled: installed && !standalone,
     isStandalone: standalone,
     browser,
-    showBanner
+    showBanner,
   };
 }
 
 export async function promptInstall(): Promise<boolean> {
   if (!deferredPrompt) {
-    console.warn('[PWA] Kein Install Prompt verfügbar');
+    console.warn("[PWA] Kein Install Prompt verfügbar");
     return false;
   }
 
   try {
     await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
-    console.log('[PWA] Install Prompt Ergebnis:', outcome);
-    
-    if (outcome === 'accepted') {
+
+    console.log("[PWA] Install Prompt Ergebnis:", outcome);
+
+    if (outcome === "accepted") {
       markAsInstalled();
     }
-    
+
     deferredPrompt = null;
-    
-    return outcome === 'accepted';
+
+    return outcome === "accepted";
   } catch (error) {
-    console.error('[PWA] Install Prompt fehlgeschlagen:', error);
+    console.error("[PWA] Install Prompt fehlgeschlagen:", error);
     return false;
   }
 }
@@ -297,75 +338,84 @@ export async function promptInstall(): Promise<boolean> {
  * Ermöglicht direktes Öffnen von .sqlite/.json Dateien
  */
 export function initFileHandling(
-  onFileOpened: (handle: FileSystemFileHandle) => Promise<void>
+  onFileOpened: (handle: FileSystemFileHandle) => Promise<void>,
 ): void {
-  if (!('launchQueue' in window)) {
-    console.log('[PWA] Launch Queue API nicht verfügbar');
+  if (!("launchQueue" in window)) {
+    console.log("[PWA] Launch Queue API nicht verfügbar");
     return;
   }
 
   window.launchQueue?.setConsumer(async (launchParams: LaunchParams) => {
     if (!launchParams.files?.length) {
-      console.log('[PWA] Launch ohne Dateien');
+      console.log("[PWA] Launch ohne Dateien");
       return;
     }
 
-    console.log('[PWA] Datei via Launch Queue empfangen:', launchParams.files.length);
-    
+    console.log(
+      "[PWA] Datei via Launch Queue empfangen:",
+      launchParams.files.length,
+    );
+
     for (const fileHandle of launchParams.files) {
       try {
         await onFileOpened(fileHandle);
-        
+
         // State speichern für Auto-Startup
         await saveDbState({
           hasDatabase: true,
           fileHandleName: fileHandle.name,
           lastAccess: new Date().toISOString(),
-          autoStartEnabled: true
+          autoStartEnabled: true,
         });
-        
+
         break; // Nur erste Datei verarbeiten
       } catch (error) {
-        console.error('[PWA] Fehler beim Öffnen der Datei:', error);
+        console.error("[PWA] Fehler beim Öffnen der Datei:", error);
       }
     }
   });
-  
-  console.log('[PWA] File Handling initialisiert');
+
+  console.log("[PWA] File Handling initialisiert");
 }
 
 // ===== STORED FILE HANDLE =====
 
-const HANDLE_STORE_NAME = 'psm-file-handles';
-const HANDLE_KEY = 'last-database';
+const HANDLE_STORE_NAME = "psm-file-handles";
+const HANDLE_KEY = "last-database";
 
 /**
  * Speichert ein FileHandle für späteren Auto-Start
  */
-export async function storeFileHandle(handle: FileSystemFileHandle): Promise<void> {
+export async function storeFileHandle(
+  handle: FileSystemFileHandle,
+): Promise<void> {
   try {
     const db = await openHandleDb();
-    const tx = db.transaction(HANDLE_STORE_NAME, 'readwrite');
+    const tx = db.transaction(HANDLE_STORE_NAME, "readwrite");
     const store = tx.objectStore(HANDLE_STORE_NAME);
-    
+
     await new Promise<void>((resolve, reject) => {
-      const request = store.put({ key: HANDLE_KEY, handle, savedAt: new Date().toISOString() });
+      const request = store.put({
+        key: HANDLE_KEY,
+        handle,
+        savedAt: new Date().toISOString(),
+      });
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
-    
+
     db.close();
-    console.log('[PWA] FileHandle gespeichert');
-    
+    console.log("[PWA] FileHandle gespeichert");
+
     // State aktualisieren
     await saveDbState({
       hasDatabase: true,
       fileHandleName: handle.name,
       lastAccess: new Date().toISOString(),
-      autoStartEnabled: true
+      autoStartEnabled: true,
     });
   } catch (error) {
-    console.error('[PWA] FileHandle speichern fehlgeschlagen:', error);
+    console.error("[PWA] FileHandle speichern fehlgeschlagen:", error);
   }
 }
 
@@ -375,37 +425,41 @@ export async function storeFileHandle(handle: FileSystemFileHandle): Promise<voi
 export async function getStoredFileHandle(): Promise<FileSystemFileHandle | null> {
   try {
     const db = await openHandleDb();
-    const tx = db.transaction(HANDLE_STORE_NAME, 'readonly');
+    const tx = db.transaction(HANDLE_STORE_NAME, "readonly");
     const store = tx.objectStore(HANDLE_STORE_NAME);
-    
-    const result = await new Promise<{ handle: FileSystemFileHandle } | undefined>((resolve, reject) => {
+
+    const result = await new Promise<
+      { handle: FileSystemFileHandle } | undefined
+    >((resolve, reject) => {
       const request = store.get(HANDLE_KEY);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    
+
     db.close();
-    
+
     if (!result?.handle) {
       return null;
     }
-    
+
     // Berechtigung prüfen (File System Access API Erweiterung)
     const extendedHandle = result.handle as ExtendedFileSystemFileHandle;
-    if (typeof extendedHandle.queryPermission === 'function') {
-      const permission = await extendedHandle.queryPermission({ mode: 'readwrite' });
-      
-      if (permission === 'granted') {
-        console.log('[PWA] FileHandle mit Berechtigung geladen');
+    if (typeof extendedHandle.queryPermission === "function") {
+      const permission = await extendedHandle.queryPermission({
+        mode: "readwrite",
+      });
+
+      if (permission === "granted") {
+        console.log("[PWA] FileHandle mit Berechtigung geladen");
         return result.handle;
       }
     }
-    
+
     // Berechtigung anfordern (benötigt User-Interaktion)
-    console.log('[PWA] FileHandle gefunden, aber Berechtigung erforderlich');
+    console.log("[PWA] FileHandle gefunden, aber Berechtigung erforderlich");
     return result.handle;
   } catch (error) {
-    console.error('[PWA] FileHandle laden fehlgeschlagen:', error);
+    console.error("[PWA] FileHandle laden fehlgeschlagen:", error);
     return null;
   }
 }
@@ -413,16 +467,20 @@ export async function getStoredFileHandle(): Promise<FileSystemFileHandle | null
 /**
  * Fordert Berechtigung für gespeichertes Handle an
  */
-export async function requestFileHandlePermission(handle: FileSystemFileHandle): Promise<boolean> {
+export async function requestFileHandlePermission(
+  handle: FileSystemFileHandle,
+): Promise<boolean> {
   try {
     const extendedHandle = handle as ExtendedFileSystemFileHandle;
-    if (typeof extendedHandle.requestPermission !== 'function') {
+    if (typeof extendedHandle.requestPermission !== "function") {
       // Browser unterstützt keine Berechtigungsanfrage - versuchen wir getFile
       await handle.getFile();
       return true;
     }
-    const permission = await extendedHandle.requestPermission({ mode: 'readwrite' });
-    return permission === 'granted';
+    const permission = await extendedHandle.requestPermission({
+      mode: "readwrite",
+    });
+    return permission === "granted";
   } catch {
     return false;
   }
@@ -434,40 +492,40 @@ export async function requestFileHandlePermission(handle: FileSystemFileHandle):
 export async function clearStoredFileHandle(): Promise<void> {
   try {
     const db = await openHandleDb();
-    const tx = db.transaction(HANDLE_STORE_NAME, 'readwrite');
+    const tx = db.transaction(HANDLE_STORE_NAME, "readwrite");
     const store = tx.objectStore(HANDLE_STORE_NAME);
-    
+
     await new Promise<void>((resolve, reject) => {
       const request = store.delete(HANDLE_KEY);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
-    
+
     db.close();
-    
+
     // State zurücksetzen
     await saveDbState({
       hasDatabase: false,
-      autoStartEnabled: false
+      autoStartEnabled: false,
     });
-    
-    console.log('[PWA] FileHandle gelöscht');
+
+    console.log("[PWA] FileHandle gelöscht");
   } catch (error) {
-    console.error('[PWA] FileHandle löschen fehlgeschlagen:', error);
+    console.error("[PWA] FileHandle löschen fehlgeschlagen:", error);
   }
 }
 
 async function openHandleDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('psm-file-handles', 1);
-    
+    const request = indexedDB.open("psm-file-handles", 1);
+
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
-    
+
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(HANDLE_STORE_NAME)) {
-        db.createObjectStore(HANDLE_STORE_NAME, { keyPath: 'key' });
+        db.createObjectStore(HANDLE_STORE_NAME, { keyPath: "key" });
       }
     };
   });
@@ -484,7 +542,7 @@ function dispatchPwaEvent(name: string, detail?: any): void {
  */
 export async function updateServiceWorker(): Promise<void> {
   if (swRegistration?.waiting) {
-    swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    swRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
   }
 }
 
@@ -493,12 +551,12 @@ export async function updateServiceWorker(): Promise<void> {
  */
 export function getPwaCapabilities() {
   return {
-    serviceWorker: 'serviceWorker' in navigator,
-    fileSystemAccess: typeof (window as any).showOpenFilePicker === 'function',
-    launchQueue: 'launchQueue' in window,
-    indexedDB: 'indexedDB' in window,
+    serviceWorker: "serviceWorker" in navigator,
+    fileSystemAccess: typeof (window as any).showOpenFilePicker === "function",
+    launchQueue: "launchQueue" in window,
+    indexedDB: "indexedDB" in window,
     standalone: isStandalone(),
-    installAvailable: isInstallAvailable()
+    installAvailable: isInstallAvailable(),
   };
 }
 
@@ -511,45 +569,47 @@ export async function initPwa(options?: {
   onFileOpened?: (handle: FileSystemFileHandle) => Promise<void>;
   onAutoStart?: () => Promise<void>;
 }): Promise<void> {
-  console.log('[PWA] Initialisierung...');
-  
+  console.log("[PWA] Initialisierung...");
+
   // 1. Service Worker registrieren
   await registerServiceWorker();
-  
+
   // 2. Install Prompt initialisieren
   initInstallPrompt();
-  
+
   // 3. File Handling initialisieren
   if (options?.onFileOpened) {
     initFileHandling(options.onFileOpened);
   }
-  
+
   // 4. Auto-Start prüfen
-  if (options?.onAutoStart && await shouldAutoStart()) {
+  if (options?.onAutoStart && (await shouldAutoStart())) {
     const storedHandle = await getStoredFileHandle();
-    
+
     if (storedHandle) {
       const extendedHandle = storedHandle as ExtendedFileSystemFileHandle;
       let hasPermission = false;
-      
-      if (typeof extendedHandle.queryPermission === 'function') {
-        const permission = await extendedHandle.queryPermission({ mode: 'readwrite' });
-        hasPermission = permission === 'granted';
+
+      if (typeof extendedHandle.queryPermission === "function") {
+        const permission = await extendedHandle.queryPermission({
+          mode: "readwrite",
+        });
+        hasPermission = permission === "granted";
       }
-      
+
       if (hasPermission) {
-        console.log('[PWA] Auto-Start mit gespeicherter Datei');
+        console.log("[PWA] Auto-Start mit gespeicherter Datei");
         if (options.onFileOpened) {
           await options.onFileOpened(storedHandle);
         }
         return;
       }
-      
+
       // Handle vorhanden aber Berechtigung erforderlich
-      console.log('[PWA] Auto-Start: Berechtigung für Datei erforderlich');
-      dispatchPwaEvent('pwa:permission-required', { handle: storedHandle });
+      console.log("[PWA] Auto-Start: Berechtigung für Datei erforderlich");
+      dispatchPwaEvent("pwa:permission-required", { handle: storedHandle });
     }
   }
-  
-  console.log('[PWA] Capabilities:', getPwaCapabilities());
+
+  console.log("[PWA] Capabilities:", getPwaCapabilities());
 }

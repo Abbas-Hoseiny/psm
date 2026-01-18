@@ -59,8 +59,8 @@ body.bg-startup {
 /* Spezielle hellere Card für den Start-Dialog (Glasmorphism) */
 .startup-card {
   background: var(--start-overlay-bg);
-  backdrop-filter: blur(var(--start-overlay-blur));
   -webkit-backdrop-filter: blur(var(--start-overlay-blur));
+  backdrop-filter: blur(var(--start-overlay-blur));
   border: 1px solid var(--start-overlay-border);
   border-radius: var(--r-lg);
   box-shadow:
@@ -264,5 +264,59 @@ label,
   .form-select {
     font-size: 16px; /* Prevents zoom on iOS */
     padding: 0.875rem 1rem;
+  }
+
+  /* Navigation buttons - larger and clearer */
+  .nav-btn {
+    min-height: 52px;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    margin: 0.25rem 0;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Form fieldsets - more spacing */
+  .calc-fieldset {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Primary action buttons - extra prominent */
+  .btn-lg {
+    min-height: 56px;
+    font-size: 1.1rem;
+    padding: 1rem 1.5rem;
+  }
+
+  /* Table cells - more padding for touch */
+  .table td,
+  .table th {
+    padding: 0.875rem 0.75rem;
+  }
+
+  /* Cards - better spacing */
+  .card-body {
+    padding: 1.25rem;
+  }
+
+  /* Dropdown items - larger tap area */
+  .dropdown-item,
+  .list-group-item {
+    min-height: 48px;
+    padding: 0.75rem 1rem;
+  }
+}
+
+/* Extra small devices - even larger targets */
+@media (max-width: 375px) {
+  .btn-lg {
+    min-height: 60px;
+    font-size: 1.15rem;
+  }
+
+  .form-control,
+  .form-select {
+    padding: 1rem;
   }
 }

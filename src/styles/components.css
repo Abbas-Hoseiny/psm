@@ -883,7 +883,7 @@ html.qs-mode .card-dark {
   .settings-tabs .nav-pills {
     flex-wrap: nowrap;
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    /* -webkit-overflow-scrolling removed - deprecated and unsupported */
   }
 
   .settings-tabs .nav-item {
@@ -1209,7 +1209,7 @@ html.qs-mode .card-dark {
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  min-height: auto;
+  min-height: 0;
   height: auto;
   white-space: normal;
   border: 1px solid var(--border-1);

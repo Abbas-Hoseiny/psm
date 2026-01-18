@@ -24,6 +24,7 @@ import {
   getPwaCapabilities,
   getInstallStatus,
   markAsInstalled,
+  checkIfInstalled,
 } from "@scripts/core/pwa";
 import * as sqlite from "@scripts/core/storage/sqlite";
 
@@ -59,7 +60,7 @@ function sanitizeFilename(name: string): string {
 
 async function withButtonBusy(
   button: HTMLButtonElement | null,
-  task: () => Promise<void>
+  task: () => Promise<void>,
 ): Promise<void> {
   if (!button) {
     await task();
@@ -114,7 +115,7 @@ function createWizard(baseCompany: CompanyState): WizardElements {
                   Firmenname <span class="text-danger">*</span>
                 </label>
                 <input class="form-control" id="wizard-company-name" name="wizard-company-name" required value="${escapeAttr(
-                  baseCompany.name
+                  baseCompany.name,
                 )}" placeholder="z.B. Gärtnerei Müller" />
               </div>
               <div class="col-md-6">
@@ -122,7 +123,7 @@ function createWizard(baseCompany: CompanyState): WizardElements {
                   Überschrift <span class="text-muted small">(optional)</span>
                 </label>
                 <input class="form-control" id="wizard-company-headline" name="wizard-company-headline" value="${escapeAttr(
-                  baseCompany.headline
+                  baseCompany.headline,
                 )}" placeholder="z.B. Pflanzenschutz-Dokumentation 2025" />
               </div>
             </div>
@@ -132,7 +133,7 @@ function createWizard(baseCompany: CompanyState): WizardElements {
                   Adresse <span class="text-muted small">(optional)</span>
                 </label>
                 <textarea class="form-control" id="wizard-company-address" name="wizard-company-address" rows="2" placeholder="Straße, PLZ Ort">${escapeHtml(
-                  baseCompany.address
+                  baseCompany.address,
                 )}</textarea>
               </div>
             </div>
@@ -169,7 +170,7 @@ function createWizard(baseCompany: CompanyState): WizardElements {
     throw new Error("Wizard-Formular konnte nicht erzeugt werden");
   }
   const resultCard = section.querySelector<HTMLElement>(
-    '[data-role="wizard-result"]'
+    '[data-role="wizard-result"]',
   );
   if (!resultCard) {
     throw new Error("Wizard-Resultat-Container fehlt");
@@ -180,28 +181,28 @@ function createWizard(baseCompany: CompanyState): WizardElements {
     form,
     resultCard,
     preview: section.querySelector<HTMLElement>(
-      '[data-role="wizard-preview"]'
+      '[data-role="wizard-preview"]',
     )!,
     filenameLabel: section.querySelector<HTMLElement>(
-      '[data-role="wizard-filename"]'
+      '[data-role="wizard-filename"]',
     )!,
     saveHint: section.querySelector<HTMLElement>(
-      '[data-role="wizard-save-hint"]'
+      '[data-role="wizard-save-hint"]',
     ),
     saveButton: section.querySelector<HTMLButtonElement>(
-      '[data-action="wizard-save"]'
+      '[data-action="wizard-save"]',
     ),
     reset() {
       form.reset();
       resultCard.classList.add("d-none");
       const preview = section.querySelector<HTMLElement>(
-        '[data-role="wizard-preview"]'
+        '[data-role="wizard-preview"]',
       );
       if (preview) {
         preview.textContent = "";
       }
       const filenameLabel = section.querySelector<HTMLElement>(
-        '[data-role="wizard-filename"]'
+        '[data-role="wizard-filename"]',
       );
       if (filenameLabel) {
         filenameLabel.textContent = "";
@@ -212,7 +213,7 @@ function createWizard(baseCompany: CompanyState): WizardElements {
 
 export function initStartup(
   container: Element | null,
-  services: Services
+  services: Services,
 ): void {
   if (!container || initialized) {
     return;
@@ -229,7 +230,17 @@ export function initStartup(
   const landingSection = document.createElement("section");
   landingSection.className = "section-container";
 
-  landingSection.innerHTML = `
+  // Dynamisches HTML basierend auf Zustand - wird später aktualisiert
+  function renderLandingContent(hasFile: boolean, inApp: boolean): void {
+    // Szenario bestimmen:
+    // 1. Neuer User (keine Datei) → "Neu erstellen" im Fokus
+    // 2. Hat Datei → "Fortsetzen" im Fokus
+    // 3. In App ohne Datei → "Neu erstellen" im Fokus, kein Install-Banner
+
+    const showNewCreateFocus = !hasFile;
+    const showContinueFocus = hasFile;
+
+    landingSection.innerHTML = `
     <div class="section-inner">
       <div class="card startup-card" style="position: relative;">
         <div class="card-body text-center py-5">
@@ -243,11 +254,17 @@ export function initStartup(
             </div>
           </div>
           
-          <!-- Neue Datenbank Button oben rechts (selten gebraucht) -->
+          <!-- Sekundäre Aktion oben rechts -->
           <div style="position: absolute; top: 0.75rem; right: 0.75rem;">
-            <button class="btn btn-sm btn-psm-secondary-outline" data-action="start-wizard">
-              <i class="bi bi-plus-circle me-1"></i>Neu erstellen
-            </button>
+            ${
+              showContinueFocus
+                ? `<button class="btn btn-link p-0" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.85rem;" data-action="start-wizard">
+                  <i class="bi bi-plus-lg me-1"></i>Neu erstellen
+                </button>`
+                : `<button class="btn btn-link p-0" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.85rem;" data-action="open">
+                  <i class="bi bi-folder2-open me-1"></i>Datei öffnen
+                </button>`
+            }
           </div>
           
           <!-- Info & Lizenz + Statistik Links unten links -->
@@ -265,36 +282,61 @@ export function initStartup(
           </div>
           
           <div style="padding-top: 1rem;">
-            <i class="bi bi-database fs-1 mb-3 d-block" style="color: var(--color-primary); opacity: 0.8;"></i>
-            <h2 class="mb-3" style="font-size: 1.5rem; color: var(--color-primary);">Datenbank öffnen</h2>
-            <p class="mb-4" style="color: var(--text-muted);">
-              Wähle deine bestehende Datei
-            </p>
-            
-            <!-- Auto-Start Banner (wird dynamisch eingeblendet) -->
-            <div id="auto-start-banner" class="d-none mb-4 p-4 rounded-3" style="background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%); border: 2px solid rgba(255,255,255,0.2); backdrop-filter: blur(10px);">
-              <div class="d-flex align-items-center justify-content-center gap-2 mb-3">
-                <i class="bi bi-clock-history fs-4" style="color: #fbbf24;"></i>
-                <span style="color: #fff; font-weight: 600; font-size: 1.1rem;">Zuletzt verwendet</span>
-              </div>
-              <p class="mb-3" style="color: rgba(255,255,255,0.9); font-size: 1rem;" data-role="auto-start-filename"></p>
-              <div class="d-flex justify-content-center align-items-center gap-3">
-                <button class="btn btn-lg px-5 py-2" style="background: #22c55e; color: #fff; font-weight: 600; font-size: 1.1rem; border: none; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4);" data-action="auto-start">
-                  <i class="bi bi-play-fill me-2"></i>Fortsetzen
-                </button>
-                <button class="btn btn-outline-light btn-lg px-3" style="opacity: 0.7;" data-action="auto-start-forget" title="Vergessen">
-                  <i class="bi bi-x-lg"></i>
-                </button>
-              </div>
-            </div>
-            
-            <!-- Hauptaktion: Datei öffnen (zentral, groß, grün) -->
-            <button class="btn btn-psm-primary btn-lg px-4 py-2" style="font-size: 1rem;" data-action="open">
-              <i class="bi bi-folder2-open me-2"></i>Datei öffnen
-            </button>
+            ${
+              showContinueFocus
+                ? `<!-- Szenario 2: Hat Datei → Fortsetzen im Fokus -->
+                <i class="bi bi-arrow-right-circle fs-1 mb-3 d-block" style="color: #3b82f6; opacity: 0.9;"></i>
+                <h2 class="mb-3" style="font-size: 1.5rem; color: #3b82f6;">Weiterarbeiten</h2>
+                <p class="mb-4" style="color: var(--text-muted);">
+                  Deine zuletzt verwendete Datei öffnen
+                </p>
+                
+                <!-- Fortsetzen Banner -->
+                <div id="auto-start-banner" class="mb-4 p-4 rounded-3" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
+                  <p class="mb-2" style="color: rgba(255,255,255,0.6); font-size: 0.85rem;">
+                    <i class="bi bi-clock-history me-1"></i>Zuletzt verwendet
+                  </p>
+                  <p class="mb-3" style="color: #fff; font-size: 1.1rem; font-weight: 500;" data-role="auto-start-filename"></p>
+                  <div class="d-flex justify-content-center align-items-center gap-2">
+                    <button class="btn btn-lg px-5 py-3" style="background: #3b82f6; color: #fff; font-weight: 600; font-size: 1.1rem; border: none;" data-action="auto-start">
+                      <i class="bi bi-arrow-right-circle-fill me-2"></i>Fortsetzen
+                    </button>
+                    <button class="btn px-2 py-2" style="background: transparent; color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.15);" data-action="auto-start-forget" title="Aus Liste entfernen">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Sekundär: Andere Datei öffnen -->
+                <div class="d-flex justify-content-center">
+                  <button class="btn px-4 py-2" style="background: transparent; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.2); font-size: 0.9rem;" data-action="open">
+                    <i class="bi bi-folder2-open me-2"></i>Andere Datei öffnen
+                  </button>
+                </div>`
+                : `<!-- Szenario 1 & 3: Neuer User → Neu erstellen im Fokus -->
+                <i class="bi bi-database-add fs-1 mb-3 d-block" style="color: #22c55e; opacity: 0.9;"></i>
+                <h2 class="mb-3" style="font-size: 1.5rem; color: #22c55e;">Willkommen</h2>
+                <p class="mb-4" style="color: var(--text-muted);">
+                  Erstelle eine neue Datenbank oder öffne eine bestehende Datei
+                </p>
+                
+                <!-- Hauptaktion: Neu erstellen -->
+                <div class="d-flex justify-content-center mb-4">
+                  <button class="btn btn-lg px-5 py-3" style="font-size: 1.1rem; background: #22c55e; color: #fff; font-weight: 600; border: none;" data-action="start-wizard">
+                    <i class="bi bi-plus-circle-fill me-2"></i>Neu erstellen
+                  </button>
+                </div>
+                
+                <!-- Sekundär: Datei öffnen -->
+                <div class="d-flex justify-content-center">
+                  <button class="btn px-4 py-2" style="background: transparent; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.2); font-size: 0.9rem;" data-action="open">
+                    <i class="bi bi-folder2-open me-2"></i>Bestehende Datei öffnen
+                  </button>
+                </div>`
+            }
             
             <!-- PWA Banner - nur wenn nicht in App -->
-            <div id="pwa-install-banner" class="d-none mt-4">
+            <div id="pwa-install-banner" class="${inApp ? "d-none" : "d-none"} mt-4">
               <hr class="my-3" style="border-color: rgba(255,255,255,0.1);" />
               <div data-role="pwa-content">
                 <!-- Wird dynamisch gefüllt -->
@@ -305,6 +347,10 @@ export function initStartup(
       </div>
     </div>
   `;
+  }
+
+  // Initial rendern mit Standardwerten (wird später aktualisiert)
+  renderLandingContent(false, isStandalone());
 
   const wizard = createWizard(baseCompany);
 
@@ -361,7 +407,7 @@ export function initStartup(
         }
       } catch (err) {
         toast.error(
-          "Dateisystemzugriff wird nicht unterstützt in diesem Browser."
+          "Dateisystemzugriff wird nicht unterstützt in diesem Browser.",
         );
         throw err instanceof Error
           ? err
@@ -371,13 +417,13 @@ export function initStartup(
       try {
         const result = await openDatabase();
         applyDatabase(result.data);
-        
+
         // FileHandle für Auto-Start speichern (wenn SQLite-Treiber)
         const context = result.context;
         if (context?.fileHandle) {
           await storeFileHandle(context.fileHandle);
         }
-        
+
         services.events.emit("database:connected", {
           driver: getActiveDriverKey(),
         });
@@ -386,7 +432,7 @@ export function initStartup(
         toast.error(
           err instanceof Error
             ? err.message
-            : "Öffnen der Datenbank fehlgeschlagen"
+            : "Öffnen der Datenbank fehlgeschlagen",
         );
       }
     });
@@ -408,7 +454,7 @@ export function initStartup(
         } catch (err) {
           console.warn(
             `Treiber ${preferred} konnte nicht initialisiert werden`,
-            err
+            err,
           );
         }
       }
@@ -420,7 +466,7 @@ export function initStartup(
   }
 
   async function handleWizardSave(
-    button: HTMLButtonElement | null
+    button: HTMLButtonElement | null,
   ): Promise<void> {
     if (!generatedDatabase) {
       toast.warning("Bitte erst die Datenbank erzeugen.");
@@ -436,7 +482,7 @@ export function initStartup(
         }
       } catch (err) {
         toast.error(
-          "Dateisystemzugriff wird nicht unterstützt in diesem Browser."
+          "Dateisystemzugriff wird nicht unterstützt in diesem Browser.",
         );
         throw err instanceof Error
           ? err
@@ -454,7 +500,7 @@ export function initStartup(
         toast.error(
           err instanceof Error
             ? err.message
-            : "Die Datei konnte nicht gespeichert werden"
+            : "Die Datei konnte nicht gespeichert werden",
         );
       }
     });
@@ -511,7 +557,9 @@ export function initStartup(
   }
 
   // Auto-Start Handler - öffnet gespeicherte Datei
-  async function handleAutoStart(button: HTMLButtonElement | null): Promise<void> {
+  async function handleAutoStart(
+    button: HTMLButtonElement | null,
+  ): Promise<void> {
     await withButtonBusy(button, async () => {
       try {
         const storedHandle = await getStoredFileHandle();
@@ -523,7 +571,9 @@ export function initStartup(
         // Berechtigung prüfen/anfordern
         const hasPermission = await requestFileHandlePermission(storedHandle);
         if (!hasPermission) {
-          toast.warning("Berechtigung zum Zugriff auf die Datei wurde verweigert.");
+          toast.warning(
+            "Berechtigung zum Zugriff auf die Datei wurde verweigert.",
+          );
           return;
         }
 
@@ -531,27 +581,30 @@ export function initStartup(
         setActiveDriver("sqlite");
         const file = await storedHandle.getFile();
         const arrayBuffer = await file.arrayBuffer();
-        
-        const result = await sqlite.importFromArrayBuffer(arrayBuffer, file.name);
+
+        const result = await sqlite.importFromArrayBuffer(
+          arrayBuffer,
+          file.name,
+        );
         sqlite.setFileHandle(storedHandle);
-        
+
         applyDatabase(result.data);
-        
+
         // FileHandle aktualisieren für zukünftiges Speichern
         await storeFileHandle(storedHandle);
-        
+
         services.events.emit("database:connected", {
           driver: "sqlite",
           autoStarted: true,
         });
-        
+
         toast.success("Datenbank erfolgreich geladen!");
       } catch (err) {
         console.error("Auto-Start fehlgeschlagen:", err);
         toast.error(
           err instanceof Error
             ? err.message
-            : "Fehler beim Laden der gespeicherten Datei"
+            : "Fehler beim Laden der gespeicherten Datei",
         );
       }
     });
@@ -560,7 +613,8 @@ export function initStartup(
   // Vergisst die gespeicherte Datei
   async function handleForgetAutoStart(): Promise<void> {
     await clearStoredFileHandle();
-    const autoStartBanner = landingSection.querySelector<HTMLElement>("#auto-start-banner");
+    const autoStartBanner =
+      landingSection.querySelector<HTMLElement>("#auto-start-banner");
     if (autoStartBanner) {
       autoStartBanner.classList.add("d-none");
     }
@@ -568,12 +622,16 @@ export function initStartup(
   }
 
   // PWA Installation
-  async function handleInstallPwa(button: HTMLButtonElement | null): Promise<void> {
+  async function handleInstallPwa(
+    button: HTMLButtonElement | null,
+  ): Promise<void> {
     await withButtonBusy(button, async () => {
       const accepted = await promptInstall();
       if (accepted) {
         toast.success("App wird installiert!");
-        const banner = landingSection.querySelector<HTMLElement>("#pwa-install-banner");
+        const banner = landingSection.querySelector<HTMLElement>(
+          "#pwa-install-banner",
+        );
         if (banner) {
           banner.classList.add("d-none");
         }
@@ -583,7 +641,7 @@ export function initStartup(
 
   landingSection.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement | null)?.closest(
-      "button[data-action]"
+      "button[data-action]",
     ) as HTMLButtonElement | null;
     if (!button) {
       return;
@@ -610,7 +668,7 @@ export function initStartup(
 
   wizard.section.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement | null)?.closest(
-      "[data-action]"
+      "[data-action]",
     ) as HTMLButtonElement | null;
     if (!button) {
       return;
@@ -639,42 +697,49 @@ export function initStartup(
     }
   }
 
-  // View Counter laden und anzeigen
-  const viewCountEl = landingSection.querySelector<HTMLElement>(
-    '[data-role="view-count"]'
-  );
-  if (viewCountEl) {
-    countView("app").then((views) => {
-      if (views !== null) {
-        viewCountEl.textContent = formatViewCountCompact(views);
-      }
-    });
-  }
+  // PWA-Features initialisieren (siehe unten)
 
   // PWA-Features initialisieren
   void (async () => {
-    // Auto-Start Banner anzeigen wenn Datei gespeichert
+    // Zustand ermitteln
     const storedHandle = await getStoredFileHandle();
     const dbState = await getDbState();
-    
-    if (storedHandle && dbState?.hasDatabase) {
-      const autoStartBanner = landingSection.querySelector<HTMLElement>("#auto-start-banner");
-      const filenameEl = landingSection.querySelector<HTMLElement>('[data-role="auto-start-filename"]');
-      
-      if (autoStartBanner && filenameEl) {
+    const hasFile = Boolean(storedHandle && dbState?.hasDatabase);
+    const inApp = isStandalone();
+
+    // Landing neu rendern mit korrektem Zustand
+    renderLandingContent(hasFile, inApp);
+
+    // View Counter aktualisieren
+    const viewCountEl = landingSection.querySelector<HTMLElement>(
+      '[data-role="view-count"]',
+    );
+    if (viewCountEl) {
+      countView("app").then((views) => {
+        if (views !== null) {
+          viewCountEl.textContent = formatViewCountCompact(views);
+        }
+      });
+    }
+
+    // Dateiname setzen wenn Datei vorhanden
+    if (hasFile && storedHandle) {
+      const filenameEl = landingSection.querySelector<HTMLElement>(
+        '[data-role="auto-start-filename"]',
+      );
+      if (filenameEl) {
         filenameEl.textContent = `Datei: ${storedHandle.name}`;
-        autoStartBanner.classList.remove("d-none");
       }
     }
 
-    // PWA-Status Banner IMMER anzeigen mit kontextabhängigem Inhalt
+    // PWA-Status Banner aktualisieren
     updatePwaStatusBanner();
 
     // Auf PWA-Events hören
     window.addEventListener("pwa:install-available", () => {
       updatePwaStatusBanner();
     });
-    
+
     window.addEventListener("pwa:installed", () => {
       markAsInstalled();
       updatePwaStatusBanner();
@@ -682,13 +747,18 @@ export function initStartup(
 
     // Permission-Required Event (wenn Auto-Start Berechtigung fehlt)
     window.addEventListener("pwa:permission-required", async (event: Event) => {
-      const customEvent = event as CustomEvent<{ handle: FileSystemFileHandle }>;
+      const customEvent = event as CustomEvent<{
+        handle: FileSystemFileHandle;
+      }>;
       const handle = customEvent.detail?.handle;
-      
+
       if (handle) {
-        const autoStartBanner = landingSection.querySelector<HTMLElement>("#auto-start-banner");
-        const filenameEl = landingSection.querySelector<HTMLElement>('[data-role="auto-start-filename"]');
-        
+        const autoStartBanner =
+          landingSection.querySelector<HTMLElement>("#auto-start-banner");
+        const filenameEl = landingSection.querySelector<HTMLElement>(
+          '[data-role="auto-start-filename"]',
+        );
+
         if (autoStartBanner && filenameEl) {
           filenameEl.textContent = `Datei: ${handle.name} (Berechtigung erforderlich)`;
           autoStartBanner.classList.remove("d-none");
@@ -698,24 +768,28 @@ export function initStartup(
 
     console.log("[Startup] PWA Capabilities:", getPwaCapabilities());
   })();
-  
+
   // Hilfsfunktion: PWA-Status Banner aktualisieren
   function updatePwaStatusBanner(): void {
     const status = getInstallStatus();
-    const banner = landingSection.querySelector<HTMLElement>('#pwa-install-banner');
-    const contentEl = landingSection.querySelector<HTMLElement>('[data-role="pwa-content"]');
-    
+    const banner = landingSection.querySelector<HTMLElement>(
+      "#pwa-install-banner",
+    );
+    const contentEl = landingSection.querySelector<HTMLElement>(
+      '[data-role="pwa-content"]',
+    );
+
     if (!banner || !contentEl) return;
-    
+
     // Kein Banner wenn in der App (standalone)
     if (!status.showBanner) {
-      banner.classList.add('d-none');
+      banner.classList.add("d-none");
       return;
     }
-    
+
     // Banner anzeigen
-    banner.classList.remove('d-none');
-    
+    banner.classList.remove("d-none");
+
     // Fall 1: Bereits installiert (aber im Browser) → App öffnen Hinweis
     // WICHTIG: Zuerst prüfen! Chrome bietet Install-Prompt auch bei installierten Apps an.
     if (status.isInstalled) {
@@ -741,7 +815,7 @@ export function initStartup(
     }
     // Fall 3: Nicht installierbar (Firefox etc.) → Kein Banner
     else {
-      banner.classList.add('d-none');
+      banner.classList.add("d-none");
     }
   }
 

@@ -5,8 +5,25 @@ import {
 } from "@scripts/core/state";
 import { emit } from "@scripts/core/eventBus";
 
+function initOfflineIndicator(): void {
+  const indicator = document.getElementById("offline-indicator");
+  if (!indicator) return;
+
+  const updateStatus = () => {
+    const isOffline = !navigator.onLine;
+    indicator.classList.toggle("d-none", !isOffline);
+  };
+
+  updateStatus();
+  window.addEventListener("online", updateStatus);
+  window.addEventListener("offline", updateStatus);
+}
+
 function initShell(): void {
   const buttons = document.querySelectorAll<HTMLButtonElement>(".nav-btn");
+
+  // Initialize offline indicator
+  initOfflineIndicator();
 
   buttons.forEach((button) => {
     button.addEventListener("click", (event) => {
