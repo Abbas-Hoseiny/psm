@@ -246,6 +246,33 @@ python scripts/fetch_bvl_data.py --output-dir data/output --skip-raw
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+## Git LFS (Large File Storage)
+
+Die generierten SQLite-Datenbanken werden mit Git LFS verwaltet, um die Repository-Größe zu optimieren.
+
+### Verwaltete Dateitypen
+
+| Dateityp | Beschreibung | Typische Größe |
+|----------|--------------|----------------|
+| `*.sqlite` | Unkomprimierte SQLite-Datenbank | ~25 MB |
+| `*.sqlite.br` | Brotli-komprimierte Datenbank | ~6 MB |
+| `*.sqlite.zip` | ZIP-komprimierte Datenbank | ~11 MB |
+
+### Bei Änderungen an Datenbank-Dateien
+
+```bash
+# Nach dem Generieren neuer Datenbanken
+git add public/data/bvl/*.sqlite.br public/data/bvl/*.sqlite.zip
+
+# Git LFS verarbeitet diese automatisch
+git commit -m "chore: Update BVL database"
+
+# Push inkl. LFS-Objekte
+git push
+```
+
+**Hinweis:** Die `.gitattributes`-Datei im Projekt-Root definiert automatisch, welche Dateien von LFS verwaltet werden.
+
 ## Data Attribution
 
 Plant protection product data is provided by:
