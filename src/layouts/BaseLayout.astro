@@ -20,7 +20,8 @@ const {
 const fullTitle = pageTitle ? `${pageTitle} · ${baseTitle}` : baseTitle;
 const canonicalUrl = Astro.url?.href ??
   (Astro.site ? new URL(Astro.site).href : 'https://www.digitale-psm.de/');
-const previewImageUrl = 'https://www.digitale-psm.de/assets/img/og-image.png';
+// Cache-Busting: Version ändern wenn Bild aktualisiert wird
+const previewImageUrl = 'https://www.digitale-psm.de/assets/img/og-image.png?v=2';
 const previewImageWidth = 1200;
 const previewImageHeight = 630;
 const keywords = 'Pflanzenschutzmittel, PSM, Pflanzenschutz, Dokumentation, Berechnung, BVL, Zulassung, Landwirtschaft, Deutschland, Gartenbau, Agrarsoftware, Open Source, kostenlos';
