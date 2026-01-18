@@ -54,10 +54,39 @@
 
 ## Installation (Entwicklung)
 
+### Voraussetzungen
+
+- **Node.js** (v18 oder höher)
+- **npm** (v9 oder höher)
+- **Git LFS** (für große Binärdateien)
+
+### Git LFS einrichten
+
+Dieses Projekt verwendet [Git Large File Storage (LFS)](https://git-lfs.github.com/) für große Binärdateien wie SQLite-Datenbanken und Bilder. Git LFS muss **vor dem Klonen** installiert werden.
+
 ```bash
-# Repository klonen
+# Git LFS installieren (macOS)
+brew install git-lfs
+
+# Git LFS installieren (Ubuntu/Debian)
+sudo apt-get install git-lfs
+
+# Git LFS installieren (Windows - mit Git für Windows bereits enthalten)
+# Oder: winget install GitHub.GitLFS
+
+# Git LFS global aktivieren (einmalig pro System)
+git lfs install
+```
+
+### Repository klonen
+
+```bash
+# Repository klonen (Git LFS lädt große Dateien automatisch)
 git clone https://github.com/Abbas-Hoseiny/psm.git
 cd psm
+
+# Falls Git LFS Dateien nicht geladen wurden:
+git lfs pull
 
 # Abhängigkeiten installieren
 npm install
@@ -68,6 +97,21 @@ npm run dev
 # Produktion bauen
 npm run build
 ```
+
+### Von Git LFS verwaltete Dateien
+
+Folgende Dateitypen werden von Git LFS verwaltet:
+
+| Dateityp | Beschreibung |
+|----------|--------------|
+| `*.sqlite`, `*.sqlite.br`, `*.sqlite.zip` | SQLite-Datenbanken (BVL, EPPO, BBCH) |
+| `*.jpg`, `*.jpeg`, `*.png`, `*.gif`, `*.webp` | Bilddateien |
+| `*.wasm` | WebAssembly-Module |
+| `*.ttf`, `*.woff`, `*.woff2` | Schriftarten |
+| `*.zip`, `*.gz`, `*.br` | Komprimierte Dateien |
+| `*.pdf` | PDF-Dokumente |
+
+**Wichtig:** Wenn Sie große Dateien hinzufügen, werden diese automatisch von Git LFS verwaltet.
 
 ## PWA Installation
 
