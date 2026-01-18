@@ -65,13 +65,13 @@ const PRINT_BASE_STYLES = `
 `;
 
 export function buildCompanyPrintHeader(
-  company: AppState["company"] | null | undefined
+  company: AppState["company"] | null | undefined,
 ): string {
   const hasContent = Boolean(
     company?.name ||
       company?.headline ||
       company?.address ||
-      company?.contactEmail
+      company?.contactEmail,
   );
   if (!hasContent) {
     return "";
@@ -90,16 +90,12 @@ export function buildCompanyPrintHeader(
     : [];
 
   const normalize = (value: string) =>
-    value
-      .normalize("NFKC")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
+    value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
 
   const hasDuplicateFirstLine = Boolean(
     companyName &&
       addressLines.length > 0 &&
-      normalize(addressLines[0]) === normalize(companyName)
+      normalize(addressLines[0]) === normalize(companyName),
   );
 
   const displayLines = [...addressLines];
@@ -152,7 +148,7 @@ type PrintOptions = {
 export async function printEntriesChunked(
   entries: CalculationSnapshotEntry[],
   labels: CalculationSnapshotLabels,
-  options: PrintOptions = {}
+  options: PrintOptions = {},
 ): Promise<void> {
   const {
     chunkSize = 50,
@@ -176,6 +172,7 @@ export async function printEntriesChunked(
   const styles = PRINT_BASE_STYLES + (additionalStyles || "");
 
   doc.open();
+  // Print-Frames benötigen document.write für korrektes Rendering
   doc.write(`<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -250,7 +247,7 @@ export async function printEntriesChunked(
     frameWindow.addEventListener(
       "afterprint",
       () => cleanupPrintFrame(iframe),
-      { once: true }
+      { once: true },
     );
   }
 

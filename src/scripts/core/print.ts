@@ -4,9 +4,9 @@ let overlayElement: HTMLDivElement | null = null;
 
 function ensureOverlay(): HTMLDivElement {
   if (!overlayElement) {
-    overlayElement = document.createElement('div');
-    overlayElement.id = 'print-overlay';
-    overlayElement.className = 'print-overlay';
+    overlayElement = document.createElement("div");
+    overlayElement.id = "print-overlay";
+    overlayElement.className = "print-overlay";
     document.body.appendChild(overlayElement);
   }
   return overlayElement;
@@ -16,16 +16,23 @@ function cleanupOverlay(): void {
   if (!overlayElement) {
     return;
   }
-  overlayElement.innerHTML = '';
-  document.body.classList.remove('print-overlay-active');
+  overlayElement.innerHTML = "";
+  document.body.classList.remove("print-overlay-active");
 }
 
-function openPopup(html: string, onFail?: (popup?: Window | null) => void): Window | null {
+function openPopup(
+  html: string,
+  onFail?: (popup?: Window | null) => void,
+): Window | null {
   let popup: Window | null = null;
   try {
-    popup = window.open('', '_blank', 'noopener,noreferrer,width=1024,height=768');
+    popup = window.open(
+      "",
+      "_blank",
+      "noopener,noreferrer,width=1024,height=768",
+    );
   } catch (err) {
-    console.warn('window.open failed', err);
+    console.warn("window.open failed", err);
   }
   if (!popup) {
     if (onFail) {
@@ -35,10 +42,11 @@ function openPopup(html: string, onFail?: (popup?: Window | null) => void): Wind
   }
   try {
     popup.document.open();
+    // Print-Fenster benötigen document.write für korrektes Rendering
     popup.document.write(html);
     popup.document.close();
   } catch (err) {
-    console.error('Unable to write into print window', err);
+    console.error("Unable to write into print window", err);
     if (onFail) {
       onFail(popup);
     }
@@ -47,8 +55,16 @@ function openPopup(html: string, onFail?: (popup?: Window | null) => void): Wind
   return popup;
 }
 
-export function printHtml({ title = 'Druck', styles = '', content = '' }: { title?: string; styles?: string; content: string }): void {
-  const safeTitle = String(title ?? 'Druck').replace(/[<>]/g, '');
+export function printHtml({
+  title = "Druck",
+  styles = "",
+  content = "",
+}: {
+  title?: string;
+  styles?: string;
+  content: string;
+}): void {
+  const safeTitle = String(title ?? "Druck").replace(/[<>]/g, "");
   const pageStyles = `@page { size: A4; margin: 18mm; }
     body { font-family: ${BASE_FONT_STACK}; color: #111; line-height: 1.45; }
     h1, h2, h3 { margin: 0 0 0.75rem; }
@@ -67,20 +83,20 @@ export function printHtml({ title = 'Druck', styles = '', content = '' }: { titl
   const popup = openPopup(html, (blockedPopup) => {
     const overlay = ensureOverlay();
     overlay.innerHTML = `<style>${pageStyles}</style>${content}`;
-    document.body.classList.add('print-overlay-active');
+    document.body.classList.add("print-overlay-active");
 
     const handleAfterPrint = () => {
       cleanupOverlay();
-      window.removeEventListener('afterprint', handleAfterPrint);
+      window.removeEventListener("afterprint", handleAfterPrint);
     };
-    window.addEventListener('afterprint', handleAfterPrint, { once: true });
+    window.addEventListener("afterprint", handleAfterPrint, { once: true });
     window.print();
 
     if (blockedPopup) {
       try {
         blockedPopup.close();
       } catch (err) {
-        console.warn('Unable to close blocked popup', err);
+        console.warn("Unable to close blocked popup", err);
       }
     }
   });
@@ -93,30 +109,30 @@ export function printHtml({ title = 'Druck', styles = '', content = '' }: { titl
     try {
       popup.focus();
     } catch (err) {
-      console.warn('Cannot focus print popup', err);
+      console.warn("Cannot focus print popup", err);
     }
     try {
       popup.print();
     } catch (err) {
-      console.error('Popup print failed', err);
+      console.error("Popup print failed", err);
     }
     const close = () => {
       try {
         popup.close();
       } catch (err) {
-        console.warn('Cannot close print popup', err);
+        console.warn("Cannot close print popup", err);
       }
     };
     if (popup.addEventListener) {
-      popup.addEventListener('afterprint', close, { once: true });
+      popup.addEventListener("afterprint", close, { once: true });
     }
     setTimeout(close, 800);
   };
 
-  if (popup.document.readyState === 'complete') {
+  if (popup.document.readyState === "complete") {
     setTimeout(triggerPrint, 50);
   } else {
-    popup.addEventListener('load', () => {
+    popup.addEventListener("load", () => {
       setTimeout(triggerPrint, 50);
     });
   }

@@ -62,7 +62,7 @@ interface Services {
   events?: {
     subscribe?: (
       eventName: string,
-      handler: (payload: unknown) => void
+      handler: (payload: unknown) => void,
     ) => (() => void) | void;
     emit?: (eventName: string, payload?: unknown) => void;
   };
@@ -173,7 +173,7 @@ function normalizeDateInput(value?: string | null): string | undefined {
 
 function toDateBoundaryIso(
   value: string | undefined,
-  boundary: "start" | "end"
+  boundary: "start" | "end",
 ): string | undefined {
   if (!value) {
     return undefined;
@@ -200,7 +200,7 @@ function getDefaultFilters(): DocumentationFilters {
 
 function applyDateFiltersToForm(
   form: HTMLFormElement | null,
-  filters: DocumentationFilters
+  filters: DocumentationFilters,
 ): void {
   if (!form) {
     return;
@@ -217,7 +217,7 @@ function applyDateFiltersToForm(
 
 function buildEntryIdFromRef(
   ref: DocumentationFocusEntryRef,
-  defaultSource: DocumentationEntrySource = "sqlite"
+  defaultSource: DocumentationEntrySource = "sqlite",
 ): string | null {
   if (typeof ref === "string") {
     if (ref.includes(":")) {
@@ -245,7 +245,7 @@ function buildEntryIdFromRef(
 }
 
 function normalizeFocusEntryIds(
-  refs: DocumentationFocusEntryRef[] | undefined
+  refs: DocumentationFocusEntryRef[] | undefined,
 ): Set<string> {
   const ids = new Set<string>();
   if (!refs?.length) {
@@ -262,10 +262,10 @@ function normalizeFocusEntryIds(
 
 function updateFocusBanner(section: HTMLElement): void {
   const banner = section.querySelector<HTMLElement>(
-    '[data-role="doc-focus-banner"]'
+    '[data-role="doc-focus-banner"]',
   );
   const textNode = section.querySelector<HTMLElement>(
-    '[data-role="doc-focus-text"]'
+    '[data-role="doc-focus-text"]',
   );
   if (!banner || !textNode) {
     return;
@@ -287,10 +287,10 @@ function updateFocusBanner(section: HTMLElement): void {
 
 function updateDocRefreshIndicator(
   section: HTMLElement,
-  status: AutoRefreshStatus
+  status: AutoRefreshStatus,
 ): void {
   const indicator = section.querySelector<HTMLElement>(
-    '[data-role="doc-refresh-indicator"]'
+    '[data-role="doc-refresh-indicator"]',
   );
   if (!indicator) {
     return;
@@ -314,7 +314,7 @@ function updateDocRefreshIndicator(
 function clearFocusContext(
   section: HTMLElement,
   services: Services,
-  options: { refreshList?: boolean } = {}
+  options: { refreshList?: boolean } = {},
 ): void {
   if (!focusContext) {
     return;
@@ -329,7 +329,7 @@ function clearFocusContext(
 
 function attemptPendingSelection(
   section: HTMLElement,
-  labels: AppState["fieldLabels"]
+  labels: AppState["fieldLabels"],
 ): void {
   if (!pendingEntrySelectionId) {
     return;
@@ -345,7 +345,7 @@ function attemptPendingSelection(
 function handleFocusRangeEvent(
   section: HTMLElement,
   services: Services,
-  payload: DocumentationFocusPayload | undefined
+  payload: DocumentationFocusPayload | undefined,
 ): void {
   if (!payload) {
     return;
@@ -499,7 +499,7 @@ function createEntryId(source: DocumentationEntrySource, ref: number): string {
 }
 
 function toHistoryQueryFilters(
-  filters: DocumentationFilters
+  filters: DocumentationFilters,
 ): HistoryQueryFilters {
   const query: HistoryQueryFilters = {};
   const startBoundary = toDateBoundaryIso(filters.startDate, "start");
@@ -521,7 +521,7 @@ function toHistoryQueryFilters(
 
 function mapStateHistoryEntry(
   entry: HistoryEntry,
-  index: number
+  index: number,
 ): DocumentationEntry {
   return {
     id: createEntryId("state", index),
@@ -532,7 +532,7 @@ function mapStateHistoryEntry(
 }
 
 function mapSqliteHistoryEntry(
-  record: Record<string, unknown>
+  record: Record<string, unknown>,
 ): DocumentationEntry {
   const id = Number(record?.id ?? record?.historyId ?? 0);
   const entry: HistoryEntry = { ...(record as HistoryEntry) };
@@ -582,7 +582,7 @@ function publishDocumentationOverlayMetrics(): void {
     totalCount: getDocumentationTotalEstimate(),
     cursor: dataMode === "sqlite" ? `Seite ${docPageIndex + 1}` : null,
     payloadKb: estimateOverlayPayloadKb(
-      visibleEntries.map((entry) => entry.entry)
+      visibleEntries.map((entry) => entry.entry),
     ),
     lastUpdated: documentationLastUpdatedAt,
     note: buildDocumentationOverlayNote(),
@@ -604,16 +604,16 @@ interface ArchiveFormValues {
 
 function updateArchiveFormDefaults(section: HTMLElement): void {
   const form = section.querySelector<HTMLFormElement>(
-    '[data-role="archive-form"]'
+    '[data-role="archive-form"]',
   );
   if (!form) {
     return;
   }
   const startInput = form.querySelector<HTMLInputElement>(
-    'input[name="archive-start"]'
+    'input[name="archive-start"]',
   );
   const endInput = form.querySelector<HTMLInputElement>(
-    'input[name="archive-end"]'
+    'input[name="archive-end"]',
   );
   if (startInput) {
     startInput.value = currentFilters.startDate || "";
@@ -626,10 +626,10 @@ function updateArchiveFormDefaults(section: HTMLElement): void {
 function setArchiveStatus(
   section: HTMLElement,
   message: string,
-  variant: "info" | "success" | "warning" | "danger" = "info"
+  variant: "info" | "success" | "warning" | "danger" = "info",
 ): void {
   const status = section.querySelector<HTMLElement>(
-    '[data-role="archive-status"]'
+    '[data-role="archive-status"]',
   );
   if (!status) {
     return;
@@ -647,7 +647,7 @@ function setArchiveStatus(
 function toggleArchiveForm(section: HTMLElement, visible?: boolean): void {
   const form = section.querySelector<HTMLElement>('[data-role="archive-form"]');
   const toggleBtn = section.querySelector<HTMLButtonElement>(
-    '[data-action="archive-toggle"]'
+    '[data-action="archive-toggle"]',
   );
   if (!form) {
     return;
@@ -666,25 +666,25 @@ function toggleArchiveForm(section: HTMLElement, visible?: boolean): void {
 }
 
 function readArchiveFormValues(
-  form: HTMLFormElement
+  form: HTMLFormElement,
 ): ArchiveFormValues | null {
   const startInput = form.querySelector<HTMLInputElement>(
-    'input[name="archive-start"]'
+    'input[name="archive-start"]',
   );
   const endInput = form.querySelector<HTMLInputElement>(
-    'input[name="archive-end"]'
+    'input[name="archive-end"]',
   );
   if (!startInput?.value || !endInput?.value) {
     return null;
   }
   const storageInput = form.querySelector<HTMLInputElement>(
-    'input[name="archive-storage"]'
+    'input[name="archive-storage"]',
   );
   const noteInput = form.querySelector<HTMLTextAreaElement>(
-    'textarea[name="archive-note"]'
+    'textarea[name="archive-note"]',
   );
   const removeCheckbox = form.querySelector<HTMLInputElement>(
-    'input[name="archive-remove"]'
+    'input[name="archive-remove"]',
   );
   return {
     startDate: startInput.value,
@@ -697,17 +697,17 @@ function readArchiveFormValues(
 
 function updateArchiveAvailability(
   section: HTMLElement,
-  state: AppState
+  state: AppState,
 ): void {
   const toggleBtn = section.querySelector<HTMLButtonElement>(
-    '[data-action="archive-toggle"]'
+    '[data-action="archive-toggle"]',
   );
   const submitBtn = section.querySelector<HTMLButtonElement>(
-    '[data-action="archive-submit"]'
+    '[data-action="archive-submit"]',
   );
   const form = section.querySelector<HTMLElement>('[data-role="archive-form"]');
   const driverHint = section.querySelector<HTMLElement>(
-    '[data-role="archive-driver-hint"]'
+    '[data-role="archive-driver-hint"]',
   );
   const isSqlite =
     resolveStorageDriver(state) === "sqlite" && Boolean(state.app?.hasDatabase);
@@ -737,10 +737,10 @@ function updateArchiveAvailability(
 function setArchiveBusy(section: HTMLElement, busy: boolean): void {
   isArchiving = busy;
   const form = section.querySelector<HTMLFormElement>(
-    '[data-role="archive-form"]'
+    '[data-role="archive-form"]',
   );
   const toggleBtn = section.querySelector<HTMLButtonElement>(
-    '[data-action="archive-toggle"]'
+    '[data-action="archive-toggle"]',
   );
   if (form) {
     form
@@ -827,7 +827,7 @@ async function ensureArchiveLogsLoaded({
 
 async function recordArchiveLog(
   entry: ArchiveLogEntry,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>,
 ): Promise<void> {
   const driverKey = resolveStorageDriver(getState());
   pushArchiveLogToState(entry);
@@ -853,7 +853,7 @@ async function recordArchiveLog(
 }
 
 function computeArchiveLogSignature(
-  logs: ArchiveLogEntry[] | undefined | null
+  logs: ArchiveLogEntry[] | undefined | null,
 ): string {
   if (!Array.isArray(logs) || !logs.length) {
     return "[]";
@@ -873,10 +873,10 @@ function formatArchiveLogDate(value: string | undefined): string {
 function renderArchiveLogs(
   section: HTMLElement,
   logs: ArchiveLogEntry[] | undefined | null,
-  options: { resetPage?: boolean } = {}
+  options: { resetPage?: boolean } = {},
 ): void {
   const target = section.querySelector<HTMLElement>(
-    '[data-role="archive-log-list"]'
+    '[data-role="archive-log-list"]',
   );
   if (!target) {
     return;
@@ -916,7 +916,7 @@ function renderArchiveLogs(
 
 function getArchiveLogById(
   state: AppState,
-  logId: string
+  logId: string,
 ): ArchiveLogEntry | undefined {
   const logs = state.archives?.logs;
   if (!Array.isArray(logs)) {
@@ -937,6 +937,7 @@ async function copyText(value: string): Promise<void> {
     await navigator.clipboard.writeText(value);
     return;
   }
+  // Fallback für ältere Browser ohne Clipboard API
   if (typeof document !== "undefined") {
     const textarea = document.createElement("textarea");
     textarea.value = value;
@@ -945,13 +946,14 @@ async function copyText(value: string): Promise<void> {
     document.body.appendChild(textarea);
     textarea.focus();
     textarea.select();
+    // eslint-disable-next-line deprecation/deprecation
     document.execCommand("copy");
     document.body.removeChild(textarea);
   }
 }
 
 async function resolveEntryDetail(
-  entry: DocumentationEntry
+  entry: DocumentationEntry,
 ): Promise<HistoryEntry | null> {
   if (entryDetailCache.has(entry.id)) {
     return entryDetailCache.get(entry.id)!;
@@ -1011,7 +1013,7 @@ function normalizeEntryDate(entry: HistoryEntry | null): Date | null {
       return new Date(
         parsed.getFullYear(),
         parsed.getMonth(),
-        parsed.getDate()
+        parsed.getDate(),
       );
     }
   }
@@ -1034,7 +1036,7 @@ function normalizeEntryDate(entry: HistoryEntry | null): Date | null {
 
 function matchesFilter(
   entry: HistoryEntry,
-  filters: DocumentationFilters
+  filters: DocumentationFilters,
 ): boolean {
   const normalizedDate = normalizeEntryDate(entry);
   if (filters.startDate) {
@@ -1247,7 +1249,7 @@ function ensurePagerWidget(section: HTMLElement): PagerWidget | null {
 
 function ensureArchiveLogPager(section: HTMLElement): PagerWidget | null {
   const target = section.querySelector<HTMLElement>(
-    '[data-role="archive-log-pager"]'
+    '[data-role="archive-log-pager"]',
   );
   if (!target) {
     return null;
@@ -1301,7 +1303,7 @@ function getArchiveLogPageMeta(logs: ArchiveLogEntry[]): ArchiveLogPageMeta {
 
 function updateArchiveLogPager(
   section: HTMLElement,
-  meta: ArchiveLogPageMeta
+  meta: ArchiveLogPageMeta,
 ): void {
   const widget = ensureArchiveLogPager(section);
   if (!widget) {
@@ -1367,7 +1369,7 @@ function updatePagerWidget(section: HTMLElement): void {
   const pageOffset =
     dataMode === "sqlite" ? docPageIndex * PAGE_SIZE : getPageOffset();
   const info = `Einträge ${numberFormatter.format(pageOffset + 1)}–${numberFormatter.format(
-    pageOffset + visibleCount
+    pageOffset + visibleCount,
   )}${totalKnown ? ` von ${numberFormatter.format(totalKnown)}` : ""}`;
   const hasNextPage =
     dataMode === "memory"
@@ -1390,7 +1392,7 @@ function updateDocSeedButton(section: HTMLElement): void {
     return;
   }
   const button = section.querySelector<HTMLButtonElement>(
-    '[data-action="doc-seed"]'
+    '[data-action="doc-seed"]',
   );
   if (!button) {
     return;
@@ -1451,19 +1453,19 @@ function resetSelection(section?: HTMLElement | null): void {
 
 function updateSelectionInfo(section: HTMLElement): void {
   const info = section.querySelector<HTMLElement>(
-    '[data-role="doc-selection-info"]'
+    '[data-role="doc-selection-info"]',
   );
   const printBtn = section.querySelector<HTMLButtonElement>(
-    '[data-action="print-selection"]'
+    '[data-action="print-selection"]',
   );
   const exportBtn = section.querySelector<HTMLButtonElement>(
-    '[data-action="export-selection"]'
+    '[data-action="export-selection"]',
   );
   const exportZipBtn = section.querySelector<HTMLButtonElement>(
-    '[data-action="export-zip"]'
+    '[data-action="export-zip"]',
   );
   const deleteBtn = section.querySelector<HTMLButtonElement>(
-    '[data-action="delete-selection"]'
+    '[data-action="delete-selection"]',
   );
   const count = selectedEntryIds.size;
   if (info) {
@@ -1488,10 +1490,10 @@ function updateSelectionInfo(section: HTMLElement): void {
 
 function markActiveListEntry(
   section: HTMLElement,
-  entryId: string | null
+  entryId: string | null,
 ): void {
   const containers = section.querySelectorAll<HTMLElement>(
-    '[data-role="doc-list"] .doc-sidebar-entry'
+    '[data-role="doc-list"] .doc-sidebar-entry',
   );
   containers.forEach((node) => {
     const isActive = Boolean(entryId && node.dataset.entryId === entryId);
@@ -1502,15 +1504,15 @@ function markActiveListEntry(
 function renderDetail(
   section: HTMLElement,
   payload: EntryDetailPayload | null,
-  labels: AppState["fieldLabels"]
+  labels: AppState["fieldLabels"],
 ): void {
   const detailWrapper = section.querySelector<HTMLElement>("#doc-detail");
   const detailBody = section.querySelector<HTMLElement>("#doc-detail-body");
   const detailCard = section.querySelector<HTMLElement>(
-    '[data-role="doc-detail-card"]'
+    '[data-role="doc-detail-card"]',
   );
   const emptyState = section.querySelector<HTMLElement>(
-    '[data-role="doc-detail-empty"]'
+    '[data-role="doc-detail-empty"]',
   );
   if (!detailWrapper || !detailBody || !detailCard || !emptyState) {
     return;
@@ -1536,7 +1538,7 @@ function renderDetail(
   const snapshotTable = buildMediumTableHTML(
     detailEntry.items || [],
     resolvedLabels,
-    "detail"
+    "detail",
   );
   const mapUrl = detailEntry.gpsCoordinates
     ? buildGoogleMapsUrl(detailEntry.gpsCoordinates)
@@ -1561,7 +1563,7 @@ function renderDetail(
     ? `${escapeHtml(gpsCoords)}${
         mapUrl
           ? ` <a class="btn btn-link btn-sm p-0 ms-2 align-baseline" href="${escapeHtml(
-              mapUrl
+              mapUrl,
             )}" target="_blank" rel="noopener noreferrer">Google Maps</a>`
           : ""
       }`
@@ -1570,38 +1572,38 @@ function renderDetail(
   detailBody.innerHTML = `
     <p>
       <strong>${escapeHtml(tableLabels.date || "Datum")}:</strong> ${escapeHtml(
-        resolveEntryDate(detailEntry)
+        resolveEntryDate(detailEntry),
       )}<br />
       <strong>${escapeHtml(
-        detailLabels.creator || "Erstellt von"
+        detailLabels.creator || "Erstellt von",
       )}:</strong> ${escapeHtml(detailEntry.ersteller || "")}<br />
       <strong>${escapeHtml(
-        detailLabels.location || "Standort"
+        detailLabels.location || "Standort",
       )}:</strong> ${escapeHtml(detailEntry.standort || "")}<br />
       <strong>${escapeHtml(
-        detailLabels.crop || "Kultur"
+        detailLabels.crop || "Kultur",
       )}:</strong> ${escapeHtml(detailEntry.kultur || "")}<br />
       <strong>${escapeHtml(
-        detailLabels.usageType || "Art der Verwendung"
+        detailLabels.usageType || "Art der Verwendung",
       )}:</strong> ${escapeHtml(detailEntry.usageType || "")}<br />
       <strong>${escapeHtml(
-        detailLabels.quantity || "Fläche (ha)"
+        detailLabels.quantity || "Fläche (ha)",
       )}:</strong> ${escapeHtml(formatEntryArea(detailEntry))}<br />
       <strong>${escapeHtml(
-        detailLabels.eppoCode || "EPPO-Code"
+        detailLabels.eppoCode || "EPPO-Code",
       )}:</strong> ${escapeHtml(detailEntry.eppoCode || "")}<br />
       <strong>${escapeHtml(
-        detailLabels.bbch || "BBCH"
+        detailLabels.bbch || "BBCH",
       )}:</strong> ${escapeHtml(detailEntry.bbch || "")}<br />
       <strong>${escapeHtml(
-        detailLabels.invekos || "InVeKoS"
+        detailLabels.invekos || "InVeKoS",
       )}:</strong> ${escapeHtml(detailEntry.invekos || "")}<br />
       <strong>${escapeHtml(gpsNoteLabel)}:</strong> ${
         gpsNote ? escapeHtml(gpsNote) : "-"
       }<br />
       <strong>${escapeHtml(gpsCoordsLabel)}:</strong> ${gpsCoordsHtml}<br />
       <strong>${escapeHtml(
-        detailLabels.time || "Uhrzeit"
+        detailLabels.time || "Uhrzeit",
       )}:</strong> ${escapeHtml(detailEntry.uhrzeit || "")}<br />
     </p>
     ${renderQsDetailHtml({
@@ -1619,11 +1621,11 @@ function renderDetail(
 
 function renderList(
   section: HTMLElement,
-  labels: AppState["fieldLabels"]
+  labels: AppState["fieldLabels"],
 ): void {
   updateVisibleEntries();
   const listContainer = section.querySelector<HTMLElement>(
-    '[data-role="doc-list"]'
+    '[data-role="doc-list"]',
   );
   if (!listContainer) {
     return;
@@ -1645,7 +1647,7 @@ function renderList(
     visibleEntries.forEach((item) => {
       const row = document.createElement("div");
       const isHighlighted = Boolean(
-        focusContext?.highlightEntryIds?.has(item.id)
+        focusContext?.highlightEntryIds?.has(item.id),
       );
       row.className = `doc-sidebar-entry list-group-item${
         isHighlighted ? " doc-sidebar-entry--highlight" : ""
@@ -1670,12 +1672,12 @@ function renderList(
           </div>
           <div class="text-muted small mb-1">
             ${escapeHtml(item.entry.ersteller || "-")} | ${escapeHtml(
-              item.entry.standort || "-"
+              item.entry.standort || "-",
             )}
           </div>
           <div class="small text-muted">
             ${escapeHtml(item.entry.usageType || "-")} · ${escapeHtml(
-              item.entry.eppoCode || "-"
+              item.entry.eppoCode || "-",
             )} · ${escapeHtml(item.entry.invekos || "-")}
           </div>
         </div>
@@ -1704,7 +1706,7 @@ function renderList(
 
 function updateInfo(
   section: HTMLElement,
-  _labels: AppState["fieldLabels"]
+  _labels: AppState["fieldLabels"],
 ): void {
   const info = section.querySelector<HTMLElement>('[data-role="doc-info"]');
   if (!info) {
@@ -1712,7 +1714,7 @@ function updateInfo(
   }
   const total = totalEntries;
   const hasOptionalFilters = Boolean(
-    currentFilters.crop || currentFilters.creator
+    currentFilters.crop || currentFilters.creator,
   );
   if (!total && !isLoadingEntries) {
     info.textContent = hasOptionalFilters ? "Keine Einträge" : "Keine Einträge";
@@ -1732,7 +1734,7 @@ function updateInfo(
 
 async function reopenDetailIfVisible(
   section: HTMLElement,
-  labels: AppState["fieldLabels"]
+  labels: AppState["fieldLabels"],
 ): Promise<void> {
   const detailWrapper = section.querySelector<HTMLElement>("#doc-detail");
   const entryId = detailWrapper?.dataset.entryId;
@@ -1757,7 +1759,7 @@ async function loadSqlitePage(
   section: HTMLElement,
   labels: AppState["fieldLabels"],
   requestedPage = docPageIndex,
-  options: { forceReload?: boolean } = {}
+  options: { forceReload?: boolean } = {},
 ): Promise<void> {
   const page = Math.max(0, requestedPage);
   const forceReload = Boolean(options.forceReload);
@@ -1805,7 +1807,7 @@ async function loadSqlitePage(
       return;
     }
     const mapped = result.items.map((item: Record<string, unknown>) =>
-      mapSqliteHistoryEntry(item)
+      mapSqliteHistoryEntry(item),
     );
     docPageCache.set(page, mapped);
     pruneDocPageCache(page);
@@ -1830,7 +1832,7 @@ async function loadSqlitePage(
       docLoadError =
         "Dokumentation konnte nicht geladen werden. Bitte erneut versuchen.";
       window.alert(
-        "Dokumentation konnte nicht geladen werden. Bitte erneut versuchen."
+        "Dokumentation konnte nicht geladen werden. Bitte erneut versuchen.",
       );
     }
   } finally {
@@ -1844,13 +1846,13 @@ async function loadSqlitePage(
 
 async function loadMemoryEntries(
   section: HTMLElement,
-  state: AppState
+  state: AppState,
 ): Promise<void> {
   const entries = extractSliceItems<HistoryEntry>(state.history);
   allEntries = sortEntries(
     entries
       .map((entry, index) => mapStateHistoryEntry(entry as HistoryEntry, index))
-      .filter((item) => matchesFilter(item.entry, currentFilters))
+      .filter((item) => matchesFilter(item.entry, currentFilters)),
   );
   totalEntries = allEntries.length;
   docPageIndex = 0;
@@ -1863,7 +1865,7 @@ async function loadMemoryEntries(
 
 async function applyFilters(
   section: HTMLElement,
-  state: AppState
+  state: AppState,
 ): Promise<void> {
   // Kein automatisches Setzen von Datums-Filtern
   // Ohne Filter werden die letzten 50 Einträge geladen
@@ -1912,7 +1914,7 @@ async function collectSelectedEntries(): Promise<HistoryEntry[]> {
 
 async function deleteSelectedEntries(
   section: HTMLElement,
-  services: Services
+  services: Services,
 ): Promise<void> {
   if (!selectedEntryIds.size) {
     return;
@@ -1931,7 +1933,7 @@ async function deleteSelectedEntries(
   }
 
   const sqliteEntries = selectedEntries.filter(
-    (entry) => entry.source === "sqlite"
+    (entry) => entry.source === "sqlite",
   );
 
   const removedFromSqlite = Boolean(sqliteEntries.length);
@@ -1944,7 +1946,7 @@ async function deleteSelectedEntries(
   const memoryIndexes = new Set(
     selectedEntries
       .filter((entry) => entry.source === "state")
-      .map((entry) => entry.ref)
+      .map((entry) => entry.ref),
   );
 
   if (memoryIndexes.size) {
@@ -1966,7 +1968,7 @@ async function deleteSelectedEntries(
 
   if (entriesForRemoval.length) {
     const signatures = new Set(
-      entriesForRemoval.map((entry) => buildHistorySignature(entry))
+      entriesForRemoval.map((entry) => buildHistorySignature(entry)),
     );
     pruneStateHistoryBySignatures(signatures);
   }
@@ -1977,7 +1979,7 @@ async function deleteSelectedEntries(
     } catch (error) {
       console.warn(
         "SQLite-Datei konnte nach dem Löschen nicht gespeichert werden",
-        error
+        error,
       );
     }
     services.events?.emit?.("history:data-changed", {
@@ -1993,7 +1995,7 @@ async function deleteSelectedEntries(
 async function handleDetailRequest(
   section: HTMLElement,
   entry: DocumentationEntry,
-  labels: AppState["fieldLabels"]
+  labels: AppState["fieldLabels"],
 ): Promise<void> {
   const detail = await resolveEntryDetail(entry);
   if (!detail) {
@@ -2004,7 +2006,7 @@ async function handleDetailRequest(
 }
 
 async function handlePrintSingleEntry(
-  entry: DocumentationEntry
+  entry: DocumentationEntry,
 ): Promise<void> {
   const detail = await resolveEntryDetail(entry);
   if (detail) {
@@ -2025,7 +2027,7 @@ async function persistHistoryChanges(): Promise<void> {
   } catch (error) {
     console.error("Persist history failed", error);
     window.alert(
-      "Historie konnte nicht gespeichert werden. Bitte erneut versuchen."
+      "Historie konnte nicht gespeichert werden. Bitte erneut versuchen.",
     );
     throw error;
   }
@@ -2034,7 +2036,7 @@ async function persistHistoryChanges(): Promise<void> {
 async function handleArchiveSubmit(
   section: HTMLElement,
   services: Services,
-  form: HTMLFormElement
+  form: HTMLFormElement,
 ): Promise<void> {
   if (isArchiving) {
     return;
@@ -2045,7 +2047,7 @@ async function handleArchiveSubmit(
     setArchiveStatus(
       section,
       "Archivieren ist nur mit einer lokalen SQLite-Datenbank möglich.",
-      "warning"
+      "warning",
     );
     return;
   }
@@ -2054,7 +2056,7 @@ async function handleArchiveSubmit(
     setArchiveStatus(
       section,
       "Bitte Start- und Enddatum für das Archiv wählen.",
-      "warning"
+      "warning",
     );
     return;
   }
@@ -2068,7 +2070,7 @@ async function handleArchiveSubmit(
     setArchiveStatus(
       section,
       "Startdatum darf nicht nach dem Enddatum liegen.",
-      "danger"
+      "danger",
     );
     return;
   }
@@ -2097,7 +2099,7 @@ async function handleArchiveSubmit(
       setArchiveStatus(
         section,
         "Im angegebenen Zeitraum wurden keine Einträge gefunden.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -2105,7 +2107,7 @@ async function handleArchiveSubmit(
       setArchiveStatus(
         section,
         `Maximal ${ARCHIVE_ENTRY_LIMIT} Einträge pro Archiv erlaubt. Bitte Zeitraum verkürzen.`,
-        "warning"
+        "warning",
       );
       return;
     }
@@ -2113,7 +2115,7 @@ async function handleArchiveSubmit(
     setArchiveStatus(
       section,
       `Exportiere ${targetCount} Einträge in ein ZIP-Archiv...`,
-      "info"
+      "info",
     );
     const exportResult = await exportHistoryRange({
       filters: queryFilters,
@@ -2125,7 +2127,7 @@ async function handleArchiveSubmit(
       setArchiveStatus(
         section,
         "Archiv konnte nicht erstellt werden – Export lieferte keine Einträge.",
-        "danger"
+        "danger",
       );
       return;
     }
@@ -2163,11 +2165,11 @@ async function handleArchiveSubmit(
       setArchiveStatus(
         section,
         "Export abgeschlossen. Entferne Einträge und bereinige Datenbank...",
-        "info"
+        "info",
       );
       await deleteHistoryRange({ filters: queryFilters });
       const removedSignatures = new Set(
-        payloadEntries.map((entry) => buildHistorySignature(entry))
+        payloadEntries.map((entry) => buildHistorySignature(entry)),
       );
       pruneStateHistoryBySignatures(removedSignatures);
       try {
@@ -2175,7 +2177,7 @@ async function handleArchiveSubmit(
       } catch (error) {
         console.error(
           "SQLite-Datei konnte nach dem Archivieren nicht gespeichert werden",
-          error
+          error,
         );
       }
       services.events?.emit?.("history:data-changed", {
@@ -2212,7 +2214,7 @@ async function handleArchiveSubmit(
       removeAfterExport: Boolean(values.removeAfterExport),
       historyIdSample: exportResult?.historyIds?.slice(
         0,
-        ARCHIVE_HIGHLIGHT_LIMIT
+        ARCHIVE_HIGHLIGHT_LIMIT,
       ),
     } as Record<string, unknown>;
     await recordArchiveLog(logEntry, logMetadata);
@@ -2240,7 +2242,7 @@ async function handleArchiveSubmit(
     setArchiveStatus(
       section,
       archiveMessage,
-      vacuumFailed ? "warning" : "success"
+      vacuumFailed ? "warning" : "success",
     );
   } catch (error) {
     console.error("Archivieren fehlgeschlagen", error);
@@ -2296,7 +2298,7 @@ function exportEntries(entries: HistoryEntry[]): void {
 
 async function exportEntriesAsZip(
   entries: HistoryEntry[],
-  filters: DocumentationFilters
+  filters: DocumentationFilters,
 ): Promise<void> {
   if (!entries.length) {
     window.alert("Keine Einträge ausgewählt.");
@@ -2554,7 +2556,7 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
   // Tab switching
   section.addEventListener("click", (event) => {
     const tabBtn = (event.target as HTMLElement).closest<HTMLElement>(
-      "[data-doc-tab]"
+      "[data-doc-tab]",
     );
     if (tabBtn && tabBtn.dataset.docTab) {
       switchDocTab(section, tabBtn.dataset.docTab);
@@ -2653,7 +2655,7 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
       setArchiveStatus(
         section,
         `Dokumentation auf Archiv ${log.startDate} – ${log.endDate} fokussiert.`,
-        "success"
+        "success",
       );
       return;
     }
@@ -2735,7 +2737,7 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
       const seedFn = globalApi?.seedHistoryEntries;
       if (typeof seedFn !== "function") {
         window.alert(
-          "Seed-Funktion ist nicht verfügbar. Bitte Entwicklungsmodus verwenden."
+          "Seed-Funktion ist nicht verfügbar. Bitte Entwicklungsmodus verwenden.",
         );
         return;
       }
@@ -2786,7 +2788,7 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
       void handleDetailRequest(
         section,
         entry,
-        services.state.getState().fieldLabels
+        services.state.getState().fieldLabels,
       );
       return;
     }
@@ -2817,7 +2819,7 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
 
 export function initDocumentation(
   container: Element | null,
-  services: Services
+  services: Services,
 ): void {
   if (!container || initialized) {
     return;
@@ -2830,7 +2832,7 @@ export function initDocumentation(
 
   // Mount Import feature in the import tab
   const importContainer = section.querySelector(
-    '[data-feature="import-embed"]'
+    '[data-feature="import-embed"]',
   );
   if (importContainer) {
     initImportMerge(importContainer, {
@@ -2861,9 +2863,9 @@ export function initDocumentation(
         handleFocusRangeEvent(
           section,
           services,
-          payload as DocumentationFocusPayload
+          payload as DocumentationFocusPayload,
         );
-      }
+      },
     );
   }
 
@@ -2888,7 +2890,7 @@ export function initDocumentation(
 
   services.state.subscribe((nextState) => {
     const nextLogSignature = computeArchiveLogSignature(
-      nextState.archives?.logs
+      nextState.archives?.logs,
     );
     if (nextLogSignature !== lastArchiveLogSignature) {
       lastArchiveLogSignature = nextLogSignature;

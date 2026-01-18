@@ -10,7 +10,7 @@ import {
 } from "./state";
 import { emit } from "./eventBus";
 import { getActiveDriverKey } from "./storage";
-import { gpsLock, saveLock } from "./asyncLock";
+import { gpsLock } from "./asyncLock";
 import {
   listGpsPoints as workerListGpsPoints,
   upsertGpsPoint as workerUpsertGpsPoint,
@@ -32,7 +32,7 @@ function deepMerge(target: any, source: any): any {
   for (const [key, value] of Object.entries(source)) {
     if (Array.isArray(value)) {
       result[key] = value.map((item) =>
-        item && typeof item === "object" ? clone(item) : item
+        item && typeof item === "object" ? clone(item) : item,
       );
       continue;
     }
@@ -156,7 +156,7 @@ export function createInitialDatabase(overrides: any = {}): any {
           date: "",
         },
       },
-      base.meta.defaults ?? {}
+      base.meta.defaults ?? {},
     );
     if ("templates" in base) {
       delete base.templates;
@@ -228,7 +228,7 @@ function assertSqliteDriver(action: string): void {
   const driver = getActiveDriverKey();
   if (driver !== "sqlite") {
     throw new Error(
-      `${action} erfordert eine aktive SQLite-Datenbank (aktueller Treiber: ${driver}).`
+      `${action} erfordert eine aktive SQLite-Datenbank (aktueller Treiber: ${driver}).`,
     );
   }
 }
@@ -267,12 +267,12 @@ function normalizeGpsPoint(raw: any): GpsPoint {
 function updateGpsState(
   updater:
     | Partial<AppState["gps"]>
-    | ((prev: AppState["gps"]) => AppState["gps"])
+    | ((prev: AppState["gps"]) => AppState["gps"]),
 ): void {
   if (typeof updater === "function") {
     updateSlice(
       "gps",
-      updater as (current: AppState["gps"]) => AppState["gps"]
+      updater as (current: AppState["gps"]) => AppState["gps"],
     );
     return;
   }
@@ -329,7 +329,7 @@ export async function loadGpsPoints(): Promise<GpsPoint[]> {
 
 export async function saveGpsPoint(
   input: GpsPointInput,
-  options: { activate?: boolean } = {}
+  options: { activate?: boolean } = {},
 ): Promise<GpsPoint> {
   assertSqliteDriver("GPS-Punkt speichern");
 
@@ -410,7 +410,7 @@ export async function deleteGpsPoint(id: string): Promise<void> {
       await workerDeleteGpsPoint({ id: trimmedId });
       updateGpsState((prev) => {
         const items = prev.points.items.filter(
-          (point) => point.id !== trimmedId
+          (point) => point.id !== trimmedId,
         );
         const activePointId =
           prev.activePointId === trimmedId ? null : prev.activePointId;
@@ -451,7 +451,7 @@ export async function deleteGpsPoint(id: string): Promise<void> {
 
 export async function setActiveGpsPoint(
   id: string | null,
-  options: { silent?: boolean } = {}
+  options: { silent?: boolean } = {},
 ): Promise<void> {
   assertSqliteDriver("GPS-Punkt aktiv setzen");
   const trimmedId = id ? String(id).trim() : "";
@@ -463,7 +463,7 @@ export async function setActiveGpsPoint(
     console.info(
       trimmedId
         ? `GPS-Punkt ${trimmedId} als aktiv markiert.`
-        : "Aktiver GPS-Punkt wurde zurückgesetzt."
+        : "Aktiver GPS-Punkt wurde zurückgesetzt.",
     );
   }
 }

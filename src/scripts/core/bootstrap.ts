@@ -23,9 +23,9 @@ function setupUnloadWarning(stateService: any): void {
       return;
     }
     event.preventDefault();
-    event.returnValue =
-      "Die Verbindung zur Datenbank wird getrennt. Ungespeicherte Änderungen können verloren gehen.";
-    return event.returnValue;
+    // Legacy-Unterstützung für ältere Browser (Chrome < 51, Firefox < 44)
+    event.returnValue = "";
+    return "";
   };
   let active = false;
   const update = (state: any) => {
@@ -68,7 +68,8 @@ function getRegions() {
 }
 
 export async function bootstrap() {
-  const regions = getRegions();
+  // Regions für zukünftige Feature-Initialisierung
+  const _regions = getRegions();
 
   // QS-Modus initialisieren (prüft URL-Parameter)
   initQsMode();
@@ -97,7 +98,7 @@ export async function bootstrap() {
   registerHistorySeeder(services);
 
   const overlayToggle = document.querySelector<HTMLButtonElement>(
-    "[data-action='debug-overlay-toggle']"
+    "[data-action='debug-overlay-toggle']",
   );
 
   const markToggleActive = () => {
@@ -159,38 +160,41 @@ export async function bootstrap() {
       // Dynamisch das Storage-Modul laden und Datei öffnen
       const storage = await import("./storage/index");
       const sqlite = await import("./storage/sqlite");
-      
+
       if (sqlite.isSupported()) {
         storage.setActiveDriver("sqlite");
-        
+
         // Datei über das Handle öffnen
         const file = await handle.getFile();
         const arrayBuffer = await file.arrayBuffer();
-        
+
         // Worker initialisieren und Datei importieren
-        const result = await sqlite.importFromArrayBuffer(arrayBuffer, file.name);
-        
+        const result = await sqlite.importFromArrayBuffer(
+          arrayBuffer,
+          file.name,
+        );
+
         // FileHandle speichern für Auto-Start
         await storeFileHandle(handle);
-        
+
         // Datenbank verbinden
         const { applyDatabase } = await import("./database");
         applyDatabase(result.data);
-        
+
         emit("database:connected", {
           driver: "sqlite",
-          autoStarted: true
+          autoStarted: true,
         });
       }
-    }
+    },
   });
-  
+
   // Bei erfolgreicher Datenbank-Verbindung: State für Auto-Start speichern
-  subscribeEvent("database:connected", async (event) => {
+  subscribeEvent("database:connected", async (_event) => {
     await saveDbState({
       hasDatabase: true,
       lastAccess: new Date().toISOString(),
-      autoStartEnabled: true
+      autoStartEnabled: true,
     });
   });
 

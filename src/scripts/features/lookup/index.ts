@@ -138,7 +138,7 @@ function writeLanguagePreference(value: string): void {
   } catch (error) {
     console.warn(
       "Lookup-Sprachpräferenz konnte nicht gespeichert werden",
-      error
+      error,
     );
   }
 }
@@ -152,7 +152,7 @@ const lookupOverlayBinding = createDebugOverlayBinding({
 
 export function initLookup(
   container: Element | null,
-  services: Services
+  services: Services,
 ): void {
   if (!container || initialized) {
     return;
@@ -167,49 +167,49 @@ export function initLookup(
     message: section.querySelector<HTMLElement>('[data-role="lookup-message"]'),
     eppoCount: section.querySelector<HTMLElement>('[data-role="eppo-count"]'),
     eppoUpdated: section.querySelector<HTMLElement>(
-      '[data-role="eppo-updated"]'
+      '[data-role="eppo-updated"]',
     ),
     eppoStatus: section.querySelector<HTMLElement>('[data-role="eppo-status"]'),
     bbchCount: section.querySelector<HTMLElement>('[data-role="bbch-count"]'),
     bbchUpdated: section.querySelector<HTMLElement>(
-      '[data-role="bbch-updated"]'
+      '[data-role="bbch-updated"]',
     ),
     bbchStatus: section.querySelector<HTMLElement>('[data-role="bbch-status"]'),
     importEppoBtn: section.querySelector<HTMLButtonElement>(
-      '[data-action="import-eppo"]'
+      '[data-action="import-eppo"]',
     ),
     importBbchBtn: section.querySelector<HTMLButtonElement>(
-      '[data-action="import-bbch"]'
+      '[data-action="import-bbch"]',
     ),
     refreshStatsBtn: section.querySelector<HTMLButtonElement>(
-      '[data-action="refresh-stats"]'
+      '[data-action="refresh-stats"]',
     ),
     ensureBtn: section.querySelector<HTMLButtonElement>(
-      '[data-action="ensure-datasets"]'
+      '[data-action="ensure-datasets"]',
     ),
     eppoForm: section.querySelector<HTMLFormElement>('[data-role="eppo-form"]'),
     bbchForm: section.querySelector<HTMLFormElement>('[data-role="bbch-form"]'),
     eppoLanguageSelect: section.querySelector<HTMLSelectElement>(
-      "#lookup-eppo-language"
+      "#lookup-eppo-language",
     ),
     eppoResults: section.querySelector<HTMLTableSectionElement>(
-      '[data-role="eppo-results-body"]'
+      '[data-role="eppo-results-body"]',
     ),
     bbchResults: section.querySelector<HTMLTableSectionElement>(
-      '[data-role="bbch-results-body"]'
+      '[data-role="bbch-results-body"]',
     ),
     eppoPager: section.querySelector<HTMLElement>('[data-role="eppo-pager"]'),
     bbchPager: section.querySelector<HTMLElement>('[data-role="bbch-pager"]'),
     tabButtons: Array.from(
-      section.querySelectorAll<HTMLButtonElement>('[data-role="lookup-tab"]')
+      section.querySelectorAll<HTMLButtonElement>('[data-role="lookup-tab"]'),
     ),
     panels: Array.from(
-      section.querySelectorAll<HTMLElement>('[data-role="lookup-panel"]')
+      section.querySelectorAll<HTMLElement>('[data-role="lookup-panel"]'),
     ),
   };
 
   const disableTargets = Array.from(
-    section.querySelectorAll<HTMLElement>("[data-lookup-disable]")
+    section.querySelectorAll<HTMLElement>("[data-lookup-disable]"),
   );
 
   let databaseReady = services.state.getState().app.hasDatabase;
@@ -328,7 +328,7 @@ export function initLookup(
   const setMessage = (
     text?: string,
     variant: "info" | "success" | "warning" | "danger" = "info",
-    autoHideMs = 4500
+    autoHideMs = 4500,
   ) => {
     if (!refs.message) {
       return;
@@ -354,7 +354,7 @@ export function initLookup(
 
   const setUiEnabled = (
     enabled: boolean,
-    reason: "no-db" | "wrong-driver" | null = null
+    reason: "no-db" | "wrong-driver" | null = null,
   ) => {
     disableTargets.forEach((element) => {
       if (
@@ -370,13 +370,13 @@ export function initLookup(
         setMessage(
           "Bitte zuerst eine Datenbank verbinden, um Lookup-Daten zu laden.",
           "info",
-          0
+          0,
         );
       } else if (reason === "wrong-driver") {
         setMessage(
           "Lookup-Funktionen benötigen eine SQLite-Datenbank. Bitte in den Einstellungen den SQLite-Treiber aktivieren.",
           "warning",
-          0
+          0,
         );
       } else {
         setMessage("Lookup-Funktion vorübergehend deaktiviert.", "warning", 0);
@@ -460,12 +460,12 @@ export function initLookup(
     const firstIndex = state.page * state.limit + 1;
     const lastIndex = Math.min(
       state.total,
-      firstIndex + (state.currentCount || state.limit) - 1
+      firstIndex + (state.currentCount || state.limit) - 1,
     );
     const info = `Einträge ${numberFormatter.format(
-      firstIndex
+      firstIndex,
     )}–${numberFormatter.format(lastIndex)} von ${numberFormatter.format(
-      state.total
+      state.total,
     )}`;
     const maxPage = Math.max(Math.ceil(state.total / state.limit) - 1, 0);
     const canPrev = !state.loading && state.page > 0;
@@ -531,13 +531,13 @@ export function initLookup(
         const languages = await listLookupLanguages();
         const totalEntries = languages.reduce(
           (sum, entry) => sum + (entry.count || 0),
-          0
+          0,
         );
         const optionRows: string[] = [
           `<option value="">${escapeHtml(
             totalEntries
               ? `Alle Sprachen (${numberFormatter.format(totalEntries)})`
-              : "Alle Sprachen"
+              : "Alle Sprachen",
           )}</option>`,
         ];
         const availableCodes = new Set<string>();
@@ -549,8 +549,8 @@ export function initLookup(
             : "";
           optionRows.push(
             `<option value="${escapeHtml(code)}">${escapeHtml(
-              `${label}${countSuffix}`
-            )}</option>`
+              `${label}${countSuffix}`,
+            )}</option>`,
           );
           availableCodes.add(code);
         }
@@ -575,7 +575,7 @@ export function initLookup(
       } catch (error) {
         console.error(
           "Lookup-Sprachen konnten nicht aktualisiert werden",
-          error
+          error,
         );
         setMessage("Sprachenliste konnte nicht geladen werden.", "danger");
         return false;
@@ -601,7 +601,7 @@ export function initLookup(
     }
     return `${date.toLocaleDateString("de-DE")} ${date.toLocaleTimeString(
       "de-DE",
-      { hour: "2-digit", minute: "2-digit" }
+      { hour: "2-digit", minute: "2-digit" },
     )}`;
   };
 
@@ -653,7 +653,7 @@ export function initLookup(
 
   const runSearch = async (
     tab: LookupTab,
-    override?: Partial<Pick<SearchState, "query" | "limit" | "language">>
+    override?: Partial<Pick<SearchState, "query" | "limit" | "language">>,
   ) => {
     if (!isLookupAvailable()) {
       return;
@@ -826,7 +826,7 @@ export function initLookup(
   section.addEventListener("click", (event) => {
     const targetElement = event.target as HTMLElement;
     const copyBtn = targetElement.closest<HTMLButtonElement>(
-      '[data-action="copy-code"]'
+      '[data-action="copy-code"]',
     );
     if (copyBtn && copyBtn.dataset.code) {
       event.preventDefault();
@@ -835,14 +835,14 @@ export function initLookup(
     }
 
     const applyEppoBtn = targetElement.closest<HTMLButtonElement>(
-      '[data-action="apply-eppo"]'
+      '[data-action="apply-eppo"]',
     );
     if (applyEppoBtn) {
       event.preventDefault();
       if (!canApplyToCalculation) {
         setMessage(
           "Berechnungsformular nicht verfügbar – bitte SQLite-Treiber aktivieren.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -860,21 +860,21 @@ export function initLookup(
         console.error("EPPO-Code konnte nicht übergeben werden", error);
         setMessage(
           "Auswahl konnte nicht ins Formular übernommen werden.",
-          "danger"
+          "danger",
         );
       }
       return;
     }
 
     const applyBbchBtn = targetElement.closest<HTMLButtonElement>(
-      '[data-action="apply-bbch"]'
+      '[data-action="apply-bbch"]',
     );
     if (applyBbchBtn) {
       event.preventDefault();
       if (!canApplyToCalculation) {
         setMessage(
           "Berechnungsformular nicht verfügbar – bitte SQLite-Treiber aktivieren.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -892,7 +892,7 @@ export function initLookup(
         console.error("BBCH-Eintrag konnte nicht übergeben werden", error);
         setMessage(
           "Stadium konnte nicht ins Formular übernommen werden.",
-          "danger"
+          "danger",
         );
       }
     }
@@ -1162,7 +1162,7 @@ type LookupRenderOptions = {
 
 async function withButtonBusy(
   button: HTMLButtonElement | null,
-  task: () => Promise<void>
+  task: () => Promise<void>,
 ): Promise<void> {
   if (!button) {
     await task();
@@ -1172,7 +1172,7 @@ async function withButtonBusy(
   button.disabled = true;
   const label = button.textContent?.trim() || "Bitte warten";
   button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${escapeHtml(
-    label
+    label,
   )}`;
   try {
     await task();
@@ -1186,7 +1186,7 @@ function renderEppoResults(
   rows: EppoLookupResult[],
   target?: HTMLTableSectionElement | null,
   append = false,
-  options: LookupRenderOptions = {}
+  options: LookupRenderOptions = {},
 ): void {
   if (!target) {
     return;
@@ -1209,8 +1209,8 @@ function renderEppoResults(
             .map(
               (entry) =>
                 `<span class="me-3">${escapeHtml(entry.label)}: ${escapeHtml(
-                  entry.value
-                )}</span>`
+                  entry.value,
+                )}</span>`,
             )
             .join("")}</div>`
         : "";
@@ -1220,14 +1220,14 @@ function renderEppoResults(
       }
       if (synonyms.length) {
         hintLines.push(
-          `Synonyme: ${synonyms.map((entry) => entry.label).join(", ")}`
+          `Synonyme: ${synonyms.map((entry) => entry.label).join(", ")}`,
         );
       }
       const hintsHtml = hintLines.length
         ? hintLines
             .map(
               (line) =>
-                `<div class="text-muted small">${escapeHtml(line)}</div>`
+                `<div class="text-muted small">${escapeHtml(line)}</div>`,
             )
             .join("")
         : '<div class="text-muted small">Keine weiteren Angaben.</div>';
@@ -1249,14 +1249,14 @@ function renderEppoResults(
           <td class="text-end">
             <div class="btn-group btn-group-sm" role="group">
               <button type="button" class="btn btn-outline-light" data-action="copy-code" data-code="${escapeHtml(
-                row.code
+                row.code,
               )}">
                 Kopieren
               </button>
               <button type="button" class="btn btn-success" data-action="apply-eppo" data-code="${escapeHtml(
-                row.code
+                row.code,
               )}" data-name="${escapeHtml(row.name)}" data-language="${escapeHtml(
-                row.language || ""
+                row.language || "",
               )}" data-dtcode="${escapeHtml(row.dtcode || "")}"${
                 enableApply ? "" : " disabled"
               }>
@@ -1276,7 +1276,7 @@ function renderEppoResults(
 }
 
 function formatLanguageLabel(
-  row: Pick<EppoLookupResult, "language" | "languageLabel">
+  row: Pick<EppoLookupResult, "language" | "languageLabel">,
 ): string {
   const label = row.languageLabel?.trim() || "";
   const code = row.language?.trim() || "";
@@ -1317,7 +1317,7 @@ function renderBbchResults(
   rows: BbchLookupResult[],
   target?: HTMLTableSectionElement | null,
   append = false,
-  options: LookupRenderOptions = {}
+  options: LookupRenderOptions = {},
 ): void {
   if (!target) {
     return;
@@ -1358,12 +1358,12 @@ function renderBbchResults(
           <td class="text-end">
             <div class="btn-group btn-group-sm" role="group">
               <button type="button" class="btn btn-outline-light" data-action="copy-code" data-code="${escapeHtml(
-                row.code
+                row.code,
               )}">
                 Kopieren
               </button>
               <button type="button" class="btn btn-success" data-action="apply-bbch" data-code="${escapeHtml(
-                row.code
+                row.code,
               )}" data-name="${escapeHtml(row.label)}"${
                 enableApply ? "" : " disabled"
               }>
@@ -1411,7 +1411,7 @@ function renderBbchDefinition(text?: string | null): string {
 function renderPlaceholder(
   target: HTMLTableSectionElement | null | undefined,
   text: string,
-  columns: number
+  columns: number,
 ): void {
   if (!target) {
     return;
@@ -1427,8 +1427,8 @@ async function copyToClipboard(
   code: string,
   notify: (
     text?: string,
-    variant?: "info" | "success" | "warning" | "danger"
-  ) => void
+    variant?: "info" | "success" | "warning" | "danger",
+  ) => void,
 ): Promise<void> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -1440,6 +1440,7 @@ async function copyToClipboard(
   } catch (error) {
     console.warn("Clipboard API fehlgeschlagen", error);
     try {
+      // Fallback für ältere Browser ohne Clipboard API
       const input = document.createElement("textarea");
       input.value = code;
       input.style.position = "fixed";
@@ -1447,6 +1448,7 @@ async function copyToClipboard(
       document.body.appendChild(input);
       input.focus();
       input.select();
+      // eslint-disable-next-line deprecation/deprecation
       document.execCommand("copy");
       document.body.removeChild(input);
       notify(`„${code}“ kopiert.`, "success");

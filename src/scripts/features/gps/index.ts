@@ -34,7 +34,7 @@ interface Services {
     emit?: (eventName: string, payload?: unknown) => void;
     subscribe?: (
       eventName: string,
-      handler: (payload: unknown) => void
+      handler: (payload: unknown) => void,
     ) => (() => void) | void;
   };
 }
@@ -109,7 +109,7 @@ function emitHistoryActivationResult(
     id: string;
     name?: string | null;
     message: string;
-  }
+  },
 ): void {
   if (typeof services.events?.emit !== "function") {
     return;
@@ -268,14 +268,14 @@ function collectRefs(section: HTMLElement): Refs {
     root: section,
     message: section.querySelector('[data-role="gps-message"]'),
     refreshIndicator: section.querySelector(
-      '[data-role="gps-refresh-indicator"]'
+      '[data-role="gps-refresh-indicator"]',
     ),
     availability: section.querySelector('[data-role="gps-availability"]'),
     tabButtons: Array.from(
-      section.querySelectorAll<HTMLButtonElement>('[data-role="gps-tab"]')
+      section.querySelectorAll<HTMLButtonElement>('[data-role="gps-tab"]'),
     ),
     panels: Array.from(
-      section.querySelectorAll<HTMLElement>('[data-role="gps-panel"]')
+      section.querySelectorAll<HTMLElement>('[data-role="gps-panel"]'),
     ),
     listBody: section.querySelector('[data-role="gps-list"]'),
     emptyState: section.querySelector('[data-role="gps-empty"]'),
@@ -293,7 +293,7 @@ function collectRefs(section: HTMLElement): Refs {
       rawCoordinates: section.querySelector('[name="gps-raw-coordinates"]'),
     },
     disableTargets: Array.from(
-      section.querySelectorAll<HTMLElement>("[data-gps-disable]")
+      section.querySelectorAll<HTMLElement>("[data-gps-disable]"),
     ),
     geolocationBtn: section.querySelector('[data-action="use-geolocation"]'),
     mapButton: section.querySelector('[data-role="gps-open-maps"]'),
@@ -303,7 +303,7 @@ function collectRefs(section: HTMLElement): Refs {
 
 function buildGoogleMapsSearchUrl(query: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    query
+    query,
   )}`;
 }
 
@@ -314,7 +314,7 @@ function resolvePreferredMapTarget(state: AppState): {
   const gpsState = state.gps;
   const gpsPoints = getGpsSliceItems(gpsState);
   const resolveFromPoint = (
-    point: GpsPoint | null
+    point: GpsPoint | null,
   ): { url: string; label: string } | null => {
     if (!point) {
       return null;
@@ -330,7 +330,7 @@ function resolvePreferredMapTarget(state: AppState): {
 
   if (gpsState.activePointId) {
     const activePoint = gpsPoints.find(
-      (entry) => entry.id === gpsState.activePointId
+      (entry) => entry.id === gpsState.activePointId,
     );
     const resolved = resolveFromPoint(activePoint || null);
     if (resolved) {
@@ -377,7 +377,7 @@ function updateMapEntryPoints(state: AppState): void {
     refs.mapButton.title = `Google Maps öffnen (${target.label})`;
   }
   const emptyStateLink = refs.root.querySelector<HTMLAnchorElement>(
-    '[data-role="gps-empty-map-link"]'
+    '[data-role="gps-empty-map-link"]',
   );
   if (emptyStateLink) {
     emptyStateLink.href = target.url;
@@ -385,7 +385,7 @@ function updateMapEntryPoints(state: AppState): void {
 }
 
 function parseCoordinatePair(
-  raw: string
+  raw: string,
 ): { latitude: number; longitude: number } | null {
   if (!raw) {
     return null;
@@ -471,7 +471,7 @@ function formatCoordinate(value: number | string | null | undefined): string {
 }
 
 function formatTimestamp(
-  value: string | number | Date | null | undefined
+  value: string | number | Date | null | undefined,
 ): string {
   if (!value) {
     return "–";
@@ -486,7 +486,7 @@ function formatTimestamp(
 function setMessage(
   text?: string,
   variant: "info" | "success" | "warning" | "danger" = "info",
-  autoHideMs = 4500
+  autoHideMs = 4500,
 ): void {
   if (!refs?.message) {
     return;
@@ -574,7 +574,7 @@ function updateAvailabilityUi(status: AvailabilityStatus): void {
 
 function updateBusyUi(
   gpsState: GpsState,
-  availability: AvailabilityStatus
+  availability: AvailabilityStatus,
 ): void {
   if (!refs) {
     return;
@@ -637,7 +637,7 @@ function ensureGpsPager(): PagerWidget | null {
     return null;
   }
   const target = refs.root.querySelector<HTMLElement>(
-    '[data-role="gps-pager"]'
+    '[data-role="gps-pager"]',
   );
   if (!target) {
     return null;
@@ -661,7 +661,7 @@ function ensureGpsPager(): PagerWidget | null {
 
 function updateGpsPager(
   state: AppState,
-  availability: AvailabilityStatus
+  availability: AvailabilityStatus,
 ): void {
   const widget = ensureGpsPager();
   if (!widget) {
@@ -689,7 +689,7 @@ function updateGpsPager(
   widget.update({
     status: "ready",
     info: `Einträge ${gpsNumberFormatter.format(start + 1)}–${gpsNumberFormatter.format(
-      end
+      end,
     )} von ${gpsNumberFormatter.format(total)}`,
     canPrev: gpsPageIndex > 0,
     canNext: end < total,
@@ -715,7 +715,7 @@ function renderPointRows(points: GpsPoint[], activeId: string | null): string {
       const mapsUrl = buildGoogleMapsUrl(point);
       const mapsLink = mapsUrl
         ? `<a class="btn btn-outline-info" href="${escapeAttr(
-            mapsUrl
+            mapsUrl,
           )}" target="_blank" rel="noopener noreferrer">
               Karte
             </a>`
@@ -804,7 +804,7 @@ function updateListUi(state: AppState, availability: AvailabilityStatus): void {
           Nutzen Sie "Neuer Punkt" oder öffnen Sie Google Maps, um Koordinaten zu ermitteln.
         </p>
         <a class="btn btn-outline-info btn-sm" data-role="gps-empty-map-link" href="${escapeAttr(
-          mapTarget.url
+          mapTarget.url,
         )}" target="_blank" rel="noopener noreferrer">
           <i class="bi bi-box-arrow-up-right me-1"></i>
           Google Maps öffnen
@@ -817,18 +817,18 @@ function updateListUi(state: AppState, availability: AvailabilityStatus): void {
   if (refs.activeInfo) {
     if (gpsState.activePointId) {
       const point = getGpsSliceItems(gpsState).find(
-        (entry) => entry.id === gpsState.activePointId
+        (entry) => entry.id === gpsState.activePointId,
       );
       if (point) {
         const label = `${point.name || "Ohne Namen"} (${formatCoordinate(
-          point.latitude
+          point.latitude,
         )}, ${formatCoordinate(point.longitude)})`;
         const mapsUrl = buildGoogleMapsUrl(point);
         if (mapsUrl) {
           refs.activeInfo.innerHTML = `${escapeHtml(
-            label
+            label,
           )} <a class="btn btn-link btn-sm p-0 ms-2 align-baseline" href="${escapeAttr(
-            mapsUrl
+            mapsUrl,
           )}" target="_blank" rel="noopener noreferrer">Google Maps</a>`;
         } else {
           refs.activeInfo.textContent = label;
@@ -838,7 +838,7 @@ function updateListUi(state: AppState, availability: AvailabilityStatus): void {
       }
     } else {
       refs.activeInfo.innerHTML = `Kein aktiver Punkt ausgewählt. <a class="btn btn-link btn-sm p-0 ms-2 align-baseline" href="${escapeAttr(
-        mapTarget.url
+        mapTarget.url,
       )}" target="_blank" rel="noopener noreferrer">Google Maps öffnen</a>`;
     }
   }
@@ -887,12 +887,14 @@ async function copyToClipboard(payload: string): Promise<void> {
     await navigator.clipboard.writeText(payload);
     return;
   }
+  // Fallback für ältere Browser ohne Clipboard API
   const textarea = document.createElement("textarea");
   textarea.value = payload;
   textarea.style.position = "fixed";
   textarea.style.opacity = "0";
   document.body.appendChild(textarea);
   textarea.select();
+  // eslint-disable-next-line deprecation/deprecation
   document.execCommand("copy");
   document.body.removeChild(textarea);
 }
@@ -907,7 +909,7 @@ function handleApplyRawCoordinates(): void {
     setMessage(
       "Koordinaten konnten nicht erkannt werden. Bitte Format 47.68952, 9.12091 verwenden.",
       "warning",
-      6000
+      6000,
     );
     return;
   }
@@ -932,7 +934,7 @@ function handleVerifyCoordinates(): void {
     setMessage(
       "Bitte zuerst gültige Koordinaten eintragen, bevor die Prüfung geöffnet wird.",
       "warning",
-      6000
+      6000,
     );
     return;
   }
@@ -940,7 +942,7 @@ function handleVerifyCoordinates(): void {
 }
 
 async function refreshPoints(
-  options: { notify?: boolean; reason?: "manual" | "auto" | "init" } = {}
+  options: { notify?: boolean; reason?: "manual" | "auto" | "init" } = {},
 ): Promise<void> {
   const { notify = false } = options;
   if (!refs || evaluateAvailability(getState().app) !== "ok") {
@@ -999,7 +1001,7 @@ async function handleDeletePoint(id: string): Promise<void> {
     return;
   }
   const confirmDelete = window.confirm(
-    `"${point.name}" wirklich löschen? Dieser Schritt kann nicht rückgängig gemacht werden.`
+    `"${point.name}" wirklich löschen? Dieser Schritt kann nicht rückgängig gemacht werden.`,
   );
   if (!confirmDelete) {
     return;
@@ -1039,7 +1041,7 @@ async function handleCopyCoords(id: string): Promise<void> {
 
 async function activatePointFromHistoryRequest(
   id: string,
-  services: Services
+  services: Services,
 ): Promise<void> {
   const trimmedId = (id || "").trim();
   if (!trimmedId) {
@@ -1055,7 +1057,7 @@ async function activatePointFromHistoryRequest(
     setMessage(
       "GPS-Modul ist ohne aktive SQLite-Datenbank nicht verfügbar.",
       "warning",
-      6000
+      6000,
     );
     emitHistoryActivationResult(services, {
       status: "error",
@@ -1084,7 +1086,7 @@ async function activatePointFromHistoryRequest(
     await setActiveGpsPoint(point.id);
     setMessage(
       `"${point.name || "Ohne Namen"}" wurde aus der Historie aktiviert.`,
-      "success"
+      "success",
     );
     recordAction(`Aus Historie aktiviert: ${point.name || point.id}`);
     emitHistoryActivationResult(services, {
@@ -1164,7 +1166,7 @@ async function handleFormSubmit(event: SubmitEvent): Promise<void> {
       setMessage(
         "Ein GPS-Punkt mit identischen Koordinaten ist bereits vorhanden.",
         "warning",
-        6000
+        6000,
       );
       return;
     }
@@ -1177,11 +1179,11 @@ async function handleFormSubmit(event: SubmitEvent): Promise<void> {
         longitude: values.longitude,
         source: values.source || null,
       },
-      { activate: values.activate }
+      { activate: values.activate },
     );
     toast.success(`GPS-Punkt "${values.name}" gespeichert.`);
     recordAction(
-      `GPS-Punkt gespeichert${values.activate ? " und aktiv gesetzt" : ""}: ${values.name}`
+      `GPS-Punkt gespeichert${values.activate ? " und aktiv gesetzt" : ""}: ${values.name}`,
     );
     refs?.form?.reset();
   } catch (error) {
@@ -1245,7 +1247,7 @@ function fillCurrentPosition(): void {
           enableHighAccuracy: true,
           timeout: 10000,
           maximumAge: 0,
-        }
+        },
       );
     });
   });
@@ -1261,7 +1263,7 @@ function attachEventListeners(): void {
       return;
     }
     const tabButton = target.closest<HTMLButtonElement>(
-      '[data-role="gps-tab"]'
+      '[data-role="gps-tab"]',
     );
     if (tabButton && tabButton.dataset.tab) {
       setActiveTab(tabButton.dataset.tab as GpsTab);
@@ -1361,12 +1363,12 @@ export function initGps(container: Element | null, services: Services): void {
           setMessage(
             "Historische GPS-Anfrage ohne gültige ID erhalten.",
             "warning",
-            6000
+            6000,
           );
           return;
         }
         void activatePointFromHistoryRequest(requestedId, services);
-      }
+      },
     );
   }
 
