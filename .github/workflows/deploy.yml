@@ -20,6 +20,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Verify LFS files
+        run: |
+          echo "Checking LFS files..."
+          git lfs ls-files
+          echo ""
+          echo "Verifying image sizes..."
+          ls -la public/assets/img/ || echo "No public/assets/img/"
+          ls -la src/assets/img/ || echo "No src/assets/img/"
 
       - name: Setup Node
         uses: actions/setup-node@v4
