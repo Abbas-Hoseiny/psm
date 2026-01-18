@@ -6,6 +6,13 @@
 
 ## Features
 
+### 📱 Progressive Web App (PWA)
+
+- **Als App installierbar** auf Desktop und Mobilgeräten
+- **Offline-fähig** dank Service Worker Caching
+- **Auto-Start** mit zuletzt verwendeter Datenbank
+- Direktes Öffnen von .sqlite Dateien aus dem Explorer
+
 ### 🧮 Berechnung
 
 - Intelligente Pflanzenschutzmittel-Berechnung basierend auf Fläche/Menge
@@ -39,8 +46,9 @@
 
 ## Technologie
 
-- **Frontend:** Astro, TypeScript, Bootstrap 5
+- **Frontend:** Astro 4.16, TypeScript, Bootstrap 5
 - **Datenbank:** SQLite WASM (läuft komplett im Browser)
+- **PWA:** Service Worker, Web App Manifest, File Handling API
 - **Offline-First:** Funktioniert ohne Internetverbindung
 - **Datenschutz:** Alle Daten bleiben lokal auf Ihrem Gerät
 
@@ -60,6 +68,18 @@ npm run dev
 # Produktion bauen
 npm run build
 ```
+
+## PWA Installation
+
+Die App kann als Progressive Web App installiert werden:
+
+1. **Chrome/Edge:** Auf das Installations-Symbol in der Adressleiste klicken
+2. **Mobile:** "Zum Startbildschirm hinzufügen" im Browser-Menü
+
+Nach der Installation:
+- Startet die App ohne Browser-UI
+- Merkt sich die zuletzt verwendete Datenbank
+- Öffnet .sqlite Dateien direkt per Doppelklick
 
 ## Lizenz
 

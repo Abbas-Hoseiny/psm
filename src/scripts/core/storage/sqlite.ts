@@ -328,6 +328,41 @@ export function getContext(): any {
 }
 
 /**
+ * Import database from ArrayBuffer (für PWA File Handling)
+ * Wird verwendet wenn eine Datei direkt über das File Handling API geöffnet wird
+ */
+export async function importFromArrayBuffer(
+  arrayBuffer: ArrayBuffer,
+  fileName: string
+): Promise<{ data: any; context: any }> {
+  if (!isSupported()) {
+    throw new Error("SQLite-WASM is not supported in this browser");
+  }
+
+  await initWorker();
+
+  // Prüfen ob JSON oder SQLite
+  if (fileName.endsWith(".json")) {
+    const text = new TextDecoder().decode(arrayBuffer);
+    const data = JSON.parse(text);
+    await callWorker("importSnapshot", data);
+    return { data, context: { fileHandle: null } };
+  } else {
+    // SQLite binary importieren
+    await callWorker("importDB", arrayBuffer);
+    const data = await callWorker("exportSnapshot");
+    return { data, context: { fileHandle: null } };
+  }
+}
+
+/**
+ * Setzt das FileHandle von extern (z.B. PWA File Handling)
+ */
+export function setFileHandle(handle: any): void {
+  fileHandle = handle;
+}
+
+/**
  * Reset and close database
  */
 export function reset(): void {

@@ -1,0 +1,77 @@
+{
+  "name": "Digitale PSM - Pflanzenschutz-Dokumentation",
+  "short_name": "DigitalePSM",
+  "description": "Digitale Berechnung, Dokumentation und Verwaltung von Pflanzenschutzmittel-Anwendungen mit offiziellen BVL-Daten.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#22c55e",
+  "background_color": "#1a1a2e",
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "de",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/assets/img/psm-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/pwa-icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/img/pwa-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/assets/img/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Digitale PSM Startseite"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "application/x-sqlite3": [".sqlite", ".db"],
+        "application/json": [".json"]
+      }
+    }
+  ],
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
+  "handle_links": "preferred",
+  "protocol_handlers": [
+    {
+      "protocol": "web+psm",
+      "url": "/?protocol=%s"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

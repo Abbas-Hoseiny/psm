@@ -10,6 +10,7 @@ import {
 import { initQsMode } from "./qsMode";
 import { initInfos } from "../features/infos/infosClient";
 import { initToastContainer } from "./toast";
+import { initPwa, storeFileHandle, saveDbState } from "./pwa";
 
 // Flag to temporarily skip beforeunload warning for external links
 let skipBeforeUnloadOnce = false;
@@ -151,6 +152,47 @@ export async function bootstrap() {
   }
 
   setupUnloadWarning(services.state);
+
+  // PWA initialisieren mit Auto-Start Unterstützung
+  void initPwa({
+    onFileOpened: async (handle) => {
+      // Dynamisch das Storage-Modul laden und Datei öffnen
+      const storage = await import("./storage/index");
+      const sqlite = await import("./storage/sqlite");
+      
+      if (sqlite.isSupported()) {
+        storage.setActiveDriver("sqlite");
+        
+        // Datei über das Handle öffnen
+        const file = await handle.getFile();
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // Worker initialisieren und Datei importieren
+        const result = await sqlite.importFromArrayBuffer(arrayBuffer, file.name);
+        
+        // FileHandle speichern für Auto-Start
+        await storeFileHandle(handle);
+        
+        // Datenbank verbinden
+        const { applyDatabase } = await import("./database");
+        applyDatabase(result.data);
+        
+        emit("database:connected", {
+          driver: "sqlite",
+          autoStarted: true
+        });
+      }
+    }
+  });
+  
+  // Bei erfolgreicher Datenbank-Verbindung: State für Auto-Start speichern
+  subscribeEvent("database:connected", async (event) => {
+    await saveDbState({
+      hasDatabase: true,
+      lastAccess: new Date().toISOString(),
+      autoStartEnabled: true
+    });
+  });
 
   patchState({
     app: {

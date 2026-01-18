@@ -11,6 +11,21 @@ import { escapeHtml } from "@scripts/core/utils";
 import { toast } from "@scripts/core/toast";
 import { countView, formatViewCountCompact } from "@scripts/core/viewCounter";
 import type { emit as emitEvent } from "@scripts/core/eventBus";
+import {
+  isStandalone,
+  isInstallAvailable,
+  promptInstall,
+  getStoredFileHandle,
+  requestFileHandlePermission,
+  storeFileHandle,
+  clearStoredFileHandle,
+  getDbState,
+  setAutoStart,
+  getPwaCapabilities,
+  getInstallStatus,
+  markAsInstalled,
+} from "@scripts/core/pwa";
+import * as sqlite from "@scripts/core/storage/sqlite";
 
 interface Services {
   state: {
@@ -256,10 +271,35 @@ export function initStartup(
               Wähle deine bestehende Datei
             </p>
             
+            <!-- Auto-Start Banner (wird dynamisch eingeblendet) -->
+            <div id="auto-start-banner" class="d-none mb-4 p-4 rounded-3" style="background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%); border: 2px solid rgba(255,255,255,0.2); backdrop-filter: blur(10px);">
+              <div class="d-flex align-items-center justify-content-center gap-2 mb-3">
+                <i class="bi bi-clock-history fs-4" style="color: #fbbf24;"></i>
+                <span style="color: #fff; font-weight: 600; font-size: 1.1rem;">Zuletzt verwendet</span>
+              </div>
+              <p class="mb-3" style="color: rgba(255,255,255,0.9); font-size: 1rem;" data-role="auto-start-filename"></p>
+              <div class="d-flex justify-content-center align-items-center gap-3">
+                <button class="btn btn-lg px-5 py-2" style="background: #22c55e; color: #fff; font-weight: 600; font-size: 1.1rem; border: none; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4);" data-action="auto-start">
+                  <i class="bi bi-play-fill me-2"></i>Fortsetzen
+                </button>
+                <button class="btn btn-outline-light btn-lg px-3" style="opacity: 0.7;" data-action="auto-start-forget" title="Vergessen">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+            </div>
+            
             <!-- Hauptaktion: Datei öffnen (zentral, groß, grün) -->
             <button class="btn btn-psm-primary btn-lg px-4 py-2" style="font-size: 1rem;" data-action="open">
               <i class="bi bi-folder2-open me-2"></i>Datei öffnen
             </button>
+            
+            <!-- PWA Banner - nur wenn nicht in App -->
+            <div id="pwa-install-banner" class="d-none mt-4">
+              <hr class="my-3" style="border-color: rgba(255,255,255,0.1);" />
+              <div data-role="pwa-content">
+                <!-- Wird dynamisch gefüllt -->
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -331,6 +371,13 @@ export function initStartup(
       try {
         const result = await openDatabase();
         applyDatabase(result.data);
+        
+        // FileHandle für Auto-Start speichern (wenn SQLite-Treiber)
+        const context = result.context;
+        if (context?.fileHandle) {
+          await storeFileHandle(context.fileHandle);
+        }
+        
         services.events.emit("database:connected", {
           driver: getActiveDriverKey(),
         });
@@ -463,6 +510,77 @@ export function initStartup(
     updateRegionVisibility();
   }
 
+  // Auto-Start Handler - öffnet gespeicherte Datei
+  async function handleAutoStart(button: HTMLButtonElement | null): Promise<void> {
+    await withButtonBusy(button, async () => {
+      try {
+        const storedHandle = await getStoredFileHandle();
+        if (!storedHandle) {
+          toast.warning("Keine gespeicherte Datei gefunden.");
+          return;
+        }
+
+        // Berechtigung prüfen/anfordern
+        const hasPermission = await requestFileHandlePermission(storedHandle);
+        if (!hasPermission) {
+          toast.warning("Berechtigung zum Zugriff auf die Datei wurde verweigert.");
+          return;
+        }
+
+        // Datei öffnen
+        setActiveDriver("sqlite");
+        const file = await storedHandle.getFile();
+        const arrayBuffer = await file.arrayBuffer();
+        
+        const result = await sqlite.importFromArrayBuffer(arrayBuffer, file.name);
+        sqlite.setFileHandle(storedHandle);
+        
+        applyDatabase(result.data);
+        
+        // FileHandle aktualisieren für zukünftiges Speichern
+        await storeFileHandle(storedHandle);
+        
+        services.events.emit("database:connected", {
+          driver: "sqlite",
+          autoStarted: true,
+        });
+        
+        toast.success("Datenbank erfolgreich geladen!");
+      } catch (err) {
+        console.error("Auto-Start fehlgeschlagen:", err);
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Fehler beim Laden der gespeicherten Datei"
+        );
+      }
+    });
+  }
+
+  // Vergisst die gespeicherte Datei
+  async function handleForgetAutoStart(): Promise<void> {
+    await clearStoredFileHandle();
+    const autoStartBanner = landingSection.querySelector<HTMLElement>("#auto-start-banner");
+    if (autoStartBanner) {
+      autoStartBanner.classList.add("d-none");
+    }
+    toast.info("Gespeicherte Datei wurde vergessen.");
+  }
+
+  // PWA Installation
+  async function handleInstallPwa(button: HTMLButtonElement | null): Promise<void> {
+    await withButtonBusy(button, async () => {
+      const accepted = await promptInstall();
+      if (accepted) {
+        toast.success("App wird installiert!");
+        const banner = landingSection.querySelector<HTMLElement>("#pwa-install-banner");
+        if (banner) {
+          banner.classList.add("d-none");
+        }
+      }
+    });
+  }
+
   landingSection.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement | null)?.closest(
       "button[data-action]"
@@ -479,6 +597,12 @@ export function initStartup(
       void handleOpen(button);
     } else if (action === "useDefaults") {
       handleUseDefaults(button);
+    } else if (action === "auto-start") {
+      void handleAutoStart(button);
+    } else if (action === "auto-start-forget") {
+      void handleForgetAutoStart();
+    } else if (action === "install-pwa") {
+      void handleInstallPwa(button);
     }
   });
 
@@ -525,6 +649,100 @@ export function initStartup(
         viewCountEl.textContent = formatViewCountCompact(views);
       }
     });
+  }
+
+  // PWA-Features initialisieren
+  void (async () => {
+    // Auto-Start Banner anzeigen wenn Datei gespeichert
+    const storedHandle = await getStoredFileHandle();
+    const dbState = await getDbState();
+    
+    if (storedHandle && dbState?.hasDatabase) {
+      const autoStartBanner = landingSection.querySelector<HTMLElement>("#auto-start-banner");
+      const filenameEl = landingSection.querySelector<HTMLElement>('[data-role="auto-start-filename"]');
+      
+      if (autoStartBanner && filenameEl) {
+        filenameEl.textContent = `Datei: ${storedHandle.name}`;
+        autoStartBanner.classList.remove("d-none");
+      }
+    }
+
+    // PWA-Status Banner IMMER anzeigen mit kontextabhängigem Inhalt
+    updatePwaStatusBanner();
+
+    // Auf PWA-Events hören
+    window.addEventListener("pwa:install-available", () => {
+      updatePwaStatusBanner();
+    });
+    
+    window.addEventListener("pwa:installed", () => {
+      markAsInstalled();
+      updatePwaStatusBanner();
+    });
+
+    // Permission-Required Event (wenn Auto-Start Berechtigung fehlt)
+    window.addEventListener("pwa:permission-required", async (event: Event) => {
+      const customEvent = event as CustomEvent<{ handle: FileSystemFileHandle }>;
+      const handle = customEvent.detail?.handle;
+      
+      if (handle) {
+        const autoStartBanner = landingSection.querySelector<HTMLElement>("#auto-start-banner");
+        const filenameEl = landingSection.querySelector<HTMLElement>('[data-role="auto-start-filename"]');
+        
+        if (autoStartBanner && filenameEl) {
+          filenameEl.textContent = `Datei: ${handle.name} (Berechtigung erforderlich)`;
+          autoStartBanner.classList.remove("d-none");
+        }
+      }
+    });
+
+    console.log("[Startup] PWA Capabilities:", getPwaCapabilities());
+  })();
+  
+  // Hilfsfunktion: PWA-Status Banner aktualisieren
+  function updatePwaStatusBanner(): void {
+    const status = getInstallStatus();
+    const banner = landingSection.querySelector<HTMLElement>('#pwa-install-banner');
+    const contentEl = landingSection.querySelector<HTMLElement>('[data-role="pwa-content"]');
+    
+    if (!banner || !contentEl) return;
+    
+    // Kein Banner wenn in der App (standalone)
+    if (!status.showBanner) {
+      banner.classList.add('d-none');
+      return;
+    }
+    
+    // Banner anzeigen
+    banner.classList.remove('d-none');
+    
+    // Fall 1: Bereits installiert (aber im Browser) → App öffnen Hinweis
+    // WICHTIG: Zuerst prüfen! Chrome bietet Install-Prompt auch bei installierten Apps an.
+    if (status.isInstalled) {
+      contentEl.innerHTML = `
+        <p class="small mb-2" style="color: var(--text-muted);">
+          <i class="bi bi-check-circle text-success me-1"></i>App ist bereits installiert
+        </p>
+        <p class="small mb-0" style="color: rgba(255,255,255,0.5);">
+          Öffne die App über dein Desktop- oder Startmenü-Symbol für die beste Erfahrung.
+        </p>
+      `;
+    }
+    // Fall 2: Noch nicht installiert, aber Installation möglich → Install-Button
+    else if (status.canInstall) {
+      contentEl.innerHTML = `
+        <p class="small mb-2" style="color: var(--text-muted);">
+          <i class="bi bi-download me-1"></i>Für schnelleren Zugriff als App installieren
+        </p>
+        <button class="btn btn-sm btn-outline-light" data-action="install-pwa">
+          <i class="bi bi-download me-1"></i>App installieren
+        </button>
+      `;
+    }
+    // Fall 3: Nicht installierbar (Firefox etc.) → Kein Banner
+    else {
+      banner.classList.add('d-none');
+    }
   }
 
   initialized = true;
