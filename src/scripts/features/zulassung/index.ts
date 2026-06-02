@@ -3114,25 +3114,31 @@ function attachEventHandlers(section: HTMLElement): void {
     });
   });
 
-  // Event-Delegation für "Zu Mitteln hinzufügen" Buttons
-  section.addEventListener("click", (event) => {
-    const target = event.target as HTMLElement;
-    const btn = target.closest<HTMLButtonElement>(
-      '[data-action="add-to-mediums"]'
-    );
-    if (btn) {
-      const dataStr = btn.dataset.mediumInfo;
-      if (dataStr) {
-        try {
-          // Base64 + URI-encoded JSON decodieren
-          const data = JSON.parse(decodeURIComponent(atob(dataStr)));
-          showAddMediumModal(data);
-        } catch (e) {
-          console.error("Failed to parse medium data", e);
+  // Event-Delegation für "Zu Mitteln hinzufügen" Buttons.
+  // WICHTIG: nur EINMAL pro Section binden. render() läuft bei jeder
+  // State-Änderung; ohne diesen Guard stapeln sich die Listener und Aktionen
+  // feuern mehrfach (mehrfache Dialoge / doppelte DB-Schreibvorgänge).
+  if (section.dataset.bvlClickBound !== "1") {
+    section.dataset.bvlClickBound = "1";
+    section.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement;
+      const btn = target.closest<HTMLButtonElement>(
+        '[data-action="add-to-mediums"]'
+      );
+      if (btn) {
+        const dataStr = btn.dataset.mediumInfo;
+        if (dataStr) {
+          try {
+            // Base64 + URI-encoded JSON decodieren
+            const data = JSON.parse(decodeURIComponent(atob(dataStr)));
+            showAddMediumModal(data);
+          } catch (e) {
+            console.error("Failed to parse medium data", e);
+          }
         }
       }
-    }
-  });
+    });
+  }
 
   const filterCulture =
     section.querySelector<HTMLSelectElement>("#filter-culture");
@@ -3979,8 +3985,13 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
     bbchSearchInput.addEventListener("input", searchBbch);
   }
 
-  // Event delegation for dynamic elements
-  section.addEventListener("click", async (event) => {
+  // Event delegation for dynamic elements.
+  // WICHTIG: nur EINMAL pro Section binden (render() läuft mehrfach; sonst
+  // feuert z.B. "EPPO-Code löschen" mehrfach → mehrere confirm()-Dialoge und
+  // doppelte deleteSaved*/saveDatabase-Aufrufe = die gemeldeten Fehler).
+  if (section.dataset.codesClickBound !== "1") {
+    section.dataset.codesClickBound = "1";
+    section.addEventListener("click", async (event) => {
     const target = event.target as HTMLElement;
     const actionBtn = target.closest<HTMLElement>("[data-action]");
     if (!actionBtn) return;
@@ -4182,7 +4193,8 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
         console.error("Failed to delete BBCH:", error);
       }
     }
-  });
+    });
+  }
 
   // Form submissions
   const eppoForm = section.querySelector<HTMLFormElement>(

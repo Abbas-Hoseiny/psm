@@ -126,6 +126,26 @@ async function initWorker(): Promise<void> {
 }
 
 /**
+ * Erkennt anhand der Magic-Bytes ("SQLite format 3\0"), ob ein Puffer eine
+ * SQLite-Binärdatei ist – unabhängig von der Dateiendung. Wichtig, weil eine
+ * .json-Datei durch frühere Binär-Persists tatsächlich SQLite-Daten enthalten
+ * kann; dann darf NICHT JSON.parse versucht werden (sonst "Unexpected token 'S'"
+ * und die DB erscheint fälschlich als leer/kaputt).
+ */
+function looksLikeSqlite(buffer: ArrayBuffer): boolean {
+  if (!buffer || buffer.byteLength < 16) {
+    return false;
+  }
+  const head = new Uint8Array(buffer, 0, 15);
+  let signature = "";
+  for (let i = 0; i < 15; i += 1) {
+    signature += String.fromCharCode(head[i]);
+  }
+  // Vergleich der ersten 15 Zeichen; das abschließende Null-Byte wird ignoriert.
+  return signature === "SQLite format 3";
+}
+
+/**
  * Create a new database
  */
 export async function create(
@@ -198,18 +218,25 @@ export async function open(): Promise<{ data: any; context: any }> {
       const file = await handle.getFile();
       const arrayBuffer = await file.arrayBuffer();
 
-      // Check if it's JSON or SQLite by file extension or content
-      if (file.name.endsWith(".json")) {
-        // Import JSON
-        const text = await file.text();
-        const data = JSON.parse(text);
-        await callWorker("importSnapshot", data);
-        return { data, context: { fileHandle } };
-      } else {
-        // Import SQLite binary
+      // Inhaltsbasierte Erkennung (Magic-Bytes) statt nur Dateiendung.
+      // KRITISCH: Eine .json-Datei kann durch frühere Binär-Persists tatsächlich
+      // SQLite-Binärdaten enthalten. Früher wurde nur die Endung geprüft → bei
+      // solchen Dateien lief JSON.parse auf Binärdaten und warf
+      // "Unexpected token 'S'", die DB ließ sich nicht öffnen und wirkte "leer".
+      if (looksLikeSqlite(arrayBuffer)) {
         await callWorker("importDB", arrayBuffer);
         const data = await callWorker("exportSnapshot");
         return { data, context: { fileHandle } };
+      }
+      try {
+        const data = JSON.parse(new TextDecoder().decode(arrayBuffer));
+        await callWorker("importSnapshot", data);
+        return { data, context: { fileHandle } };
+      } catch (parseErr) {
+        console.error("Datei ist weder SQLite-Binär noch gültiges JSON", parseErr);
+        throw new Error(
+          "Die Datei konnte nicht gelesen werden: weder eine gültige SQLite-Datenbank noch gültiges JSON."
+        );
       }
     } catch (err) {
       console.error("Failed to open file:", err);
@@ -333,7 +360,7 @@ export function getContext(): any {
  */
 export async function importFromArrayBuffer(
   arrayBuffer: ArrayBuffer,
-  fileName: string
+  _fileName: string
 ): Promise<{ data: any; context: any }> {
   if (!isSupported()) {
     throw new Error("SQLite-WASM is not supported in this browser");
@@ -341,17 +368,23 @@ export async function importFromArrayBuffer(
 
   await initWorker();
 
-  // Prüfen ob JSON oder SQLite
-  if (fileName.endsWith(".json")) {
-    const text = new TextDecoder().decode(arrayBuffer);
-    const data = JSON.parse(text);
-    await callWorker("importSnapshot", data);
-    return { data, context: { fileHandle: null } };
-  } else {
-    // SQLite binary importieren
+  // Inhaltsbasierte Erkennung (Magic-Bytes) statt Dateiendung – siehe open().
+  // Verhindert JSON.parse auf SQLite-Binärdaten (Auto-Start einer .json-Datei,
+  // in die zuvor Binärdaten geschrieben wurden -> sonst "leer"/Crash).
+  if (looksLikeSqlite(arrayBuffer)) {
     await callWorker("importDB", arrayBuffer);
     const data = await callWorker("exportSnapshot");
     return { data, context: { fileHandle: null } };
+  }
+  try {
+    const data = JSON.parse(new TextDecoder().decode(arrayBuffer));
+    await callWorker("importSnapshot", data);
+    return { data, context: { fileHandle: null } };
+  } catch (parseErr) {
+    console.error("Datei ist weder SQLite-Binär noch gültiges JSON", parseErr);
+    throw new Error(
+      "Die Datei konnte nicht gelesen werden: weder eine gültige SQLite-Datenbank noch gültiges JSON."
+    );
   }
 }
 

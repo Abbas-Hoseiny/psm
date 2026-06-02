@@ -464,6 +464,10 @@ let docPageIndex = 0;
 const docPageCache = new Map<number, DocumentationEntry[]>();
 const docPageCursors = new Map<number, HistoryCursor | null>([[0, null]]);
 const selectedEntryIds = new Set<string>();
+// Cache der ausgewählten Einträge (id -> DocumentationEntry), damit die Auswahl
+// seitenübergreifend erhalten bleibt und beim Drucken/Export/Löschen auch
+// Einträge berücksichtigt werden, die gerade nicht auf der sichtbaren Seite sind.
+const selectedEntryCache = new Map<string, DocumentationEntry>();
 const entryDetailCache = new Map<string, HistoryEntry>();
 let isLoadingEntries = false;
 let currentLoadToken: symbol | null = null;
@@ -1409,7 +1413,7 @@ function goToPrevPage(section: HTMLElement): void {
   }
   const targetPage = Math.max(docPageIndex - 1, 0);
   if (dataMode === "sqlite") {
-    resetSelection(section);
+    // Auswahl bleibt seitenübergreifend erhalten (kein resetSelection mehr).
     void loadSqlitePage(section, getState().fieldLabels, targetPage);
     return;
   }
@@ -1430,7 +1434,7 @@ function goToNextPage(section: HTMLElement): void {
     if (!hasCachedPage && !cursor) {
       return;
     }
-    resetSelection(section);
+    // Auswahl bleibt seitenübergreifend erhalten (kein resetSelection mehr).
     void loadSqlitePage(section, getState().fieldLabels, targetPage);
     return;
   }
@@ -1446,9 +1450,15 @@ function goToNextPage(section: HTMLElement): void {
 
 function resetSelection(section?: HTMLElement | null): void {
   selectedEntryIds.clear();
+  selectedEntryCache.clear();
   if (section) {
     updateSelectionInfo(section);
   }
+}
+
+/** Gesamtzahl auswählbarer Einträge im aktuellen Filter (für "Alle auswählen"). */
+function getSelectableTotal(): number {
+  return dataMode === "memory" ? allEntries.length : totalEntries;
 }
 
 function updateSelectionInfo(section: HTMLElement): void {
@@ -1457,6 +1467,9 @@ function updateSelectionInfo(section: HTMLElement): void {
   );
   const printBtn = section.querySelector<HTMLButtonElement>(
     '[data-action="print-selection"]',
+  );
+  const pdfBtn = section.querySelector<HTMLButtonElement>(
+    '[data-action="pdf-selection"]',
   );
   const exportBtn = section.querySelector<HTMLButtonElement>(
     '[data-action="export-selection"]',
@@ -1477,6 +1490,9 @@ function updateSelectionInfo(section: HTMLElement): void {
   if (printBtn) {
     printBtn.disabled = disabled;
   }
+  if (pdfBtn) {
+    pdfBtn.disabled = disabled;
+  }
   if (exportBtn) {
     exportBtn.disabled = disabled;
   }
@@ -1485,6 +1501,16 @@ function updateSelectionInfo(section: HTMLElement): void {
   }
   if (deleteBtn) {
     deleteBtn.disabled = disabled;
+  }
+
+  const selectAll = section.querySelector<HTMLInputElement>(
+    '[data-action="toggle-select-all"]',
+  );
+  if (selectAll) {
+    const total = getSelectableTotal();
+    selectAll.disabled = total === 0;
+    selectAll.checked = total > 0 && count >= total;
+    selectAll.indeterminate = count > 0 && count < total;
   }
 }
 
@@ -1700,6 +1726,9 @@ function renderList(
   markActiveListEntry(section, activeEntryId);
   attemptPendingSelection(section, labels);
   updatePagerWidget(section);
+  // Auswahl-Status (Häkchen, Zähler, "Alle auswählen") nach jedem Render
+  // synchronisieren – wichtig, damit beim Blättern die Häkchen erhalten bleiben.
+  updateSelectionInfo(section);
   documentationLastUpdatedAt = new Date().toISOString();
   publishDocumentationOverlayMetrics();
 }
@@ -1900,7 +1929,8 @@ async function applyFilters(
 async function collectSelectedEntries(): Promise<HistoryEntry[]> {
   const entries: HistoryEntry[] = [];
   for (const id of selectedEntryIds) {
-    const entry = findEntryById(id);
+    // Cache zuerst: deckt auch Einträge ab, die nicht auf der aktuellen Seite sind.
+    const entry = selectedEntryCache.get(id) || findEntryById(id);
     if (!entry) {
       continue;
     }
@@ -1912,6 +1942,67 @@ async function collectSelectedEntries(): Promise<HistoryEntry[]> {
   return entries;
 }
 
+/**
+ * "Alle auswählen": markiert alle Einträge des aktuellen Filters –
+ * seitenübergreifend, nicht nur die sichtbare Seite.
+ */
+async function handleToggleSelectAll(
+  section: HTMLElement,
+  selectAll: boolean,
+): Promise<void> {
+  if (!selectAll) {
+    resetSelection(section);
+    renderList(section, getState().fieldLabels);
+    return;
+  }
+
+  selectedEntryIds.clear();
+  selectedEntryCache.clear();
+
+  if (dataMode === "memory") {
+    for (const entry of allEntries) {
+      selectedEntryIds.add(entry.id);
+      selectedEntryCache.set(entry.id, entry);
+    }
+  } else {
+    try {
+      const result = await exportHistoryRange({
+        filters: toHistoryQueryFilters(currentFilters),
+        sortDirection: "desc",
+        limit: 10000,
+      });
+      const ids = Array.isArray(result.historyIds) ? result.historyIds : [];
+      result.entries.forEach((rawEntry, idx) => {
+        const ref = Number(ids[idx]);
+        if (!Number.isFinite(ref)) {
+          return;
+        }
+        const id = createEntryId("sqlite", ref);
+        selectedEntryIds.add(id);
+        selectedEntryCache.set(id, {
+          id,
+          entry: rawEntry as HistoryEntry,
+          source: "sqlite",
+          ref,
+        });
+        // Detaildaten sind bereits enthalten -> Cache vorbefüllen, damit
+        // Drucken/Export/Löschen ohne weitere DB-Abfrage funktionieren.
+        if (!entryDetailCache.has(id)) {
+          entryDetailCache.set(id, rawEntry as HistoryEntry);
+        }
+      });
+    } catch (error) {
+      console.error("Alle Einträge konnten nicht ausgewählt werden", error);
+      window.alert(
+        "Alle Einträge konnten nicht ausgewählt werden. Bitte erneut versuchen.",
+      );
+    }
+  }
+
+  renderList(section, getState().fieldLabels);
+  updateSelectionInfo(section);
+}
+
 async function deleteSelectedEntries(
   section: HTMLElement,
   services: Services,
@@ -1921,7 +2012,7 @@ async function deleteSelectedEntries(
   }
 
   const selectedEntries = Array.from(selectedEntryIds)
-    .map((id) => findEntryById(id))
+    .map((id) => selectedEntryCache.get(id) || findEntryById(id))
     .filter((entry): entry is DocumentationEntry => Boolean(entry));
 
   const entriesForRemoval: HistoryEntry[] = [];
@@ -2257,9 +2348,22 @@ async function handleArchiveSubmit(
   }
 }
 
+const LARGE_PRINT_THRESHOLD = 50;
+
 async function printEntries(entries: HistoryEntry[]): Promise<void> {
   if (!entries.length) {
     window.alert("Keine Einträge ausgewählt.");
+    return;
+  }
+  // Schutz vor versehentlichem Großdruck (z.B. nach "Alle auswählen"):
+  // Der Browser-Druckdialog mit sehr vielen Seiten blockiert den Tab und
+  // lässt sich nicht abbrechen – daher vorher nachfragen.
+  if (
+    entries.length > LARGE_PRINT_THRESHOLD &&
+    !window.confirm(
+      `Sie möchten ${entries.length} Einträge drucken. Bei sehr vielen Einträgen kann das Erstellen der Druckvorschau einige Sekunden dauern und lässt sich nicht unterbrechen.\n\nFortfahren?`,
+    )
+  ) {
     return;
   }
   const labels = getState().fieldLabels;
@@ -2454,9 +2558,14 @@ function createSection(): HTMLElement {
       <div class="card-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 no-print">
         <div class="small text-muted" data-role="doc-info">Keine Einträge</div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
+          <label class="form-check-label d-flex align-items-center gap-1 mb-0 small text-muted" title="Alle Einträge im aktuellen Filter auswählen">
+            <input type="checkbox" class="form-check-input mt-0" data-action="toggle-select-all" disabled />
+            <span>Alle auswählen</span>
+          </label>
           <div class="small text-muted" data-role="doc-selection-info">Keine Einträge ausgewählt</div>
           <div class="btn-group">
             <button class="btn btn-outline-light btn-sm" data-action="print-selection" disabled>Drucken</button>
+            <button class="btn btn-outline-light btn-sm" data-action="pdf-selection" disabled>PDF</button>
             <button class="btn btn-outline-light btn-sm" data-action="export-selection" disabled>JSON</button>
             <button class="btn btn-outline-light btn-sm" data-action="export-zip" disabled>ZIP</button>
             <button class="btn btn-outline-light btn-sm" data-action="delete-selection" disabled>Löschen</button>
@@ -2688,7 +2797,7 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
       return;
     }
 
-    if (action === "print-selection") {
+    if (action === "print-selection" || action === "pdf-selection") {
       void (async () => {
         const entries = await collectSelectedEntries();
         await printEntries(entries);
@@ -2801,7 +2910,14 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
 
   section.addEventListener("change", (event) => {
     const target = event.target as HTMLInputElement | null;
-    if (!target || target.dataset.action !== "toggle-select") {
+    if (!target) {
+      return;
+    }
+    if (target.dataset.action === "toggle-select-all") {
+      void handleToggleSelectAll(section, target.checked);
+      return;
+    }
+    if (target.dataset.action !== "toggle-select") {
       return;
     }
     const entryId = target.dataset.entryId;
@@ -2810,8 +2926,13 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
     }
     if (target.checked) {
       selectedEntryIds.add(entryId);
+      const entry = findEntryById(entryId);
+      if (entry) {
+        selectedEntryCache.set(entryId, entry);
+      }
     } else {
       selectedEntryIds.delete(entryId);
+      selectedEntryCache.delete(entryId);
     }
     updateSelectionInfo(section);
   });

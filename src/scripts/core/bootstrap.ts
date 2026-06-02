@@ -1,5 +1,10 @@
 import { loadDefaultsConfig } from "./config";
-import { detectPreferredDriver, setActiveDriver } from "./storage/index";
+import {
+  detectPreferredDriver,
+  setActiveDriver,
+  getActiveDriverKey,
+} from "./storage/index";
+import { loadGpsPoints } from "./database";
 import { getState, patchState, subscribeState, updateSlice } from "./state";
 import { emit, subscribe as subscribeEvent } from "./eventBus";
 import { registerHistorySeeder } from "../dev/historySeeder";
@@ -196,6 +201,22 @@ export async function bootstrap() {
       lastAccess: new Date().toISOString(),
       autoStartEnabled: true,
     });
+  });
+
+  // GPS-Punkte liegen in einer eigenen SQLite-Tabelle und sind NICHT Teil des
+  // Startup-Snapshots. Ohne dies würden sie erst geladen, wenn der Nutzer den
+  // GPS-Tab in den Einstellungen öffnet – dadurch blieb das Dropdown
+  // "Gespeicherten Punkt verknüpfen" in "Neu erfassen" beim ersten Öffnen leer.
+  // Daher hier sofort eager laden, sobald eine SQLite-Datenbank verbunden ist.
+  subscribeEvent("database:connected", async (_event) => {
+    if (getActiveDriverKey() !== "sqlite") {
+      return;
+    }
+    try {
+      await loadGpsPoints();
+    } catch (err) {
+      console.warn("GPS-Punkte konnten beim Start nicht geladen werden", err);
+    }
   });
 
   patchState({

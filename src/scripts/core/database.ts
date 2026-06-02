@@ -200,7 +200,7 @@ export function createInitialDatabase(overrides: any = {}): any {
 
 export function getDatabaseSnapshot(): any {
   const state = getState();
-  return {
+  const snapshot: any = {
     meta: {
       version: state.app.version || 1,
       company: { ...state.company },
@@ -210,9 +210,20 @@ export function getDatabaseSnapshot(): any {
     },
     mediums: [...state.mediums.items],
     mediumProfiles: [...state.mediumProfiles],
-    history: [...state.history.items],
     archives: { logs: [...(state.archives?.logs ?? [])] },
   };
+  // WICHTIG (Datenverlust-Schutz): Im SQLite-Modus wird die History direkt in der
+  // Worker-Datenbank verwaltet (appendHistoryEntry/deleteHistoryEntryById) und ist
+  // NICHT in state.history gespiegelt – state.history enthält nur den Stand beim
+  // Öffnen. Würde man sie hier mitschicken, würde importSnapshot beim Speichern
+  // einer Einstellung (Mittel/EPPO/BBCH/Firma) die veraltete Liste schreiben und
+  // alle seit dem Öffnen erfassten Einträge löschen. Im SQLite-Modus wird die
+  // History separat über persistSqliteDatabaseFile (Binär-Export) gesichert; daher
+  // hier bewusst weglassen, damit importSnapshot sie unangetastet lässt.
+  if (getActiveDriverKey() !== "sqlite") {
+    snapshot.history = [...state.history.items];
+  }
+  return snapshot;
 }
 
 type GpsPointInput = {

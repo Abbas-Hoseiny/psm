@@ -1,5 +1,10 @@
 import { nextFrame, escapeHtml } from "@scripts/core/utils";
 import {
+  PRINT_PAGE_LAYOUT_STYLES,
+  PRINT_BRAND_FOOTER_STYLES,
+  buildPrintBrandFooter,
+} from "@scripts/core/print";
+import {
   renderCalculationSnapshotForPrint,
   type CalculationSnapshotEntry,
   type CalculationSnapshotLabels,
@@ -9,7 +14,7 @@ import type { AppState } from "@scripts/core/state";
 const BASE_FONT_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 
 const PRINT_BASE_STYLES = `
-  @page { size: A4; margin: 18mm; }
+  @page { size: A4; margin: 14mm; }
   body {
     font-family: ${BASE_FONT_STACK};
     color: #111;
@@ -45,11 +50,7 @@ const PRINT_BASE_STYLES = `
   .calc-snapshot-print {
     page-break-inside: avoid;
     margin-bottom: 2rem;
-    border-bottom: 2px solid #ddd;
-    padding-bottom: 1rem;
-  }
-  .calc-snapshot-print:last-child {
-    border-bottom: none;
+    padding-bottom: 0.5rem;
   }
   .calc-snapshot-print__header h3 {
     margin: 0 0 0.5rem;
@@ -169,7 +170,11 @@ export async function printEntriesChunked(
   }
 
   const safeTitle = String(title).replace(/[<>]/g, "");
-  const styles = PRINT_BASE_STYLES + (additionalStyles || "");
+  const styles =
+    PRINT_BASE_STYLES +
+    PRINT_PAGE_LAYOUT_STYLES +
+    PRINT_BRAND_FOOTER_STYLES +
+    (additionalStyles || "");
 
   doc.open();
   // Print-Frames benötigen document.write für korrektes Rendering
@@ -182,13 +187,22 @@ export async function printEntriesChunked(
 </head>
 <body>`);
 
-  if (headerHtml) {
-    doc.write(headerHtml);
-  }
+  // Inhalt in eine Tabelle wrappen: thead (Firmenkopf/Titel) und tfoot
+  // (Marketing-Fußzeile) wiederholen sich automatisch auf JEDER Druckseite.
+  const pageTable = doc.createElement("table");
+  pageTable.className = "psm-print-page";
+  pageTable.innerHTML = `${
+    headerHtml
+      ? `<thead class="psm-print-page__head"><tr><td>${headerHtml}</td></tr></thead>`
+      : ""
+  }<tfoot class="psm-print-page__foot"><tr><td>${buildPrintBrandFooter()}</td></tr></tfoot><tbody class="psm-print-page__body"><tr><td></td></tr></tbody>`;
+  doc.body.appendChild(pageTable);
 
+  const bodyCell =
+    pageTable.querySelector<HTMLTableCellElement>("tbody > tr > td");
   const container = doc.createElement("div");
   container.className = "calc-snapshots-container";
-  doc.body.appendChild(container);
+  (bodyCell || doc.body).appendChild(container);
 
   const totalChunks = Math.ceil(entries.length / chunkSize);
 
@@ -251,5 +265,9 @@ export async function printEntriesChunked(
     );
   }
 
-  setTimeout(() => cleanupPrintFrame(iframe), 5000);
+  // "afterprint" ist der Normalfall zum Aufräumen. Der Timeout ist nur ein
+  // Sicherheitsnetz, falls afterprint nicht feuert. Früher 5s – das entfernte
+  // bei großen/langsamen Drucken das Iframe, WÄHREND der Druckdialog noch offen
+  // war (leere Vorschau). Daher großzügig (cleanupPrintFrame ist idempotent).
+  setTimeout(() => cleanupPrintFrame(iframe), 120000);
 }

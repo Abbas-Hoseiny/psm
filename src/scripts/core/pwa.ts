@@ -48,6 +48,8 @@ declare global {
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let swRegistration: ServiceWorkerRegistration | null = null;
+let swControllerChangeBound = false;
+let swReloading = false;
 
 // ===== SERVICE WORKER =====
 
@@ -83,6 +85,21 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
     // Message Handler für SW-Kommunikation
     navigator.serviceWorker.addEventListener("message", handleSwMessage);
+
+    // Wenn nach einem Deploy ein neuer Service Worker die Kontrolle übernimmt
+    // (skipWaiting + clients.claim im SW), die Seite EINMAL neu laden, damit die
+    // frische JS/CSS-Version geladen wird. Ohne dies liefen installierte
+    // PWA-Nutzer nach einem Update unbegrenzt auf altem Code weiter.
+    if (!swControllerChangeBound) {
+      swControllerChangeBound = true;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (swReloading) {
+          return;
+        }
+        swReloading = true;
+        window.location.reload();
+      });
+    }
 
     return swRegistration;
   } catch (error) {

@@ -2118,10 +2118,22 @@ async function importSnapshot(snapshot) {
   db.exec("BEGIN TRANSACTION");
 
   try {
+    // Datenverlust-Schutz: History NUR löschen, wenn der Snapshot tatsächlich
+    // eine history-Liste enthält. Im SQLite-Modus lässt getDatabaseSnapshot()
+    // history bewusst weg (sie lebt nur in der Worker-DB) – ohne diese Bedingung
+    // würde ein Einstellungs-Speichern (Mittel/EPPO/BBCH/Firma) alle seit dem
+    // Öffnen erfassten Einträge löschen. Der History-Insert weiter unten ist
+    // bereits an dieselbe Bedingung (snapshot.history Array) gekoppelt.
+    const replaceHistory = Array.isArray(snapshot.history);
+
     // Clear existing data
+    if (replaceHistory) {
+      db.exec(`
+        DELETE FROM history_items;
+        DELETE FROM history;
+      `);
+    }
     db.exec(`
-      DELETE FROM history_items;
-      DELETE FROM history;
       DELETE FROM mediums;
       DELETE FROM measurement_methods;
       DELETE FROM meta WHERE key IN ('version','company','defaults','fieldLabels','measurementMethods','archives');
