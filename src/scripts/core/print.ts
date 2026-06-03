@@ -2,10 +2,15 @@ const BASE_FONT_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 
 /**
  * Layout für wiederholende Kopf-/Fußzeilen beim Druck.
- * Eine Tabelle mit thead (table-header-group) und tfoot (table-footer-group)
- * wird vom Browser auf JEDER gedruckten Seite wiederholt – inklusive
- * reserviertem Platz, sodass der Inhalt nie überlappt. Zuverlässiger als
- * position: fixed über mehrere Seiten hinweg.
+ * - thead (table-header-group): Firmenkopf/Adresse, wird oben auf JEDER Seite
+ *   wiederholt und reserviert dort Platz.
+ * - tfoot (table-footer-group): NUR ein unsichtbarer Platzhalter, der unten auf
+ *   jeder Seite Platz reserviert.
+ * - Die eigentliche Fußzeile wird per position: fixed am unteren Seitenrand
+ *   gezeichnet. Grund: table-footer-group heftet die Fußzeile auf der LETZTEN
+ *   (kurzen) Seite direkt unter den Inhalt statt an den Seitenfuß. position:fixed
+ *   wiederholt sich ebenfalls auf jeder Seite, bleibt aber immer unten – und der
+ *   tfoot-Platzhalter verhindert, dass Inhalt den fixierten Footer überlappt.
  */
 export const PRINT_PAGE_LAYOUT_STYLES = `
   .psm-print-page { width: 100%; border-collapse: collapse; }
@@ -20,7 +25,13 @@ export const PRINT_PAGE_LAYOUT_STYLES = `
   }
   .psm-print-page__head > tr > td { padding-bottom: 6mm; }
   .psm-print-page__head .print-meta { margin-bottom: 0; }
-  .psm-print-page__foot > tr > td { padding-top: 4mm; }
+  .psm-print-page__foot > tr > td { height: 16mm; }
+  .psm-print-fixed-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
 `;
 
 /** Dezente, professionelle Marketing-Fußzeile (Pflänzchen + Digitale-PSM.de). */
@@ -58,7 +69,7 @@ export const PRINT_BRAND_FOOTER_STYLES = `
 
 const PRINT_SEEDLING_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 21.5c0-4.2 0-7 0-9.4" fill="none" stroke="#2f7d32" stroke-width="1.7" stroke-linecap="round"/><path d="M11.6 12.8C10.4 7.9 7.3 6 3 6.2c-.3 4.9 2.8 7.4 8.6 6.6z" fill="#22a06b"/><path d="M12.2 11.3c.9-4.2 3.4-5.8 7.3-5.5.4 4.5-2.4 6.7-7.3 5.5z" fill="#4ade80"/></svg>`;
 
-/** Baut die Marketing-Fußzeile (für tfoot der Druck-Tabelle). */
+/** Baut die Marketing-Fußzeile (wird im fix positionierten Seitenfuß gezeichnet). */
 export function buildPrintBrandFooter(): string {
   return `
     <div class="psm-print-footer">
@@ -148,12 +159,15 @@ export function printHtml({
     ${PRINT_BRAND_FOOTER_STYLES}
     ${styles}`;
 
-  // Inhalt in eine Tabelle wrappen, damit die Marketing-Fußzeile auf jeder
-  // gedruckten Seite erscheint (tfoot = table-footer-group).
+  // Inhalt in eine Tabelle wrappen: thead/tfoot reservieren auf jeder Seite oben
+  // und unten Platz; der tfoot ist nur ein Platzhalter. Die eigentliche Fußzeile
+  // wird per position: fixed unten gezeichnet (siehe PRINT_PAGE_LAYOUT_STYLES) und
+  // erscheint so auf JEDER Seite – auch der letzten/einzigen – am Seitenfuß.
   const bodyHtml = `<table class="psm-print-page">
-    <tfoot class="psm-print-page__foot"><tr><td>${buildPrintBrandFooter()}</td></tr></tfoot>
+    <tfoot class="psm-print-page__foot"><tr><td></td></tr></tfoot>
     <tbody class="psm-print-page__body"><tr><td>${content}</td></tr></tbody>
-  </table>`;
+  </table>
+  <div class="psm-print-fixed-footer">${buildPrintBrandFooter()}</div>`;
 
   const html = `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8" />
     <title>${safeTitle}</title>

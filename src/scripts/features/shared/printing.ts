@@ -187,16 +187,24 @@ export async function printEntriesChunked(
 </head>
 <body>`);
 
-  // Inhalt in eine Tabelle wrappen: thead (Firmenkopf/Titel) und tfoot
-  // (Marketing-Fußzeile) wiederholen sich automatisch auf JEDER Druckseite.
+  // Inhalt in eine Tabelle wrappen: thead (Firmenkopf/Titel) wiederholt sich oben
+  // auf JEDER Druckseite; der tfoot ist nur ein Platzhalter, der unten Platz
+  // reserviert. Die eigentliche Fußzeile wird per position: fixed unten gezeichnet
+  // (siehe PRINT_PAGE_LAYOUT_STYLES) und erscheint so auf JEDER Seite – auch der
+  // letzten/einzigen – am Seitenfuß statt direkt unter dem Inhalt.
   const pageTable = doc.createElement("table");
   pageTable.className = "psm-print-page";
   pageTable.innerHTML = `${
     headerHtml
       ? `<thead class="psm-print-page__head"><tr><td>${headerHtml}</td></tr></thead>`
       : ""
-  }<tfoot class="psm-print-page__foot"><tr><td>${buildPrintBrandFooter()}</td></tr></tfoot><tbody class="psm-print-page__body"><tr><td></td></tr></tbody>`;
+  }<tfoot class="psm-print-page__foot"><tr><td></td></tr></tfoot><tbody class="psm-print-page__body"><tr><td></td></tr></tbody>`;
   doc.body.appendChild(pageTable);
+
+  const fixedFooter = doc.createElement("div");
+  fixedFooter.className = "psm-print-fixed-footer";
+  fixedFooter.innerHTML = buildPrintBrandFooter();
+  doc.body.appendChild(fixedFooter);
 
   const bodyCell =
     pageTable.querySelector<HTMLTableCellElement>("tbody > tr > td");
