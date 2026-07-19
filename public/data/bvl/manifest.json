@@ -2,42 +2,42 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1.0.0",
   "api_version": "v1",
-  "generated_at": "2026-07-17T04:12:05.894402Z",
+  "generated_at": "2026-07-19T04:22:49.240208Z",
   "files": [
     {
       "name": "pflanzenschutz.sqlite.br",
       "url": "https://abbas-hoseiny.github.io/pflanzenschutz-db/pflanzenschutz.sqlite.br",
-      "size": 6661596,
-      "sha256": "e2e7dfe34b1552e5d8d85c5d2fd1a830b1a0645608e2f4ad33d467d17a9326bb",
+      "size": 6742611,
+      "sha256": "2e0ae5f5f4d9203b33b30f445b89f40df09312579bb5f9c16f631257833999d2",
       "encoding": "brotli",
       "type": "sqlite"
     },
     {
       "name": "pflanzenschutz.sqlite.zip",
       "url": "https://abbas-hoseiny.github.io/pflanzenschutz-db/pflanzenschutz.sqlite.zip",
-      "size": 12265315,
-      "sha256": "f00c85850df71b74754039e89ef0fc74af5a921d12449b82259d399fd47b778c",
+      "size": 12411157,
+      "sha256": "44972f1f1ae80fbaef6720c925a53f985fccb5dd666f9ce1a9db594586e8cf09",
       "encoding": "zip",
       "type": "sqlite"
     }
   ],
   "tables": {
     "bvl_stand": 1,
-    "bvl_mittel": 2143,
-    "bvl_awg": 30503,
-    "bvl_awg_kultur": 41961,
-    "bvl_awg_schadorg": 45864,
-    "bvl_awg_aufwand": 39145,
-    "bvl_awg_wartezeit": 16626,
-    "bvl_wirkstoff": 288,
+    "bvl_mittel": 2144,
+    "bvl_awg": 30557,
+    "bvl_awg_kultur": 42027,
+    "bvl_awg_schadorg": 45996,
+    "bvl_awg_aufwand": 39203,
+    "bvl_awg_wartezeit": 16667,
+    "bvl_wirkstoff": 481,
     "bvl_mittel_wirkstoff": 0,
-    "bvl_mittel_vertrieb": 1800,
-    "bvl_mittel_enrichments": 57
+    "bvl_mittel_vertrieb": 1802,
+    "bvl_mittel_enrichments": 58
   },
   "build": {
-    "start_time": "2026-07-17T04:02:14.629407Z",
-    "end_time": "2026-07-17T04:12:05.894339Z",
-    "duration_seconds": 591.264932,
+    "start_time": "2026-07-19T04:10:09.561739Z",
+    "end_time": "2026-07-19T04:22:49.240107Z",
+    "duration_seconds": 759.678368,
     "python_version": "3.11.15",
     "runner": "github-actions"
   }
