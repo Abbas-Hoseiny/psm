@@ -10,13 +10,16 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/sitemap": "^3.6.0",
-    "astro": "^5.16.11",
-    "fflate": "^0.8.2",
-    "interactjs": "^1.10.27"
+    "@astrojs/sitemap": "^3.7.4",
+    "@sqlite.org/sqlite-wasm": "3.54.1-build1",
+    "astro": "^5.18.2",
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.2",
+    "fflate": "^0.8.3"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.4",
-    "typescript": "^5.7.2"
+    "@astrojs/check": "^0.9.12",
+    "@types/bootstrap": "^5.2.11",
+    "typescript": "^5.9.3"
   }
 }

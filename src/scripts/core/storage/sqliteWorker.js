@@ -8,9 +8,11 @@ let db = null;
 let isInitialized = false;
 let currentMode = "memory";
 
-// SQLite-WASM CDN URL
-const SQLITE_WASM_CDN =
-  "https://cdn.jsdelivr.net/npm/@sqlite.org/sqlite-wasm@3.46.1-build1/sqlite-wasm/jswasm/";
+// SQLite-WASM wird lokal gebündelt (npm @sqlite.org/sqlite-wasm) statt von einem
+// CDN geladen: kein Drittanbieter-Roundtrip, funktioniert offline (Service-Worker-
+// Cache) und ist versioniert/gehasht wie alle anderen Build-Assets.
+import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
+import sqlite3WasmUrl from "@sqlite.org/sqlite-wasm/sqlite3.wasm?url";
 const GPS_ACTIVE_POINT_META_KEY = "gps_active_point";
 
 function clampPageSize(value, fallback = 50, max = 500) {
@@ -1170,6 +1172,31 @@ function openDatabaseFromBytes(bytes) {
 }
 
 // Message handler
+function collectTransferables(value) {
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+  if (value instanceof ArrayBuffer) {
+    return [value];
+  }
+  if (ArrayBuffer.isView(value)) {
+    // Nur transferieren, wenn die View den gesamten Puffer abdeckt
+    return value.byteOffset === 0 &&
+      value.byteLength === value.buffer.byteLength
+      ? [value.buffer]
+      : [];
+  }
+  const data = value.data;
+  if (data instanceof ArrayBuffer) {
+    return [data];
+  }
+  if (ArrayBuffer.isView(data) && data.byteOffset === 0 &&
+      data.byteLength === data.buffer.byteLength) {
+    return [data.buffer];
+  }
+  return [];
+}
+
 self.onmessage = async function (event) {
   const { id, action, payload } = event.data;
 
@@ -1344,7 +1371,14 @@ self.onmessage = async function (event) {
         throw new Error(`Unknown action: ${action}`);
     }
 
-    self.postMessage({ id, ok: true, result });
+    // Performance: ArrayBuffer-Ergebnisse (z.B. exportDB mit 100+ MB) per
+    // Transfer statt Structured-Clone-Kopie an den Main-Thread übergeben.
+    const transfer = collectTransferables(result);
+    if (transfer.length) {
+      self.postMessage({ id, ok: true, result }, transfer);
+    } else {
+      self.postMessage({ id, ok: true, result });
+    }
   } catch (error) {
     self.postMessage({
       id,
@@ -1363,15 +1397,14 @@ async function initDatabase(options = {}) {
   }
 
   try {
-    // Load SQLite WASM module
-    const sqlite3InitModule = await import(
-      SQLITE_WASM_CDN + "sqlite3.mjs"
-    ).then((m) => m.default);
-
+    // Load SQLite WASM module (lokal gebündelt, siehe Import oben)
     sqlite3 = await sqlite3InitModule({
       print: console.log,
       printErr: console.error,
-      locateFile: (file) => SQLITE_WASM_CDN + file,
+      locateFile: (file) =>
+        file.endsWith(".wasm")
+          ? sqlite3WasmUrl
+          : new URL(file, import.meta.url).href,
     });
 
     // Determine storage mode

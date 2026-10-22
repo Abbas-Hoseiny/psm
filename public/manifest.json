@@ -75,7 +75,7 @@
   "related_applications": [
     {
       "platform": "webapp",
-      "url": "https://digitale-psm.de/manifest.json"
+      "url": "https://www.digitale-psm.de/manifest.json"
     }
   ],
   "prefer_related_applications": false,

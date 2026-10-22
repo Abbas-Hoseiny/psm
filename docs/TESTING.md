@@ -174,14 +174,14 @@ Tests werden automatisch ausgeführt bei:
 | gps/index.ts:896           | execCommand       | Clipboard API                 |
 | lookup/index.ts:1450       | execCommand       | Clipboard API                 |
 
-### Import-Konflikte (Vite Warnings)
+### Import-Konflikte (Vite Warnings) – behoben
 
-- `sqlite.ts` - dynamisch (bootstrap) & statisch (database, lookups)
-- `storage/index.ts` - dynamisch (bootstrap) & statisch (database)
-- `eventBus.ts` - dynamisch (indexClient) & statisch (shellClient)
-- `database.ts` - dynamisch (bootstrap) & statisch (mehrere Features)
-
-**Empfehlung:** Einheitlicher Import-Stil pro Modul verwenden.
+Die früheren Mischungen aus statischen und dynamischen Imports (`sqlite.ts`,
+`storage/index.ts`, `eventBus.ts`, `database.ts`) wurden aufgelöst: Core-Module
+werden ausschließlich statisch importiert. Code-Splitting erfolgt gezielt über
+dynamische Imports der Feature-Module `infos`, `gps` und `zulassung` (inkl.
+`bvlSync`/`bvlDataset`), die erst beim ersten Öffnen des jeweiligen Bereichs
+bzw. Tabs geladen werden.
 
 ## Empfohlene Lösungen
 

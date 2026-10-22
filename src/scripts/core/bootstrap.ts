@@ -13,9 +13,38 @@ import {
   markManualDebugOverlayAccess,
 } from "../dev/debugOverlayGate";
 import { initQsMode } from "./qsMode";
-import { initInfos } from "../features/infos/infosClient";
-import { initToastContainer } from "./toast";
 import { initPwa, storeFileHandle, saveDbState } from "./pwa";
+import { applyDatabase } from "./database";
+import * as sqlite from "./storage/sqlite";
+import type { AppState } from "./state";
+
+// Code-Splitting: Das Infos-Modul (Quellen, Artikel, Lightbox) wird erst beim
+// ersten Öffnen des Bereichs "Infos" geladen – nach dem Verbinden einer
+// Datenbank zusätzlich im Leerlauf vorgewärmt, damit der Klick sofort reagiert.
+let infosLoader: Promise<void> | null = null;
+function loadInfosFeature(services: Parameters<
+  typeof import("../features/infos/infosClient").initInfos
+>[0]): Promise<void> {
+  if (!infosLoader) {
+    infosLoader = import("../features/infos/infosClient")
+      .then(({ initInfos }) => {
+        initInfos(services);
+      })
+      .catch((error) => {
+        infosLoader = null;
+        console.error("Infos-Modul konnte nicht geladen werden", error);
+      });
+  }
+  return infosLoader;
+}
+
+function scheduleIdle(task: () => void): void {
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => task(), { timeout: 3000 });
+  } else {
+    window.setTimeout(task, 1500);
+  }
+}
 
 // Flag to temporarily skip beforeunload warning for external links
 let skipBeforeUnloadOnce = false;
@@ -148,13 +177,25 @@ export async function bootstrap() {
     });
   });
 
-  // Initialize Toast notification system
-  initToastContainer();
+  // Toast-Container wird in indexClient.ts initialisiert (einmalig).
 
-  // Infos-Feature initialisieren
+  // Infos-Feature lazy initialisieren (siehe loadInfosFeature)
   const infosContainer = document.querySelector('[data-feature="infos"]');
   if (infosContainer instanceof HTMLElement) {
-    initInfos(services);
+    const onInfosActivated = (state: AppState) => {
+      if (state.app.activeSection === "infos") {
+        void loadInfosFeature(services);
+      }
+    };
+    onInfosActivated(getState());
+    subscribeState((state, prevState) => {
+      if (state.app.activeSection !== prevState.app.activeSection) {
+        onInfosActivated(state);
+      }
+    });
+    subscribeEvent("database:connected", () => {
+      scheduleIdle(() => void loadInfosFeature(services));
+    });
   }
 
   setupUnloadWarning(services.state);
@@ -162,12 +203,8 @@ export async function bootstrap() {
   // PWA initialisieren mit Auto-Start Unterstützung
   void initPwa({
     onFileOpened: async (handle) => {
-      // Dynamisch das Storage-Modul laden und Datei öffnen
-      const storage = await import("./storage/index");
-      const sqlite = await import("./storage/sqlite");
-
       if (sqlite.isSupported()) {
-        storage.setActiveDriver("sqlite");
+        setActiveDriver("sqlite");
 
         // Datei über das Handle öffnen
         const file = await handle.getFile();
@@ -179,11 +216,11 @@ export async function bootstrap() {
           file.name,
         );
 
-        // FileHandle speichern für Auto-Start
+        // FileHandle für spätere Persistierung setzen und für Auto-Start speichern
+        sqlite.setFileHandle(handle);
         await storeFileHandle(handle);
 
         // Datenbank verbinden
-        const { applyDatabase } = await import("./database");
         applyDatabase(result.data);
 
         emit("database:connected", {

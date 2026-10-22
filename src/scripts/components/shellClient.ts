@@ -1,5 +1,6 @@
 import {
   type AppState,
+  getState,
   subscribeState,
   updateSlice,
 } from "@scripts/core/state";
@@ -20,7 +21,9 @@ function initOfflineIndicator(): void {
 }
 
 function initShell(): void {
-  const buttons = document.querySelectorAll<HTMLButtonElement>(".nav-btn");
+  const buttons = Array.from(
+    document.querySelectorAll<HTMLButtonElement>(".nav-btn"),
+  );
 
   // Initialize offline indicator
   initOfflineIndicator();
@@ -47,11 +50,12 @@ function initShell(): void {
     });
   });
 
-  subscribeState((state) => {
-    const brandTitle = document.getElementById("brand-title");
-    const brandTagline = document.getElementById("brand-tagline");
-    const appVersion = document.getElementById("app-version");
+  // Performance: DOM-Referenzen einmal auflösen statt bei jedem State-Update
+  const brandTitle = document.getElementById("brand-title");
+  const brandTagline = document.getElementById("brand-tagline");
+  const appVersion = document.getElementById("app-version");
 
+  const syncShell = (state: AppState) => {
     if (brandTitle && state.company.name) {
       brandTitle.textContent = state.company.name;
     }
@@ -62,22 +66,24 @@ function initShell(): void {
       appVersion.textContent = `v${state.app.version}`;
     }
 
+    const hasDatabase = state.app.hasDatabase;
     buttons.forEach((btn) => {
       const section = btn.getAttribute("data-section");
-      btn.disabled = !state.app.hasDatabase;
-      if (section === state.app.activeSection) {
-        btn.classList.add("active");
-      } else {
-        btn.classList.remove("active");
-      }
-      if (!state.app.hasDatabase) {
-        btn.classList.remove("active");
-      }
+      btn.disabled = !hasDatabase;
+      btn.classList.toggle(
+        "active",
+        hasDatabase && section === state.app.activeSection,
+      );
     });
-  });
+  };
 
-  // Initial active state wird durch subscribeState gesetzt - nicht manuell setzen
-  // da dies Konflikte verursacht wenn man zwischen Bereichen wechselt
+  // Nur reagieren, wenn sich die für die Shell relevanten Slices geändert haben
+  subscribeState((state, prevState) => {
+    if (state.company !== prevState.company || state.app !== prevState.app) {
+      syncShell(state);
+    }
+  });
+  syncShell(getState());
 
   let isPrinting = false;
   const activeDocumentTitle = document.title || "Pflanzenschutz";
