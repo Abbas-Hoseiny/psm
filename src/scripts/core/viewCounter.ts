@@ -1,110 +1,83 @@
 /**
- * View Counter Client
- * Minimalistisches Modul für externe View-Statistiken
- * API: https://api.digitale-psm.de
+ * Aufruf-Zähler (Besucher-Badge)
+ *
+ * Nutzt den kostenlosen Dienst "Hits" (https://hits.sh): keine Anmeldung, kein
+ * API-Key, datenschutzfreundlich (keine Cookies, kein Tracking-Script). Jeder
+ * Abruf des Badge-Bildes zählt einen Aufruf; die Statistik ist unter
+ * https://hits.sh/digitale-psm.de/ einsehbar.
+ *
+ * Das Badge wird als <img> eingebunden – damit gibt es keine CORS-Probleme und
+ * der Dienst liefert die Zahl bereits gerendert. Das Element wird genau EINMAL
+ * pro Seitenaufruf erzeugt (Singleton) und bei Neu-Rendern des Startbildschirms
+ * nur verschoben, damit nicht mehrfach gezählt wird.
  */
 
-const API_BASE = "https://api.digitale-psm.de";
-const DOMAIN = "digitale-psm.de";
+const HITS_PATH = "digitale-psm.de";
+const HITS_BADGE_URL =
+  `https://hits.sh/${HITS_PATH}.svg?` +
+  new URLSearchParams({
+    style: "flat-square",
+    label: "Aufrufe",
+    color: "22c55e",
+    labelColor: "1f2937",
+  }).toString();
 
-export type PageType = "app" | "info" | "statistik";
+export const HITS_STATS_URL = `https://hits.sh/${HITS_PATH}/`;
 
-interface ViewResponse {
-  domain: string;
-  page: string;
-  views: number;
-  counted?: boolean;
-  unique?: boolean;
-}
+let badgeElement: HTMLImageElement | null = null;
+let pendingContainer: HTMLElement | null = null;
+let onlineListenerBound = false;
 
-interface AllViewsResponse {
-  domain: string;
-  pages: Record<string, { views: number; unique: number }>;
-  total: number;
+function createBadge(): HTMLImageElement {
+  const img = document.createElement("img");
+  img.src = HITS_BADGE_URL;
+  img.alt = "Aufrufe";
+  img.title = "Seitenaufrufe (hits.sh)";
+  img.height = 20;
+  img.decoding = "async";
+  img.referrerPolicy = "no-referrer";
+  img.style.verticalAlign = "middle";
+  // Offline oder Dienst nicht erreichbar: Badge unsichtbar lassen statt
+  // kaputtes Bild anzuzeigen.
+  img.addEventListener("error", () => {
+    img.style.display = "none";
+  });
+  return img;
 }
 
 /**
- * Zählt einen View für die angegebene Seite
- * Wird automatisch dedupliziert (30 Min Session)
+ * Hängt das (einmalig erzeugte) Zähler-Badge in den übergebenen Container.
+ * Mehrfache Aufrufe verschieben nur das Element und lösen keinen weiteren
+ * Zählvorgang aus.
  */
-export async function countView(page: PageType): Promise<number | null> {
-  try {
-    const response = await fetch(
-      `${API_BASE}/api/v1/${DOMAIN}/views/${page}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+export function mountHitCounter(container: HTMLElement | null): void {
+  if (!container) {
+    return;
+  }
+  // Offline: keine fehlschlagende Anfrage auslösen, sondern das Badge erst
+  // einhängen, sobald die Verbindung wieder da ist (zählt dann den Aufruf).
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    pendingContainer = container;
+    if (!onlineListenerBound) {
+      onlineListenerBound = true;
+      window.addEventListener(
+        "online",
+        () => {
+          const target = pendingContainer;
+          pendingContainer = null;
+          if (target?.isConnected) {
+            mountHitCounter(target);
+          }
+        },
+        { once: true },
+      );
     }
-
-    const data: ViewResponse = await response.json();
-    return data.views;
-  } catch (err) {
-    console.warn("[ViewCounter] Fehler beim Zählen:", err);
-    return null;
+    return;
   }
-}
-
-/**
- * Ruft alle Views für die Domain ab
- */
-export async function getAllViews(): Promise<AllViewsResponse | null> {
-  try {
-    const response = await fetch(`${API_BASE}/api/v1/${DOMAIN}/views`);
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (err) {
-    console.warn("[ViewCounter] Fehler beim Abrufen:", err);
-    return null;
+  if (!badgeElement) {
+    badgeElement = createBadge();
   }
-}
-
-/**
- * Ruft Views für eine bestimmte Seite ab
- */
-export async function getViewsForPage(
-  page: PageType
-): Promise<number | null> {
-  try {
-    const response = await fetch(
-      `${API_BASE}/api/v1/${DOMAIN}/views/${page}`
-    );
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data: ViewResponse = await response.json();
-    return data.views;
-  } catch {
-    return null;
+  if (badgeElement.parentElement !== container) {
+    container.replaceChildren(badgeElement);
   }
-}
-
-/**
- * Formatiert Zahl schön (1234 -> "1.234")
- */
-export function formatViewCount(count: number): string {
-  return count.toLocaleString("de-DE");
-}
-
-/**
- * Kompakte Formatierung (1234 -> "1,2K")
- */
-export function formatViewCountCompact(count: number): string {
-  if (count >= 1000000) {
-    return (count / 1000000).toFixed(1).replace(".", ",") + "M";
-  }
-  if (count >= 1000) {
-    return (count / 1000).toFixed(1).replace(".", ",") + "K";
-  }
-  return count.toString();
 }

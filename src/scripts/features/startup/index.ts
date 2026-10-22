@@ -9,7 +9,7 @@ import { applyDatabase, createInitialDatabase } from "@scripts/core/database";
 import { getState, subscribeState } from "@scripts/core/state";
 import { escapeHtml } from "@scripts/core/utils";
 import { toast } from "@scripts/core/toast";
-import { countView, formatViewCountCompact } from "@scripts/core/viewCounter";
+import { mountHitCounter, HITS_STATS_URL } from "@scripts/core/viewCounter";
 import type { emit as emitEvent } from "@scripts/core/eventBus";
 import {
   isStandalone,
@@ -276,10 +276,10 @@ export function initStartup(
             <a href="https://st.digitale-psm.de" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.8rem; transition: color 0.2s;">
               <i class="bi bi-bar-chart-line me-1"></i>Statistik
             </a>
-            <span id="startup-view-counter" style="color: rgba(255,255,255,0.35); font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+            <a id="startup-view-counter" href="${HITS_STATS_URL}" target="_blank" rel="noopener noreferrer" title="Aufruf-Statistik (hits.sh)" style="color: rgba(255,255,255,0.35); font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.3rem; text-decoration: none;">
               <i class="bi bi-eye"></i>
-              <span data-role="view-count">–</span>
-            </span>
+              <span data-role="view-count"></span>
+            </a>
           </div>
           
           <div style="padding-top: 1rem;">
@@ -352,6 +352,11 @@ export function initStartup(
 
   // Initial rendern mit Standardwerten (wird später aktualisiert)
   renderLandingContent(false, isStandalone());
+  // Aufruf-Zähler sofort einhängen (Singleton: spätere Neu-Render verschieben
+  // nur das Element, es wird nicht erneut gezählt)
+  mountHitCounter(
+    landingSection.querySelector<HTMLElement>('[data-role="view-count"]'),
+  );
 
   const wizard = createWizard(baseCompany);
 
@@ -711,17 +716,10 @@ export function initStartup(
     // Landing neu rendern mit korrektem Zustand
     renderLandingContent(hasFile, inApp);
 
-    // View Counter aktualisieren
-    const viewCountEl = landingSection.querySelector<HTMLElement>(
-      '[data-role="view-count"]',
+    // Aufruf-Zähler (hits.sh-Badge) einhängen – zählt genau einmal pro Aufruf
+    mountHitCounter(
+      landingSection.querySelector<HTMLElement>('[data-role="view-count"]'),
     );
-    if (viewCountEl) {
-      countView("app").then((views) => {
-        if (views !== null) {
-          viewCountEl.textContent = formatViewCountCompact(views);
-        }
-      });
-    }
 
     // Dateiname setzen wenn Datei vorhanden
     if (hasFile && storedHandle) {
