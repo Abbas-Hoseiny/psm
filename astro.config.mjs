@@ -36,7 +36,8 @@ async function collectPrecacheAssets(distDir) {
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://www.digitale-psm.de",
+  // Kanonischer Host ist die Apex-Domain; www.digitale-psm.de leitet per 301 dorthin.
+  site: "https://digitale-psm.de",
   base: "/",
   output: "static",
   build: {

@@ -46,11 +46,6 @@ import {
   createPagerWidget,
   type PagerWidget,
 } from "@scripts/features/shared/pagerWidget";
-import {
-  createDebugOverlayBinding,
-  pushDebugOverlayMetrics,
-  estimatePayloadKb as estimateOverlayPayloadKb,
-} from "@scripts/dev/debugOverlayClient";
 import { renderQsDetailHtml } from "@scripts/features/shared/qsFields";
 import { initImportMerge } from "@scripts/features/importMerge";
 
@@ -487,12 +482,6 @@ let archiveLogPagerTarget: HTMLElement | null = null;
 let docLoadError: string | null = null;
 let docSeedBusy = false;
 let documentationAutoRefreshCleanup: (() => void) | null = null;
-const documentationOverlayBinding = createDebugOverlayBinding({
-  id: "documentation",
-  label: "Documentation",
-  budget: { initialLoad: 50, maxItems: 150 },
-});
-let documentationLastUpdatedAt: string | null = null;
 
 function resolveStorageDriver(state: AppState): string {
   return state.app?.storageDriver || getActiveDriverKey();
@@ -558,40 +547,6 @@ function getDocumentationTotalEstimate(): number | null {
   }
   const derived = docPageIndex * PAGE_SIZE + allEntries.length;
   return derived || null;
-}
-
-function buildDocumentationOverlayNote(): string | undefined {
-  const parts: string[] = [];
-  if (isLoadingEntries) {
-    parts.push("Lädt …");
-  }
-  if (docLoadError) {
-    parts.push("Fehler");
-  }
-  if (focusContext) {
-    parts.push("Fokus aktiv");
-  }
-  if (dataMode === "sqlite" && docPageCursors.get(docPageIndex + 1)) {
-    parts.push("Weitere Seiten verfügbar");
-  }
-  if (!parts.length) {
-    return undefined;
-  }
-  return parts.join(" · ");
-}
-
-function publishDocumentationOverlayMetrics(): void {
-  const metrics = {
-    items: allEntries.length,
-    totalCount: getDocumentationTotalEstimate(),
-    cursor: dataMode === "sqlite" ? `Seite ${docPageIndex + 1}` : null,
-    payloadKb: estimateOverlayPayloadKb(
-      visibleEntries.map((entry) => entry.entry),
-    ),
-    lastUpdated: documentationLastUpdatedAt,
-    note: buildDocumentationOverlayNote(),
-  };
-  pushDebugOverlayMetrics(documentationOverlayBinding, metrics);
 }
 
 function findEntryById(id: string): DocumentationEntry | undefined {
@@ -1729,8 +1684,6 @@ function renderList(
   // Auswahl-Status (Häkchen, Zähler, "Alle auswählen") nach jedem Render
   // synchronisieren – wichtig, damit beim Blättern die Häkchen erhalten bleiben.
   updateSelectionInfo(section);
-  documentationLastUpdatedAt = new Date().toISOString();
-  publishDocumentationOverlayMetrics();
 }
 
 function updateInfo(
@@ -2476,13 +2429,16 @@ function createSection(): HTMLElement {
     <div class="card card-dark mb-4 no-print">
       <div class="card-body">
         <form id="doc-filter" class="row g-3">
-          <div class="col-md-3">
-            <label class="form-label" for="doc-start">Startdatum*</label>
-            <input type="date" class="form-control" id="doc-start" name="doc-start" required value="${startValue}" />
+          <div class="col-12">
+            <small class="text-muted">Ohne Filter werden die zuletzt erstellten Einträge angezeigt. Filter sind optional.</small>
           </div>
           <div class="col-md-3">
-            <label class="form-label" for="doc-end">Enddatum*</label>
-            <input type="date" class="form-control" id="doc-end" name="doc-end" required value="${endValue}" />
+            <label class="form-label" for="doc-start">Startdatum (optional)</label>
+            <input type="date" class="form-control" id="doc-start" name="doc-start" value="${startValue}" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="doc-end">Enddatum (optional)</label>
+            <input type="date" class="form-control" id="doc-end" name="doc-end" value="${endValue}" />
           </div>
           <div class="col-md-3">
             <label class="form-label" for="doc-crop">Kultur (optional)</label>
@@ -2681,8 +2637,12 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
       event.preventDefault();
       clearFocusContext(section, services, { refreshList: true });
       const nextFilters = parseFilters(event.target);
-      if (!nextFilters.startDate || !nextFilters.endDate) {
-        window.alert("Bitte Start- und Enddatum auswählen.");
+      if (
+        nextFilters.startDate &&
+        nextFilters.endDate &&
+        nextFilters.startDate > nextFilters.endDate
+      ) {
+        window.alert("Startdatum darf nicht nach dem Enddatum liegen.");
         return;
       }
       currentFilters = nextFilters;
@@ -2996,11 +2956,12 @@ export function initDocumentation(
   const applyAndRender = () => applyFilters(section, services.state.getState());
 
   documentationAutoRefreshCleanup?.();
+  // Neue Einträge (z. B. nach "Berechnen & Speichern") markieren die Ansicht
+  // als veraltet; sie wird beim nächsten Öffnen der Übersicht automatisch neu
+  // geladen – unabhängig davon, in welchem Modus zuletzt geladen wurde.
   documentationAutoRefreshCleanup = registerAutoRefreshPolicy({
     section: "documentation",
     event: "history:data-changed",
-    shouldHandleEvent: () => dataMode === "sqlite",
-    shouldRefresh: () => dataMode === "sqlite",
     onRefresh: () => applyAndRender(),
     onStatusChange: (status) => updateDocRefreshIndicator(section, status),
   });
@@ -3009,7 +2970,7 @@ export function initDocumentation(
 
   applyAndRender();
 
-  services.state.subscribe((nextState) => {
+  services.state.subscribe((nextState, prevState) => {
     const nextLogSignature = computeArchiveLogSignature(
       nextState.archives?.logs,
     );
@@ -3018,6 +2979,19 @@ export function initDocumentation(
       renderArchiveLogs(section, nextState.archives?.logs ?? []);
     }
     const nextLength = resolveHistoryLength(nextState);
+    // Datenbank verbunden/getrennt oder Treiber gewechselt: Ansicht komplett
+    // neu laden. Vorher blieb die Übersicht nach dem Öffnen einer leeren
+    // SQLite-Datenbank im "memory"-Modus hängen und zeigte neue Einträge erst
+    // nach manuellem Filtern an.
+    const connectionChanged =
+      Boolean(nextState.app?.hasDatabase) !==
+        Boolean(prevState?.app?.hasDatabase) ||
+      nextState.app?.storageDriver !== prevState?.app?.storageDriver;
+    if (connectionChanged) {
+      lastHistoryLength = nextLength;
+      applyAndRender();
+      return;
+    }
     if (focusLock) {
       lastHistoryLength = nextLength;
       return;

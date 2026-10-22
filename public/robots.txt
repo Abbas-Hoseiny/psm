@@ -1,8 +1,8 @@
 # Robots.txt für Digitale PSM
-# https://www.digitale-psm.de
+# https://digitale-psm.de
 
 User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://www.digitale-psm.de/sitemap-index.xml
+Sitemap: https://digitale-psm.de/sitemap-index.xml

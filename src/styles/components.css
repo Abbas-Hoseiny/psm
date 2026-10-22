@@ -1201,7 +1201,12 @@ html.qs-mode .card-dark {
   background: var(--surface-2);
 }
 
-/* BBCH Suchergebnisse - einzelne Einträge klar getrennt */
+/* EPPO/BBCH Suchergebnisse - einzelne Einträge klar getrennt.
+   WICHTIG: Die Ergebnisliste ist ein Flex-Container (Bootstrap .list-group)
+   mit begrenzter max-height und overflow-y: auto. Flex-Kinder dürfen hier
+   NICHT schrumpfen (flex-shrink: 0, min-height: auto), sonst werden bei
+   vielen Treffern alle Zeilen auf eine Zeilenhöhe gestaucht und der
+   umgebrochene Text überlappt die nächsten Einträge. */
 .codes-card [data-role="bbch-search-results"] .list-group-item,
 .codes-card [data-role="eppo-search-results"] .list-group-item {
   display: flex;
@@ -1209,9 +1214,12 @@ html.qs-mode .card-dark {
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: auto;
   height: auto;
+  line-height: 1.4;
   white-space: normal;
+  overflow-wrap: anywhere;
   border: 1px solid var(--border-1);
   margin-bottom: -1px;
 }

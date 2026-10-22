@@ -8,44 +8,10 @@ import { loadGpsPoints } from "./database";
 import { getState, patchState, subscribeState, updateSlice } from "./state";
 import { emit, subscribe as subscribeEvent } from "./eventBus";
 import { registerHistorySeeder } from "../dev/historySeeder";
-import {
-  shouldEnableDebugOverlay,
-  markManualDebugOverlayAccess,
-} from "../dev/debugOverlayGate";
 import { initQsMode } from "./qsMode";
 import { initPwa, storeFileHandle, saveDbState } from "./pwa";
 import { applyDatabase } from "./database";
 import * as sqlite from "./storage/sqlite";
-import type { AppState } from "./state";
-
-// Code-Splitting: Das Infos-Modul (Quellen, Artikel, Lightbox) wird erst beim
-// ersten Öffnen des Bereichs "Infos" geladen – nach dem Verbinden einer
-// Datenbank zusätzlich im Leerlauf vorgewärmt, damit der Klick sofort reagiert.
-let infosLoader: Promise<void> | null = null;
-function loadInfosFeature(services: Parameters<
-  typeof import("../features/infos/infosClient").initInfos
->[0]): Promise<void> {
-  if (!infosLoader) {
-    infosLoader = import("../features/infos/infosClient")
-      .then(({ initInfos }) => {
-        initInfos(services);
-      })
-      .catch((error) => {
-        infosLoader = null;
-        console.error("Infos-Modul konnte nicht geladen werden", error);
-      });
-  }
-  return infosLoader;
-}
-
-function scheduleIdle(task: () => void): void {
-  if (typeof window.requestIdleCallback === "function") {
-    window.requestIdleCallback(() => task(), { timeout: 3000 });
-  } else {
-    window.setTimeout(task, 1500);
-  }
-}
-
 // Flag to temporarily skip beforeunload warning for external links
 let skipBeforeUnloadOnce = false;
 
@@ -131,72 +97,7 @@ export async function bootstrap() {
   // Feature initialization - to be implemented in Astro components
   registerHistorySeeder(services);
 
-  const overlayToggle = document.querySelector<HTMLButtonElement>(
-    "[data-action='debug-overlay-toggle']",
-  );
-
-  const markToggleActive = () => {
-    if (!overlayToggle) {
-      return;
-    }
-    overlayToggle.dataset.active = "true";
-    overlayToggle.setAttribute("aria-pressed", "true");
-  };
-
-  let debugOverlayInit: Promise<void> | null = null;
-  const loadDebugOverlay = (reason?: "manual") => {
-    if (reason === "manual") {
-      markManualDebugOverlayAccess();
-    }
-    if (!debugOverlayInit) {
-      debugOverlayInit = import("../dev/debugOverlay")
-        .then(({ initDebugOverlay }) => {
-          initDebugOverlay(services);
-          markToggleActive();
-        })
-        .catch((error) => {
-          debugOverlayInit = null;
-          console.error("Debug-Overlay konnte nicht geladen werden", error);
-        });
-    } else if (reason === "manual") {
-      markToggleActive();
-    }
-    return debugOverlayInit;
-  };
-
-  if (shouldEnableDebugOverlay()) {
-    void loadDebugOverlay();
-  }
-
-  overlayToggle?.addEventListener("click", () => {
-    overlayToggle.dataset.active = "loading";
-    overlayToggle.disabled = true;
-    void loadDebugOverlay("manual").finally(() => {
-      overlayToggle.disabled = false;
-      markToggleActive();
-    });
-  });
-
   // Toast-Container wird in indexClient.ts initialisiert (einmalig).
-
-  // Infos-Feature lazy initialisieren (siehe loadInfosFeature)
-  const infosContainer = document.querySelector('[data-feature="infos"]');
-  if (infosContainer instanceof HTMLElement) {
-    const onInfosActivated = (state: AppState) => {
-      if (state.app.activeSection === "infos") {
-        void loadInfosFeature(services);
-      }
-    };
-    onInfosActivated(getState());
-    subscribeState((state, prevState) => {
-      if (state.app.activeSection !== prevState.app.activeSection) {
-        onInfosActivated(state);
-      }
-    });
-    subscribeEvent("database:connected", () => {
-      scheduleIdle(() => void loadInfosFeature(services));
-    });
-  }
 
   setupUnloadWarning(services.state);
 

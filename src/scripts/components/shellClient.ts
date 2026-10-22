@@ -53,7 +53,6 @@ function initShell(): void {
   // Performance: DOM-Referenzen einmal auflösen statt bei jedem State-Update
   const brandTitle = document.getElementById("brand-title");
   const brandTagline = document.getElementById("brand-tagline");
-  const appVersion = document.getElementById("app-version");
 
   const syncShell = (state: AppState) => {
     if (brandTitle && state.company.name) {
@@ -61,9 +60,6 @@ function initShell(): void {
     }
     if (brandTagline && state.company.headline) {
       brandTagline.textContent = state.company.headline;
-    }
-    if (appVersion && state.app.version) {
-      appVersion.textContent = `v${state.app.version}`;
     }
 
     const hasDatabase = state.app.hasDatabase;

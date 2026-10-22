@@ -90,9 +90,17 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     // (skipWaiting + clients.claim im SW), die Seite EINMAL neu laden, damit die
     // frische JS/CSS-Version geladen wird. Ohne dies liefen installierte
     // PWA-Nutzer nach einem Update unbegrenzt auf altem Code weiter.
+    // WICHTIG: Beim allerersten Besuch gibt es noch keinen Controller; das
+    // controllerchange-Event der Erstinstallation darf NICHT neu laden, sonst
+    // verliert der Nutzer gerade begonnene Eingaben (Wizard, Datei öffnen).
     if (!swControllerChangeBound) {
       swControllerChangeBound = true;
+      let hadController = Boolean(navigator.serviceWorker.controller);
       navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!hadController) {
+          hadController = true;
+          return;
+        }
         if (swReloading) {
           return;
         }

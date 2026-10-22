@@ -18,11 +18,6 @@ import {
   type PagerWidget,
 } from "@scripts/features/shared/pagerWidget";
 import { strFromU8, unzipSync } from "fflate";
-import {
-  createDebugOverlayBinding,
-  pushDebugOverlayMetrics,
-  estimatePayloadKb as estimateOverlayPayloadKb,
-} from "@scripts/dev/debugOverlayClient";
 
 type HistoryEntry = {
   savedAt?: string;
@@ -97,12 +92,6 @@ const previewNumberFormatter = new Intl.NumberFormat("de-DE");
 let previewPageIndex = 0;
 let previewPagerWidget: PagerWidget | null = null;
 let previewPagerTarget: HTMLElement | null = null;
-const importOverlayBinding = createDebugOverlayBinding({
-  id: "import",
-  label: "Import-Vorschau",
-  budget: { initialLoad: 20, maxItems: 50 },
-});
-let importOverlayLastUpdatedAt: string | null = null;
 
 function createSection(): HTMLElement {
   const wrapper = document.createElement("div");
@@ -233,7 +222,6 @@ function resetSession(section: HTMLElement): void {
   setFeedback(section, "");
   setHint(section, "Bereit für eine neue Importdatei.");
   updateActionButtons(section);
-  markImportOverlayUpdated();
 }
 
 function resolveEntryDateIso(entry: HistoryEntry): string | null {
@@ -620,13 +608,11 @@ function renderPreview(
     '[data-role="import-preview-table"]'
   );
   if (!tableBody) {
-    markImportOverlayUpdated();
     return;
   }
   if (!session) {
     tableBody.innerHTML = "";
     updatePreviewPager(section, null);
-    markImportOverlayUpdated();
     return;
   }
   const total = session.entries.length;
@@ -634,7 +620,6 @@ function renderPreview(
     tableBody.innerHTML =
       '<tr><td colspan="5" class="text-center text-muted">Keine Einträge</td></tr>';
     updatePreviewPager(section, session);
-    markImportOverlayUpdated();
     return;
   }
   const { start, end } = getPreviewPageBounds(session);
@@ -655,7 +640,6 @@ function renderPreview(
     .join("");
   tableBody.innerHTML = html;
   updatePreviewPager(section, session);
-  markImportOverlayUpdated();
 }
 
 async function readZipPayload(buffer: Uint8Array): Promise<{
@@ -761,64 +745,6 @@ async function buildSession(
   };
 }
 
-function buildImportOverlayNote(): string | undefined {
-  if (!currentSession) {
-    return "Keine Datei";
-  }
-  const parts: string[] = [];
-  if (isProcessing) {
-    parts.push("Verarbeitung");
-  }
-  if (currentSession.warnings.length) {
-    parts.push("Warnungen");
-  }
-  if (currentSession.stats.importableCount < currentSession.stats.entryCount) {
-    parts.push("Duplikate entfernt");
-  }
-  return parts.length ? parts.join(" · ") : undefined;
-}
-
-function syncImportOverlayMetrics(): void {
-  const hasSession = Boolean(currentSession);
-  const totalPages = hasSession
-    ? Math.max(
-        Math.ceil((currentSession?.entries.length || 0) / PREVIEW_PAGE_SIZE),
-        1
-      )
-    : null;
-  const metrics = hasSession
-    ? {
-        items: currentSession?.entries.length ?? 0,
-        totalCount: currentSession?.stats.entryCount ?? null,
-        cursor:
-          currentSession &&
-          (currentSession.entries.length || 0) > PREVIEW_PAGE_SIZE
-            ? `Seite ${previewPageIndex + 1}${
-                totalPages ? ` / ${totalPages}` : ""
-              }`
-            : null,
-        payloadKb: estimateOverlayPayloadKb(
-          currentSession?.entries.slice(0, PREVIEW_PAGE_SIZE)
-        ),
-        lastUpdated: importOverlayLastUpdatedAt,
-        note: buildImportOverlayNote(),
-      }
-    : {
-        items: 0,
-        totalCount: 0,
-        cursor: null,
-        payloadKb: 0,
-        lastUpdated: importOverlayLastUpdatedAt,
-        note: buildImportOverlayNote(),
-      };
-  pushDebugOverlayMetrics(importOverlayBinding, metrics);
-}
-
-function markImportOverlayUpdated(): void {
-  importOverlayLastUpdatedAt = new Date().toISOString();
-  syncImportOverlayMetrics();
-}
-
 function renderSession(section: HTMLElement): void {
   const summaryCard = section.querySelector<HTMLElement>(
     '[data-role="import-summary-card"]'
@@ -830,7 +756,6 @@ function renderSession(section: HTMLElement): void {
     summaryCard.classList.add("d-none");
     updatePreviewPager(section, null);
     updateActionButtons(section);
-    markImportOverlayUpdated();
     return;
   }
   summaryCard.classList.remove("d-none");

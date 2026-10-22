@@ -2,7 +2,7 @@
 
 **Digitale Pflanzenschutz-Dokumentation** – Eine moderne Web-Anwendung zur Erfassung, Berechnung und Dokumentation von Pflanzenschutzmaßnahmen im biologischen und konventionellen Landbau.
 
-🌐 **Live-Demo:** [www.digitale-psm.de](https://www.digitale-psm.de)
+🌐 **Live-Demo:** [digitale-psm.de](https://digitale-psm.de)
 
 ## Features
 
@@ -131,5 +131,5 @@ MIT-Lizenz – siehe [LICENSE](LICENSE)
 
 ## Kontakt
 
-- Website: [www.digitale-psm.de](https://www.digitale-psm.de)
+- Website: [digitale-psm.de](https://digitale-psm.de)
 - Entwickler: Abbas Hoseiny

@@ -24,17 +24,7 @@ const currentYear = new Date().getFullYear();
       </button>
       
       <div class="collapse navbar-collapse" id="navbarNav">
-        <!-- Infos button on the left -->
-        <ul class="navbar-nav me-auto">
-          <li class="nav-item">
-            <button class="btn btn-psm-primary-outline nav-btn" data-section="infos">
-              <i class="bi bi-info-circle"></i> Infos
-            </button>
-          </li>
-        </ul>
-        
-        <!-- Other buttons on the right -->
-        <ul class="navbar-nav">
+        <ul class="navbar-nav ms-auto">
           <li class="nav-item">
             <button class="btn btn-psm-secondary-outline nav-btn" data-section="calc">
               <i class="bi bi-pencil-square"></i> Neu erfassen
@@ -70,17 +60,6 @@ const currentYear = new Date().getFullYear();
           <i class="bi bi-info-circle me-1" aria-hidden="true"></i>Info & Lizenz
         </a>
       </small>
-      <div class="d-flex align-items-center gap-2">
-        <small id="app-version" class="text-muted"></small>
-        <button
-          type="button"
-          class="monitor-toggle"
-          data-action="debug-overlay-toggle"
-          title="Performance Monitor aktivieren"
-        >
-          <i class="bi bi-activity"></i>
-        </button>
-      </div>
     </div>
   </div>
 </footer>
@@ -110,28 +89,6 @@ const currentYear = new Date().getFullYear();
     max-width: 40px;
   }
 
-  .monitor-toggle {
-    margin-left: 0.5rem;
-    border: none;
-    background: var(--color-surface-2);
-    color: var(--color-text-muted);
-    border-radius: var(--radius-full);
-    padding: 0.15rem 0.5rem;
-    font-size: 0.85rem;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background var(--transition-base), color var(--transition-base);
-  }
-
-  .monitor-toggle:hover,
-  .monitor-toggle[data-active="true"] {
-    background: var(--color-primary-subtle);
-    color: var(--color-primary);
-  }
-  
   @media print {
     .no-print {
       display: none !important;
