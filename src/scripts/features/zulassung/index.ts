@@ -20,33 +20,12 @@ import {
   searchBbchSuggestions,
 } from "@scripts/core/lookups";
 import { emit as emitEvent } from "@scripts/core/eventBus";
+import Collapse from "bootstrap/js/dist/collapse";
 
 // Saved EPPO/BBCH state for the codes manager
 let savedEppoList: storage.SavedEppoRecord[] = [];
 let savedBbchList: storage.SavedBbchRecord[] = [];
 let codesManagerInitialized = false;
-
-declare const bootstrap:
-  | {
-      Collapse: new (
-        element: Element,
-        options?: unknown
-      ) => {
-        toggle?: () => void;
-        show?: () => void;
-        hide?: () => void;
-      };
-      Modal: new (
-        element: Element,
-        options?: unknown
-      ) => {
-        show?: () => void;
-        hide?: () => void;
-      } & {
-        getInstance?: (element: Element) => { hide?: () => void } | null;
-      };
-    }
-  | undefined;
 
 interface Services {
   state: {
@@ -3092,13 +3071,8 @@ function attachEventHandlers(section: HTMLElement): void {
   if (btnShowDebug) {
     btnShowDebug.addEventListener("click", () => {
       const debugPanel = section.querySelector<HTMLElement>("#debug-panel");
-      if (
-        debugPanel &&
-        typeof bootstrap !== "undefined" &&
-        bootstrap?.Collapse
-      ) {
-        // eslint-disable-next-line new-cap
-        new bootstrap.Collapse(debugPanel, { toggle: true });
+      if (debugPanel) {
+        Collapse.getOrCreateInstance(debugPanel).toggle();
       }
     });
   }

@@ -46,8 +46,8 @@
 
 ## Technologie
 
-- **Frontend:** Astro 4.16, TypeScript, Bootstrap 5
-- **Datenbank:** SQLite WASM (läuft komplett im Browser)
+- **Frontend:** Astro 5, TypeScript, Bootstrap 5 (lokal gebündelt, kein CDN)
+- **Datenbank:** SQLite WASM (läuft komplett im Browser, lokal gebündelt)
 - **PWA:** Service Worker, Web App Manifest, File Handling API
 - **Offline-First:** Funktioniert ohne Internetverbindung
 - **Datenschutz:** Alle Daten bleiben lokal auf Ihrem Gerät

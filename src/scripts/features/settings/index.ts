@@ -14,12 +14,12 @@ import {
   createPagerWidget,
   type PagerWidget,
 } from "@scripts/features/shared/pagerWidget";
-import { initGps } from "@scripts/features/gps";
-import {
-  initZulassung,
-  resetZulassungInit,
-  type InitZulassungOptions,
-} from "@scripts/features/zulassung";
+// Code-Splitting: GPS und BVL/Zulassung (inkl. bvlSync/bvlDataset, zusammen der
+// größte Teil des Bundles) werden erst beim ersten Öffnen des jeweiligen Tabs
+// geladen. Die Initialisierung war bereits tab-lazy; jetzt wird auch der Code
+// nicht mehr beim App-Start heruntergeladen und geparst.
+const loadGpsFeature = () => import("@scripts/features/gps");
+const loadZulassungFeature = () => import("@scripts/features/zulassung");
 
 interface Services {
   state: {
@@ -844,6 +844,15 @@ export function initSettings(
   let gpsInitialized = false;
   let bvlInitialized = false;
 
+  function setPaneLoading(tabName: string, loading: boolean): void {
+    const pane = section.querySelector<HTMLElement>(
+      `[data-pane="${tabName}"]`
+    );
+    if (pane) {
+      pane.setAttribute("aria-busy", loading ? "true" : "false");
+    }
+  }
+
   function switchSettingsTab(tabName: string): void {
     activeSettingsTab = tabName;
 
@@ -867,8 +876,17 @@ export function initSettings(
         '[data-feature="gps-embedded"]'
       );
       if (gpsContainer) {
-        initGps(gpsContainer, services);
         gpsInitialized = true;
+        setPaneLoading("gps", true);
+        loadGpsFeature()
+          .then(({ initGps }) => {
+            initGps(gpsContainer, services);
+          })
+          .catch((error) => {
+            gpsInitialized = false;
+            console.error("GPS-Modul konnte nicht geladen werden", error);
+          })
+          .finally(() => setPaneLoading("gps", false));
       }
     }
 
@@ -878,8 +896,7 @@ export function initSettings(
       );
 
       if (bvlContainer) {
-        // Reset Zulassung init state to allow embedding
-        resetZulassungInit();
+        bvlInitialized = true;
 
         // Build services for Zulassung - emit might not be available
         const zulassungServices = {
@@ -904,9 +921,19 @@ export function initSettings(
               : undefined,
           },
         };
-        // Initialize in embedded mode - always visible
-        initZulassung(bvlContainer, zulassungServices, { embedded: true });
-        bvlInitialized = true;
+        setPaneLoading("bvl", true);
+        loadZulassungFeature()
+          .then(({ initZulassung, resetZulassungInit }) => {
+            // Reset Zulassung init state to allow embedding
+            resetZulassungInit();
+            // Initialize in embedded mode - always visible
+            initZulassung(bvlContainer, zulassungServices, { embedded: true });
+          })
+          .catch((error) => {
+            bvlInitialized = false;
+            console.error("BVL-Modul konnte nicht geladen werden", error);
+          })
+          .finally(() => setPaneLoading("bvl", false));
       }
     }
   }

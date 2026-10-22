@@ -1,5 +1,6 @@
 ---
 // Shell component - Navigation and Footer
+const currentYear = new Date().getFullYear();
 ---
 
 <div data-region="shell" class="d-none">
@@ -59,7 +60,7 @@
   <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center">
       <small class="text-muted">
-        © 2025 Digitale PSM ·
+        © {currentYear} Digitale PSM ·
         <a
           href="https://info.digitale-psm.de"
           target="_blank"

@@ -1,3 +1,8 @@
+// Bootstrap-Plugins werden gezielt importiert statt das komplette Bundle per
+// CDN zu laden. Collapse registriert beim Import die data-bs-toggle="collapse"
+// Data-API (Navbar-Toggler, Debug-Panels). Weitere Plugins werden im Code
+// nicht verwendet (Tooltips werden nicht initialisiert).
+import "bootstrap/js/dist/collapse";
 import { bootstrap } from "./core/bootstrap";
 
 const bootstrapFlag = "__pflanzenschutz_bootstrapped__";

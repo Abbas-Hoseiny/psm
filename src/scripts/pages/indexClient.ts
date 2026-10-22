@@ -1,4 +1,4 @@
-import { subscribe } from "@scripts/core/eventBus";
+import { emit, subscribe } from "@scripts/core/eventBus";
 import {
   getState,
   subscribeState as subscribeAppState,
@@ -39,12 +39,7 @@ function initIndex(): void {
       subscribe: subscribeAppState,
     },
     events: {
-      emit: (eventName: string, payload?: unknown) => {
-        // Import dynamically to avoid circular dependency
-        import("@scripts/core/eventBus").then(({ emit }) => {
-          emit(eventName as any, payload as any);
-        });
-      },
+      emit,
       subscribe,
     },
   };
@@ -109,13 +104,6 @@ function initIndex(): void {
     ) {
       switchToSection(state.app.activeSection);
     }
-  });
-
-  // Event subscription only for side effects (not for UI updates)
-  // UI updates should be driven by state changes
-  subscribe("app:sectionChanged", () => {
-    // Side effects only - UI is handled by state subscription above
-    // This event is for other modules to react to section changes
   });
 }
 

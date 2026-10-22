@@ -104,6 +104,7 @@ export interface AppState {
     hasDatabase: boolean;
     activeSection:
       | "calc"
+      | "infos"
       | "documentation"
       | "history"
       | "zulassung"

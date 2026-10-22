@@ -43,6 +43,35 @@ export function isSupported(): boolean {
   return true;
 }
 
+function collectTransferables(payload: unknown): Transferable[] {
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+  if (payload instanceof ArrayBuffer) {
+    return [payload];
+  }
+  if (ArrayBuffer.isView(payload)) {
+    return payload.byteOffset === 0 &&
+      payload.byteLength === payload.buffer.byteLength &&
+      payload.buffer instanceof ArrayBuffer
+      ? [payload.buffer]
+      : [];
+  }
+  const data = (payload as { data?: unknown }).data;
+  if (data instanceof ArrayBuffer) {
+    return [data];
+  }
+  if (
+    ArrayBuffer.isView(data) &&
+    data.byteOffset === 0 &&
+    data.byteLength === data.buffer.byteLength &&
+    data.buffer instanceof ArrayBuffer
+  ) {
+    return [data.buffer];
+  }
+  return [];
+}
+
 /**
  * Call worker method
  */
@@ -57,7 +86,15 @@ function callWorker(action: string, payload?: any): Promise<any> {
     const pending: PendingMessage = { resolve, reject, timeoutId: null };
     pendingMessages.set(id, pending);
 
-    worker.postMessage({ id, action, payload });
+    // Performance: große Binärpuffer (BVL-DB 100+ MB, SQLite-Importe) per
+    // Transfer statt Structured-Clone-Kopie an den Worker übergeben. Die
+    // Aufrufer verwenden die Puffer nach dem Aufruf nicht mehr.
+    const transfer = collectTransferables(payload);
+    if (transfer.length) {
+      worker.postMessage({ id, action, payload }, transfer);
+    } else {
+      worker.postMessage({ id, action, payload });
+    }
 
     const timeoutMs =
       LONG_RUNNING_ACTION_TIMEOUTS[action] ?? DEFAULT_WORKER_TIMEOUT;

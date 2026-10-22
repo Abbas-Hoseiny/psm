@@ -644,6 +644,15 @@ export function getPwaCapabilities() {
 
 // ===== INITIALIZATION =====
 
+function whenWindowLoaded(): Promise<void> {
+  if (document.readyState === "complete") {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    window.addEventListener("load", () => resolve(), { once: true });
+  });
+}
+
 /**
  * Vollständige PWA-Initialisierung
  */
@@ -653,16 +662,20 @@ export async function initPwa(options?: {
 }): Promise<void> {
   console.log("[PWA] Initialisierung...");
 
-  // 1. Service Worker registrieren
-  await registerServiceWorker();
-
-  // 2. Install Prompt initialisieren
+  // 1. Install Prompt zuerst initialisieren, damit kein frühes
+  //    beforeinstallprompt-Event verpasst wird
   initInstallPrompt();
 
-  // 3. File Handling initialisieren
+  // 2. File Handling initialisieren
   if (options?.onFileOpened) {
     initFileHandling(options.onFileOpened);
   }
+
+  // 3. Service Worker registrieren – erst nach "load", damit der Precache
+  //    (JS/CSS/WASM/Fonts) nicht mit den kritischen Ressourcen des ersten
+  //    Seitenaufbaus um Bandbreite konkurriert.
+  await whenWindowLoaded();
+  await registerServiceWorker();
 
   // 4. Auto-Start prüfen
   if (options?.onAutoStart && (await shouldAutoStart())) {
