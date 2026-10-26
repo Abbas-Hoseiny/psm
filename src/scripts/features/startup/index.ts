@@ -109,15 +109,16 @@ function createWizard(baseCompany: CompanyState): WizardElements {
               <i class="bi bi-arrow-left me-1"></i>Zurück
             </button>
           </div>
+          <p class="text-muted mb-4">Diese Angaben erscheinen in der Kopfzeile der App und auf Ausdrucken. Nur der Firmenname ist Pflicht.</p>
           <form id="database-wizard-form" class="text-start">
             <div class="row mb-4">
               <div class="col-md-6 mb-3 mb-md-0">
                 <label class="form-label d-block mb-2" for="wizard-company-name">
                   Firmenname <span class="text-danger">*</span>
                 </label>
-                <input class="form-control" id="wizard-company-name" name="wizard-company-name" required value="${escapeAttr(
+                <input class="form-control" id="wizard-company-name" name="wizard-company-name" required autocomplete="organization" value="${escapeAttr(
                   baseCompany.name,
-                )}" placeholder="z.B. Gärtnerei Müller" />
+                )}" placeholder="z. B. Gärtnerei Muster GmbH" />
               </div>
               <div class="col-md-6">
                 <label class="form-label d-block mb-2" for="wizard-company-headline">
@@ -125,7 +126,8 @@ function createWizard(baseCompany: CompanyState): WizardElements {
                 </label>
                 <input class="form-control" id="wizard-company-headline" name="wizard-company-headline" value="${escapeAttr(
                   baseCompany.headline,
-                )}" placeholder="z.B. Pflanzenschutz-Dokumentation 2025" />
+                )}" placeholder="z. B. Pflanzenschutz-Dokumentation" />
+                <div class="form-text">Untertitel unter dem Firmennamen.</div>
               </div>
             </div>
             <div class="row mb-4">
@@ -133,9 +135,10 @@ function createWizard(baseCompany: CompanyState): WizardElements {
                 <label class="form-label d-block mb-2" for="wizard-company-address">
                   Adresse <span class="text-muted small">(optional)</span>
                 </label>
-                <textarea class="form-control" id="wizard-company-address" name="wizard-company-address" rows="2" placeholder="Straße, PLZ Ort">${escapeHtml(
+                <textarea class="form-control" id="wizard-company-address" name="wizard-company-address" rows="2" autocomplete="street-address" placeholder="Straße und Hausnummer, PLZ Ort">${escapeHtml(
                   baseCompany.address,
                 )}</textarea>
+                <div class="form-text">Erscheint auf Ausdrucken.</div>
               </div>
             </div>
             <div class="d-flex gap-3">
@@ -560,6 +563,7 @@ export function initStartup(
   function showWizard(): void {
     activeView = "wizard";
     updateRegionVisibility();
+    wizard.form.querySelector<HTMLInputElement>("#wizard-company-name")?.focus();
   }
 
   // Auto-Start Handler - öffnet gespeicherte Datei
