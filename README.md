@@ -8,7 +8,8 @@
 
 ### 📱 Progressive Web App (PWA)
 
-- **Als App installierbar** auf Desktop und Mobilgeräten
+- **Als App installierbar** am Desktop (Chrome, Edge)
+- **Handy:** Datenbanken öffnen und speichern geht dort noch nicht. Safari auf dem iPhone und Chrome auf Android haben die File System Access API nicht, auf der die Dateiablage beruht.
 - **Offline-fähig** dank Service Worker Caching
 - **Auto-Start** mit zuletzt verwendeter Datenbank
 - Direktes Öffnen von .sqlite Dateien aus dem Explorer
@@ -118,7 +119,7 @@ Folgende Dateitypen werden von Git LFS verwaltet:
 Die App kann als Progressive Web App installiert werden:
 
 1. **Chrome/Edge:** Auf das Installations-Symbol in der Adressleiste klicken
-2. **Mobile:** "Zum Startbildschirm hinzufügen" im Browser-Menü
+2. **Handy:** Die Seite lässt sich zum Startbildschirm hinzufügen, Datenbanken öffnen und speichern geht dort aber noch nicht (siehe oben).
 
 Nach der Installation:
 - Startet die App ohne Browser-UI
@@ -127,9 +128,11 @@ Nach der Installation:
 
 ## Lizenz
 
-MIT-Lizenz – siehe [LICENSE](LICENSE)
+MIT-Lizenz – siehe [LICENSE](LICENSE), deutsche Übersetzung in [LIZENZ-DE.md](LIZENZ-DE.md)
 
 ## Kontakt
 
-- Website: [digitale-psm.de](https://digitale-psm.de)
-- Entwickler: Abbas Hoseiny
+- App: [digitale-psm.de](https://digitale-psm.de)
+- Info und Lizenz: [info.digitale-psm.de](https://info.digitale-psm.de)
+- Statistik zur BVL-Datenbank: [st.digitale-psm.de](https://st.digitale-psm.de)
+- Entwickler: [Abbas Hoseiny](https://hoseiny.de/de/projects/digitale-psm/), dort auch die Technik der Datenhaltung im Detail
