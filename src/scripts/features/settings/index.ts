@@ -10,6 +10,7 @@ import {
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { saveDatabase } from "@scripts/core/storage";
 import { escapeHtml } from "@scripts/core/utils";
+import { toast } from "@scripts/core/toast";
 import {
   createPagerWidget,
   type PagerWidget,
@@ -39,6 +40,9 @@ interface Services {
 let initialized = false;
 let mediumsTableBody: HTMLTableSectionElement | null = null;
 let mediumSubmitButton: HTMLButtonElement | null = null;
+let mediumCancelButton: HTMLButtonElement | null = null;
+let mediumFormTitle: HTMLElement | null = null;
+let editingMediumId: string | null = null;
 let methodInput: HTMLInputElement | null = null;
 let methodDatalist: HTMLDataListElement | null = null;
 let addForm: HTMLFormElement | null = null;
@@ -121,10 +125,10 @@ function createSection(): HTMLElement {
                     <th>Einheit</th>
                     <th>Methode</th>
                     <th>Wert</th>
-                    <th>Zulassung</th>
+                    <th>Zulassungsnr.</th>
                     <th>Wartezeit</th>
                     <th>Wirkstoff</th>
-                    <th style="width:80px"></th>
+                    <th class="medium-actions-cell"><span class="visually-hidden">Aktionen</span></th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -134,14 +138,14 @@ function createSection(): HTMLElement {
 
             <hr class="border-secondary my-4" />
 
-            <!-- Neues Mittel hinzufügen -->
-            <h5 class="text-success mb-3">+ Neues Mittel</h5>
+            <!-- Neues Mittel hinzufügen / vorhandenes bearbeiten -->
+            <h5 class="text-success mb-3" data-role="medium-form-title">+ Neues Mittel</h5>
             <form id="settings-medium-form" class="row g-2 align-items-end mb-4">
-              <div class="col-6 col-md-2">
+              <div class="col-6 col-md-4 col-xl-2">
                 <label class="form-label small">Name *</label>
                 <input class="form-control form-control-sm" name="medium-name" placeholder="Name" required />
               </div>
-              <div class="col-6 col-md-1">
+              <div class="col-6 col-md-3 col-xl-2">
                 <label class="form-label small">Einheit *</label>
                 <select class="form-select form-select-sm" name="medium-unit" required>
                   <option value="L">L (Liter/ha)</option>
@@ -150,29 +154,30 @@ function createSection(): HTMLElement {
                   <option value="g">g (g/ha)</option>
                 </select>
               </div>
-              <div class="col-6 col-md-2">
+              <div class="col-6 col-md-3 col-xl-2">
                 <label class="form-label small">Methode *</label>
-                <input class="form-control form-control-sm" name="medium-method" placeholder="perHektar" list="settings-method-options" required />
+                <input class="form-control form-control-sm" name="medium-method" placeholder="pro Hektar" list="settings-method-options" required />
                 <datalist id="settings-method-options"></datalist>
               </div>
-              <div class="col-6 col-md-1">
+              <div class="col-6 col-md-2 col-xl-1">
                 <label class="form-label small">Wert *</label>
                 <input type="number" step="any" class="form-control form-control-sm" name="medium-value" placeholder="" required />
               </div>
-              <div class="col-6 col-md-2">
-                <label class="form-label small">Zulassung</label>
+              <div class="col-6 col-md-4 col-xl-2">
+                <label class="form-label small">Zulassungsnr.</label>
                 <input class="form-control form-control-sm" name="medium-approval" placeholder="" />
               </div>
-              <div class="col-3 col-md-1">
+              <div class="col-6 col-md-3 col-xl-1">
                 <label class="form-label small">Wartetage</label>
                 <input type="number" min="0" class="form-control form-control-sm" name="medium-wartezeit" placeholder="" />
               </div>
-              <div class="col-6 col-md-2">
+              <div class="col-12 col-md-5 col-xl-2">
                 <label class="form-label small">Wirkstoff</label>
                 <input class="form-control form-control-sm" name="medium-wirkstoff" placeholder="" />
               </div>
-              <div class="col-3 col-md-1">
-                <button class="btn btn-success btn-sm w-100" type="submit">+</button>
+              <div class="col-12 d-flex flex-wrap justify-content-end gap-2 mt-3">
+                <button class="btn btn-outline-secondary btn-sm d-none" type="button" data-action="medium-edit-cancel">Abbrechen</button>
+                <button class="btn btn-success btn-sm" type="submit" data-role="medium-submit"><i class="bi bi-plus-lg me-1"></i>Mittel hinzufügen</button>
               </div>
             </form>
 
@@ -342,16 +347,124 @@ function setProfileSubmitBusy(isBusy: boolean, busyLabel?: string): void {
     : "Profil speichern";
 }
 
+function mediumFormField<T extends HTMLElement>(name: string): T | null {
+  return addForm ? addForm.querySelector<T>(`[name="${name}"]`) : null;
+}
+
+// Überschrift und Knöpfe des Mittel-Formulars an "neu" / "bearbeiten" anpassen
+function updateMediumFormMode(): void {
+  const isEdit = Boolean(editingMediumId);
+  if (mediumFormTitle) {
+    mediumFormTitle.textContent = isEdit ? "Mittel bearbeiten" : "+ Neues Mittel";
+  }
+  mediumCancelButton?.classList.toggle("d-none", !isEdit);
+  if (mediumSubmitButton) {
+    mediumSubmitButton.innerHTML = isEdit
+      ? '<i class="bi bi-check-lg me-1"></i>Änderungen speichern'
+      : '<i class="bi bi-plus-lg me-1"></i>Mittel hinzufügen';
+  }
+}
+
 function setMediumFormBusy(isBusy: boolean, busyLabel?: string): void {
   if (!mediumSubmitButton) {
     return;
   }
   mediumSubmitButton.disabled = isBusy;
+  if (mediumCancelButton) {
+    mediumCancelButton.disabled = isBusy;
+  }
   if (isBusy) {
     mediumSubmitButton.textContent = busyLabel || "Speichert...";
     return;
   }
-  mediumSubmitButton.textContent = "Hinzufügen";
+  updateMediumFormMode();
+}
+
+// Wartezeit kann aus den BVL-Daten als Text kommen (z. B. "F"); das Zahlenfeld
+// kann nur Tage aufnehmen
+function isFreeTextWartezeit(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    Number.isNaN(Number(value))
+  );
+}
+
+function resetMediumForm(): void {
+  editingMediumId = null;
+  if (addForm) {
+    addForm.reset();
+    addForm
+      .querySelectorAll<HTMLOptionElement>('option[data-temporary="true"]')
+      .forEach((option) => option.remove());
+  }
+  const wartezeitInput = mediumFormField<HTMLInputElement>("medium-wartezeit");
+  if (wartezeitInput) {
+    wartezeitInput.placeholder = "";
+  }
+  updateMediumFormMode();
+}
+
+function loadMediumIntoForm(medium: any, state: AppState): void {
+  if (!addForm) {
+    return;
+  }
+  resetMediumForm();
+  editingMediumId = medium.id;
+
+  const nameInput = mediumFormField<HTMLInputElement>("medium-name");
+  const unitSelect = mediumFormField<HTMLSelectElement>("medium-unit");
+  const valueInput = mediumFormField<HTMLInputElement>("medium-value");
+  const approvalInput = mediumFormField<HTMLInputElement>("medium-approval");
+  const wartezeitInput = mediumFormField<HTMLInputElement>("medium-wartezeit");
+  const wirkstoffInput = mediumFormField<HTMLInputElement>("medium-wirkstoff");
+
+  if (nameInput) {
+    nameInput.value = medium.name ?? "";
+  }
+  if (unitSelect) {
+    const unit = String(medium.unit ?? "");
+    const known = Array.from(unitSelect.options).some(
+      (option) => option.value === unit
+    );
+    // Aus den BVL-Daten übernommene Mittel können andere Einheiten tragen
+    if (unit && !known) {
+      const option = new Option(unit, unit);
+      option.dataset.temporary = "true";
+      unitSelect.add(option);
+    }
+    unitSelect.value = unit;
+  }
+  if (methodInput) {
+    const method = state.measurementMethods.find(
+      (item: any) => item.id === medium.methodId
+    );
+    methodInput.value = method?.label || medium.method || medium.methodId || "";
+  }
+  if (valueInput) {
+    valueInput.value = medium.value != null ? String(medium.value) : "";
+  }
+  if (approvalInput) {
+    approvalInput.value = medium.approval || medium.zulassungsnummer || "";
+  }
+  if (wartezeitInput) {
+    if (isFreeTextWartezeit(medium.wartezeit)) {
+      wartezeitInput.value = "";
+      wartezeitInput.placeholder = medium.wartezeit;
+    } else {
+      wartezeitInput.value =
+        medium.wartezeit != null && medium.wartezeit !== ""
+          ? String(medium.wartezeit)
+          : "";
+    }
+  }
+  if (wirkstoffInput) {
+    wirkstoffInput.value = medium.wirkstoff ?? "";
+  }
+
+  updateMediumFormMode();
+  addForm.scrollIntoView({ behavior: "smooth", block: "center" });
+  nameInput?.focus({ preventScroll: true });
 }
 
 async function deleteMediumAtIndex(
@@ -367,7 +480,8 @@ async function deleteMediumAtIndex(
   const targetId = targetMedium?.id || null;
   mediumSavePending = true;
   setMediumFormBusy(true);
-  const originalLabel = trigger?.textContent ?? null;
+  // innerHTML, damit das Symbol im Knopf erhalten bleibt
+  const originalLabel = trigger?.innerHTML ?? null;
   if (trigger) {
     trigger.disabled = true;
     trigger.textContent = "Lösche...";
@@ -391,12 +505,15 @@ async function deleteMediumAtIndex(
         id: targetId,
       });
     }
+    if (targetId && targetId === editingMediumId) {
+      resetMediumForm();
+    }
   } finally {
     mediumSavePending = false;
     setMediumFormBusy(false);
     if (trigger && trigger.isConnected) {
       trigger.disabled = false;
-      trigger.textContent = originalLabel ?? "Löschen";
+      trigger.innerHTML = originalLabel ?? "Löschen";
     }
   }
 }
@@ -650,7 +767,7 @@ function renderMediumRows(state: AppState): void {
     const approvalText =
       typeof approvalValue === "string" && approvalValue.trim().length
         ? escapeHtml(approvalValue)
-        : "-";
+        : '<span class="badge-missing" title="Zulassungsnummer fehlt">fehlt</span>';
     // Wartezeit kann String (z.B. "FX") oder Number sein
     const wartezeitText =
       typeof medium.wartezeit === "string" && medium.wartezeit.trim().length
@@ -675,8 +792,11 @@ function renderMediumRows(state: AppState): void {
       <td>${approvalText}</td>
       <td>${wartezeitText}</td>
       <td>${wirkstoffText}</td>
-      <td>
-        <button class="btn btn-sm btn-danger" data-action="delete" data-index="${globalIndex}">Löschen</button>
+      <td class="medium-actions-cell">
+        <div class="medium-row-actions">
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-action="edit" data-index="${globalIndex}" title="Bearbeiten" aria-label="Bearbeiten"><i class="bi bi-pencil"></i><span class="medium-action-label">Bearbeiten</span></button>
+          <button class="btn btn-sm btn-danger" type="button" data-action="delete" data-index="${globalIndex}" title="Löschen" aria-label="Löschen"><i class="bi bi-trash"></i><span class="medium-action-label">Löschen</span></button>
+        </div>
       </td>
     `;
     mediumsTableBody?.appendChild(row);
@@ -700,7 +820,8 @@ function renderMethodSuggestions(state: AppState): void {
       labelOption.value = method.label;
       methodDatalist!.appendChild(labelOption);
     }
-    if (idKey && !seen.has(idKey)) {
+    // Technische Kennung nur vorschlagen, wenn es keine Bezeichnung gibt
+    if (!labelKey && idKey && !seen.has(idKey)) {
       seen.add(idKey);
       const idOption = document.createElement("option");
       idOption.value = method.id;
@@ -820,6 +941,13 @@ export function initSettings(
   mediumSubmitButton = addForm
     ? addForm.querySelector<HTMLButtonElement>('button[type="submit"]')
     : null;
+  mediumCancelButton = section.querySelector<HTMLButtonElement>(
+    '[data-action="medium-edit-cancel"]'
+  );
+  mediumFormTitle = section.querySelector<HTMLElement>(
+    '[data-role="medium-form-title"]'
+  );
+  editingMediumId = null;
   profileForm = section.querySelector<HTMLFormElement>(
     "#settings-profile-form"
   );
@@ -950,7 +1078,7 @@ export function initSettings(
       });
     });
 
-  async function handleMediumAdd(): Promise<void> {
+  async function handleMediumSubmit(): Promise<void> {
     if (!addForm || mediumSavePending) {
       return;
     }
@@ -971,35 +1099,68 @@ export function initSettings(
       window.alert("Bitte alle Felder korrekt ausfüllen.");
       return;
     }
+    const existing = editingMediumId
+      ? (getMediumItems(state).find(
+          (item: any) => item.id === editingMediumId
+        ) ?? null)
+      : null;
+    if (editingMediumId && !existing) {
+      // Das Mittel gibt es nicht mehr (z. B. inzwischen gelöscht)
+      resetMediumForm();
+      toast.warning("Dieses Mittel gibt es nicht mehr.");
+      return;
+    }
     const methodId = ensureMethodExists(state, services);
     if (!methodId) {
       return;
     }
-    const id =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    const wartezeitValue =
+      wartezeit != null && !Number.isNaN(wartezeit) ? wartezeit : null;
+    const id: string = existing
+      ? existing.id
+      : typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
         ? crypto.randomUUID()
         : `medium-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-    const medium = {
+    const medium: any = {
+      ...(existing ?? {}),
       id,
       name,
       unit,
       methodId,
       value,
       zulassungsnummer: approvalNumber || null,
+      // Text-Wartezeit aus den BVL-Daten bleibt stehen, solange keine Tage eingetragen werden
       wartezeit:
-        wartezeit != null && !Number.isNaN(wartezeit) ? wartezeit : null,
+        wartezeitValue == null && isFreeTextWartezeit(existing?.wartezeit)
+          ? existing.wartezeit
+          : wartezeitValue,
       wirkstoff,
     };
+    if (existing) {
+      if ("approval" in existing) {
+        medium.approval = approvalNumber || null;
+      }
+      // Die Methode steht jetzt in methodId
+      delete medium.method;
+    }
     mediumSavePending = true;
     setMediumFormBusy(true, "Speichere...");
     try {
+      if (!existing) {
+        // Seite mit dem neuen Mittel zeigen
+        mediumsPageIndex = Math.floor(
+          getMediumItems(state).length / MEDIUMS_PAGE_SIZE
+        );
+      }
       services.state.updateSlice("mediums", (mediumsSlice) => {
         const slice = ensureSliceWindow<any>(mediumsSlice as any);
-        const items = [...slice.items, medium];
+        const items = existing
+          ? slice.items.map((item: any) => (item.id === id ? medium : item))
+          : [...slice.items, medium];
         return {
           ...slice,
           items,
-          totalCount: items.length,
+          totalCount: existing ? slice.totalCount : items.length,
           lastUpdatedAt: new Date().toISOString(),
         };
       });
@@ -1009,11 +1170,19 @@ export function initSettings(
         silent: true,
       });
       if (persisted) {
-        addForm.reset();
+        resetMediumForm();
         services.events?.emit?.("mediums:data-changed", {
-          action: "created",
+          action: existing ? "updated" : "created",
           id,
         });
+        if (approvalNumber) {
+          toast.success(`„${name}“ gespeichert.`);
+        } else {
+          toast.warning(
+            `„${name}“ gespeichert. Die Zulassungsnummer fehlt noch.`,
+            6000
+          );
+        }
       }
     } finally {
       mediumSavePending = false;
@@ -1023,18 +1192,36 @@ export function initSettings(
 
   addForm?.addEventListener("submit", (event) => {
     event.preventDefault();
-    void handleMediumAdd();
+    void handleMediumSubmit();
+  });
+
+  mediumCancelButton?.addEventListener("click", () => {
+    resetMediumForm();
   });
 
   mediumsTableBody?.addEventListener("click", (event) => {
     const target = (
       event.target as HTMLElement | null
-    )?.closest<HTMLButtonElement>('[data-action="delete"]');
+    )?.closest<HTMLButtonElement>('[data-action="delete"], [data-action="edit"]');
     if (!target) {
       return;
     }
     const index = Number(target.dataset.index);
     if (Number.isNaN(index)) {
+      return;
+    }
+    const state = services.state.getState();
+    const medium = getMediumItems(state)[index] ?? null;
+    if (!medium) {
+      return;
+    }
+    if (target.dataset.action === "edit") {
+      if (!mediumSavePending) {
+        loadMediumIntoForm(medium, state);
+      }
+      return;
+    }
+    if (!window.confirm(`Mittel "${medium.name}" wirklich löschen?`)) {
       return;
     }
     void deleteMediumAtIndex(index, services, target);

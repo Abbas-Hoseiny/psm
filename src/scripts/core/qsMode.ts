@@ -1,7 +1,7 @@
 /**
  * QS-GAP Dokumentationsfelder
  *
- * Pestalozzi enthält alle Felder gemäß QS-GAP-Leitfaden (Kapitel 3.6.1 + 3.6.2)
+ * Die App enthält alle Felder gemäß QS-GAP-Leitfaden (Kapitel 3.6.1 + 3.6.2)
  * für vollständige Pflanzenschutz-Dokumentation.
  *
  * Zusätzliche QS-Felder (optional, aber empfohlen):

@@ -255,7 +255,8 @@ function injectToastStyles(): void {
       pointer-events: none;
     }
 
-    .toast {
+    /* #toast-container prefix: Bootstrap hides .toast without .show */
+    #toast-container .toast {
       display: flex;
       align-items: flex-start;
       gap: 0.75rem;
@@ -270,12 +271,12 @@ function injectToastStyles(): void {
       pointer-events: auto;
     }
 
-    .toast-visible {
+    #toast-container .toast-visible {
       opacity: 1;
       transform: translateX(0);
     }
 
-    .toast-hiding {
+    #toast-container .toast-hiding {
       opacity: 0;
       transform: translateX(100%);
     }

@@ -54,3 +54,9 @@ public/assets/img/og-image.png filter=lfs diff=lfs merge=lfs -text
 *.yaml text eol=lf
 *.yml text eol=lf
 *.sql text eol=lf
+
+# Anleitung: Videos, Untertitel und Bilder liegen bewusst direkt im Repo (kein LFS).
+# Jeder Deploy lädt alle LFS-Dateien neu herunter; die Videos würden das
+# LFS-Kontingent schnell aufbrauchen.
+public/anleitung/** -filter -diff -merge -text
+public/anleitung/**/*.vtt text diff eol=lf

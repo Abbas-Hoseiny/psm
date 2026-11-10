@@ -34,6 +34,13 @@ import Shell from '../components/Shell.astro';
     </div>
   </main>
   
+  <!-- App-Skripte nur auf der App-Seite laden (nicht auf /anleitung/) -->
+  <script>
+    import "@/scripts/main.ts";
+    import "@/scripts/components/shellClient.ts";
+    import "@/scripts/pages/indexClient.ts";
+  </script>
+
   <style>
     .main-content {
       min-height: calc(100vh - 120px);

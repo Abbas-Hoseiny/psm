@@ -148,8 +148,21 @@ function formatEntryArea(entry: HistoryEntry | null, fallback = "–"): string {
   return formatNumber(area, 2, fallback);
 }
 
+// Tagesdatum "JJJJ-MM-TT" für die Anzeige als "TT.MM.JJJJ" – reine
+// Textumstellung, damit keine Zeitzone den Tag verschiebt.
+function formatDayLabel(value: string | null | undefined): string {
+  const text = (value || "").trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  return match ? `${match[3]}.${match[2]}.${match[1]}` : text;
+}
+
 function formatDateInputValue(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  // Lokales Datum, nicht UTC: toISOString() verschiebt Mitternacht
+  // in Mitteleuropa auf den Vortag
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function normalizeDateInput(value?: string | null): string | undefined {
@@ -271,7 +284,7 @@ function updateFocusBanner(section: HTMLElement): void {
   }
   const rangeText =
     currentFilters.startDate && currentFilters.endDate
-      ? `${currentFilters.startDate} - ${currentFilters.endDate}`
+      ? `${formatDayLabel(currentFilters.startDate)} – ${formatDayLabel(currentFilters.endDate)}`
       : "Aktuelle Filter";
   const label = focusContext.label || "Importierter Zeitraum";
   const count = focusContext.highlightEntryIds.size;
@@ -383,6 +396,9 @@ function handleFocusRangeEvent(
   const form = section.querySelector<HTMLFormElement>("#doc-filter");
   applyDateFiltersToForm(form, currentFilters);
   updateFocusBanner(section);
+  if (payload.showEntries) {
+    switchDocTab(section, "entries");
+  }
   focusLock = true;
   void applyFilters(section, services.state.getState()).finally(() => {
     focusLock = false;
@@ -406,6 +422,8 @@ interface DocumentationFocusPayload {
   reason?: string;
   entryIds?: DocumentationFocusEntryRef[];
   autoSelectFirst?: boolean;
+  /** Zum Reiter "Einträge" wechseln, z. B. nach "Einträge anzeigen" im Import */
+  showEntries?: boolean;
 }
 
 interface DocumentationFocusContext {
@@ -854,7 +872,7 @@ function renderArchiveLogs(
   const items = meta.items
     .map((log) => {
       const dateLabel = formatArchiveLogDate(log.archivedAt);
-      const rangeLabel = `${log.startDate || "-"} – ${log.endDate || "-"}`;
+      const rangeLabel = `${formatDayLabel(log.startDate) || "-"} – ${formatDayLabel(log.endDate) || "-"}`;
       const entryLabel = log.entryCount === 1 ? "Eintrag" : "Einträge";
       return `
         <div class="list-group-item border rounded mb-2 p-3" data-action="archive-log-focus" data-log-id="${log.id}" style="cursor: pointer;">
@@ -1438,7 +1456,7 @@ function updateSelectionInfo(section: HTMLElement): void {
   const count = selectedEntryIds.size;
   if (info) {
     info.textContent = count
-      ? `${count} Eintrag${count === 1 ? "" : "e"} ausgewählt`
+      ? `${count} ${count === 1 ? "Eintrag" : "Einträge"} ausgewählt`
       : "Keine Einträge ausgewählt";
   }
   const disabled = count === 0;
@@ -1520,6 +1538,7 @@ function renderDetail(
     detailEntry.items || [],
     resolvedLabels,
     "detail",
+    { flagMissingApproval: true },
   );
   const mapUrl = detailEntry.gpsCoordinates
     ? buildGoogleMapsUrl(detailEntry.gpsCoordinates)
@@ -1556,7 +1575,7 @@ function renderDetail(
         resolveEntryDate(detailEntry),
       )}<br />
       <strong>${escapeHtml(
-        detailLabels.creator || "Erstellt von",
+        detailLabels.creator || "Anwender",
       )}:</strong> ${escapeHtml(detailEntry.ersteller || "")}<br />
       <strong>${escapeHtml(
         detailLabels.location || "Standort",
@@ -1579,9 +1598,11 @@ function renderDetail(
       <strong>${escapeHtml(
         detailLabels.invekos || "InVeKoS",
       )}:</strong> ${escapeHtml(detailEntry.invekos || "")}<br />
-      <strong>${escapeHtml(gpsNoteLabel)}:</strong> ${
-        gpsNote ? escapeHtml(gpsNote) : "-"
-      }<br />
+      ${
+        gpsNote
+          ? `<strong>${escapeHtml(gpsNoteLabel)}:</strong> ${escapeHtml(gpsNote)}<br />`
+          : ""
+      }
       <strong>${escapeHtml(gpsCoordsLabel)}:</strong> ${gpsCoordsHtml}<br />
       <strong>${escapeHtml(
         detailLabels.time || "Uhrzeit",
@@ -1707,7 +1728,7 @@ function updateInfo(
     return;
   }
   if (currentFilters.startDate && currentFilters.endDate) {
-    const base = `${currentFilters.startDate} - ${currentFilters.endDate} (${total})`;
+    const base = `${formatDayLabel(currentFilters.startDate)} – ${formatDayLabel(currentFilters.endDate)} (${total})`;
     info.textContent = hasOptionalFilters ? `${base} + Filter` : base;
     return;
   }
@@ -1806,6 +1827,8 @@ async function loadSqlitePage(
     docPageIndex = page;
     allEntries = mapped;
     docLoadError = null;
+    // Laden ist abgeschlossen – sonst bleibt bei 0 Treffern "Lädt ..." stehen
+    isLoadingEntries = false;
     renderList(section, labels);
     updateInfo(section, labels);
   } catch (error) {
@@ -2047,6 +2070,22 @@ async function handleDetailRequest(
     return;
   }
   renderDetail(section, { entry, detail }, labels);
+  revealDetailIfStacked(section);
+}
+
+// Schmale Bildschirme: Die Details stehen unter der Liste – nach dem Antippen dorthin springen
+function revealDetailIfStacked(section: HTMLElement): void {
+  const detailWrapper = section.querySelector<HTMLElement>("#doc-detail");
+  const list = section.querySelector<HTMLElement>('[data-role="doc-list"]');
+  if (!detailWrapper || !list) {
+    return;
+  }
+  const stacked =
+    detailWrapper.getBoundingClientRect().top >=
+    list.getBoundingClientRect().bottom;
+  if (stacked) {
+    detailWrapper.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 async function handlePrintSingleEntry(
@@ -2314,7 +2353,7 @@ async function printEntries(entries: HistoryEntry[]): Promise<void> {
   if (
     entries.length > LARGE_PRINT_THRESHOLD &&
     !window.confirm(
-      `Sie möchten ${entries.length} Einträge drucken. Bei sehr vielen Einträgen kann das Erstellen der Druckvorschau einige Sekunden dauern und lässt sich nicht unterbrechen.\n\nFortfahren?`,
+      `Du möchtest ${entries.length} Einträge drucken. Bei sehr vielen Einträgen kann das Erstellen der Druckvorschau einige Sekunden dauern und lässt sich nicht unterbrechen.\n\nFortfahren?`,
     )
   ) {
     return;
@@ -2401,7 +2440,7 @@ function createSection(): HTMLElement {
   wrapper.className = "section-inner";
   wrapper.innerHTML = `
     <h2 class="text-center mb-4">
-      <i class="bi bi-journal-text me-2"></i>Dokumentation
+      <i class="bi bi-journal-text me-2"></i>Übersicht
     </h2>
     
     <!-- Documentation Tab Navigation -->
@@ -2519,12 +2558,12 @@ function createSection(): HTMLElement {
             <span>Alle auswählen</span>
           </label>
           <div class="small text-muted" data-role="doc-selection-info">Keine Einträge ausgewählt</div>
-          <div class="btn-group">
-            <button class="btn btn-outline-light btn-sm" data-action="print-selection" disabled>Drucken</button>
-            <button class="btn btn-outline-light btn-sm" data-action="pdf-selection" disabled>PDF</button>
-            <button class="btn btn-outline-light btn-sm" data-action="export-selection" disabled>JSON</button>
-            <button class="btn btn-outline-light btn-sm" data-action="export-zip" disabled>ZIP</button>
-            <button class="btn btn-outline-light btn-sm" data-action="delete-selection" disabled>Löschen</button>
+          <div class="doc-selection-actions">
+            <button class="btn btn-outline-light btn-sm" type="button" data-action="print-selection" disabled><i class="bi bi-printer me-1"></i>Drucken</button>
+            <button class="btn btn-outline-light btn-sm" type="button" data-action="pdf-selection" disabled><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+            <button class="btn btn-outline-light btn-sm" type="button" data-action="export-selection" disabled><i class="bi bi-filetype-json me-1"></i>JSON</button>
+            <button class="btn btn-outline-light btn-sm" type="button" data-action="export-zip" disabled><i class="bi bi-file-earmark-zip me-1"></i>ZIP</button>
+            <button class="btn btn-outline-danger btn-sm" type="button" data-action="delete-selection" disabled><i class="bi bi-trash me-1"></i>Löschen</button>
           </div>
           ${devSeedButton}
         </div>
@@ -2540,7 +2579,7 @@ function createSection(): HTMLElement {
       </div>
       <div class="card-body p-0">
         <div class="row g-0">
-          <div class="col-12 col-lg-4 border-end">
+          <div class="col-12 col-xl-4 border-end doc-split-list">
             <div class="d-flex flex-column h-100">
               <div data-role="doc-list" class="list-group list-group-flush flex-grow-1 overflow-auto"></div>
               <div class="p-3">
@@ -2548,7 +2587,7 @@ function createSection(): HTMLElement {
               </div>
             </div>
           </div>
-          <div class="col-12 col-lg-8">
+          <div class="col-12 col-xl-8 doc-split-detail">
             <div id="doc-detail" class="h-100 d-flex flex-column">
               <div data-role="doc-detail-empty" class="flex-grow-1 d-flex align-items-center justify-content-center text-muted text-center p-4">
                 Eintrag auswählen
@@ -2556,6 +2595,7 @@ function createSection(): HTMLElement {
               <div data-role="doc-detail-card" class="d-none h-100 d-flex flex-column">
                 <div class="flex-grow-1 overflow-auto p-3" id="doc-detail-body"></div>
                 <div class="border-top p-3 d-flex justify-content-end gap-2">
+                  <button class="btn btn-outline-secondary d-xl-none me-auto" type="button" data-action="detail-back"><i class="bi bi-arrow-up me-1"></i>Zur Liste</button>
                   <button class="btn btn-outline-secondary" data-action="detail-print">Drucken / PDF</button>
                 </div>
               </div>
@@ -2657,16 +2697,15 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
   });
 
   section.addEventListener("click", (event) => {
-    const target = event.target as HTMLElement | null;
-    if (!target) {
+    // Klicks auf Text/Icons innerhalb eines Aktions-Elements zählen für das Element
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+      "[data-action]",
+    );
+    if (!target || !section.contains(target)) {
       return;
     }
     const action = target.dataset.action;
     if (!action) {
-      const parentAction = target.closest<HTMLElement>("[data-action]");
-      if (parentAction) {
-        event.stopPropagation();
-      }
       return;
     }
 
@@ -2723,7 +2762,7 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
       }
       setArchiveStatus(
         section,
-        `Dokumentation auf Archiv ${log.startDate} – ${log.endDate} fokussiert.`,
+        `Dokumentation auf Archiv ${formatDayLabel(log.startDate)} – ${formatDayLabel(log.endDate)} fokussiert.`,
         "success",
       );
       return;
@@ -2824,6 +2863,15 @@ function wireEventHandlers(section: HTMLElement, services: Services): void {
           updateDocSeedButton(section);
         }
       })();
+      return;
+    }
+
+    if (action === "detail-back") {
+      const activeEntry =
+        section.querySelector<HTMLElement>(
+          '[data-role="doc-list"] .doc-sidebar-entry.active',
+        ) || section.querySelector<HTMLElement>('[data-role="doc-list"]');
+      activeEntry?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 

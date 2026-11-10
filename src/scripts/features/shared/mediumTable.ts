@@ -47,6 +47,12 @@ type VariantConfig = {
   columns: Array<keyof typeof COLUMN_FALLBACK_LABELS>;
   numberFallback: string;
   missingValue: string;
+  // Nur für die Bildschirmansicht: fehlende Zulassungsnummer sichtbar kennzeichnen
+  flagMissingApproval?: boolean;
+};
+
+type RenderOptions = {
+  flagMissingApproval?: boolean;
 };
 
 const VARIANT_CONFIG: Record<VariantKey, VariantConfig> = {
@@ -96,11 +102,16 @@ function expandColumnsForQsMode(
   return result;
 }
 
-function resolveVariant(variant: VariantKey, items?: any[]): VariantConfig {
+function resolveVariant(
+  variant: VariantKey,
+  items?: any[],
+  options: RenderOptions = {}
+): VariantConfig {
   const base = VARIANT_CONFIG[variant] || VARIANT_CONFIG.calculation;
   return {
     ...base,
     columns: expandColumnsForQsMode(base.columns, items),
+    flagMissingApproval: Boolean(options.flagMissingApproval),
   };
 }
 
@@ -135,7 +146,12 @@ const COLUMN_DEFS: Record<keyof typeof COLUMN_FALLBACK_LABELS, ColumnRenderer> =
     approval: {
       cell: (item, config) => {
         const value = item?.zulassungsnummer;
-        return value ? escapeHtml(value) : config.missingValue;
+        if (value) {
+          return escapeHtml(value);
+        }
+        return config.flagMissingApproval
+          ? '<span class="badge-missing" title="Zulassungsnummer fehlt">fehlt</span>'
+          : config.missingValue;
       },
       className: "nowrap",
     },
@@ -285,9 +301,10 @@ export function buildMediumTableHead(
 
 export function buildMediumTableRows(
   items: any[] = [],
-  variant: VariantKey = "calculation"
+  variant: VariantKey = "calculation",
+  options: RenderOptions = {}
 ): string {
-  const config = resolveVariant(variant, items);
+  const config = resolveVariant(variant, items, options);
   if (!Array.isArray(items) || !items.length) {
     return "";
   }
@@ -300,12 +317,12 @@ export function buildMediumTableHTML(
   items: any[] = [],
   labels: any,
   variant: VariantKey = "calculation",
-  options: { classes?: string } = {}
+  options: { classes?: string } & RenderOptions = {}
 ): string {
   const {
     classes = "table table-dark table-striped align-middle calc-medium-table",
   } = options;
-  const config = resolveVariant(variant, items);
+  const config = resolveVariant(variant, items, options);
   const head = `<tr>${renderHeadCells(config.columns, labels)}</tr>`;
   const body = items
     .map((item) => `<tr>${renderRowCells(item, config.columns, config)}</tr>`)

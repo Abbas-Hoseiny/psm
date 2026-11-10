@@ -1,0 +1,993 @@
+---
+// Anleitung: Überblicksvideo + zehn Kapitel, jeweils als Video und als
+// Schritt-für-Schritt-Text mit Bildern. Inhalt kommt aus src/data/anleitung.json,
+// die Medien liegen unter public/anleitung/.
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import daten from '../../data/anleitung.json';
+
+interface Bild {
+  name: string;
+  w: number;
+  h: number;
+  alt: string;
+}
+interface Schritt {
+  t: number;
+  text: string;
+  bild?: Bild;
+}
+interface Kapitel {
+  nr: number;
+  slug: string;
+  titel: string;
+  sub: string;
+  dauer: number;
+  bytes: number;
+  brauchst: string[];
+  hinweise: string[];
+  schritte: Schritt[];
+  text: string[];
+}
+
+const alle = daten.kapitel as unknown as Kapitel[];
+const kapitel = alle.filter((k) => k.nr > 0);
+const minuten = Math.round(alle.reduce((s, k) => s + k.dauer, 0) / 60);
+
+const zeit = (t: number) => {
+  const s = Math.floor(t);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+const iso = (t: number) => `PT${Math.floor(t / 60)}M${Math.round(t % 60)}S`;
+const video = (k: Kapitel, ext: string) => `/anleitung/video/${k.slug}.${ext}`;
+const bild = (b: Bild) => `/anleitung/bilder/${b.name}.webp`;
+const kicker = (k: Kapitel) => (k.nr === 0 ? 'Kurz erklärt' : `Kapitel ${k.nr}`);
+
+const site = (Astro.site ? new URL(Astro.site).origin : 'https://digitale-psm.de');
+const jsonLd = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@graph': alle.map((k) => ({
+    '@type': 'VideoObject',
+    name: k.nr === 0 ? 'Digitale PSM – Überblick' : `Digitale PSM – Kapitel ${k.nr}: ${k.titel}`,
+    description: k.sub,
+    thumbnailUrl: site + video(k, 'jpg'),
+    contentUrl: site + video(k, 'mp4'),
+    uploadDate: `${daten.stand}T08:00:00+01:00`,
+    duration: iso(k.dauer),
+    inLanguage: 'de',
+    transcript: k.text.join(' '),
+  })),
+}).replace(/</g, '\\u003c');
+---
+
+<BaseLayout
+  title="Anleitung"
+  description="Anleitung für Digitale PSM: zehn kurze Kapitel als Video und Schritt für Schritt zum Nachlesen – von der ersten Datenbank bis zum Backup."
+  bodyClass="bg-app guide-body"
+>
+  <script type="application/ld+json" slot="head" set:html={jsonLd} />
+
+  <header class="guide-bar">
+    <a class="guide-brand" href="/anleitung/">
+      <img src="/assets/img/psm-icon-192.png" width="30" height="30" alt="" />
+      <span class="guide-brand-name">Digitale PSM</span>
+      <span class="guide-brand-sub">Anleitung</span>
+    </a>
+    <a class="btn btn-psm-primary guide-app" href="/">
+      <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Zur App
+    </a>
+  </header>
+
+  <main class="guide">
+    <section class="hero">
+      <h1>Anleitung</h1>
+      <p class="hero-lead">
+        Zehn kurze Kapitel führen dich durch Digitale PSM – jedes als Video und
+        Schritt für Schritt zum Nachlesen.
+      </p>
+      <ul class="hero-facts">
+        <li><i class="bi bi-collection-play" aria-hidden="true"></i> {kapitel.length} Kapitel</li>
+        <li><i class="bi bi-clock" aria-hidden="true"></i> zusammen rund {minuten} Minuten Video</li>
+        <li><i class="bi bi-badge-cc" aria-hidden="true"></i> mit Untertiteln</li>
+      </ul>
+    </section>
+
+    <nav class="toc" aria-label="Kapitel">
+      <h2 class="toc-head">Kapitel</h2>
+      <ol class="toc-list">
+        {
+          alle.map((k) => (
+            <li>
+              <a href={`#${k.slug}`} data-toc={k.slug}>
+                <span class="toc-nr">
+                  {k.nr === 0 ? <i class="bi bi-play-fill" aria-hidden="true" /> : k.nr}
+                </span>
+                <span class="toc-title">{k.titel}</span>
+                <span class="toc-dur">{zeit(k.dauer)}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ol>
+    </nav>
+
+    <div class="chapters">
+      {
+        alle.map((k, i) => {
+          const mitBildern = k.schritte.some((s) => s.bild);
+          const weiter = alle[i + 1];
+          return (
+            <section class="chapter" id={k.slug} data-chapter={k.slug}>
+              <header class="chapter-head">
+                <p class="chapter-kicker">{kicker(k)}</p>
+                <h2>{k.titel}</h2>
+                <p class="chapter-sub">{k.sub}</p>
+              </header>
+
+              <figure class="vid">
+                <div class="vid-frame">
+                  <video
+                    controls
+                    playsinline
+                    preload="none"
+                    width="1920"
+                    height="1080"
+                    poster={video(k, 'jpg')}
+                    data-guide-video={k.slug}
+                  >
+                    <source src={video(k, 'mp4')} type="video/mp4" />
+                    <track kind="captions" srclang="de" label="Deutsch" src={video(k, 'vtt')} />
+                  </video>
+                  {/* Ohne Skript bleibt der Knopf verborgen und die Leiste des Videos reicht. */}
+                  <button type="button" class="vid-play" data-play={k.slug} hidden>
+                    <i class="bi bi-play-fill" aria-hidden="true" />
+                    Video abspielen
+                    <span class="vid-play-dur">{zeit(k.dauer)} min</span>
+                  </button>
+                </div>
+                <figcaption class="vid-bar">
+                  <span>
+                    {k.nr === 0 ? 'Überblick' : `Kapitel ${k.nr}`} · {zeit(k.dauer)} min
+                  </span>
+                  <button type="button" class="vid-cc" data-cc aria-pressed="false">
+                    <i class="bi bi-badge-cc" aria-hidden="true" />
+                    <span data-cc-label>Untertitel einschalten</span>
+                  </button>
+                </figcaption>
+              </figure>
+
+              {k.brauchst.length > 0 && (
+                <aside class="box">
+                  <h3>Was du brauchst</h3>
+                  <ul>
+                    {k.brauchst.map((b) => (
+                      <li>{b}</li>
+                    ))}
+                  </ul>
+                </aside>
+              )}
+
+              <h3 class="steps-head">{k.nr === 0 ? 'Das zeigt das Video' : 'Schritt für Schritt'}</h3>
+              <ol class:list={['steps', { 'steps--kompakt': !mitBildern }]}>
+                {k.schritte.map((s, n) => (
+                  <li class="step">
+                    <span class="step-nr" aria-hidden="true">
+                      {n + 1}
+                    </span>
+                    <div class="step-main">
+                      <p class="step-text" set:html={s.text} />
+                      <button
+                        type="button"
+                        class="step-time"
+                        data-seek={s.t}
+                        data-video={k.slug}
+                        aria-label={`Im Video ab ${zeit(s.t)} ansehen`}
+                      >
+                        <i class="bi bi-play-circle" aria-hidden="true" />
+                        Im Video ansehen · {zeit(s.t)}
+                      </button>
+                    </div>
+                    {s.bild && (
+                      <a
+                        class="step-img"
+                        href={bild(s.bild)}
+                        data-zoom
+                        aria-label={`Bild vergrößern: ${s.bild.alt}`}
+                      >
+                        <img
+                          src={bild(s.bild)}
+                          width={s.bild.w}
+                          height={s.bild.h}
+                          alt={s.bild.alt}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ol>
+
+              {k.hinweise.length > 0 && (
+                <aside class="box box--info">
+                  <h3>Gut zu wissen</h3>
+                  <ul>
+                    {k.hinweise.map((h) => (
+                      <li>{h}</li>
+                    ))}
+                  </ul>
+                </aside>
+              )}
+
+              <p class="next">
+                {weiter ? (
+                  <a class="next-link" href={`#${weiter.slug}`}>
+                    <span>
+                      Weiter mit Kapitel {weiter.nr}: <b>{weiter.titel}</b>
+                    </span>
+                    <i class="bi bi-arrow-down" aria-hidden="true" />
+                  </a>
+                ) : (
+                  <a class="btn btn-psm-primary" href="/">
+                    <i class="bi bi-box-arrow-in-right" aria-hidden="true" /> Zur App
+                  </a>
+                )}
+              </p>
+            </section>
+          );
+        })
+      }
+    </div>
+  </main>
+
+  <footer class="guide-footer">
+    <small>
+      © {new Date().getFullYear()} Digitale PSM ·
+      <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer">Info &amp; Lizenz</a>
+    </small>
+  </footer>
+
+  <dialog class="zoom" id="guide-zoom" aria-label="Bild in voller Größe">
+    <button type="button" class="zoom-close" data-zoom-close>
+      <i class="bi bi-x-lg" aria-hidden="true"></i> Schließen
+    </button>
+    <img alt="" />
+  </dialog>
+
+  <script>
+    const videos = Array.from(
+      document.querySelectorAll<HTMLVideoElement>('video[data-guide-video]')
+    );
+    const videoBySlug = new Map(videos.map((v) => [v.dataset.guideVideo ?? '', v]));
+
+    function play(v: HTMLVideoElement, t?: number) {
+      if (t !== undefined) {
+        if (v.readyState >= 1) {
+          v.currentTime = t;
+        } else {
+          v.addEventListener('loadedmetadata', () => { v.currentTime = t; }, { once: true });
+        }
+      }
+      void v.play().catch(() => {});
+    }
+
+    for (const v of videos) {
+      const vid = v.closest('.vid');
+      // Vor dem ersten Start zeigt das Vorschaubild nur den Abspiel-Knopf –
+      // die Leiste des Videos würde ihn und den Titel sonst überdecken.
+      v.controls = false;
+      vid?.querySelector<HTMLElement>('[data-play]')?.removeAttribute('hidden');
+      v.addEventListener('click', () => {
+        if (!vid?.classList.contains('is-started')) play(v);
+      });
+      // Immer nur ein Video gleichzeitig; ab dem ersten Start übernimmt die Leiste des Videos.
+      v.addEventListener('play', () => {
+        v.controls = true;
+        vid?.classList.add('is-started');
+        for (const other of videos) {
+          if (other !== v) other.pause();
+        }
+      });
+    }
+
+    // Untertitel: eine Einstellung für alle Videos, merkt sich der Browser.
+    const CC_KEY = 'anleitung-untertitel';
+    let cc = false;
+    try {
+      cc = localStorage.getItem(CC_KEY) === '1';
+    } catch {
+      /* Speicher gesperrt: Untertitel bleiben aus */
+    }
+    const ccButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cc]'));
+
+    function applyCc() {
+      for (const v of videos) {
+        const track = v.textTracks[0];
+        const mode = cc ? 'showing' : 'disabled';
+        if (track && track.mode !== mode) track.mode = mode;
+      }
+      for (const b of ccButtons) {
+        b.setAttribute('aria-pressed', String(cc));
+        const label = b.querySelector('[data-cc-label]');
+        if (label) label.textContent = cc ? 'Untertitel ausschalten' : 'Untertitel einschalten';
+      }
+    }
+
+    function setCc(on: boolean) {
+      if (on === cc) return;
+      cc = on;
+      try {
+        localStorage.setItem(CC_KEY, cc ? '1' : '0');
+      } catch {
+        /* ohne Speicher gilt die Wahl nur für diesen Besuch */
+      }
+      applyCc();
+    }
+
+    for (const v of videos) {
+      // Auch das Untertitel-Symbol in der Leiste des Videos schaltet alle Videos um.
+      v.textTracks.addEventListener('change', () => {
+        const track = v.textTracks[0];
+        if (track) setCc(track.mode === 'showing');
+      });
+    }
+    if (cc) applyCc();
+
+    const zoom = document.querySelector<HTMLDialogElement>('#guide-zoom');
+    const zoomImg = zoom?.querySelector('img') ?? null;
+
+    document.addEventListener('click', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) return;
+
+      const playBtn = target.closest<HTMLElement>('[data-play]');
+      if (playBtn) {
+        const v = videoBySlug.get(playBtn.dataset.play ?? '');
+        if (v) play(v);
+        return;
+      }
+
+      const seekBtn = target.closest<HTMLElement>('[data-seek]');
+      if (seekBtn) {
+        const v = videoBySlug.get(seekBtn.dataset.video ?? '');
+        if (!v) return;
+        play(v, Number(seekBtn.dataset.seek));
+        v.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
+
+      if (target.closest('[data-cc]')) {
+        setCc(!cc);
+        return;
+      }
+
+      const zoomLink = target.closest<HTMLAnchorElement>('a[data-zoom]');
+      if (zoomLink && zoom && zoomImg && typeof zoom.showModal === 'function') {
+        event.preventDefault();
+        zoomImg.src = zoomLink.href;
+        zoomImg.alt = zoomLink.querySelector('img')?.alt ?? '';
+        zoom.showModal();
+        return;
+      }
+
+      // Ein Klick irgendwo im vergrößerten Bild schließt es wieder.
+      if (zoom && zoom.open && target.closest('#guide-zoom')) {
+        zoom.close();
+      }
+    });
+
+    // Aktuelles Kapitel in der Kapitelliste hervorheben.
+    const tocLinks = new Map(
+      Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-toc]')).map((a) => [
+        a.dataset.toc ?? '',
+        a,
+      ])
+    );
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const slug = (entry.target as HTMLElement).dataset.chapter ?? '';
+            for (const [key, link] of tocLinks) {
+              if (key === slug) link.setAttribute('aria-current', 'true');
+              else link.removeAttribute('aria-current');
+            }
+          }
+        },
+        { rootMargin: '-15% 0px -75% 0px' }
+      );
+      document
+        .querySelectorAll<HTMLElement>('[data-chapter]')
+        .forEach((section) => observer.observe(section));
+    }
+  </script>
+
+  <style>
+    /* base.css setzt overflow-x: hidden auf body – das würde die fixierte
+       Kopfzeile und die mitlaufende Kapitelliste aushebeln. */
+    :global(body.guide-body) {
+      overflow-x: clip;
+    }
+    :global(body.guide-body .app-root) {
+      padding-bottom: 0;
+    }
+
+    .guide-bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.6rem clamp(1rem, 3vw, 2rem);
+      background: rgba(11, 22, 32, 0.92);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-1);
+    }
+    .guide-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      min-width: 0;
+      min-height: 2.5rem;
+      text-decoration: none;
+      color: var(--text);
+    }
+    /* Schlanker als die Knöpfe der App, damit die Kopfzeile flach bleibt. */
+    .guide-app {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      min-height: 2.5rem;
+      padding: 0.35rem 0.9rem;
+      font-size: 0.9375rem;
+      white-space: nowrap;
+    }
+    .guide-brand img {
+      border-radius: 7px;
+    }
+    .guide-brand-name {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .guide-brand-sub {
+      color: var(--text-muted);
+      padding-left: 0.6rem;
+      border-left: 1px solid var(--border-2);
+    }
+
+    .guide {
+      width: min(1220px, 100%);
+      margin: 0 auto;
+      padding: 0 clamp(1rem, 3vw, 2rem) 3rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'hero' 'toc' 'chapters';
+      row-gap: 1.5rem;
+    }
+    .hero {
+      grid-area: hero;
+      padding-top: clamp(1.5rem, 4vw, 3rem);
+    }
+    .toc {
+      grid-area: toc;
+    }
+    .chapters {
+      grid-area: chapters;
+      min-width: 0;
+    }
+
+    .hero h1 {
+      margin: 0 0 0.5rem;
+      color: #fff;
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .hero-lead {
+      max-width: 40rem;
+      margin: 0 0 1rem;
+      color: var(--text-muted);
+      font-size: 1.125rem;
+      line-height: 1.55;
+    }
+    .hero-facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1.25rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--text-muted);
+      font-size: 0.9375rem;
+    }
+    .hero-facts i {
+      color: var(--primary-600);
+      margin-right: 0.25rem;
+    }
+
+    /* Kapitelliste */
+    .toc {
+      border: 1px solid var(--border-1);
+      border-radius: var(--r-lg);
+      background: var(--surface-1);
+      padding: 0.75rem;
+    }
+    .toc-head {
+      margin: 0.25rem 0.5rem 0.5rem;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .toc-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+      gap: 2px 0.75rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .toc-list a {
+      display: grid;
+      grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 0.6rem;
+      min-height: 2.75rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: var(--r-md);
+      color: var(--text);
+      text-decoration: none;
+    }
+    .toc-list a:hover,
+    .toc-list a:focus-visible {
+      background: var(--surface-3);
+      color: var(--text);
+    }
+    .toc-list a[aria-current='true'] {
+      background: var(--nav-active-bg);
+      box-shadow: inset 0 0 0 1px var(--nav-active-border);
+    }
+    .toc-nr {
+      display: grid;
+      place-items: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 50%;
+      background: var(--primary-subtle);
+      color: var(--primary-600);
+      font-size: 0.8125rem;
+      font-weight: 700;
+    }
+    .toc-title {
+      font-size: 0.9375rem;
+      line-height: 1.3;
+    }
+    .toc-dur {
+      color: var(--text-dim);
+      font-size: 0.8125rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Kapitel */
+    .chapter {
+      padding: 2.5rem 0 1rem;
+      border-top: 1px solid var(--border-1);
+      scroll-margin-top: 3.5rem;
+    }
+    .chapter:first-child {
+      padding-top: 0.5rem;
+      border-top: 0;
+    }
+    .chapter-kicker {
+      margin: 0 0 0.25rem;
+      color: var(--primary-600);
+      font-size: 0.8125rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .chapter-head h2 {
+      margin: 0 0 0.35rem;
+      color: #fff;
+      font-size: clamp(1.5rem, 3.5vw, 2rem);
+      font-weight: 700;
+    }
+    .chapter-sub {
+      margin: 0 0 1.25rem;
+      color: var(--text-muted);
+      font-size: 1.0625rem;
+    }
+
+    /* Video */
+    .vid {
+      margin: 0 0 1.5rem;
+      border: 1px solid var(--border-2);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #081019;
+      box-shadow: var(--shadow-1);
+    }
+    .vid-frame {
+      position: relative;
+    }
+    .vid video {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      background: #081019;
+    }
+    .vid:not(.is-started) video {
+      cursor: pointer;
+    }
+    /* Sitzt im freien Streifen unter dem Text des Vorschaubilds. */
+    .vid-play {
+      position: absolute;
+      left: 50%;
+      bottom: 7%;
+      transform: translateX(-50%);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1.25rem 0.7rem 1rem;
+      border: 0;
+      border-radius: var(--r-full);
+      background: var(--primary-600);
+      color: #05230f;
+      font-size: 1rem;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      cursor: pointer;
+    }
+    .vid-play:hover,
+    .vid-play:focus-visible {
+      background: #4ade80;
+    }
+    .vid-play i {
+      font-size: 1.35rem;
+      line-height: 1;
+    }
+    .vid-play-dur {
+      padding-left: 0.6rem;
+      border-left: 1px solid rgba(5, 35, 15, 0.35);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .vid-play[hidden],
+    .vid.is-started .vid-play {
+      display: none;
+    }
+    .vid-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.25rem 1rem;
+      padding: 0.4rem 0.5rem 0.4rem 0.9rem;
+      background: var(--surface-1);
+      border-top: 1px solid var(--border-1);
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .vid-cc,
+    .step-time {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      min-height: 2.25rem;
+      padding: 0.25rem 0.7rem;
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-full);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .vid-cc:hover,
+    .vid-cc:focus-visible,
+    .step-time:hover,
+    .step-time:focus-visible {
+      border-color: var(--primary-600);
+      color: var(--text);
+    }
+    .vid-cc[aria-pressed='true'] {
+      border-color: var(--nav-active-border);
+      background: var(--nav-active-bg);
+      color: var(--text);
+    }
+
+    /* Kästen */
+    .box {
+      margin: 0 0 1.5rem;
+      padding: 1rem 1.25rem;
+      border: 1px solid var(--border-1);
+      border-radius: var(--r-lg);
+      background: var(--surface-1);
+    }
+    .box--info {
+      margin-top: 1.5rem;
+      border-left: 3px solid var(--info-600);
+    }
+    .box h3,
+    .steps-head {
+      margin: 0 0 0.5rem;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .box ul {
+      margin: 0;
+      padding-left: 1.15rem;
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .box li + li {
+      margin-top: 0.3rem;
+    }
+
+    /* Schritte */
+    .steps {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 2.25rem minmax(0, 1fr);
+      gap: 0.85rem 0.9rem;
+      padding: 1.25rem 0;
+      border-top: 1px solid var(--border-1);
+    }
+    .step:first-child {
+      border-top: 0;
+      padding-top: 0.5rem;
+    }
+    .steps--kompakt .step {
+      padding: 0.85rem 0;
+    }
+    .step-nr {
+      display: grid;
+      place-items: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 50%;
+      background: var(--primary-subtle);
+      color: var(--primary-600);
+      font-weight: 700;
+    }
+    .step-text {
+      margin: 0.2rem 0 0.6rem;
+      color: var(--text);
+      font-size: 1.0625rem;
+      line-height: 1.55;
+    }
+    .step-text :global(b) {
+      color: #fff;
+      font-weight: 600;
+    }
+    .step-img {
+      grid-column: 2;
+      display: block;
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #081019;
+      cursor: zoom-in;
+    }
+    .step-img:hover,
+    .step-img:focus-visible {
+      border-color: var(--primary-600);
+    }
+    .step-img img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .next {
+      margin: 1.5rem 0 0;
+    }
+    .next-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      min-height: 3rem;
+      padding: 0.6rem 1rem;
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-lg);
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+    .next-link b {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .next-link:hover,
+    .next-link:focus-visible {
+      border-color: var(--primary-600);
+      color: var(--text);
+    }
+    .next-link i {
+      color: var(--primary-600);
+    }
+
+    .guide-footer {
+      margin-top: auto;
+      padding: 1rem clamp(1rem, 3vw, 2rem);
+      border-top: 1px solid var(--border-1);
+      background: var(--surface-1);
+      color: var(--text-muted);
+    }
+
+    /* Bild in voller Größe */
+    .zoom {
+      width: 100vw;
+      height: 100vh;
+      max-width: 100vw;
+      max-height: 100vh;
+      margin: 0;
+      padding: 3.25rem 1rem 1rem;
+      border: 0;
+      background: rgba(5, 12, 18, 0.94);
+      cursor: zoom-out;
+    }
+    .zoom[open] {
+      display: grid;
+      place-items: center;
+    }
+    .zoom::backdrop {
+      background: rgba(5, 12, 18, 0.6);
+    }
+    .zoom img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border: 1px solid var(--border-2);
+      border-radius: 8px;
+    }
+    .zoom-close {
+      position: absolute;
+      top: 0.6rem;
+      right: 1rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      min-height: 2.25rem;
+      padding: 0.25rem 0.8rem;
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-full);
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    /* Breite Bildschirme: Kapitelliste läuft links mit */
+    @media (min-width: 1100px) {
+      .guide {
+        grid-template-columns: 17rem minmax(0, 1fr);
+        grid-template-areas: 'toc hero' 'toc chapters';
+        column-gap: 2.5rem;
+      }
+      .toc {
+        position: sticky;
+        top: 4.25rem;
+        align-self: start;
+        max-height: calc(100vh - 5.25rem);
+        margin-top: clamp(1.5rem, 4vw, 3rem);
+        overflow-y: auto;
+      }
+      .toc-list {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 575.98px) {
+      .guide-brand-sub {
+        display: none;
+      }
+      .step {
+        grid-template-columns: 2rem minmax(0, 1fr);
+        column-gap: 0.7rem;
+      }
+      .step-nr {
+        width: 2rem;
+        height: 2rem;
+      }
+      /* Bilder am Handy über die ganze Breite */
+      .step-img {
+        grid-column: 1 / -1;
+      }
+      .vid-play {
+        bottom: 4%;
+        min-height: 2.25rem;
+        padding: 0.3rem 0.85rem 0.3rem 0.65rem;
+        font-size: 0.875rem;
+      }
+      .vid-play i {
+        font-size: 1.15rem;
+      }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      :global(html:has(body.guide-body)) {
+        scroll-behavior: smooth;
+      }
+    }
+
+    /* Druck: Text und Bilder, ohne Videos und Bedienelemente */
+    @media print {
+      :global(body.guide-body) {
+        background: #fff !important;
+        color: #000;
+      }
+      .guide-bar,
+      .toc,
+      .vid,
+      .step-time,
+      .next,
+      .hero-facts,
+      .zoom {
+        display: none !important;
+      }
+      .guide {
+        display: block;
+        width: 100%;
+        padding: 0;
+      }
+      .hero h1,
+      .chapter-head h2,
+      .step-text,
+      .step-text :global(b),
+      .box ul,
+      .hero-lead,
+      .chapter-sub {
+        color: #000;
+      }
+      .chapter-kicker,
+      .box h3,
+      .steps-head {
+        color: #444;
+      }
+      .chapter {
+        border-top: 0;
+        break-before: page;
+      }
+      .chapter:first-child {
+        break-before: auto;
+      }
+      .step {
+        break-inside: avoid;
+        border-color: #ccc;
+      }
+      .step-nr {
+        border: 1px solid #444;
+        background: none;
+        color: #000;
+      }
+      .box {
+        break-inside: avoid;
+        border-color: #999;
+        background: none;
+      }
+      .step-img {
+        border-color: #999;
+        max-width: 85%;
+      }
+      .guide-footer {
+        border-top-color: #ccc;
+        background: none;
+        color: #444;
+      }
+    }
+  </style>
+</BaseLayout>

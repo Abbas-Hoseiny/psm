@@ -47,16 +47,6 @@ export default defineConfig({
   integrations: [
     sitemap(),
     {
-      name: "legacy-script-loader",
-      hooks: {
-        "astro:config:setup"({ injectScript }) {
-          injectScript("page", "import '@/scripts/main.ts';");
-          injectScript("page", "import '@/scripts/components/shellClient.ts';");
-          injectScript("page", "import '@/scripts/pages/indexClient.ts';");
-        },
-      },
-    },
-    {
       // Stempelt pro Build eine eindeutige CACHE_VERSION in dist/sw.js und
       // setzt die Liste der gehashten Assets für den Precache ein.
       // public/sw.js ist statisch; ohne dies ändern sich die SW-Bytes pro Deploy

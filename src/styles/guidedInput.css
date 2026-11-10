@@ -351,10 +351,37 @@
   color: var(--text-muted);
 }
 
+/* Auswahlfelder mit fester Höhe: Text nicht abschneiden */
+select.calc-input,
+select.calc-input-sm {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+select.calc-input-sm {
+  padding-left: 0.75rem;
+}
+
 .calc-hint {
   color: var(--text-dim);
   font-size: var(--font-size-xs);
   margin-top: var(--sp-1);
+}
+
+.calc-lage-hint {
+  margin-top: var(--sp-3);
+}
+
+.calc-hint--error {
+  color: var(--danger-600);
+  font-weight: 600;
+}
+
+/* Aktionen unter dem Ergebnis – umbrechen statt abschneiden */
+.calc-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
 }
 
 /* Input Group Button */

@@ -568,7 +568,7 @@ function updateAvailabilityUi(status: AvailabilityStatus): void {
   refs.availability.classList.remove("d-none");
   refs.availability.textContent =
     status === "no-db"
-      ? "Bitte verbinden Sie zuerst eine Datenbank, um GPS-Punkte zu verwalten."
+      ? "Bitte verbinde zuerst eine Datenbank, um GPS-Punkte zu verwalten."
       : "GPS-Funktionen benötigen eine aktive SQLite-Datenbank. Bitte den SQLite-Treiber in den Einstellungen auswählen.";
 }
 
@@ -801,7 +801,7 @@ function updateListUi(state: AppState, availability: AvailabilityStatus): void {
       refs.emptyState.innerHTML = `
         <p class="mb-2">Noch keine GPS-Punkte vorhanden.</p>
         <p class="small text-muted mb-3">
-          Nutzen Sie "Neuer Punkt" oder öffnen Sie Google Maps, um Koordinaten zu ermitteln.
+          Nutze den Tab „Neu“ oder öffne Google Maps, um Koordinaten zu ermitteln.
         </p>
         <a class="btn btn-outline-info btn-sm" data-role="gps-empty-map-link" href="${escapeAttr(
           mapTarget.url,
@@ -1335,7 +1335,9 @@ export function initGps(container: Element | null, services: Services): void {
   refs = collectRefs(section);
   gpsAutoRefreshCleanup?.();
   gpsAutoRefreshCleanup = registerAutoRefreshPolicy({
-    section: "gps",
+    // GPS ist ein Reiter der Einstellungen; einen eigenen Bereich "gps" gibt es
+    // in der Navigation nicht, der Hinweis "Daten geändert" bliebe sonst stehen.
+    section: "settings",
     event: "gps:data-changed",
     shouldHandleEvent: () =>
       evaluateAvailability(services.state.getState().app) === "ok",

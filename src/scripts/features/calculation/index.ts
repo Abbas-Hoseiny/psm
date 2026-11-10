@@ -126,6 +126,14 @@ function escapeAttr(value: unknown): string {
   return escapeHtml(value);
 }
 
+// Heutiger Tag in Ortszeit als Wert für <input type="date">
+function todayDateInputValue(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
 function createSection(
   labels: Labels,
   defaultsState: DefaultsState
@@ -156,141 +164,156 @@ function createSection(
     <div class="card calc-form-card mb-4 no-print">
       <div class="card-body p-4">
         <form id="calculationForm" class="no-print">
-          <!-- Gruppe 1: Grunddaten -->
+          <!-- Gruppe 1: Anwendung -->
           <fieldset class="calc-fieldset mb-4">
             <legend class="calc-legend">
-              <i class="bi bi-person-badge me-2"></i>Grunddaten
+              <i class="bi bi-clipboard-check me-2"></i>Anwendung
             </legend>
             <div class="row g-3">
-              <div class="col-md-3">
+              <div class="col-sm-6 col-lg-3">
                 <label class="form-label calc-label" for="calc-ersteller">
-                  ${escapeHtml(labels.calculation.fields.creator.label)}
-                  <span class="calc-required">*</span>
+                  <span data-label-id="calc-form-creator">${escapeHtml(labels.calculation.fields.creator.label)}</span>
+                  <span class="calc-required" aria-hidden="true">*</span>
                 </label>
-                <input type="text" class="form-control calc-input" 
-                  id="calc-ersteller" name="calc-ersteller" required 
+                <input type="text" class="form-control calc-input"
+                  id="calc-ersteller" name="calc-ersteller" required
+                  data-placeholder-id="calc-form-creator"
                   value="${escapeAttr(formDefaults.creator || "")}" />
               </div>
-              <div class="col-md-3">
-                <label class="form-label calc-label" for="calc-standort">
-                  ${escapeHtml(labels.calculation.fields.location.label)}
+              <div class="col-sm-6 col-lg-3">
+                <label class="form-label calc-label" for="calc-datum">
+                  <span data-label-id="calc-form-date">${escapeHtml(labels.calculation.fields.date.label)}</span>
+                  <span class="calc-required" aria-hidden="true">*</span>
                 </label>
-                <input type="text" class="form-control calc-input" 
-                  id="calc-standort" name="calc-standort" 
-                  value="${escapeAttr(formDefaults.location || "")}" />
+                <input type="date" class="form-control calc-input"
+                  id="calc-datum" name="calc-datum" required
+                  data-placeholder-id="calc-form-date"
+                  value="${escapeAttr(todayDateInputValue())}" />
               </div>
-              <div class="col-md-3">
-                <label class="form-label calc-label" for="calc-kultur">
-                  ${escapeHtml(labels.calculation.fields.crop.label)}
+              <div class="col-sm-6 col-lg-3">
+                <label class="form-label calc-label" for="calc-uhrzeit">
+                  <span data-label-id="calc-form-time">${escapeHtml(labels.calculation.fields.time.label)}</span>
                 </label>
-                <input type="text" class="form-control calc-input" 
-                  id="calc-kultur" name="calc-kultur" 
-                  value="${escapeAttr(formDefaults.crop || "")}" />
+                <input type="time" class="form-control calc-input"
+                  id="calc-uhrzeit" name="calc-uhrzeit"
+                  data-placeholder-id="calc-form-time"
+                  value="" />
+                <div class="form-text calc-hint">Leer = aktuelle Uhrzeit</div>
               </div>
-              <div class="col-md-3">
-                <label class="form-label calc-label" for="calc-area-ha">
-                  ${escapeHtml(labels.calculation.fields.quantity.label)}
-                  <span class="calc-required">*</span>
+              <div class="col-sm-6 col-lg-3">
+                <label class="form-label calc-label" for="calc-verwendung">
+                  <span data-label-id="calc-form-usage">${escapeHtml(labels.calculation.fields.usageType.label)}</span>
+                  <span class="calc-required" aria-hidden="true">*</span>
                 </label>
-                <input type="number" min="0" step="any" class="form-control calc-input" 
-                  id="calc-area-ha" name="calc-area-ha" required 
-                  value="${escapeAttr(formDefaults.areaHa || "")}" />
+                <input type="text" class="form-control calc-input"
+                  id="calc-verwendung" name="calc-verwendung" required
+                  data-placeholder-id="calc-form-usage"
+                  value="${escapeAttr(formDefaults.usageType || "")}" />
               </div>
             </div>
           </fieldset>
-          
-          <!-- Gruppe 2: Mittel & Codes -->
+
+          <!-- Gruppe 2: Kultur & Mittel -->
           <fieldset class="calc-fieldset mb-4">
             <legend class="calc-legend">
-              <i class="bi bi-tags me-2"></i>Mittel &amp; Codes
+              <i class="bi bi-flower1 me-2"></i>Kultur &amp; Mittel
             </legend>
             <div class="row g-3">
-              <div class="col-md-3">
-                <label class="form-label calc-label">Mittelprofil</label>
-                <select class="form-select calc-input" data-role="calc-profile-select">
-                  <option value="">Alle Mittel</option>
-                </select>
-                <div class="form-text calc-hint" data-role="calc-profile-hint">Alle Mittel aktiv.</div>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label calc-label" for="calc-eppo">
-                  ${escapeHtml(labels.calculation.fields.eppoCode.label)}
+              <div class="col-sm-6 col-lg-3">
+                <label class="form-label calc-label" for="calc-kultur">
+                  <span data-label-id="calc-form-crop">${escapeHtml(labels.calculation.fields.crop.label)}</span>
+                  <span class="calc-required" aria-hidden="true">*</span>
                 </label>
-                <input type="text" class="form-control calc-input" 
-                  id="calc-eppo" name="calc-eppo" list="calc-eppo-options" autocomplete="off" 
+                <input type="text" class="form-control calc-input"
+                  id="calc-kultur" name="calc-kultur" required
+                  data-placeholder-id="calc-form-crop"
+                  value="${escapeAttr(formDefaults.crop || "")}" />
+              </div>
+              <div class="col-sm-6 col-lg-3">
+                <label class="form-label calc-label" for="calc-eppo">
+                  <span data-label-id="calc-form-eppo">${escapeHtml(labels.calculation.fields.eppoCode.label)}</span>
+                </label>
+                <input type="text" list="calc-eppo-options" autocomplete="off" class="form-control calc-input"
+                  id="calc-eppo" name="calc-eppo"
+                  data-placeholder-id="calc-form-eppo"
                   value="${escapeAttr(formDefaults.eppoCode || "")}" />
                 <datalist id="calc-eppo-options"></datalist>
                 <div class="code-dropdown" data-dropdown="eppo" style="display:none;"></div>
               </div>
-              <div class="col-md-3">
+              <div class="col-sm-6 col-lg-3">
                 <label class="form-label calc-label" for="calc-bbch">
-                  ${escapeHtml(labels.calculation.fields.bbch.label)}
+                  <span data-label-id="calc-form-bbch">${escapeHtml(labels.calculation.fields.bbch.label)}</span>
                 </label>
-                <input type="text" class="form-control calc-input" 
-                  id="calc-bbch" name="calc-bbch" list="calc-bbch-options" autocomplete="off" 
+                <input type="text" list="calc-bbch-options" autocomplete="off" class="form-control calc-input"
+                  id="calc-bbch" name="calc-bbch"
+                  data-placeholder-id="calc-form-bbch"
                   value="${escapeAttr(formDefaults.bbch || "")}" />
                 <datalist id="calc-bbch-options"></datalist>
                 <div class="code-dropdown" data-dropdown="bbch" style="display:none;"></div>
               </div>
-              <div class="col-md-3">
-                <label class="form-label calc-label" for="calc-invekos">
-                  ${escapeHtml(labels.calculation.fields.invekos.label)}
-                </label>
-                <input type="text" class="form-control calc-input" 
-                  id="calc-invekos" name="calc-invekos" 
-                  value="${escapeAttr(formDefaults.invekos || "")}" />
+              <div class="col-sm-6 col-lg-3">
+                <label class="form-label calc-label" for="calc-profil">Mittelprofil</label>
+                <select class="form-select calc-input" id="calc-profil" data-role="calc-profile-select">
+                  <option value="">Alle Mittel</option>
+                </select>
+                <div class="form-text calc-hint" data-role="calc-profile-hint">Alle Mittel aktiv.</div>
               </div>
             </div>
           </fieldset>
-          
-          <!-- Gruppe 3: Verwendung, Ort & Zeit -->
+
+          <!-- Gruppe 3: Fläche & Lage -->
           <fieldset class="calc-fieldset mb-4">
             <legend class="calc-legend">
-              <i class="bi bi-calendar-event me-2"></i>Verwendung, Ort &amp; Zeit
+              <i class="bi bi-geo-alt me-2"></i>Fläche &amp; Lage
             </legend>
             <div class="row g-3">
-              <div class="col-md-3">
-                <label class="form-label calc-label" for="calc-verwendung">
-                  ${escapeHtml(labels.calculation.fields.usageType.label)}
-                  <span class="calc-required">*</span>
+              <div class="col-sm-6 col-lg-2">
+                <label class="form-label calc-label" for="calc-area-ha">
+                  <span data-label-id="calc-form-area">${escapeHtml(labels.calculation.fields.quantity.label)}</span>
+                  <span class="calc-required" aria-hidden="true">*</span>
                 </label>
-                <input type="text" class="form-control calc-input" 
-                  id="calc-verwendung" name="calc-verwendung" required 
-                  value="${escapeAttr(formDefaults.usageType || "")}" />
+                <input type="number" min="0" step="any" class="form-control calc-input"
+                  id="calc-area-ha" name="calc-area-ha" required
+                  data-placeholder-id="calc-form-area"
+                  value="${escapeAttr(formDefaults.areaHa || "")}" />
               </div>
-              <div class="col-md-3">
+              <div class="col-sm-6 col-lg-3">
+                <label class="form-label calc-label" for="calc-standort">
+                  <span data-label-id="calc-form-location">${escapeHtml(labels.calculation.fields.location.label)}</span>
+                </label>
+                <input type="text" class="form-control calc-input"
+                  id="calc-standort" name="calc-standort"
+                  data-placeholder-id="calc-form-location"
+                  value="${escapeAttr(formDefaults.location || "")}" />
+              </div>
+              <div class="col-sm-12 col-md-6 col-lg-3">
+                <label class="form-label calc-label" for="calc-invekos">
+                  <span data-label-id="calc-form-invekos">${escapeHtml(labels.calculation.fields.invekos.label)}</span>
+                </label>
+                <input type="text" class="form-control calc-input"
+                  id="calc-invekos" name="calc-invekos"
+                  data-placeholder-id="calc-form-invekos"
+                  value="${escapeAttr(formDefaults.invekos || "")}" />
+              </div>
+              <div class="col-sm-12 col-md-6 col-lg-4">
                 <label class="form-label calc-label" for="calc-gps">
-                  ${escapeHtml(labels.calculation.fields.gps.label)}
+                  <span data-label-id="calc-form-gps">${escapeHtml(labels.calculation.fields.gps.label)}</span>
                 </label>
                 <div class="input-group">
-                  <input type="text" class="form-control calc-input" 
-                    id="calc-gps" name="calc-gps" 
+                  <input type="text" class="form-control calc-input"
+                    id="calc-gps" name="calc-gps"
+                    data-placeholder-id="calc-form-gps"
                     value="${escapeAttr(formDefaults.gps || "")}" />
-                  <button type="button" class="btn btn-psm-secondary-outline btn-sm" data-action="gps-use-active">
+                  <button type="button" class="btn btn-psm-secondary-outline btn-sm" data-action="gps-use-active" title="Aktiven GPS-Punkt übernehmen" aria-label="Aktiven GPS-Punkt übernehmen">
                     <i class="bi bi-geo-alt"></i>
                   </button>
                 </div>
-                <select class="form-select form-select-sm calc-input-sm mt-1" data-role="gps-point-select">
+                <select class="form-select form-select-sm calc-input-sm mt-1" data-role="gps-point-select" aria-label="Gespeicherten GPS-Punkt verknüpfen">
                   <option value="">Punkt verknüpfen ...</option>
                 </select>
               </div>
-              <div class="col-md-3">
-                <label class="form-label calc-label" for="calc-datum">
-                  ${escapeHtml(labels.calculation.fields.date.label)}
-                </label>
-                <input type="date" class="form-control calc-input" 
-                  id="calc-datum" name="calc-datum" 
-                  value="${escapeAttr(formDefaults.date || "")}" />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label calc-label" for="calc-uhrzeit">
-                  ${escapeHtml(labels.calculation.fields.time.label)}
-                </label>
-                <input type="time" class="form-control calc-input" 
-                  id="calc-uhrzeit" name="calc-uhrzeit" 
-                  value="${escapeAttr(formDefaults.time || "")}" />
-              </div>
             </div>
+            <div class="form-text calc-hint calc-lage-hint" data-role="calc-lage-hint"></div>
           </fieldset>
 
           ${renderQsFieldsHtml({
@@ -379,7 +402,7 @@ function createSection(
             </div>
             <div class="calc-summary-column calc-summary-company">
               <div class="calc-summary-row d-none" data-company-row="headline">
-                <span class="calc-summary-label">Claim</span>
+                <span class="calc-summary-label">Überschrift</span>
                 <span class="calc-summary-value" data-field="company-headline"></span>
               </div>
               <div class="calc-summary-row d-none" data-company-row="address">
@@ -399,9 +422,9 @@ function createSection(
             <tbody></tbody>
           </table>
         </div>
-        <div class="mt-3 no-print">
+        <div class="calc-result-actions mt-3 no-print">
           <button class="btn btn-outline-secondary" data-action="print">Drucken / PDF</button>
-          <button class="btn btn-primary ms-2" data-action="save">Aktuelle Berechnung speichern</button>
+          <button class="btn btn-primary" data-action="save">Aktuelle Berechnung speichern</button>
         </div>
       </div>
     </div>
@@ -671,7 +694,7 @@ function renderDropdownContent(type: "eppo" | "bbch"): string {
           }
         </small>
         <div class="mt-1">
-          <small class="text-muted">Tippen Sie zum Suchen oder speichern Sie Codes unter "Zulassung & Codes"</small>
+          <small class="text-muted">Zum Suchen tippen. Eigene Codes speicherst du unter Einstellungen → „BVL &amp; Codes“.</small>
         </div>
       </div>
     `;
@@ -931,10 +954,22 @@ function applyFieldLabels(section: HTMLElement, labels: Labels): void {
     }
   });
 
+  const lageHint = section.querySelector<HTMLElement>(
+    '[data-role="calc-lage-hint"]'
+  );
+  if (lageHint) {
+    lageHint.textContent = buildLageHint(labels);
+  }
+
   const tableHead = section.querySelector("#calc-results-table thead");
   if (tableHead) {
     tableHead.innerHTML = buildMediumTableHead(labels, "calculation");
   }
+}
+
+function buildLageHint(labels: Labels): string {
+  const fields = labels.calculation.fields;
+  return `Mindestens eine Angabe zur Lage: ${fields.location.label}, ${fields.invekos.label} oder ${fields.gps.label}.`;
 }
 
 async function persistHistory(services: Services): Promise<void> {
@@ -1088,7 +1123,9 @@ function renderResults(
     resultsHead.innerHTML = buildMediumTableHead(labels, "calculation");
   }
   if (resultsBody) {
-    resultsBody.innerHTML = buildMediumTableRows(items, "calculation");
+    resultsBody.innerHTML = buildMediumTableRows(items, "calculation", {
+      flagMissingApproval: true,
+    });
   }
 
   resultCard.classList.remove("d-none");
@@ -1177,6 +1214,8 @@ export function initCalculation(
         .forEach((select) => {
           updateHasValueClass(select);
         });
+      setDateToToday();
+      setLageHintError(false);
     }
     clearGpsSelection(services.state.getState());
     activeProfileId = null;
@@ -1210,6 +1249,48 @@ export function initCalculation(
   const profileHint = section.querySelector<HTMLElement>(
     '[data-role="calc-profile-hint"]'
   );
+  const dateInput = section.querySelector<HTMLInputElement>("#calc-datum");
+  const lageHint = section.querySelector<HTMLElement>(
+    '[data-role="calc-lage-hint"]'
+  );
+
+  // Das Datum ist mit dem heutigen Tag vorbelegt. Bleibt die App über
+  // Mitternacht offen, zieht der Vorschlag mit – ein selbst gewähltes Datum bleibt.
+  let autoDateValue = dateInput?.value || "";
+  const setDateToToday = (): void => {
+    if (!dateInput) {
+      return;
+    }
+    autoDateValue = todayDateInputValue();
+    dateInput.value = autoDateValue;
+    updateHasValueClass(dateInput);
+  };
+  const refreshAutoDate = (): void => {
+    if (!dateInput || document.activeElement === dateInput) {
+      return;
+    }
+    if (
+      dateInput.value === autoDateValue &&
+      autoDateValue !== todayDateInputValue()
+    ) {
+      setDateToToday();
+    }
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      refreshAutoDate();
+    }
+  });
+  window.addEventListener("focus", refreshAutoDate);
+
+  const setLageHintError = (isError: boolean): void => {
+    lageHint?.classList.toggle("calc-hint--error", isError);
+  };
+  ["#calc-standort", "#calc-invekos", "#calc-gps"].forEach((selector) => {
+    section
+      .querySelector<HTMLInputElement>(selector)
+      ?.addEventListener("input", () => setLageHintError(false));
+  });
 
   if (!form || !resultCard || !resultsTable || !resultsHead || !resultsBody) {
     console.warn("Berechnungsbereich konnte nicht initialisiert werden");
@@ -1334,7 +1415,7 @@ export function initCalculation(
     gpsSelect.innerHTML = "";
     const placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = "Gespeicherten Punkt verknüpfen ...";
+    placeholder.textContent = "Punkt verknüpfen ...";
     gpsSelect.appendChild(placeholder);
     extractSliceItems<GpsPoint>(state.gps.points).forEach((point) => {
       const option = document.createElement("option");
@@ -1384,6 +1465,7 @@ export function initCalculation(
     const choice = gpsSelect.value || null;
     const point = getGpsPointById(currentState, choice);
     if (point) {
+      setLageHintError(false);
       setGpsSelection(currentState, point);
       if (gpsInput && !gpsInput.value.trim()) {
         const coords = formatGpsCoordinates(point) || point.name || "";
@@ -1455,7 +1537,7 @@ export function initCalculation(
     }
   );
 
-  // Listen for saved codes changes (from Zulassung & Codes tab)
+  // Listen for saved codes changes (from BVL & Codes tab)
   services.events.subscribe("savedCodes:changed", async () => {
     quickSelectLoaded = false;
     await loadQuickSelectData(true);
@@ -1527,12 +1609,35 @@ export function initCalculation(
           minute: "2-digit",
         });
     const areaHa = Number(rawAreaHa);
-    if (!ersteller || Number.isNaN(areaHa)) {
-      toast.warning("Bitte Felder korrekt ausfüllen!");
+    const fieldLabels = services.state.getState().fieldLabels;
+    const focusField = (selector: string): void => {
+      form.querySelector<HTMLInputElement>(selector)?.focus();
+    };
+    if (!ersteller) {
+      toast.warning(
+        `Bitte „${fieldLabels.calculation.fields.creator.label}“ ausfüllen.`
+      );
+      focusField("#calc-ersteller");
+      return;
+    }
+    if (!normalizedDate.iso) {
+      toast.warning("Bitte das Datum der Anwendung angeben.");
+      focusField("#calc-datum");
       return;
     }
     if (!usageType) {
       toast.warning("Bitte die Art der Verwendung angeben.");
+      focusField("#calc-verwendung");
+      return;
+    }
+    if (!rawKultur) {
+      toast.warning("Bitte die Kultur angeben.");
+      focusField("#calc-kultur");
+      return;
+    }
+    if (!rawAreaHa || Number.isNaN(areaHa) || areaHa < 0) {
+      toast.warning("Bitte die Fläche in Hektar als Zahl angeben.");
+      focusField("#calc-area-ha");
       return;
     }
 
@@ -1541,6 +1646,15 @@ export function initCalculation(
     const state = services.state.getState();
     const defaults = state.defaults;
     const selectedGpsPoint = getGpsPointById(state, selectedGpsPointId);
+    if (!rawStandort && !rawInvekos && !rawGps && !selectedGpsPoint) {
+      setLageHintError(true);
+      toast.warning(
+        `Bitte mindestens eine Angabe zur Lage eintragen: ${fieldLabels.calculation.fields.location.label}, ${fieldLabels.calculation.fields.invekos.label} oder ${fieldLabels.calculation.fields.gps.label}.`
+      );
+      focusField("#calc-standort");
+      return;
+    }
+    setLageHintError(false);
     const gpsCoordinates = selectedGpsPoint
       ? {
           latitude: selectedGpsPoint.latitude,
@@ -1599,7 +1713,7 @@ export function initCalculation(
         value: medium.value,
         total,
         inputs,
-        zulassungsnummer: medium.zulassungsnummer ?? null,
+        zulassungsnummer: medium.zulassungsnummer || medium.approval || null,
         // QS-Felder pro Medium
         wartezeit: medium.wartezeit ?? null,
         wirkstoff: medium.wirkstoff ?? null,
@@ -1692,6 +1806,15 @@ export function initCalculation(
 
     services.state.updateSlice("calcContext", () => calculation);
 
+    const withoutApproval = items.filter((item) => !item.zulassungsnummer);
+    if (withoutApproval.length) {
+      const names = withoutApproval.map((item) => item.name).join(", ");
+      toast.warning(
+        `Zulassungsnummer fehlt bei: ${names}. Trag sie unter Einstellungen → „Mittel & Profile“ nach.`,
+        8000
+      );
+    }
+
     // Track EPPO/BBCH usage for frequently used suggestions
     if (rawEppo) {
       incrementEppoUsage({ code: rawEppo }).catch(() => {
@@ -1736,7 +1859,9 @@ export function initCalculation(
   }
 
   resultCard.addEventListener("click", (event) => {
-    const target = event.target as HTMLElement;
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+      "[data-action]"
+    );
     const action = target?.dataset?.action;
     if (!action) {
       return;
@@ -1756,7 +1881,7 @@ export function initCalculation(
       }
       if (calculationSaveLocked) {
         toast.warning(
-          "Berechnung wurde bereits gespeichert. Bitte führen Sie zuerst eine neue Berechnung aus."
+          "Berechnung wurde bereits gespeichert. Bitte zuerst eine neue Berechnung ausführen."
         );
         return;
       }
@@ -1816,9 +1941,7 @@ export function initCalculation(
           }
 
           calculationSaveLocked = true;
-          toast.success(
-            "Berechnung gespeichert! (Siehe Dokumentationsbereich)"
-          );
+          toast.success("Berechnung gespeichert. Du findest sie in der Übersicht.");
           resetCalculationForm();
         } catch (error) {
           console.error("History konnte nicht gespeichert werden", error);

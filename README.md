@@ -4,6 +4,8 @@
 
 🌐 **Live-Demo:** [digitale-psm.de](https://digitale-psm.de)
 
+📖 **Anleitung:** [digitale-psm.de/anleitung](https://digitale-psm.de/anleitung/) – kurze Kapitel, jedes als Video und Schritt für Schritt zum Nachlesen
+
 ## Features
 
 ### 📱 Progressive Web App (PWA)
@@ -24,9 +26,9 @@
 ### 📋 Dokumentation
 
 - Vollständige Aufzeichnung aller Anwendungen
-- Kalenderansicht mit Filter-Funktionen
-- Export als PDF oder CSV
-- QS-konforme Dokumentation
+- Übersicht mit Filter nach Zeitraum, Kultur und Anwender
+- Druck und PDF, Export als JSON- oder ZIP-Datei (maschinenlesbar)
+- Zusätzliche QS-Felder (z. B. Maschine, Schaderreger, Wetter), bei Bedarf einblendbar
 
 ### 🗄️ BVL-Datenbank
 
@@ -47,11 +49,11 @@
 
 ## Technologie
 
-- **Frontend:** Astro 5, TypeScript, Bootstrap 5 (lokal gebündelt, kein CDN)
+- **Frontend:** Astro 5, TypeScript, Bootstrap 5 (lokal gebündelt)
 - **Datenbank:** SQLite WASM (läuft komplett im Browser, lokal gebündelt)
 - **PWA:** Service Worker, Web App Manifest, File Handling API
 - **Offline-First:** Funktioniert ohne Internetverbindung
-- **Datenschutz:** Alle Daten bleiben lokal auf Ihrem Gerät
+- **Datenschutz:** Die Aufzeichnungen bleiben lokal auf dem eigenen Gerät. Aus dem Netz geholt werden nur die BVL-Zulassungsdaten; die Startseite bindet außerdem einen Aufrufzähler ([hits.sh](https://hits.sh)) ein
 
 ## Installation (Entwicklung)
 
@@ -114,6 +116,8 @@ Folgende Dateitypen werden von Git LFS verwaltet:
 
 **Wichtig:** Wenn Sie große Dateien hinzufügen, werden diese automatisch von Git LFS verwaltet.
 
+**Ausnahme:** Die Videos, Untertitel und Bilder der Anleitung unter `public/anleitung/` liegen bewusst direkt im Repository (siehe `.gitattributes`).
+
 ## PWA Installation
 
 Die App kann als Progressive Web App installiert werden:
@@ -126,6 +130,10 @@ Nach der Installation:
 - Merkt sich die zuletzt verwendete Datenbank
 - Öffnet .sqlite Dateien direkt per Doppelklick
 
+## Hinweis zu den gesetzlichen Vorgaben
+
+Die Felder richten sich nach den Vorgaben für Pflanzenschutz-Aufzeichnungen (Durchführungsverordnung (EU) 2023/564, § 11 Pflanzenschutzgesetz). Für vollständige und richtige Angaben ist jeder Betrieb selbst verantwortlich – die App ist kostenlos und ohne Gewähr.
+
 ## Lizenz
 
 MIT-Lizenz – siehe [LICENSE](LICENSE), deutsche Übersetzung in [LIZENZ-DE.md](LIZENZ-DE.md)
@@ -133,6 +141,7 @@ MIT-Lizenz – siehe [LICENSE](LICENSE), deutsche Übersetzung in [LIZENZ-DE.md]
 ## Kontakt
 
 - App: [digitale-psm.de](https://digitale-psm.de)
+- Anleitung: [digitale-psm.de/anleitung](https://digitale-psm.de/anleitung/)
 - Info und Lizenz: [info.digitale-psm.de](https://info.digitale-psm.de)
 - Statistik zur BVL-Datenbank: [st.digitale-psm.de](https://st.digitale-psm.de)
 - Entwickler: [Abbas Hoseiny](https://hoseiny.de/de/projects/digitale-psm/), dort auch die Technik der Datenhaltung im Detail

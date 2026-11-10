@@ -270,7 +270,7 @@ export function renderCalculationSnapshot(
           </div>
           <div class="calc-snapshot-card__creator">
             <strong>${escapeHtml(
-              detailLabels.creator || tableLabels.creator || "Erstellt von"
+              detailLabels.creator || tableLabels.creator || "Anwender"
             )}:</strong>
             ${escapeHtml(entry?.ersteller || "–")}
           </div>
@@ -424,7 +424,7 @@ export function renderCalculationSnapshotForPrint(
     isHtml?: boolean;
   }> = [
     {
-      label: detailLabels.creator || "Erstellt von",
+      label: detailLabels.creator || "Anwender",
       value: entry?.ersteller || null,
     },
     {
@@ -434,6 +434,10 @@ export function renderCalculationSnapshotForPrint(
     {
       label: detailLabels.crop || "Kultur",
       value: entry?.kultur || null,
+    },
+    {
+      label: detailLabels.usageType || "Art der Verwendung",
+      value: entry?.usageType || null,
     },
     {
       label: detailLabels.eppoCode || "EPPO-Code",

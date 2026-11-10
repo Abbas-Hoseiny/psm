@@ -966,7 +966,8 @@ async function runImport(
 function emitDocumentationFocus(
   services: Services,
   session: ImportSession,
-  refs: DocumentationFocusEntryRef[]
+  refs: DocumentationFocusEntryRef[],
+  showEntries = false
 ): void {
   if (!services.events?.emit) {
     return;
@@ -982,6 +983,7 @@ function emitDocumentationFocus(
     reason: "import",
     entryIds: refs,
     autoSelectFirst: Boolean(refs.length),
+    showEntries,
   });
 }
 
@@ -997,7 +999,8 @@ function handleFocusRequest(section: HTMLElement, services: Services): void {
   emitDocumentationFocus(
     services,
     currentSession,
-    currentSession.lastImportRefs
+    currentSession.lastImportRefs,
+    true
   );
   setHint(section, "Dokumentation wurde auf den Importzeitraum fokussiert.");
 }

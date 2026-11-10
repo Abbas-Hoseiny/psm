@@ -5,6 +5,7 @@ import {
   updateSlice,
 } from "@scripts/core/state";
 import { emit } from "@scripts/core/eventBus";
+import Collapse from "bootstrap/js/dist/collapse";
 
 function initOfflineIndicator(): void {
   const indicator = document.getElementById("offline-indicator");
@@ -22,11 +23,20 @@ function initOfflineIndicator(): void {
 
 function initShell(): void {
   const buttons = Array.from(
-    document.querySelectorAll<HTMLButtonElement>(".nav-btn"),
+    // nur die Bereichs-Knöpfe; der Anleitungs-Link ist ein normaler Link
+    document.querySelectorAll<HTMLButtonElement>(".nav-btn[data-section]"),
   );
 
   // Initialize offline indicator
   initOfflineIndicator();
+
+  // Auf schmalen Bildschirmen klappt das Menü nach der Auswahl wieder zu
+  const navCollapse = document.getElementById("navbarNav");
+  const closeMobileMenu = () => {
+    if (navCollapse?.classList.contains("show")) {
+      Collapse.getOrCreateInstance(navCollapse, { toggle: false }).hide();
+    }
+  };
 
   buttons.forEach((button) => {
     button.addEventListener("click", (event) => {
@@ -47,6 +57,7 @@ function initShell(): void {
       button.classList.add("active");
 
       emit("app:sectionChanged", section);
+      closeMobileMenu();
     });
   });
 

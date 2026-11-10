@@ -2,8 +2,8 @@ const DEFAULT_FIELD_LABELS = {
   calculation: {
     fields: {
       creator: {
-        label: "Erstellt von",
-        placeholder: "Name der verantwortlichen Person",
+        label: "Anwender",
+        placeholder: "Vor- und Nachname",
       },
       location: {
         label: "Standort / Abteil",
@@ -67,7 +67,7 @@ const DEFAULT_FIELD_LABELS = {
   history: {
     tableColumns: {
       date: "Datum",
-      creator: "Erstellt von",
+      creator: "Anwender",
       location: "Standort",
       crop: "Kultur",
       usageType: "Verwendung",
@@ -81,7 +81,7 @@ const DEFAULT_FIELD_LABELS = {
     },
     detail: {
       title: "",
-      creator: "Erstellt von",
+      creator: "Anwender",
       location: "Standort / Abteil",
       crop: "Kultur",
       usageType: "Art der Verwendung",
@@ -98,11 +98,11 @@ const DEFAULT_FIELD_LABELS = {
   reporting: {
     tableColumns: {
       date: "Datum",
-      creator: "Erstellt von",
+      creator: "Anwender",
       location: "Standort",
       crop: "Kultur",
       usageType: "Verwendung",
-        quantity: "Fläche (ha)",
+      quantity: "Fläche (ha)",
       mediums: "Mittel & Gesamtmengen",
     },
     infoAll: "Alle Einträge",
@@ -120,6 +120,19 @@ const QUANTITY_LABEL_DEPENDENT_PATHS = [
   "history.detail.quantity",
   "reporting.tableColumns.quantity",
 ] as const;
+
+// Frühere Standardtexte: Datenbanken speichern ihre Labels mit ab. Steht dort
+// noch der alte Standard, gilt der aktuelle.
+const LEGACY_DEFAULT_LABELS: ReadonlyArray<readonly [string, string]> = [
+  ["calculation.fields.creator.label", "Erstellt von"],
+  [
+    "calculation.fields.creator.placeholder",
+    "Name der verantwortlichen Person",
+  ],
+  ["history.tableColumns.creator", "Erstellt von"],
+  ["history.detail.creator", "Erstellt von"],
+  ["reporting.tableColumns.creator", "Erstellt von"],
+];
 
 function splitPath(path: string): string[] {
   return path.split(".").filter(Boolean);
@@ -186,6 +199,11 @@ export function getDefaultFieldLabels(): typeof DEFAULT_FIELD_LABELS {
 export function resolveFieldLabels(custom: any = {}): any {
   const defaults = getDefaultFieldLabels();
   const merged = deepMerge(defaults, custom);
+  LEGACY_DEFAULT_LABELS.forEach(([path, legacyValue]) => {
+    if (getValueAtPath(merged, path) === legacyValue) {
+      assignValueAtPath(merged, path, getValueAtPath(defaults, path));
+    }
+  });
   const quantityLabel = getValueAtPath(merged, QUANTITY_LABEL_PRIMARY_PATH);
   if (quantityLabel) {
     QUANTITY_LABEL_DEPENDENT_PATHS.forEach((path) => {

@@ -61,13 +61,15 @@ export function getDriver(): StorageDriver | null {
 }
 
 export async function createDatabase(
-  initialData: any
+  initialData: any,
+  suggestedName?: string
 ): Promise<{ data: any; context: any }> {
   const driver = getDriver();
   if (!driver) {
     throw new Error("Kein verfügbarer Speicher-Treiber");
   }
-  return driver.create(initialData);
+  // undefined lässt den Standardnamen des Treibers greifen
+  return driver.create(initialData, suggestedName);
 }
 
 export async function openDatabase(): Promise<{ data: any; context: any }> {

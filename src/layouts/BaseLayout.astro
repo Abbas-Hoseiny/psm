@@ -12,6 +12,8 @@ import '../styles/guidedInput.css';
 interface Props {
   title?: string;
   description?: string;
+  /** Hintergrund der Seite: Startfoto (App-Start) oder ruhiger Verlauf. */
+  bodyClass?: string;
 }
 
 const baseTitle = 'DigitalePSM';
@@ -19,6 +21,7 @@ const {
   title: pageTitle = '',
   description =
     'Digitale Berechnung, Dokumentation und Verwaltung von Pflanzenschutzmittel-Anwendungen mit offiziellen BVL-Daten.',
+  bodyClass = 'bg-startup',
 } = Astro.props as Props;
 const fullTitle = pageTitle ? `${pageTitle} · ${baseTitle}` : baseTitle;
 const canonicalUrl = Astro.url?.href ??
@@ -66,8 +69,9 @@ const keywords = 'Pflanzenschutzmittel, PSM, Pflanzenschutz, Dokumentation, Bere
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="DigitalePSM" />
+  <slot name="head" />
 </head>
-<body class="bg-startup">
+<body class={bodyClass}>
   <noscript>
     <div class="noscript-warning">
       Diese Anwendung benötigt JavaScript.

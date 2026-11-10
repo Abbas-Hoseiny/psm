@@ -81,6 +81,416 @@ body.bg-startup {
   color: var(--text-dim) !important;
 }
 
+/* ── Startseite: Titel, Aktionen und Anleitung ─────────────────────────── */
+.startup-body {
+  padding: var(--sp-8);
+  text-align: left;
+}
+
+.startup-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-6);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.startup-brand-dash {
+  color: var(--primary-600);
+}
+
+.startup-brand-tld {
+  font-weight: 400;
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.startup-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-areas:
+    "intro guide"
+    "note guide";
+  gap: var(--sp-4) var(--space-12);
+  align-items: center;
+}
+
+/* Links ein Block neben der Anleitung: Einleitung, direkt darunter der Hinweis */
+.startup-intro {
+  grid-area: intro;
+  align-self: end;
+}
+
+.startup-card .startup-note {
+  grid-area: note;
+  align-self: start;
+  margin: 0;
+  max-width: 36rem;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.startup-title {
+  margin: 0 0 var(--sp-4);
+  font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.startup-card .startup-lead {
+  margin: 0 0 var(--sp-6);
+  max-width: 36rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--text);
+  opacity: 0.88;
+}
+
+.startup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.startup-card .startup-action-hint {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.startup-btn-primary,
+.startup-btn-primary:hover,
+.startup-btn-primary:focus {
+  background: var(--primary-600);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+}
+
+.startup-btn-primary:hover,
+.startup-btn-primary:focus {
+  background: var(--primary-hover);
+}
+
+.startup-btn-resume,
+.startup-btn-resume:hover,
+.startup-btn-resume:focus {
+  background: #3b82f6;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+}
+
+.startup-btn-resume:hover,
+.startup-btn-resume:focus {
+  background: #2563eb;
+}
+
+.startup-btn-ghost,
+.startup-btn-icon {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: var(--text);
+}
+
+.startup-btn-ghost:hover,
+.startup-btn-ghost:focus,
+.startup-btn-icon:hover,
+.startup-btn-icon:focus {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.startup-btn-icon {
+  padding-left: var(--sp-3);
+  padding-right: var(--sp-3);
+  color: var(--text-muted);
+}
+
+/* Zuletzt verwendete Datei */
+.startup-resume {
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-5);
+  border-radius: var(--r-lg);
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.startup-card .startup-resume-label {
+  margin: 0 0 var(--sp-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.startup-card .startup-resume-file {
+  margin: 0 0 var(--sp-4);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+.startup-resume-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.startup-resume-actions .startup-btn-resume {
+  flex: 1 1 auto;
+}
+
+/* Anleitung: Vorschaubild mit Abspiel-Symbol */
+.startup-guide {
+  grid-area: guide;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(10, 20, 30, 0.6);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color var(--transition-base),
+    transform var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.startup-guide:hover,
+.startup-guide:focus-visible {
+  border-color: var(--primary-600);
+  color: var(--text);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-1);
+}
+
+.startup-guide-media {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #14532d 0%, #0f1c2a 100%);
+}
+
+.startup-guide-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+
+.startup-guide-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 16, 24, 0.32);
+  transition: background var(--transition-base);
+}
+
+.startup-guide:hover .startup-guide-play {
+  background: rgba(8, 16, 24, 0.18);
+}
+
+.startup-guide-play i {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  padding-left: 0.2rem; /* Dreieck optisch mittig */
+  border-radius: var(--r-full);
+  background: var(--primary-600);
+  color: #fff;
+  font-size: 2.2rem;
+  line-height: 1;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.startup-guide-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.startup-guide-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.startup-guide-sub {
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.startup-guide-cta {
+  display: inline-flex;
+  align-items: center;
+  margin-top: var(--sp-2);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--primary-600);
+}
+
+.startup-guide-cta i {
+  margin-left: var(--sp-2);
+  transition: margin-left var(--transition-base);
+}
+
+.startup-guide:hover .startup-guide-cta i {
+  margin-left: var(--sp-3);
+}
+
+.startup-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-5);
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: var(--font-size-sm);
+}
+
+.startup-foot a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.startup-foot a:hover,
+.startup-foot a:focus {
+  color: var(--primary-600);
+}
+
+.startup-foot .startup-view-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-dim);
+}
+
+/* Schmale Fenster: alles untereinander, Anleitung als kompakte Zeile,
+   der Hinweis erst danach – so bleibt die Anleitung ohne Scrollen sichtbar */
+@media (max-width: 991.98px) {
+  .startup-hero {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "intro"
+      "guide"
+      "note";
+    gap: var(--sp-6);
+  }
+
+  .startup-card .startup-note {
+    max-width: none;
+  }
+
+  .startup-guide {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .startup-guide-media {
+    flex: 0 0 38%;
+    max-width: 280px;
+    aspect-ratio: auto;
+    min-height: 6.5rem;
+  }
+
+  .startup-guide-media img {
+    position: absolute;
+    inset: 0;
+  }
+
+  .startup-guide-text {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .startup-landing.section-container {
+    padding: var(--sp-4) 0;
+  }
+
+  .startup-landing .section-inner {
+    width: calc(100vw - 1.5rem);
+  }
+
+  .startup-body {
+    padding: var(--sp-5);
+  }
+
+  .startup-brand {
+    margin-bottom: var(--sp-4);
+  }
+
+  .startup-card .startup-lead {
+    margin-bottom: var(--sp-5);
+    font-size: 1rem;
+  }
+
+  .startup-actions .btn {
+    flex: 1 1 100%;
+  }
+
+  /* Die Knöpfe erklären sich selbst – so bleibt die Anleitung ohne Scrollen sichtbar */
+  .startup-action-hint {
+    display: none;
+  }
+
+  .startup-guide-play i {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.6rem;
+  }
+
+  /* Kompakt, damit die Anleitung auf dem Handy sofort zu sehen ist */
+  .startup-guide-media {
+    flex-basis: 30%;
+    min-height: 6rem;
+  }
+
+  .startup-guide-text {
+    padding: var(--sp-3) var(--sp-4);
+  }
+
+  .startup-guide-title {
+    font-size: 1.05rem;
+  }
+
+  .startup-guide-sub {
+    display: none;
+  }
+
+  .startup-guide-cta {
+    margin-top: var(--sp-1);
+  }
+
+  .startup-foot {
+    margin-top: var(--sp-5);
+  }
+}
+
+/* Sehr schmale Handys: Titel in zwei Zeilen */
+@media (max-width: 380px) {
+  .startup-title {
+    font-size: 1.5rem;
+  }
+}
+
 /* App-Modus: Ruhiger Gradient OHNE Foto */
 body.bg-app {
   background: var(--app-bg);
@@ -162,6 +572,11 @@ input[type="button"],
 .form-select {
   font-size: 1rem;
   padding: 0.75rem 1rem;
+}
+
+/* Auswahlfelder: Platz für den Pfeil, damit er nicht über dem Text liegt */
+select.form-select {
+  padding-right: 2.25rem;
 }
 
 /* Buttons - larger text and padding */

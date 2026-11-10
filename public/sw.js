@@ -23,13 +23,19 @@ const DYNAMIC_CACHE = `psm-dynamic-${CACHE_VERSION}`;
 const DB_STATE_KEY = 'psm-db-state';
 
 // App-Shell (muss existieren – sonst schlägt der Install fehl)
-const SHELL_ASSETS = ['/', '/manifest.json', '/assets/img/favicon.svg'];
+const SHELL_ASSETS = [
+  '/',
+  '/manifest.json',
+  '/assets/img/favicon.svg',
+  '/assets/img/anleitung-vorschau.webp',
+];
 
 // Wird beim Build durch die Liste der gehashten /_astro/-Assets ersetzt.
 const PRECACHE_ASSETS = /* __PRECACHE_ASSETS__ */ [];
 
 const HASHED_ASSET_PATTERN = /^\/_astro\/.+\.(js|mjs|css|wasm|woff2?|ttf|sqlite)$/;
 const STATIC_IMAGE_PATTERN = /^\/assets\/.+\.(svg|png|jpg|jpeg|webp|ico)$/;
+const ANLEITUNG_MEDIA_PATTERN = /^\/anleitung\/.+\.(mp4|vtt|jpg|webp)$/;
 
 async function precache(cacheName, urls) {
   const cache = await caches.open(cacheName);
@@ -160,6 +166,13 @@ self.addEventListener('fetch', (event) => {
 
   // BVL-Daten nicht cachen (zu groß, eigene DB)
   if (url.pathname.startsWith('/data/bvl/')) {
+    return;
+  }
+
+  // Videos und Bilder der Anleitung nicht cachen: Der Browser lädt sie direkt
+  // (Videos in Teilstücken per Range-Request); die Seite /anleitung/ selbst
+  // läuft weiter über Network-first.
+  if (ANLEITUNG_MEDIA_PATTERN.test(url.pathname)) {
     return;
   }
 

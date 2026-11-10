@@ -250,6 +250,18 @@
   word-break: break-word;
 }
 
+/* Am Bildschirm Wörter nicht mitten im Wort umbrechen ("Einh-eit"),
+   dafür schmalere Zellen, damit "Gesamt" sichtbar bleibt */
+@media screen {
+  .calc-medium-table th,
+  .calc-medium-table td {
+    word-break: normal;
+    overflow-wrap: break-word;
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+  }
+}
+
 .nowrap {
   white-space: nowrap;
 }
@@ -320,6 +332,23 @@
 
 .calc-summary-value--multiline {
   white-space: pre-line;
+}
+
+/* Am Bildschirm: Wert rutscht unter die Beschriftung, statt mitten im Wort zu umbrechen;
+   leere Angaben als Strich */
+@media screen {
+  .calc-summary-row {
+    flex-wrap: wrap;
+  }
+
+  .calc-summary-value {
+    flex: 1 1 7rem;
+  }
+
+  .calc-summary-value:empty::before {
+    content: "–";
+    color: var(--text-dim);
+  }
 }
 
 @media (max-width: 640px) {
@@ -1402,6 +1431,117 @@ html.qs-mode .card-dark {
   background: var(--surface-2);
   color: var(--text-dim);
   border: 1px solid var(--border-1);
+}
+
+/* Hinweis auf eine fehlende Pflichtangabe (z. B. Zulassungsnummer) */
+.badge-missing {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--r-full);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning-600);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+/* Sekundäre Knöpfe: auf dunklem Grund gut lesbar (Standardgrau wirkt wie deaktiviert) */
+.btn-outline-secondary {
+  --bs-btn-color: var(--text-muted);
+  --bs-btn-border-color: var(--border-2);
+  --bs-btn-hover-color: var(--text);
+  --bs-btn-hover-bg: var(--surface-3);
+  --bs-btn-hover-border-color: var(--border-2);
+  --bs-btn-active-color: var(--text);
+  --bs-btn-active-bg: var(--surface-3);
+  --bs-btn-active-border-color: var(--border-2);
+  --bs-btn-disabled-color: var(--text-dim);
+  --bs-btn-disabled-border-color: var(--border-1);
+}
+
+/* Mittel-Tabelle: etwas schmalere Zellen, damit alle Spalten nebeneinander passen */
+#settings-mediums-table th,
+#settings-mediums-table td {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+/* Aktionen je Mittel – bleiben sichtbar, auch wenn die Tabelle seitlich geschoben wird */
+#settings-mediums-table .medium-actions-cell {
+  position: sticky;
+  right: 0;
+  width: 1%;
+  white-space: nowrap;
+  background-color: var(--table-bg, var(--surface-1));
+}
+
+#settings-mediums-table thead .medium-actions-cell {
+  background-color: var(--table-header-bg, var(--surface-2));
+}
+
+.medium-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+
+.medium-row-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+@media (max-width: 1199.98px) {
+  #settings-mediums-table .medium-actions-cell {
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .medium-row-actions .btn {
+    min-width: 44px;
+    padding: 0.4rem;
+  }
+
+  .medium-action-label {
+    display: none;
+  }
+}
+
+/* Aktionen für die Auswahl in der Übersicht – umbrechen statt abschneiden */
+.doc-selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/* Übersicht: Liste links mit fester Breite, die Details nutzen den Rest */
+@media (min-width: 1200px) {
+  .doc-split-list {
+    flex: 0 0 20rem;
+    width: 20rem;
+  }
+
+  .doc-split-detail {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+}
+
+/* Details eines Eintrags: Tabelle etwas schmaler, damit „Gesamt“ sichtbar bleibt */
+#doc-detail-body .table th,
+#doc-detail-body .table td {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+#doc-detail-body .table thead th {
+  font-size: 0.8125rem;
 }
 
 /* Aufwand-Anzeige */

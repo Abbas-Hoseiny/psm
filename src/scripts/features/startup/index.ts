@@ -46,17 +46,27 @@ const DOWNLOAD_FILENAME_FALLBACK = "pflanzenschutz-datenbank.json";
 
 let initialized = false;
 
+// Der Dateidialog schlägt genau den im Assistenten angezeigten Namen vor;
+// die Endung richtet sich nach dem aktiven Speicher-Treiber.
+function filenameExtension(): string {
+  return getActiveDriverKey() === "sqlite" ? "sqlite" : "json";
+}
+
 function sanitizeFilename(name: string): string {
   if (!name) {
-    return DOWNLOAD_FILENAME_FALLBACK;
+    return `pflanzenschutz-datenbank.${filenameExtension()}`;
   }
   const slug = name
     .toString()
     .toLowerCase()
     .trim()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `${slug || "pflanzenschutz-datenbank"}.json`;
+  return `${slug || "pflanzenschutz-datenbank"}.${filenameExtension()}`;
 }
 
 async function withButtonBusy(
@@ -232,7 +242,7 @@ export function initStartup(
   const baseCompany = stateSnapshot.company;
 
   const landingSection = document.createElement("section");
-  landingSection.className = "section-container";
+  landingSection.className = "section-container startup-landing";
 
   // Dynamisches HTML basierend auf Zustand - wird später aktualisiert
   function renderLandingContent(hasFile: boolean, inApp: boolean): void {
@@ -241,116 +251,122 @@ export function initStartup(
     // 2. Hat Datei → "Fortsetzen" im Fokus
     // 3. In App ohne Datei → "Neu erstellen" im Fokus, kein Install-Banner
 
-    const showNewCreateFocus = !hasFile;
     const showContinueFocus = hasFile;
+
+    // Anleitung (Videos + Schritt-für-Schritt) – in beiden Szenarien sichtbar
+    const guideCardHtml = `<a class="startup-guide" href="/anleitung/" data-action="open-guide">
+            <span class="startup-guide-media">
+              <img src="/assets/img/anleitung-vorschau.webp" alt="" width="960" height="540" data-role="guide-preview" />
+              <span class="startup-guide-play"><i class="bi bi-play-fill"></i></span>
+            </span>
+            <span class="startup-guide-text">
+              <span class="startup-guide-title">Anleitung mit Videos</span>
+              <span class="startup-guide-sub">Kurze Videos zeigen Schritt für Schritt, wie die App funktioniert.</span>
+              <span class="startup-guide-cta">Anleitung ansehen<i class="bi bi-arrow-right"></i></span>
+            </span>
+          </a>`;
 
     landingSection.innerHTML = `
     <div class="section-inner">
-      <div class="card startup-card" style="position: relative;">
-        <div class="card-body text-center py-5">
-          <!-- Branding Logo oben links -->
-          <div style="position: absolute; top: 0.75rem; left: 0.75rem;">
-            <div class="d-flex align-items-center gap-2">
-              <img src="/assets/img/favicon.svg" alt="PSM" style="width: 28px; height: 28px;" />
-              <div style="text-align: left; line-height: 1.1;">
-                <span style="font-size: 0.9rem; font-weight: 600; color: var(--text);">Digitale<span style="color: var(--primary-600);">-</span>PSM<span style="font-weight: 400; opacity: 0.5; font-size: 0.75rem;">.de</span></span>
-              </div>
-            </div>
+      <div class="card startup-card">
+        <div class="card-body startup-body">
+          <div class="startup-brand">
+            <img src="/assets/img/favicon.svg" alt="" width="28" height="28" />
+            <span>Digitale<span class="startup-brand-dash">-</span>PSM<span class="startup-brand-tld">.de</span></span>
           </div>
-          
-          <!-- Sekundäre Aktion oben rechts -->
-          <div style="position: absolute; top: 0.75rem; right: 0.75rem;">
-            ${
-              showContinueFocus
-                ? `<button class="btn btn-link p-0" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.85rem;" data-action="start-wizard">
-                  <i class="bi bi-plus-lg me-1"></i>Neu erstellen
-                </button>`
-                : `<button class="btn btn-link p-0" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.85rem;" data-action="open">
-                  <i class="bi bi-folder2-open me-1"></i>Datei öffnen
-                </button>`
-            }
-          </div>
-          
-          <!-- Info & Lizenz + Statistik Links unten links -->
-          <div style="position: absolute; bottom: 0.75rem; left: 0.75rem; display: flex; gap: 1rem; align-items: center;">
-            <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.8rem; transition: color 0.2s;">
-              <i class="bi bi-info-circle me-1"></i>Info & Lizenz
-            </a>
-            <a href="https://st.digitale-psm.de" target="_blank" rel="noopener noreferrer" style="color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.8rem; transition: color 0.2s;">
-              <i class="bi bi-bar-chart-line me-1"></i>Statistik
-            </a>
-            <a id="startup-view-counter" href="${HITS_STATS_URL}" target="_blank" rel="noopener noreferrer" title="Aufruf-Statistik (hits.sh)" style="color: rgba(255,255,255,0.35); font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.3rem; text-decoration: none;">
-              <i class="bi bi-eye"></i>
-              <span data-role="view-count"></span>
-            </a>
-          </div>
-          
-          <div style="padding-top: 1rem;">
-            ${
-              showContinueFocus
-                ? `<!-- Szenario 2: Hat Datei → Fortsetzen im Fokus -->
-                <i class="bi bi-arrow-right-circle fs-1 mb-3 d-block" style="color: #3b82f6; opacity: 0.9;"></i>
-                <h2 class="mb-3" style="font-size: 1.5rem; color: #3b82f6;">Weiterarbeiten</h2>
-                <p class="mb-4" style="color: var(--text-muted);">
-                  Deine zuletzt verwendete Datei öffnen
-                </p>
-                
-                <!-- Fortsetzen Banner -->
-                <div id="auto-start-banner" class="mb-4 p-4 rounded-3" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
-                  <p class="mb-2" style="color: rgba(255,255,255,0.6); font-size: 0.85rem;">
+
+          <div class="startup-hero">
+            <div class="startup-intro">
+              <h1 class="startup-title">Pflanzenschutz einfach dokumentieren</h1>
+              ${
+                showContinueFocus
+                  ? `<!-- Szenario 2: Hat Datei → Fortsetzen im Fokus -->
+                <div id="auto-start-banner" class="startup-resume">
+                  <p class="startup-resume-label">
                     <i class="bi bi-clock-history me-1"></i>Zuletzt verwendet
                   </p>
-                  <p class="mb-3" style="color: #fff; font-size: 1.1rem; font-weight: 500;" data-role="auto-start-filename"></p>
-                  <div class="d-flex justify-content-center align-items-center gap-2">
-                    <button class="btn btn-lg px-5 py-3" style="background: #3b82f6; color: #fff; font-weight: 600; font-size: 1.1rem; border: none;" data-action="auto-start">
+                  <p class="startup-resume-file" data-role="auto-start-filename"></p>
+                  <div class="startup-resume-actions">
+                    <button class="btn btn-lg startup-btn-resume" data-action="auto-start">
                       <i class="bi bi-arrow-right-circle-fill me-2"></i>Fortsetzen
                     </button>
-                    <button class="btn px-2 py-2" style="background: transparent; color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.15);" data-action="auto-start-forget" title="Aus Liste entfernen">
+                    <button class="btn startup-btn-icon" data-action="auto-start-forget" title="Aus Liste entfernen" aria-label="Aus Liste entfernen">
                       <i class="bi bi-x-lg"></i>
                     </button>
                   </div>
                 </div>
-                
-                <!-- Sekundär: Andere Datei öffnen -->
-                <div class="d-flex justify-content-center">
-                  <button class="btn px-4 py-2" style="background: transparent; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.2); font-size: 0.9rem;" data-action="open">
+
+                <!-- Sekundär: Andere Datei öffnen, neue Datenbank -->
+                <div class="startup-actions">
+                  <button class="btn startup-btn-ghost" data-action="open">
                     <i class="bi bi-folder2-open me-2"></i>Andere Datei öffnen
                   </button>
+                  <button class="btn startup-btn-ghost" data-action="start-wizard">
+                    <i class="bi bi-plus-lg me-2"></i>Neu erstellen
+                  </button>
                 </div>`
-                : `<!-- Szenario 1 & 3: Neuer User → Neu erstellen im Fokus -->
-                <i class="bi bi-database-add fs-1 mb-3 d-block" style="color: #22c55e; opacity: 0.9;"></i>
-                <h2 class="mb-3" style="font-size: 1.5rem; color: #22c55e;">Willkommen</h2>
-                <p class="mb-4" style="color: var(--text-muted);">
-                  Erstelle eine neue Datenbank oder öffne eine bestehende Datei
+                  : `<!-- Szenario 1 & 3: Neuer User → Neu erstellen im Fokus -->
+                <p class="startup-lead">
+                  Für Gärtnereien und landwirtschaftliche Betriebe: Die App berechnet, wie viel Pflanzenschutzmittel du für deine Fläche brauchst, hält jede Anwendung fest und gibt sie als PDF oder Datei aus. Deine Aufzeichnungen bleiben auf deinem Gerät.
                 </p>
-                
-                <!-- Hauptaktion: Neu erstellen -->
-                <div class="d-flex justify-content-center mb-4">
-                  <button class="btn btn-lg px-5 py-3" style="font-size: 1.1rem; background: #22c55e; color: #fff; font-weight: 600; border: none;" data-action="start-wizard">
+
+                <!-- Hauptaktion: Neu erstellen, sekundär: Datei öffnen -->
+                <div class="startup-actions">
+                  <button class="btn btn-lg startup-btn-primary" data-action="start-wizard">
                     <i class="bi bi-plus-circle-fill me-2"></i>Neu erstellen
                   </button>
-                </div>
-                
-                <!-- Sekundär: Datei öffnen -->
-                <div class="d-flex justify-content-center">
-                  <button class="btn px-4 py-2" style="background: transparent; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.2); font-size: 0.9rem;" data-action="open">
+                  <button class="btn startup-btn-ghost" data-action="open">
                     <i class="bi bi-folder2-open me-2"></i>Bestehende Datei öffnen
                   </button>
-                </div>`
-            }
-            
-            <!-- PWA Banner - nur wenn nicht in App -->
-            <div id="pwa-install-banner" class="${inApp ? "d-none" : "d-none"} mt-4">
-              <hr class="my-3" style="border-color: rgba(255,255,255,0.1);" />
-              <div data-role="pwa-content">
-                <!-- Wird dynamisch gefüllt -->
-              </div>
+                </div>
+                <p class="startup-action-hint">
+                  Erstelle eine neue Datenbank oder öffne eine bestehende Datei.
+                </p>`
+              }
             </div>
+
+            ${guideCardHtml}
+
+            <!-- Hinweis zu den Vorgaben – in beiden Szenarien sichtbar -->
+            <p class="startup-note">
+              Die Felder richten sich nach den Vorgaben für Pflanzenschutz-Aufzeichnungen (Verordnung (EU) 2023/564, § 11 Pflanzenschutzgesetz). Für vollständige und richtige Angaben bist du selbst verantwortlich – die App ist kostenlos und ohne Gewähr.
+            </p>
+          </div>
+
+          <!-- PWA Banner - nur wenn nicht in App -->
+          <div id="pwa-install-banner" class="${inApp ? "d-none" : "d-none"} mt-4">
+            <hr class="my-3" style="border-color: rgba(255,255,255,0.1);" />
+            <div data-role="pwa-content">
+              <!-- Wird dynamisch gefüllt -->
+            </div>
+          </div>
+
+          <!-- Info & Lizenz + Statistik -->
+          <div class="startup-foot">
+            <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer">
+              <i class="bi bi-info-circle me-1"></i>Info & Lizenz
+            </a>
+            <a href="https://st.digitale-psm.de" target="_blank" rel="noopener noreferrer">
+              <i class="bi bi-bar-chart-line me-1"></i>Statistik
+            </a>
+            <a id="startup-view-counter" class="startup-view-counter" href="${HITS_STATS_URL}" target="_blank" rel="noopener noreferrer" title="Aufruf-Statistik (hits.sh)">
+              <i class="bi bi-eye"></i>
+              <span data-role="view-count"></span>
+            </a>
           </div>
         </div>
       </div>
     </div>
   `;
+
+    // Fehlt das Vorschaubild (ohne Netz und ohne Cache), bleibt die Fläche
+    // mit dem Play-Symbol stehen statt eines kaputten Bildes
+    const guidePreview = landingSection.querySelector<HTMLImageElement>(
+      '[data-role="guide-preview"]',
+    );
+    guidePreview?.addEventListener("error", () => guidePreview.remove(), {
+      once: true,
+    });
   }
 
   // Initial rendern mit Standardwerten (wird später aktualisiert)
@@ -384,9 +400,11 @@ export function initStartup(
       }
     } else if (wizard.saveHint) {
       wizard.saveHint.textContent =
-        'Der Browser fragt nach einem Speicherort. Die erzeugte Datei kannst du später über "Bestehende Datei verbinden" erneut laden.';
+        'Der Browser fragt nach einem Speicherort. Die erzeugte Datei kannst du später über "Bestehende Datei öffnen" erneut laden.';
     }
   }
+
+  let databaseWasOpen = false;
 
   function updateRegionVisibility(state = services.state.getState()): void {
     const hasDatabase = Boolean(state.app?.hasDatabase);
@@ -394,8 +412,14 @@ export function initStartup(
     if (hasDatabase) {
       landingSection.classList.add("d-none");
       wizard.section.classList.add("d-none");
+      if (!databaseWasOpen) {
+        // Der Assistent scrollt zur Ergebnis-Karte; die App soll oben beginnen
+        window.scrollTo(0, 0);
+      }
+      databaseWasOpen = true;
       return;
     }
+    databaseWasOpen = false;
     if (activeView === "wizard") {
       landingSection.classList.add("d-none");
       wizard.section.classList.remove("d-none");
@@ -499,8 +523,19 @@ export function initStartup(
       }
 
       try {
-        const result = await createDatabase(generatedDatabase);
+        const result = await createDatabase(
+          generatedDatabase,
+          generatedFilename,
+        );
         applyDatabase(result.data);
+
+        // FileHandle für Auto-Start speichern – wie beim Öffnen einer Datei,
+        // damit die Startseite beim nächsten Besuch "Fortsetzen" anbietet
+        const context = result.context;
+        if (context?.fileHandle) {
+          await storeFileHandle(context.fileHandle);
+        }
+
         services.events.emit("database:connected", {
           driver: getActiveDriverKey(),
         });

@@ -20,6 +20,7 @@ import {
   searchBbchSuggestions,
 } from "@scripts/core/lookups";
 import { emit as emitEvent } from "@scripts/core/eventBus";
+import { bvlAufwandPerHectare, bvlUnitLabel } from "@scripts/core/bvlUnits";
 import Collapse from "bootstrap/js/dist/collapse";
 
 // Saved EPPO/BBCH state for the codes manager
@@ -143,7 +144,8 @@ function coerceNumber(value: unknown): number | null {
 }
 
 function formatAmount(value: unknown, unit: unknown): string | null {
-  const trimmedUnit = typeof unit === "string" ? unit.trim() : "";
+  // BVL liefert Kürzel wie "LH"; angezeigt wird der Klartext ("l/ha")
+  const trimmedUnit = bvlUnitLabel(unit);
   const numeric = coerceNumber(value);
 
   if (numeric !== null) {
@@ -612,7 +614,7 @@ function renderStatusSection(zulassungState: ZulassungState): string {
             <div>
               <h5 class="bvl-status-title" style="color: var(--text);">BVL-Daten herunterladen</h5>
               <p style="color: var(--text-muted); margin: 0; font-size: var(--font-size-sm);">
-                Lade die offizielle Pflanzenschutzmittel-Datenbank vom Bundesamt für Verbraucherschutz (BVL).
+                Lade die offizielle Pflanzenschutzmittel-Datenbank vom Bundesamt für Verbraucherschutz und Lebensmittelsicherheit (BVL).
               </p>
             </div>
           </div>
@@ -1256,14 +1258,14 @@ function renderResultItem(result: ReportingResult): string {
         }
         ${
           result.zul_ende
-            ? `<span class="badge bg-warning text-dark me-1"><i class="bi bi-calendar-event me-1"></i>Gültig bis: ${escapeHtml(
+            ? `<span class="badge bg-warning text-dark me-1"><i class="bi bi-calendar-event me-1"></i>Gültig bis: ${formatDateHtml(
                 result.zul_ende
               )}</span>`
             : ""
         }
         ${
           result.zulassungsende
-            ? `<span class="badge bg-info text-dark me-1"><i class="bi bi-calendar-range me-1"></i>Anwendung gültig bis: ${escapeHtml(
+            ? `<span class="badge bg-info text-dark me-1"><i class="bi bi-calendar-range me-1"></i>Anwendung gültig bis: ${formatDateHtml(
                 result.zulassungsende
               )}</span>`
             : ""
@@ -2780,7 +2782,7 @@ function createAddMediumDialog(): HTMLElement {
   `;
 
   overlay.innerHTML = `
-    <div style="background: #2d2d2d; border-radius: 8px; width: 100%; max-width: 450px; margin: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+    <div style="background: #2d2d2d; border-radius: 8px; width: 100%; max-width: 450px; margin: 20px; max-height: calc(100vh - 40px); overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
       <div style="padding: 16px 20px; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
         <h5 style="margin: 0; color: #fff; font-size: 18px;">
           <i class="bi bi-plus-circle text-success me-2"></i>Mittel hinzufügen
@@ -2814,7 +2816,7 @@ function createAddMediumDialog(): HTMLElement {
             <div>
               <label style="display: block; margin-bottom: 6px; color: #28a745; font-size: 14px; font-weight: 500;">Wert (pro ha) *</label>
               <input type="number" step="any" name="modal-value" placeholder="z.B. 0.5" required style="width: 100%; padding: 10px 12px; border: 2px solid #28a745; border-radius: 4px; background: #2a3a2a; color: #fff; font-size: 14px;" />
-              <small style="display: block; margin-top: 4px; color: #777; font-size: 12px;">Vorbelegt aus BVL, bei Bedarf anpassen.</small>
+              <small data-role="modal-value-hint" style="display: block; margin-top: 4px; color: #777; font-size: 12px;">Vorbelegt aus BVL, bei Bedarf anpassen.</small>
             </div>
             <div>
               <label style="display: block; margin-bottom: 6px; color: #28a745; font-size: 14px; font-weight: 500;">Einheit</label>
@@ -2838,7 +2840,8 @@ function createAddMediumDialog(): HTMLElement {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div>
               <label style="display: block; margin-bottom: 6px; color: #888; font-size: 14px;">Methode</label>
-              <input type="text" name="modal-method" value="perHektar" readonly style="width: 100%; padding: 10px 12px; border: 1px solid #555; border-radius: 4px; background: #3a3a3a; color: #ccc; font-size: 14px; cursor: not-allowed;" />
+              <input type="hidden" name="modal-method" value="perHektar" />
+              <input type="text" value="pro Hektar" readonly tabindex="-1" style="width: 100%; padding: 10px 12px; border: 1px solid #555; border-radius: 4px; background: #3a3a3a; color: #ccc; font-size: 14px; cursor: not-allowed;" />
             </div>
             <div>
               <label style="display: block; margin-bottom: 6px; color: #888; font-size: 14px;">Wartezeit (BVL, optional)</label>
@@ -2892,28 +2895,6 @@ function closeAddMediumDialog(): void {
   }
 }
 
-// Hilfsfunktion: BVL-Einheit zu L/kg parsen
-function parseUnitFromBvl(einheit: string | null | undefined): "L" | "ml" | "kg" | "g" {
-  if (!einheit) return "L";
-  const lower = String(einheit).toLowerCase().trim();
-  // Check for ml (milliliter)
-  if (lower.startsWith("ml") || lower.includes("ml/")) return "ml";
-  // Check for g (gram) - must be before kg check
-  if (lower.match(/^g[\s\/]/) || lower === "g") return "g";
-  // Check for kg (kilogram)
-  if (lower.includes("kg")) return "kg";
-  // Check for L (liter)
-  if (lower.startsWith("l") || lower.includes("l/")) return "L";
-  return "L"; // Default: Liter
-}
-
-// Hilfsfunktion: BVL-Wert beibehalten (ml und g als eigenständige Einheiten)
-function convertValueToBaseUnit(value: number | null | undefined, _einheit: string | null | undefined): number | null {
-  if (value === null || value === undefined || !Number.isFinite(Number(value))) return null;
-  // Wert unverändert zurückgeben - die Einheit wird separat über parseUnitFromBvl bestimmt
-  return Number(value);
-}
-
 function showAddMediumModal(data: {
   name: string;
   kennr: string;
@@ -2935,18 +2916,28 @@ function showAddMediumModal(data: {
     (form.querySelector('[name="modal-wartezeit"]') as HTMLInputElement).value =
       data.wartezeit || "-";
     
-    // Einheit aus BVL ableiten (L oder kg)
-    const parsedUnit = parseUnitFromBvl(data.aufwandEinheit);
-    (form.querySelector('[name="modal-unit"]') as HTMLSelectElement).value = parsedUnit;
-    
-    // Wert aus BVL vorbefüllen (konvertiert in Basiseinheit)
-    const rawValue = data.aufwandValue !== null && data.aufwandValue !== undefined 
-      ? Number(data.aufwandValue) 
-      : null;
-    const convertedValue = convertValueToBaseUnit(rawValue, data.aufwandEinheit);
-    (form.querySelector('[name="modal-value"]') as HTMLInputElement).value = 
-      convertedValue !== null ? String(convertedValue) : "";
-    
+    // Wert und Einheit pro Hektar aus der BVL-Angabe ableiten
+    const perHectare = bvlAufwandPerHectare(
+      data.aufwandValue,
+      data.aufwandEinheit
+    );
+    (form.querySelector('[name="modal-unit"]') as HTMLSelectElement).value =
+      perHectare.unit;
+    (form.querySelector('[name="modal-value"]') as HTMLInputElement).value =
+      perHectare.value !== null ? String(perHectare.value) : "";
+
+    // Bei umgerechneten oder nicht umrechenbaren Angaben das Original zeigen
+    const valueHint = form.querySelector<HTMLElement>(
+      '[data-role="modal-value-hint"]'
+    );
+    const original = formatAmount(data.aufwandValue, data.aufwandEinheit);
+    if (valueHint && original && perHectare.converted) {
+      valueHint.textContent = `BVL-Angabe: ${original} – auf Hektar umgerechnet. Bei Bedarf anpassen.`;
+    } else if (valueHint && original && !perHectare.exact) {
+      valueHint.textContent = `BVL-Angabe: ${original} – bitte auf Menge pro Hektar umrechnen.`;
+      valueHint.style.color = "#fbbf24";
+    }
+
     (form.querySelector('[name="modal-method"]') as HTMLInputElement).value =
       "perHektar";
 
@@ -3797,12 +3788,13 @@ function updateCodesLists(section: HTMLElement): void {
   }
 
   // Update badge counts in card headers
-  const eppoCountBadge = section.querySelector(
-    ".codes-card:first-child .card-header .badge"
+  // Beide Karten liegen je in einer eigenen Spalte – :first-child/:last-child
+  // träfen deshalb zweimal dieselbe Karte.
+  const countBadges = section.querySelectorAll(
+    ".codes-card .card-header .badge"
   );
-  const bbchCountBadge = section.querySelector(
-    ".codes-card:last-child .card-header .badge"
-  );
+  const eppoCountBadge = countBadges[0];
+  const bbchCountBadge = countBadges[1];
   if (eppoCountBadge)
     eppoCountBadge.textContent = `${savedEppoList.length} gespeichert`;
   if (bbchCountBadge)
@@ -3984,9 +3976,16 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
         return;
       }
 
-      // Clear search UI immediately for feedback
-      if (eppoSearchResults) eppoSearchResults.innerHTML = "";
-      if (eppoSearchInput) eppoSearchInput.value = "";
+      // Clear search UI immediately for feedback (frisch abfragen: der
+      // Handler wird nur einmal gebunden, render() ersetzt die Elemente)
+      const eppoResultsEl = section.querySelector<HTMLElement>(
+        '[data-role="eppo-search-results"]'
+      );
+      const eppoInputEl = section.querySelector<HTMLInputElement>(
+        '[data-input="eppo-search"]'
+      );
+      if (eppoResultsEl) eppoResultsEl.innerHTML = "";
+      if (eppoInputEl) eppoInputEl.value = "";
 
       // Check if already saved
       const existing = savedEppoList.find(
@@ -4042,9 +4041,15 @@ function attachCodesManagerHandlers(section: HTMLElement): void {
         return;
       }
 
-      // Clear search UI immediately for feedback
-      if (bbchSearchResults) bbchSearchResults.innerHTML = "";
-      if (bbchSearchInput) bbchSearchInput.value = "";
+      // Clear search UI immediately for feedback (frisch abfragen, s. o.)
+      const bbchResultsEl = section.querySelector<HTMLElement>(
+        '[data-role="bbch-search-results"]'
+      );
+      const bbchInputEl = section.querySelector<HTMLInputElement>(
+        '[data-input="bbch-search"]'
+      );
+      if (bbchResultsEl) bbchResultsEl.innerHTML = "";
+      if (bbchInputEl) bbchInputEl.value = "";
 
       // Check if already saved
       const existing = savedBbchList.find((b) => b.code === code);

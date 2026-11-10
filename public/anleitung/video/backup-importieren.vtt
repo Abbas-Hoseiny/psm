@@ -1,0 +1,49 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:01.520
+Backup importieren.
+
+00:00:01.760 --> 00:00:05.760
+Du holst die Einträge aus einem Backup zurück in deine Datenbank.
+
+00:00:06.160 --> 00:00:10.240
+Öffne die „Übersicht“ und wechsle auf den Reiter „Import“.
+
+00:00:10.640 --> 00:00:14.480
+Unter „Datei auswählen“ wählst du dein Backup aus.
+
+00:00:15.200 --> 00:00:17.680
+Die App zeigt dir zuerst eine Vorschau:
+
+00:00:17.760 --> 00:00:21.520
+welche Datei, wie viele Einträge, welcher Zeitraum.
+
+00:00:21.560 --> 00:00:23.840
+Bis hierhin ist noch nichts verändert.
+
+00:00:24.200 --> 00:00:27.560
+Mit „Import starten“ übernimmst du die Einträge.
+
+00:00:27.920 --> 00:00:31.360
+Was schon in deiner Datenbank steht, überspringt die App.
+
+00:00:31.400 --> 00:00:33.840
+Doppelte Einträge entstehen also nicht.
+
+00:00:34.200 --> 00:00:38.680
+Mit „Einträge anzeigen“ springst du zu den importierten Einträgen.
+
+00:00:38.760 --> 00:00:40.520
+Sie sind in der Liste markiert.
+
+00:00:40.880 --> 00:00:44.080
+Mit „Entfernen“ hebst du die Markierung wieder auf.
+
+00:00:44.240 --> 00:00:46.680
+Der Zeitraum bleibt als Filter gesetzt –
+
+00:00:46.720 --> 00:00:50.000
+mit „Zurücksetzen“ siehst du wieder alle Einträge.
+
+00:00:50.400 --> 00:00:54.560
+Im nächsten Kapitel installierst du Digitale PSM als App.

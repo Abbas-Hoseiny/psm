@@ -1,0 +1,833 @@
+{
+ "stand": "2026-11-10",
+ "kapitel": [
+  {
+   "nr": 0,
+   "slug": "ueberblick",
+   "titel": "Überblick",
+   "sub": "Pflanzenschutz-Anwendungen berechnen, dokumentieren und nachweisen",
+   "dauer": 71.6,
+   "bytes": 4109294,
+   "brauchst": [],
+   "hinweise": [],
+   "schritte": [
+    {
+     "t": 8.4,
+     "text": "Die App hat drei Bereiche: <b>Neu erfassen</b>, <b>Einstellungen</b> und <b>Übersicht</b>."
+    },
+    {
+     "t": 14.6,
+     "text": "Unter <b>Neu erfassen</b> trägst du ein, wer behandelt, an welchem Tag und die <b>Art der Verwendung</b> – dazu die Kultur, die Fläche und den Standort."
+    },
+    {
+     "t": 27.1,
+     "text": "Ein Klick auf <b>Berechnen</b>, und die App rechnet die Menge jedes Mittels für deine Fläche aus."
+    },
+    {
+     "t": 32.8,
+     "text": "Mit <b>Aktuelle Berechnung speichern</b> landet die Anwendung in deiner Dokumentation."
+    },
+    {
+     "t": 38.2,
+     "text": "In der <b>Übersicht</b> findest du alle gespeicherten Anwendungen wieder. Du kannst sie filtern, drucken und als Datei sichern."
+    },
+    {
+     "t": 46.6,
+     "text": "In den <b>Einstellungen</b> pflegst du deine Mittel, lädst die Zulassungsdaten des BVL und speicherst die GPS-Standorte deiner Flächen."
+    },
+    {
+     "t": 55.3,
+     "text": "Deine Einträge liegen in einer einzigen Datei auf deinem eigenen Rechner. Du brauchst kein Konto."
+    }
+   ],
+   "text": [
+    "Mit Digitale PSM berechnest und dokumentierst du deine Pflanzenschutz-Anwendungen – direkt im Browser, ohne Anmeldung.",
+    "Die App hat drei Bereiche: „Neu erfassen“, „Einstellungen“ und „Übersicht“.",
+    "Unter „Neu erfassen“ trägst du ein, wer behandelt, an welchem Tag und die Art der Verwendung.",
+    "Dazu die Kultur, die Fläche und den Standort.",
+    "Ein Klick auf „Berechnen“, und die App rechnet die Menge jedes Mittels für deine Fläche aus.",
+    "Mit „Aktuelle Berechnung speichern“ landet die Anwendung in deiner Dokumentation.",
+    "In der „Übersicht“ findest du alle gespeicherten Anwendungen wieder. Du kannst sie filtern, drucken und als Datei sichern.",
+    "In den „Einstellungen“ pflegst du deine Mittel, lädst die Zulassungsdaten des BVL und speicherst die GPS-Standorte deiner Flächen.",
+    "Deine Einträge liegen in einer einzigen Datei auf deinem eigenen Rechner. Du brauchst kein Konto, und nichts davon wird ins Internet übertragen.",
+    "Die Anleitung hat zehn kurze Kapitel. Am besten beginnst du mit Kapitel eins: Erste Schritte."
+   ]
+  },
+  {
+   "nr": 1,
+   "slug": "erste-schritte",
+   "titel": "Erste Schritte",
+   "sub": "Datenbank anlegen, speichern und beim nächsten Mal weiterarbeiten",
+   "dauer": 95.4,
+   "bytes": 6467942,
+   "brauchst": [
+    "Einen PC oder Mac mit Chrome oder Edge",
+    "Einen Ordner für deine Datenbank-Datei, zum Beispiel „Dokumente“"
+   ],
+   "hinweise": [
+    "Für eine Sicherung kopierst du deine Datenbank-Datei, zum Beispiel auf einen USB-Stick.",
+    "Die Nachfrage des Browsers beim Fortsetzen ist normal: So schützt er deine Dateien."
+   ],
+   "schritte": [
+    {
+     "t": 7.8,
+     "text": "Öffne <b>digitale-psm.de</b> in Chrome oder Edge und klicke auf <b>Neu erstellen</b>.",
+     "bild": {
+      "name": "erste-schritte-1",
+      "w": 1600,
+      "h": 900,
+      "alt": "Startseite von Digitale PSM mit den Knöpfen Neu erstellen und Bestehende Datei öffnen, daneben die Anleitung mit Videos"
+     }
+    },
+    {
+     "t": 23.8,
+     "text": "Trag deinen <b>Firmennamen</b> ein. <b>Überschrift</b> und <b>Adresse</b> sind freiwillig. Klicke dann auf <b>Erstellen</b>.",
+     "bild": {
+      "name": "erste-schritte-2",
+      "w": 1600,
+      "h": 815,
+      "alt": "Formular Neue Datenbank mit Firmenname, Überschrift und Adresse"
+     }
+    },
+    {
+     "t": 38.4,
+     "text": "Klicke auf <b>Speichern</b> und wähle im Fenster des Browsers einen Ordner, den du leicht wiederfindest.",
+     "bild": {
+      "name": "erste-schritte-3",
+      "w": 1600,
+      "h": 424,
+      "alt": "Karte Datenbank erstellt mit Dateiname und Knopf Speichern"
+     }
+    },
+    {
+     "t": 56.2,
+     "text": "Die App ist offen: oben links dein Betrieb, daneben <b>Neu erfassen</b>, <b>Einstellungen</b> und <b>Übersicht</b>.",
+     "bild": {
+      "name": "erste-schritte-4",
+      "w": 1600,
+      "h": 900,
+      "alt": "Geöffnete App mit Betriebsname oben links und den Bereichen Neu erfassen, Einstellungen, Übersicht und Anleitung"
+     }
+    },
+    {
+     "t": 75.6,
+     "text": "Beim nächsten Besuch klickst du auf <b>Fortsetzen</b> und bestätigst die Nachfrage des Browsers.",
+     "bild": {
+      "name": "erste-schritte-5",
+      "w": 1600,
+      "h": 900,
+      "alt": "Startseite mit der zuletzt verwendeten Datei und dem Knopf Fortsetzen"
+     }
+    }
+   ],
+   "text": [
+    "Erste Schritte. Du legst deine Datenbank an, speicherst sie auf deinem Rechner und öffnest sie beim nächsten Mal wieder.",
+    "Digitale PSM läuft direkt im Browser. Deine Einträge liegen in einer einzigen Datei auf deinem eigenen Rechner.",
+    "Du brauchst dafür Chrome oder Edge an einem PC oder Mac.",
+    "Beim ersten Besuch klickst du auf „Neu erstellen“.",
+    "Trag den Namen deines Betriebs ein. Nur der Firmenname ist Pflicht.",
+    "Überschrift und Adresse sind freiwillig. Sie erscheinen in der Kopfzeile der App und auf deinen Ausdrucken.",
+    "Dann klickst du auf „Erstellen“.",
+    "Die Datenbank ist vorbereitet. Der Dateiname ergibt sich aus deinem Firmennamen.",
+    "Jetzt klickst du auf „Speichern“.",
+    "Dein Browser fragt nach dem Speicherort. Nimm einen Ordner, den du leicht wiederfindest, zum Beispiel „Dokumente“, und bestätige.",
+    "Fertig, die App ist offen. Oben links steht dein Betrieb, daneben die drei Bereiche: „Neu erfassen“, „Einstellungen“ und „Übersicht“.",
+    "Was du speicherst, landet direkt in deiner Datei. Für eine Sicherung kopierst du einfach diese eine Datei, zum Beispiel auf einen USB-Stick.",
+    "Beim nächsten Besuch erkennt die Seite deine zuletzt verwendete Datei. Ein Klick auf „Fortsetzen“ genügt.",
+    "Der Browser fragt dann nach, ob die Seite deine Datei bearbeiten darf. Das bestätigst du, und du bist wieder dort, wo du aufgehört hast.",
+    "Im nächsten Kapitel richtest du deine Mittel ein."
+   ]
+  },
+  {
+   "nr": 2,
+   "slug": "mittel-und-profile",
+   "titel": "Mittel & Profile",
+   "sub": "Eigene Mittel anlegen und zu Profilen zusammenfassen",
+   "dauer": 91.6,
+   "bytes": 4254539,
+   "brauchst": [
+    "Die Angaben vom Etikett deines Mittels: Aufwandmenge je Hektar, Zulassungsnummer, Wartezeit und Wirkstoff"
+   ],
+   "hinweise": [
+    "Trag bei Pflanzenschutzmitteln immer die Zulassungsnummer ein: Sie ist in jeder Aufzeichnung vorgeschrieben.",
+    "Ohne Mittelprofil berechnet die App immer alle Mittel aus deiner Liste.",
+    "Zugelassene Mittel kannst du auch direkt aus den Daten des BVL übernehmen – das zeigt Kapitel 3."
+   ],
+   "schritte": [
+    {
+     "t": 6.8,
+     "text": "Öffne die <b>Einstellungen</b> und dort den Reiter <b>Mittel &amp; Profile</b>. In der Liste steht schon ein Beispiel.",
+     "bild": {
+      "name": "mittel-und-profile-1",
+      "w": 1600,
+      "h": 900,
+      "alt": "Einstellungen, Reiter Mittel & Profile: Mittel-Verwaltung mit einem Beispiel-Mittel in der Liste"
+     }
+    },
+    {
+     "t": 16.2,
+     "text": "Unter <b>+ Neues Mittel</b> trägst du <b>Name</b>, <b>Einheit</b>, <b>Methode</b> und <b>Wert</b> ein. Bei „pro Hektar“ ist der Wert die Aufwandmenge je Hektar. Trag auch die <b>Zulassungsnr.</b> ein: Die Zulassungsnummer ist für Pflanzenschutzmittel in jeder Aufzeichnung vorgeschrieben. <b>Wartetage</b> und <b>Wirkstoff</b> brauchst du für die QS-Zertifizierung – trag am besten alle drei ein.",
+     "bild": {
+      "name": "mittel-und-profile-2",
+      "w": 1600,
+      "h": 278,
+      "alt": "Formular Neues Mittel mit Name, Einheit, Methode, Wert, Zulassungsnr., Wartetage und Wirkstoff"
+     }
+    },
+    {
+     "t": 46.2,
+     "text": "Klicke auf <b>Mittel hinzufügen</b>. Das Mittel steht jetzt in deiner Liste. Mit <b>Bearbeiten</b> am Ende der Zeile änderst du es, mit <b>Löschen</b> entfernst du es wieder.",
+     "bild": {
+      "name": "mittel-und-profile-3",
+      "w": 1600,
+      "h": 328,
+      "alt": "Liste der Mittel mit dem neuen Eintrag Mustermittel und den Knöpfen Bearbeiten und Löschen"
+     }
+    },
+    {
+     "t": 57.5,
+     "text": "Für ein Profil hakst du in der Liste die Mittel an, die zusammen ausgebracht werden. Gib unter <b>Profil erstellen</b> einen Namen ein und klicke auf <b>Profil speichern</b>.",
+     "bild": {
+      "name": "mittel-und-profile-4",
+      "w": 685,
+      "h": 207,
+      "alt": "Formular Profil erstellen mit dem Namen Salat Standard"
+     }
+    },
+    {
+     "t": 72.0,
+     "text": "Das Profil steht jetzt unter <b>Gespeicherte Profile</b>. Dort kannst du es bearbeiten oder löschen.",
+     "bild": {
+      "name": "mittel-und-profile-5",
+      "w": 957,
+      "h": 323,
+      "alt": "Tabelle Gespeicherte Profile mit dem Profil Salat Standard"
+     }
+    },
+    {
+     "t": 78.8,
+     "text": "Beim Erfassen wählst du das Profil unter <b>Mittelprofil</b> aus. Dann berechnet die App nur diese Mittel.",
+     "bild": {
+      "name": "mittel-und-profile-6",
+      "w": 1600,
+      "h": 900,
+      "alt": "Neu erfassen mit dem ausgewählten Mittelprofil Salat Standard"
+     }
+    }
+   ],
+   "text": [
+    "Mittel und Profile. Du trägst deine Pflanzenschutzmittel ein und fasst sie zu Profilen zusammen.",
+    "Öffne die „Einstellungen“ und dort den Reiter „Mittel und Profile“.",
+    "In der Liste steht schon ein Beispiel. Du kannst es später löschen.",
+    "Darunter legst du ein neues Mittel an. Trag zuerst den Namen ein und wähle die Einheit.",
+    "Bei „Methode“ wählst du „pro Hektar“. Der Wert ist dann die Aufwandmenge je Hektar, hier eineinhalb Kilogramm.",
+    "Trag auch die Zulassungsnummer ein. Sie ist für Pflanzenschutzmittel in jeder Aufzeichnung vorgeschrieben.",
+    "Wartetage und Wirkstoff brauchst du für die QS-Zertifizierung. Trag am besten alle drei ein. Sie erscheinen später in der Berechnung.",
+    "Ein Klick auf „Mittel hinzufügen“, und das Mittel steht in deiner Liste.",
+    "Mit „Bearbeiten“ am Ende der Zeile änderst du ein Mittel, mit „Löschen“ entfernst du es wieder.",
+    "Jetzt zum Profil. Ohne Profil berechnet die App immer alle Mittel aus deiner Liste.",
+    "Hake deshalb die Mittel an, die zusammen ausgebracht werden.",
+    "Gib dem Profil einen Namen und klicke auf „Profil speichern“.",
+    "Das Profil steht jetzt unter „Gespeicherte Profile“. Dort kannst du es bearbeiten oder löschen.",
+    "Beim Erfassen wählst du das Profil unter „Mittelprofil“ aus. Dann berechnet die App nur diese Mittel.",
+    "Im nächsten Kapitel übernimmst du zugelassene Mittel aus den Daten des BVL."
+   ]
+  },
+  {
+   "nr": 3,
+   "slug": "bvl-daten-und-codes",
+   "titel": "BVL-Daten & Codes",
+   "sub": "Zugelassene Mittel suchen und übernehmen, Kulturen und Stadien festlegen",
+   "dauer": 112.6,
+   "bytes": 6798746,
+   "brauchst": [
+    "Eine Internetverbindung für das einmalige Herunterladen der BVL-Daten"
+   ],
+   "hinweise": [
+    "Prüfe den vorbelegten Wert: Die Aufwandmenge hängt von Kultur und Anwendung ab.",
+    "Mit „Aktualisieren“ holst du später den neuesten Stand der BVL-Daten."
+   ],
+   "schritte": [
+    {
+     "t": 10.9,
+     "text": "Öffne die <b>Einstellungen</b> und den Reiter <b>BVL &amp; Codes</b>."
+    },
+    {
+     "t": 25.2,
+     "text": "Klicke auf <b>Jetzt herunterladen</b>. Das dauert einen Moment und ist nur einmal nötig.",
+     "bild": {
+      "name": "bvl-daten-und-codes-1",
+      "w": 1600,
+      "h": 900,
+      "alt": "Reiter BVL & Codes mit dem Knopf Jetzt herunterladen"
+     }
+    },
+    {
+     "t": 43.1,
+     "text": "Suche ein Mittel nach Name, Zulassungsnummer oder Wirkstoff und klicke auf <b>Suchen</b>.",
+     "bild": {
+      "name": "bvl-daten-und-codes-2",
+      "w": 1600,
+      "h": 900,
+      "alt": "Suchfeld mit dem Suchwort Kumulus und dem Knopf Suchen, darunter die Suchergebnisse mit dem ersten Treffer"
+     }
+    },
+    {
+     "t": 56.8,
+     "text": "Mit dem grünen <b>+</b> übernimmst du das Mittel. Prüfe im Fenster <b>Mittel hinzufügen</b> den Wert und klicke auf <b>Speichern</b>.",
+     "bild": {
+      "name": "bvl-daten-und-codes-3",
+      "w": 1600,
+      "h": 900,
+      "alt": "Fenster Mittel hinzufügen mit vorbelegtem Wert und vorbelegter Einheit"
+     }
+    },
+    {
+     "t": 72.8,
+     "text": "Das Mittel steht jetzt im Reiter <b>Mittel &amp; Profile</b> in deiner Liste.",
+     "bild": {
+      "name": "bvl-daten-und-codes-4",
+      "w": 1600,
+      "h": 327,
+      "alt": "Liste der Mittel mit dem aus den BVL-Daten übernommenen Mittel"
+     }
+    },
+    {
+     "t": 77.6,
+     "text": "Zurück im Reiter <b>BVL &amp; Codes</b> öffnest du die Karte <b>EPPO &amp; BBCH Codes</b>."
+    },
+    {
+     "t": 85.4,
+     "text": "Tippe unter <b>Kulturen (EPPO-Codes)</b> den Namen deiner Kultur ein und klicke auf den passenden Treffer.",
+     "bild": {
+      "name": "bvl-daten-und-codes-5",
+      "w": 1600,
+      "h": 900,
+      "alt": "Karte Kulturen (EPPO-Codes) mit der gespeicherten Kultur Kopfsalat"
+     }
+    },
+    {
+     "t": 94.9,
+     "text": "Unter <b>Wachstumsstadien (BBCH)</b> genügt die Nummer oder ein Begriff. Ein Klick auf den Treffer speichert ihn.",
+     "bild": {
+      "name": "bvl-daten-und-codes-6",
+      "w": 1600,
+      "h": 900,
+      "alt": "Karte Wachstumsstadien (BBCH) mit dem gespeicherten Stadium 65"
+     }
+    }
+   ],
+   "text": [
+    "BVL-Daten und Codes. Du suchst zugelassene Mittel in den Daten des BVL, übernimmst sie in deine Liste und legst deine Kulturen und Stadien fest.",
+    "Öffne die „Einstellungen“ und den Reiter „BVL und Codes“.",
+    "Das BVL ist das Bundesamt für Verbraucherschutz und Lebensmittelsicherheit. Es veröffentlicht alle in Deutschland zugelassenen Pflanzenschutzmittel.",
+    "Klicke auf „Jetzt herunterladen“. Dafür brauchst du einmal eine Internetverbindung.",
+    "Das dauert einen Moment und ist nur einmal nötig.",
+    "Fertig. Du siehst, wie viele Mittel und Anwendungen geladen sind. Mit „Aktualisieren“ holst du später den neuesten Stand.",
+    "Jetzt suchst du ein Mittel: nach dem Namen, nach der Zulassungsnummer oder nach dem Wirkstoff.",
+    "Zu jedem Treffer siehst du Zulassungsnummer, Status, Wirkstoffe, Aufwände und Wartezeiten.",
+    "Mit dem grünen Plus übernimmst du das Mittel in deine Liste.",
+    "Wert und Einheit sind aus den Daten des BVL vorbelegt. Prüfe den Wert, denn die Aufwandmenge hängt von Kultur und Anwendung ab.",
+    "Dann klickst du auf „Speichern“.",
+    "Das Mittel steht jetzt unter „Mittel und Profile“ in deiner Liste.",
+    "Zurück im Reiter „BVL und Codes“ öffnest du die Karte „EPPO und BBCH Codes“.",
+    "Der EPPO-Code ist ein international einheitliches Kürzel für deine Kultur. Tippe den Namen ein und klicke auf den passenden Treffer.",
+    "Das BBCH-Stadium beschreibt, wie weit die Pflanze entwickelt ist. Hier genügt die Nummer oder ein Begriff.",
+    "Was du hier speicherst, steht dir beim Erfassen als Auswahl zur Verfügung.",
+    "Im nächsten Kapitel speicherst du die GPS-Standorte deiner Flächen."
+   ]
+  },
+  {
+   "nr": 4,
+   "slug": "gps-standorte",
+   "titel": "GPS-Standorte",
+   "sub": "Koordinaten einmal speichern und beim Erfassen übernehmen",
+   "dauer": 77.1,
+   "bytes": 4069803,
+   "brauchst": [
+    "Die Koordinaten deiner Fläche, zum Beispiel aus Google Maps kopiert"
+   ],
+   "hinweise": [
+    "Der aktive Standort lässt sich beim Erfassen mit einem Klick übernehmen.",
+    "Mit „Aktivieren“ in der Liste wechselst du den aktiven Standort."
+   ],
+   "schritte": [
+    {
+     "t": 8.1,
+     "text": "Öffne die <b>Einstellungen</b>, den Reiter <b>GPS-Standorte</b> und dort <b>Neu</b>."
+    },
+    {
+     "t": 14.0,
+     "text": "Kopiere die Koordinaten, zum Beispiel aus Google Maps, füge sie ein und klicke auf <b>Einfügen &amp; aufteilen</b>."
+    },
+    {
+     "t": 29.4,
+     "text": "Gib dem Punkt einen <b>Namen</b>. Mit <b>Sofort aktivieren</b> wird er zum aktiven Standort. Klicke dann auf <b>Speichern</b>.",
+     "bild": {
+      "name": "gps-standorte-1",
+      "w": 1600,
+      "h": 924,
+      "alt": "Formular für einen neuen GPS-Punkt mit Koordinaten, Name und dem Haken Sofort aktivieren"
+     }
+    },
+    {
+     "t": 53.0,
+     "text": "Unter <b>Liste</b> siehst du alle gespeicherten Punkte. Der aktive ist markiert, mit <b>Aktivieren</b> wechselst du ihn.",
+     "bild": {
+      "name": "gps-standorte-2",
+      "w": 1600,
+      "h": 900,
+      "alt": "Liste der gespeicherten GPS-Punkte, der aktive Punkt ist markiert"
+     }
+    },
+    {
+     "t": 61.2,
+     "text": "Beim Erfassen übernimmst du den aktiven Standort mit dem Knopf neben dem Feld <b>GPS-Koordinaten</b> – oder du wählst darunter einen anderen gespeicherten Punkt.",
+     "bild": {
+      "name": "gps-standorte-3",
+      "w": 1600,
+      "h": 900,
+      "alt": "Neu erfassen: Feld GPS-Koordinaten mit den übernommenen Koordinaten des aktiven Standorts"
+     }
+    }
+   ],
+   "text": [
+    "GPS-Standorte. Du speicherst die Koordinaten deiner Flächen einmal und übernimmst sie beim Erfassen mit einem Klick.",
+    "Öffne die „Einstellungen“, den Reiter „GPS-Standorte“ und dort „Neu“.",
+    "Am einfachsten holst du die Koordinaten aus Google Maps: Klicke dort auf die Stelle und kopiere die beiden Zahlen.",
+    "Füge sie hier ein und klicke auf „Einfügen und aufteilen“. Breitengrad und Längengrad werden automatisch gefüllt.",
+    "Gib dem Punkt einen Namen, zum Beispiel den deines Gewächshauses.",
+    "Mit „Sofort aktivieren“ wird der Punkt zum aktiven Standort. Den aktiven Standort übernimmst du beim Erfassen mit einem Klick.",
+    "Mit „Browser-GPS“ übernimmst du stattdessen deinen aktuellen Standort, wenn dein Gerät ihn kennt.",
+    "Dann klickst du auf „Speichern“.",
+    "Unter „Liste“ siehst du alle gespeicherten Punkte. Der aktive ist markiert, mit „Aktivieren“ wechselst du ihn.",
+    "Beim Erfassen übernimmst du den aktiven Standort mit dem Knopf neben dem Feld „GPS-Koordinaten“.",
+    "Oder du wählst in der Liste darunter einen anderen gespeicherten Punkt.",
+    "Im nächsten Kapitel erfasst du deine erste Anwendung."
+   ]
+  },
+  {
+   "nr": 5,
+   "slug": "neu-erfassen",
+   "titel": "Neu erfassen",
+   "sub": "Eine Anwendung berechnen und speichern",
+   "dauer": 105.7,
+   "bytes": 4609319,
+   "brauchst": [
+    "Mindestens ein Mittel in deiner Liste (Kapitel 2 oder 3)"
+   ],
+   "hinweise": [
+    "Felder mit Stern sind Pflicht. Dazu verlangt die App mindestens eine Angabe zur Lage: Standort / Abteil, InVeKoS-Schlag oder GPS-Koordinaten.",
+    "Zu einer vollständigen Aufzeichnung gehören auch der EPPO-Code der Kultur und die Lage der Fläche (InVeKoS-Schlag, sonst GPS-Koordinaten).",
+    "Das BBCH-Stadium und die Uhrzeit gehören dazu, wenn sie für die Anwendung eine Rolle spielen, etwa weil das Mittel nur in bestimmten Entwicklungsstadien oder zu bestimmten Tageszeiten angewendet werden darf.",
+    "Fehlt bei einem Mittel die Zulassungsnummer, weist dich die App beim Berechnen darauf hin. Trag sie unter Einstellungen → „Mittel & Profile“ nach.",
+    "Jede Anwendung ist unverzüglich aufzuzeichnen. Trag sie am besten gleich nach der Behandlung ein."
+   ],
+   "schritte": [
+    {
+     "t": 6.2,
+     "text": "Trag unter <b>Neu erfassen</b> zuerst die Anwendung ein: <b>Anwender</b>, <b>Datum</b>, <b>Uhrzeit</b> und <b>Art der Verwendung</b>, also was du behandelst – zum Beispiel Agrarfläche oder Gewächshaus. Felder mit Stern sind Pflicht.",
+     "bild": {
+      "name": "neu-erfassen-1",
+      "w": 1600,
+      "h": 900,
+      "alt": "Neu erfassen, Gruppe Anwendung: Anwender, Datum, Uhrzeit und Art der Verwendung, Pflichtfelder mit Stern"
+     }
+    },
+    {
+     "t": 22.3,
+     "text": "Unter <b>Kultur &amp; Mittel</b> trägst du die <b>Kultur</b> ein und wählst <b>EPPO-Code</b> und <b>BBCH-Stadium</b> aus deinen gespeicherten Codes. Wähle dann dein <b>Mittelprofil</b>: Die App berechnet nur die Mittel aus diesem Profil.",
+     "bild": {
+      "name": "neu-erfassen-2",
+      "w": 1600,
+      "h": 900,
+      "alt": "Neu erfassen, Gruppe Kultur & Mittel: Kultur, EPPO-Code, BBCH-Stadium und Mittelprofil sind ausgefüllt"
+     }
+    },
+    {
+     "t": 36.8,
+     "text": "Unter <b>Fläche &amp; Lage</b> trägst du die <b>Fläche in Hektar</b> ein. Dazu verlangt die App mindestens eine Angabe zur Lage: <b>Standort / Abteil</b>, <b>InVeKoS-Schlag</b> oder <b>GPS-Koordinaten</b>. Steht die Fläche in deinem Agrarantrag, trägst du bei InVeKoS-Schlag ihre Bezeichnung ein.",
+     "bild": {
+      "name": "neu-erfassen-3",
+      "w": 1600,
+      "h": 900,
+      "alt": "Neu erfassen, Gruppe Fläche & Lage: Fläche in Hektar, Standort, InVeKoS-Schlag und GPS-Koordinaten"
+     }
+    },
+    {
+     "t": 66.6,
+     "text": "Klicke auf <b>Berechnen</b>. Die App rechnet für jedes Mittel die Menge aus.",
+     "bild": {
+      "name": "neu-erfassen-4",
+      "w": 1600,
+      "h": 789,
+      "alt": "Ergebnis der Berechnung: Mustermittel, 1,5 kg pro Hektar auf 0,5 Hektar ergibt 0,75 kg"
+     }
+    },
+    {
+     "t": 80.4,
+     "text": "Mit <b>Drucken / PDF</b> öffnest du den Druckdialog deines Browsers. Dort kannst du drucken oder als PDF speichern."
+    },
+    {
+     "t": 89.2,
+     "text": "Wichtig: Erst mit <b>Aktuelle Berechnung speichern</b> landet die Anwendung in deiner Dokumentation. Das Formular ist danach wieder leer.",
+     "bild": {
+      "name": "neu-erfassen-5",
+      "w": 1600,
+      "h": 900,
+      "alt": "Ergebnis mit den Knöpfen Drucken / PDF und Aktuelle Berechnung speichern"
+     }
+    }
+   ],
+   "text": [
+    "Neu erfassen. Du berechnest eine Anwendung und speicherst sie in deiner Dokumentation.",
+    "Trag zuerst ein, wer die Anwendung durchführt. Dann Datum und Uhrzeit.",
+    "Bei „Art der Verwendung“ trägst du ein, was du behandelst: zum Beispiel Agrarfläche oder Gewächshaus.",
+    "Felder mit Stern sind Pflicht.",
+    "Dann trägst du die Kultur ein.",
+    "EPPO-Code und BBCH-Stadium wählst du aus deinen gespeicherten Codes.",
+    "Wähle jetzt dein Mittelprofil. Die App berechnet dann nur die Mittel aus diesem Profil.",
+    "Jetzt die Fläche in Hektar.",
+    "Dazu verlangt die App mindestens eine Angabe zur Lage: den Standort, den InVeKoS-Schlag oder die GPS-Koordinaten.",
+    "Steht die Fläche in deinem Agrarantrag, trägst du bei „InVeKoS-Schlag“ ihre Bezeichnung ein.",
+    "Die GPS-Koordinaten deines aktiven Standorts übernimmst du mit einem Klick.",
+    "Brauchst du die zusätzlichen Felder für die QS-Zertifizierung, blendest du sie mit diesem Schalter ein.",
+    "Jetzt klickst du auf „Berechnen“.",
+    "Die App rechnet für jedes Mittel die Menge aus. Im Beispiel: eineinhalb Kilogramm pro Hektar, ein halber Hektar – das ergibt 0,75 Kilogramm.",
+    "Mit „Drucken / PDF“ öffnest du den Druckdialog deines Browsers. Dort kannst du drucken oder als PDF speichern.",
+    "Wichtig: Erst mit „Aktuelle Berechnung speichern“ landet die Anwendung in deiner Dokumentation.",
+    "Das Formular ist danach wieder leer und bereit für die nächste Anwendung.",
+    "Im nächsten Kapitel findest du deine Einträge in der Übersicht wieder."
+   ]
+  },
+  {
+   "nr": 6,
+   "slug": "uebersicht",
+   "titel": "Übersicht",
+   "sub": "Einträge finden, ansehen, drucken und exportieren",
+   "dauer": 75.9,
+   "bytes": 5742600,
+   "brauchst": [
+    "Mindestens eine gespeicherte Anwendung (Kapitel 5)"
+   ],
+   "hinweise": [
+    "„Drucken“ und „PDF“ öffnen den Druckdialog deines Browsers. Dort kannst du drucken oder als PDF speichern.",
+    "Heruntergeladene Dateien landen im Download-Ordner deines Browsers.",
+    "Ab dem 1. Januar 2027 müssen Aufzeichnungen elektronisch in einem maschinenlesbaren Format vorliegen. Mit „JSON“ lädst du deine Einträge in einem solchen Format herunter.",
+    "Aufzeichnungen musst du mindestens drei Jahre aufbewahren. Die Frist beginnt mit dem Jahr nach der Aufzeichnung: Einträge aus 2026 bewahrst du also bis Ende 2029 auf."
+   ],
+   "schritte": [
+    {
+     "t": 7.5,
+     "text": "Öffne die <b>Übersicht</b>. Du siehst alle gespeicherten Anwendungen, die neuesten stehen oben.",
+     "bild": {
+      "name": "uebersicht-1",
+      "w": 1600,
+      "h": 1021,
+      "alt": "Liste der gespeicherten Anwendungen in der Übersicht, die neuesten stehen oben"
+     }
+    },
+    {
+     "t": 13.8,
+     "text": "Mit dem Filter grenzt du die Liste ein: nach <b>Startdatum</b> und <b>Enddatum</b>, nach <b>Kultur</b> oder nach <b>Anwender</b>. Klicke auf <b>Filtern</b>. Mit <b>Zurücksetzen</b> siehst du wieder alle Einträge.",
+     "bild": {
+      "name": "uebersicht-2",
+      "w": 1600,
+      "h": 368,
+      "alt": "Filter der Übersicht mit der Kultur Kopfsalat und den Knöpfen Zurücksetzen und Filtern"
+     }
+    },
+    {
+     "t": 30.2,
+     "text": "Klicke auf einen Eintrag: Rechts erscheinen alle Angaben. Mit <b>Drucken / PDF</b> druckst du genau diesen einen Eintrag.",
+     "bild": {
+      "name": "uebersicht-3",
+      "w": 1600,
+      "h": 915,
+      "alt": "Übersicht: links die Liste, rechts alle Angaben des angeklickten Eintrags mit dem Knopf Drucken / PDF"
+     }
+    },
+    {
+     "t": 43.5,
+     "text": "Für mehrere Einträge setzt du bei jedem den Haken <b>Auswahl</b> – oder du klickst auf <b>Alle auswählen</b>.",
+     "bild": {
+      "name": "uebersicht-4",
+      "w": 1600,
+      "h": 1021,
+      "alt": "Übersicht: zwei Einträge sind ausgewählt, oben stehen die Knöpfe Drucken, PDF, JSON, ZIP und Löschen"
+     }
+    },
+    {
+     "t": 50.6,
+     "text": "<b>Drucken</b> und <b>PDF</b> öffnen den Druckdialog mit allen ausgewählten Einträgen. Mit <b>JSON</b> und <b>ZIP</b> lädst du die Auswahl als Datei herunter."
+    },
+    {
+     "t": 63.5,
+     "text": "Mit <b>Löschen</b> entfernst du die ausgewählten Einträge aus der Datenbank. Die App fragt vorher nach."
+    }
+   ],
+   "text": [
+    "Übersicht. Hier findest du alle gespeicherten Anwendungen, kannst sie ansehen, drucken und exportieren.",
+    "Öffne die „Übersicht“. Du siehst alle gespeicherten Anwendungen, die neuesten stehen oben.",
+    "Mit dem Filter grenzt du die Liste ein: nach Zeitraum, nach Kultur oder nach Anwender.",
+    "Zum Beispiel nach Kopfsalat. Ein Klick auf „Filtern“, und du siehst nur noch diese Einträge.",
+    "Mit „Zurücksetzen“ zeigst du wieder alle.",
+    "Klick auf einen Eintrag, und rechts erscheinen alle Angaben: Datum, Standort, Kultur und die berechneten Mittel.",
+    "Mit „Drucken / PDF“ druckst du genau diesen einen Eintrag.",
+    "Für mehrere Einträge setzt du bei jedem den Haken „Auswahl“ – oder du klickst auf „Alle auswählen“.",
+    "„Drucken“ und „PDF“ öffnen den Druckdialog mit allen ausgewählten Einträgen.",
+    "Mit den beiden Knöpfen daneben lädst du die Auswahl als Datei herunter, zum Beispiel als ZIP-Backup.",
+    "Und mit „Löschen“ entfernst du die ausgewählten Einträge aus der Datenbank. Die App fragt vorher nach.",
+    "Im nächsten Kapitel lagerst du ältere Einträge in ein Archiv aus."
+   ]
+  },
+  {
+   "nr": 7,
+   "slug": "archiv-und-bereinigung",
+   "titel": "Archiv & Bereinigung",
+   "sub": "Ältere Einträge als ZIP-Backup auslagern",
+   "dauer": 74.3,
+   "bytes": 3511102,
+   "brauchst": [
+    "Gespeicherte Anwendungen aus dem Zeitraum, den du auslagern willst"
+   ],
+   "hinweise": [
+    "Der Haken „Nach Export löschen“ ist gesetzt: Die Einträge werden nach dem Export aus deiner Datenbank entfernt.",
+    "Ist oben ein Filter gesetzt, etwa eine Kultur, gilt er auch für das Archiv.",
+    "Bewahre das ZIP-Backup gut auf, denn Aufzeichnungen musst du mindestens drei Jahre aufbewahren (Kapitel 6). Wie du es wieder einliest, zeigt Kapitel 8."
+   ],
+   "schritte": [
+    {
+     "t": 7.8,
+     "text": "Öffne die <b>Übersicht</b>. Dort findest du die Karte <b>Archiv &amp; Bereinigung</b>. Klicke auf <b>Archiv erstellen</b>.",
+     "bild": {
+      "name": "archiv-und-bereinigung-1",
+      "w": 1600,
+      "h": 900,
+      "alt": "Übersicht mit der Karte Archiv & Bereinigung und dem Knopf Archiv erstellen"
+     }
+    },
+    {
+     "t": 16.4,
+     "text": "Wähle mit <b>Startdatum</b> und <b>Enddatum</b> den Zeitraum. Unter <b>Ablage</b> notierst du, wo du das Backup aufbewahrst."
+    },
+    {
+     "t": 27.8,
+     "text": "Der Haken <b>Nach Export löschen</b> ist gesetzt: Die Einträge werden nach dem Export aus deiner Datenbank entfernt. Willst du sie behalten, nimm den Haken heraus.",
+     "bild": {
+      "name": "archiv-und-bereinigung-2",
+      "w": 1600,
+      "h": 877,
+      "alt": "Karte Archiv & Bereinigung mit Zeitraum, Ablage, Notiz und dem Haken Nach Export löschen"
+     }
+    },
+    {
+     "t": 38.9,
+     "text": "Klicke auf <b>Erstellen</b>. Das ZIP-Backup landet im Download-Ordner deines Browsers, und die App meldet, wie viele Einträge archiviert und entfernt wurden.",
+     "bild": {
+      "name": "archiv-und-bereinigung-3",
+      "w": 1600,
+      "h": 705,
+      "alt": "Karte Archiv & Bereinigung mit der Meldung zum erstellten Archiv und der Archiv-Historie"
+     }
+    },
+    {
+     "t": 50.0,
+     "text": "Unter <b>Archiv-Historie</b> steht das neue Archiv mit Zeitraum und Anzahl der Einträge. In der Liste stehen nur noch die Einträge außerhalb dieses Zeitraums.",
+     "bild": {
+      "name": "archiv-und-bereinigung-4",
+      "w": 1600,
+      "h": 1021,
+      "alt": "Liste der Übersicht nach dem Archivieren: nur noch die Einträge außerhalb des Zeitraums"
+     }
+    },
+    {
+     "t": 61.4,
+     "text": "Achtung: Ist oben ein Filter gesetzt, etwa eine Kultur, gilt er auch für das Archiv."
+    }
+   ],
+   "text": [
+    "Archiv und Bereinigung. Du lagerst ältere Einträge in ein ZIP-Backup aus und hältst deine Datenbank schlank.",
+    "Öffne die „Übersicht“. Dort findest du die Karte „Archiv und Bereinigung“.",
+    "Klicke auf „Archiv erstellen“.",
+    "Wähle den Zeitraum, den du auslagern willst – hier den ganzen Oktober.",
+    "Bei „Ablage“ notierst du, wo du das Backup aufbewahrst. Die Notiz ist freiwillig.",
+    "Der Haken „Nach Export löschen“ ist gesetzt. Die Einträge werden also nach dem Export aus deiner Datenbank entfernt. Willst du sie behalten, nimm den Haken heraus.",
+    "Dann klickst du auf „Erstellen“. Das ZIP-Backup landet im Download-Ordner deines Browsers.",
+    "Die App meldet, wie viele Einträge archiviert und entfernt wurden.",
+    "Unter „Archiv-Historie“ steht jetzt das neue Archiv mit Zeitraum und Anzahl der Einträge.",
+    "In der Liste stehen nur noch die Einträge außerhalb dieses Zeitraums.",
+    "Achtung: Ist oben ein Filter gesetzt, etwa eine Kultur, gilt er auch für das Archiv.",
+    "Bewahre das Backup gut auf. Wie du es wieder einliest, zeigt das nächste Kapitel."
+   ]
+  },
+  {
+   "nr": 8,
+   "slug": "backup-importieren",
+   "titel": "Backup importieren",
+   "sub": "Ein ZIP- oder JSON-Backup wieder in die Datenbank übernehmen",
+   "dauer": 55.6,
+   "bytes": 3838094,
+   "brauchst": [
+    "Eine Backup-Datei aus der Übersicht oder aus dem Archiv (Kapitel 6 und 7)"
+   ],
+   "hinweise": [
+    "Bis zum Klick auf „Import starten“ wird nichts verändert.",
+    "Was schon in deiner Datenbank steht, überspringt die App. Doppelte Einträge entstehen nicht."
+   ],
+   "schritte": [
+    {
+     "t": 6.2,
+     "text": "Öffne die <b>Übersicht</b> und wechsle auf den Reiter <b>Import</b>. Unter <b>Datei auswählen</b> wählst du dein Backup aus.",
+     "bild": {
+      "name": "backup-importieren-1",
+      "w": 1600,
+      "h": 900,
+      "alt": "Übersicht, Reiter Import: Karte Backup importieren mit dem Feld Datei auswählen"
+     }
+    },
+    {
+     "t": 15.2,
+     "text": "Die App zeigt zuerst eine Vorschau: welche Datei, wie viele Einträge, welcher Zeitraum. Bis hierhin ist noch nichts verändert.",
+     "bild": {
+      "name": "backup-importieren-2",
+      "w": 1600,
+      "h": 900,
+      "alt": "Vorschau des Imports mit Dateiname, Anzahl der Einträge und Zeitraum"
+     }
+    },
+    {
+     "t": 24.2,
+     "text": "Mit <b>Import starten</b> übernimmst du die Einträge. Was schon in deiner Datenbank steht, überspringt die App.",
+     "bild": {
+      "name": "backup-importieren-3",
+      "w": 1600,
+      "h": 900,
+      "alt": "Import abgeschlossen: Die App meldet die Zahl der importierten Einträge"
+     }
+    },
+    {
+     "t": 34.2,
+     "text": "Mit <b>Einträge anzeigen</b> springst du zu den importierten Einträgen. Sie sind in der Liste markiert.",
+     "bild": {
+      "name": "backup-importieren-4",
+      "w": 1600,
+      "h": 900,
+      "alt": "Übersicht mit dem Hinweis auf den Import und den markierten importierten Einträgen"
+     }
+    },
+    {
+     "t": 40.9,
+     "text": "Mit <b>Entfernen</b> hebst du die Markierung wieder auf. Der Zeitraum bleibt als Filter gesetzt – mit <b>Zurücksetzen</b> siehst du wieder alle Einträge."
+    }
+   ],
+   "text": [
+    "Backup importieren. Du holst die Einträge aus einem Backup zurück in deine Datenbank.",
+    "Öffne die „Übersicht“ und wechsle auf den Reiter „Import“.",
+    "Unter „Datei auswählen“ wählst du dein Backup aus.",
+    "Die App zeigt dir zuerst eine Vorschau: welche Datei, wie viele Einträge, welcher Zeitraum. Bis hierhin ist noch nichts verändert.",
+    "Mit „Import starten“ übernimmst du die Einträge.",
+    "Was schon in deiner Datenbank steht, überspringt die App. Doppelte Einträge entstehen also nicht.",
+    "Mit „Einträge anzeigen“ springst du zu den importierten Einträgen. Sie sind in der Liste markiert.",
+    "Mit „Entfernen“ hebst du die Markierung wieder auf. Der Zeitraum bleibt als Filter gesetzt – mit „Zurücksetzen“ siehst du wieder alle Einträge.",
+    "Im nächsten Kapitel installierst du Digitale PSM als App."
+   ]
+  },
+  {
+   "nr": 9,
+   "slug": "als-app-installieren",
+   "titel": "Als App installieren",
+   "sub": "Digitale PSM wie ein Programm starten – auch ohne Internet",
+   "dauer": 52.9,
+   "bytes": 4343189,
+   "brauchst": [
+    "Chrome oder Edge an einem PC oder Mac"
+   ],
+   "hinweise": [
+    "Fehlt der Hinweis auf der Startseite, findest du die Installation rechts in der Adressleiste oder im Menü deines Browsers.",
+    "Nach dem ersten Start läuft die App auch ohne Internet. Nur das Laden der BVL-Daten braucht eine Verbindung."
+   ],
+   "schritte": [
+    {
+     "t": 6.8,
+     "text": "Auf der Startseite zeigt dir Digitale PSM einen Hinweis zur Installation. Klicke auf <b>App installieren</b> und bestätige die Nachfrage deines Browsers mit „Installieren“.",
+     "bild": {
+      "name": "als-app-installieren-1",
+      "w": 1600,
+      "h": 900,
+      "alt": "Startseite mit dem Hinweis Für schnelleren Zugriff als App installieren und dem Knopf App installieren"
+     }
+    },
+    {
+     "t": 21.7,
+     "text": "Danach startest du Digitale PSM wie jedes andere Programm: mit eigenem Fenster und eigenem Symbol, über das Startmenü, das Dock oder den Desktop."
+    },
+    {
+     "t": 32.3,
+     "text": "Nach dem ersten Start läuft die App auch ohne Internet. Nur für das Laden der BVL-Daten brauchst du eine Verbindung."
+    },
+    {
+     "t": 39.6,
+     "text": "Fehlt der Hinweis auf der Startseite? Dann findest du die Installation rechts in der Adressleiste oder im Menü deines Browsers."
+    }
+   ],
+   "text": [
+    "Als App installieren. Du startest Digitale PSM wie ein Programm – auch ohne Internet.",
+    "Auf der Startseite zeigt dir Digitale PSM einen Hinweis zur Installation.",
+    "Klicke auf „App installieren“. Dein Browser fragt noch einmal nach, das bestätigst du mit „Installieren“.",
+    "Danach startest du Digitale PSM wie jedes andere Programm: mit eigenem Fenster und eigenem Symbol, über das Startmenü, das Dock oder den Desktop.",
+    "Nach dem ersten Start läuft die App auch ohne Internet. Nur für das Laden der BVL-Daten brauchst du eine Verbindung.",
+    "Fehlt der Hinweis auf der Startseite? Dann findest du die Installation rechts in der Adressleiste oder im Menü deines Browsers.",
+    "Das letzte Kapitel fasst zusammen, was sonst noch gut zu wissen ist."
+   ]
+  },
+  {
+   "nr": 10,
+   "slug": "gut-zu-wissen",
+   "titel": "Gut zu wissen",
+   "sub": "Browser, Datensicherung und Datenschutz",
+   "dauer": 74.6,
+   "bytes": 1981567,
+   "brauchst": [],
+   "hinweise": [
+    "Die Felder richten sich nach den Vorgaben für Pflanzenschutz-Aufzeichnungen (Verordnung (EU) 2023/564, § 11 Pflanzenschutzgesetz). Für vollständige und richtige Angaben bist du selbst verantwortlich – die App ist kostenlos und ohne Gewähr."
+   ],
+   "schritte": [
+    {
+     "t": 7.0,
+     "text": "<b>Der richtige Browser:</b> Digitale PSM braucht Chrome oder Edge an einem PC oder Mac. Firefox und Safari können deine Datenbank-Datei derzeit nicht direkt auf dem Rechner öffnen und speichern."
+    },
+    {
+     "t": 19.1,
+     "text": "<b>Deine Daten bleiben bei dir:</b> Deine Einträge liegen in einer Datei auf deinem Rechner. Es gibt kein Konto und keine Anmeldung, und deine Einträge werden nicht ins Internet übertragen."
+    },
+    {
+     "t": 29.2,
+     "text": "<b>Datensicherung:</b> Kopiere deine Datenbank-Datei regelmäßig, zum Beispiel auf einen USB-Stick. Ältere Einträge kannst du zusätzlich als Archiv auslagern – das zeigt Kapitel sieben."
+    },
+    {
+     "t": 40.8,
+     "text": "<b>Nachfrage beim Fortsetzen:</b> Beim Fortsetzen fragt der Browser, ob die Seite deine Datei bearbeiten darf. Das ist normal: So schützt der Browser deine Dateien."
+    },
+    {
+     "t": 49.7,
+     "text": "<b>Handy und Tablet:</b> Am Handy oder Tablet kannst du diese Anleitung lesen und die Videos ansehen. Zum Arbeiten mit deiner Datenbank brauchst du derzeit einen PC oder Mac."
+    },
+    {
+     "t": 59.7,
+     "text": "<b>Ohne Internet:</b> Einmal geöffnet, läuft Digitale PSM auch ohne Internet. Nur das Laden und Aktualisieren der BVL-Daten braucht eine Verbindung."
+    }
+   ],
+   "text": [
+    "Gut zu wissen. Zum Schluss das Wichtigste zu Browser, Datensicherung und Datenschutz.",
+    "Digitale PSM braucht Chrome oder Edge an einem PC oder Mac. Firefox und Safari können deine Datenbank-Datei derzeit nicht direkt auf dem Rechner öffnen und speichern.",
+    "Deine Einträge liegen in einer Datei auf deinem Rechner. Es gibt kein Konto und keine Anmeldung, und deine Einträge werden nicht ins Internet übertragen.",
+    "Kopiere deine Datenbank-Datei regelmäßig, zum Beispiel auf einen USB-Stick. Ältere Einträge kannst du zusätzlich als Archiv auslagern – das zeigt Kapitel sieben.",
+    "Beim Fortsetzen fragt der Browser, ob die Seite deine Datei bearbeiten darf. Das ist normal: So schützt der Browser deine Dateien.",
+    "Am Handy oder Tablet kannst du diese Anleitung lesen und die Videos ansehen. Zum Arbeiten mit deiner Datenbank brauchst du derzeit einen PC oder Mac.",
+    "Einmal geöffnet, läuft Digitale PSM auch ohne Internet. Nur das Laden und Aktualisieren der BVL-Daten braucht eine Verbindung.",
+    "Das war die Anleitung. Viel Erfolg mit Digitale PSM."
+   ]
+  }
+ ]
+}
