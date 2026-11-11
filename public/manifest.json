@@ -1,15 +1,23 @@
 {
   "name": "Digitale PSM - Pflanzenschutz-Dokumentation",
   "short_name": "DigitalePSM",
-  "description": "Digitale Berechnung, Dokumentation und Verwaltung von Pflanzenschutzmittel-Anwendungen mit offiziellen BVL-Daten.",
+  "description": "Pflanzenschutzmittel berechnen und Anwendungen dokumentieren: mit BVL-Daten, JSON-Export und PDF. Kostenlos, ohne Konto, mit lokaler Datenspeicherung.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
   "theme_color": "#22c55e",
   "background_color": "#1a1a2e",
-  "categories": ["business", "productivity", "utilities"],
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
   "lang": "de",
   "dir": "ltr",
   "icons": [
@@ -46,24 +54,32 @@
   ],
   "screenshots": [
     {
-      "src": "/assets/img/og-image.png",
-      "sizes": "1200x630",
-      "type": "image/png",
+      "src": "/assets/img/app-start-2026-11.webp",
+      "sizes": "1440x1000",
+      "type": "image/webp",
       "form_factor": "wide",
-      "label": "Digitale PSM Startseite"
+      "label": "Digitale PSM: aktuelle Startseite mit Datenbankzugang und Anleitung"
     }
   ],
   "file_handlers": [
     {
       "action": "/",
       "accept": {
-        "application/x-sqlite3": [".sqlite", ".db"],
-        "application/json": [".json"]
+        "application/x-sqlite3": [
+          ".sqlite",
+          ".db"
+        ],
+        "application/json": [
+          ".json"
+        ]
       }
     }
   ],
   "launch_handler": {
-    "client_mode": ["navigate-existing", "auto"]
+    "client_mode": [
+      "navigate-existing",
+      "auto"
+    ]
   },
   "handle_links": "preferred",
   "protocol_handlers": [

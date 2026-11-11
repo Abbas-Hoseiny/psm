@@ -1,10 +1,13 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Shell from '../components/Shell.astro';
+import { renderLandingMarkup } from '../scripts/features/startup/landing';
 ---
 
 <BaseLayout>
-  <div data-region="startup"></div>
+  <main data-region="startup">
+    <section class="section-container startup-landing" set:html={renderLandingMarkup()} />
+  </main>
   <Shell />
   
   <main data-region="main" class="main-content d-none">

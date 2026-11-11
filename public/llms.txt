@@ -1,0 +1,37 @@
+# Digitale PSM
+
+> Kostenlose Open-Source-Web-App zur Berechnung und Dokumentation von Pflanzenschutzmittel-Anwendungen für Gärtnereien und landwirtschaftliche Betriebe in Deutschland.
+
+Die offizielle Anwendung ist https://digitale-psm.de/. Entwickler: Abbas Hoseiny. Lizenz: MIT. Ein Konto ist nicht erforderlich.
+
+## Funktionen
+
+- Pflanzenschutzmittel-Mengen anhand der Fläche und Aufwandmenge berechnen.
+- Anwendungen mit Datum, Uhrzeit, Anwender, Kultur und Mitteln erfassen; EPPO-Codes, BBCH-Stadien und GPS-Standorte unterstützen die Dokumentation.
+- Offizielle BVL-Zulassungsdaten in der App herunterladen und lokal durchsuchen. Datenstand und Aktualisierung stehen in der App; daraus folgt keine pauschale Zulässigkeit einer Anwendung.
+- Aufzeichnungen als maschinenlesbare JSON- oder ZIP-Datei exportieren und als PDF oder Ausdruck ausgeben.
+- Firmendaten und Aufzeichnungen in einer lokalen SQLite- oder JSON-Datenbank auf dem eigenen Gerät speichern. Die Datenbank wird nicht auf einen App-Server hochgeladen.
+- Nach dem ersten Laden offline arbeiten; BVL-Daten müssen zuvor heruntergeladen worden sein.
+
+## Nutzung und Grenzen
+
+Die vollständige App benötigt JavaScript und Chrome oder Edge am Computer mit Unterstützung der File System Access API. Auf Smartphones und Tablets wird das Öffnen und Speichern der Datenbank noch nicht unterstützt. Die Anleitung und die Datenschutzerklärung sind auch ohne JavaScript lesbar.
+
+Die App ist kostenlos und ohne Gewähr. Für vollständige und richtige Aufzeichnungen sowie die Prüfung der jeweiligen Zulassung und Anwendungsbestimmungen ist der Betrieb selbst verantwortlich. Ein JSON-Export ist keine Bescheinigung einer behördlichen Anerkennung.
+
+Die Startseite bindet einen Aufrufzähler von hits.sh ein. Hosting erfolgt über GitHub Pages. Verbindungsdaten können dabei an diese Dienste übertragen werden; die Datenschutzerklärung beschreibt diese Datenflüsse. Lokale Speicherung der Aufzeichnungen bedeutet nicht, dass beim Seitenaufruf keinerlei Netzwerkverbindungen stattfinden.
+
+## Offizielle Seiten
+
+- [App und Produktbeschreibung](https://digitale-psm.de/): Startseite mit Zugang zur Anwendung.
+- [Anleitung](https://digitale-psm.de/anleitung/): Zehn Kapitel mit Videos, Untertiteln und Schritt-für-Schritt-Texten, vom Anlegen einer Datenbank bis zum Backup.
+- [Datenschutz](https://digitale-psm.de/datenschutz/): Lokale Datenhaltung, Aufrufzähler, Hosting und weitere Datenflüsse.
+- [Info und Lizenz](https://info.digitale-psm.de/): Hintergrund, Lizenz und Kontakt.
+- [BVL-Datenbank-Statistik](https://st.digitale-psm.de/): Datenumfang und Statistik.
+- [Quellcode](https://github.com/Abbas-Hoseiny/psm): Öffentlicher Quellcode, README und MIT-Lizenz.
+- [Sicherheitskontakt](https://digitale-psm.de/.well-known/security.txt): Sicherheitslücken vertraulich an abbas@hoseiny.de melden.
+
+## Optional
+
+- [Entwickler und technischer Hintergrund](https://hoseiny.de/de/projects/digitale-psm/): Beschreibung des Projekts und der Datenhaltung.
+- [Sitemap](https://digitale-psm.de/sitemap-index.xml): Index der öffentlichen HTML-Seiten.

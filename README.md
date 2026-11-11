@@ -138,6 +138,15 @@ Die Felder richten sich nach den Vorgaben für Pflanzenschutz-Aufzeichnungen (Du
 
 MIT-Lizenz – siehe [LICENSE](LICENSE), deutsche Übersetzung in [LIZENZ-DE.md](LIZENZ-DE.md)
 
+## Linkvorschau, SEO und maschinenlesbare Informationen
+
+- Die Startseite wird bereits als lesbares HTML ausgeliefert. `src/scripts/features/startup/landing.ts` enthält die gemeinsame Vorlage für das statische HTML und die interaktive Startansicht.
+- Seitentitel, Beschreibungen, kanonische URLs, Open Graph, Twitter Cards und JSON-LD stehen in `src/layouts/BaseLayout.astro`. Kampagnenparameter gehören nicht in die kanonische URL.
+- Das aktuelle Vorschaubild liegt unter `public/assets/img/og-digitale-psm-2026-11.jpg` (1200 × 630). Bei einem Austausch einen neuen Dateinamen verwenden und den Verweis im Layout aktualisieren. `og-image.png` wird für ältere Verweise weiterhin aktuell gehalten. Der Screenshot im PWA-Manifest zeigt die tatsächliche Startseite.
+- `public/llms.txt` beschreibt Funktionen, Grenzen und offizielle Quellen. Bei Funktionsänderungen mitpflegen; im HTML ist die Datei über `rel="describedby"` verlinkt.
+- Der Sicherheitskontakt steht in `public/.well-known/security.txt` und als identische Kopie in `public/security.txt`. Beide Dateien gemeinsam pflegen. **Ablaufdatum: 11. Mai 2027, 12:00 UTC** – vor diesem Datum Kontakt prüfen und `Expires` erneuern.
+- `public/robots.txt` erlaubt das Crawling und verweist auf die automatisch erzeugte Sitemap.
+
 ## Kontakt
 
 - App: [digitale-psm.de](https://digitale-psm.de)

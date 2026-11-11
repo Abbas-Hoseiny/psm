@@ -31,7 +31,7 @@ body {
 
 /* ══════════════════════════════════════════════════════════════════════════
    HINTERGRUND-SYSTEM
-   - Startup (bg-startup): Foto fields.jpg mit Overlay
+   - Startup (bg-startup): Foto fields.webp mit Overlay
    - App-Modus (bg-app): Ruhiger Gradient OHNE Foto
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -52,7 +52,7 @@ body.bg-startup {
       var(--start-overlay-mid) 40%,
       var(--start-overlay-bot) 100%
     ),
-    url("/assets/img/fields.jpg") center / cover no-repeat fixed;
+    url("/assets/img/fields.webp") center / cover no-repeat fixed;
   background-color: var(--bg-0);
 }
 
@@ -152,6 +152,13 @@ body.bg-startup {
   opacity: 0.88;
 }
 
+.startup-card .startup-details {
+  margin: 0 0 var(--sp-4);
+  max-width: 36rem;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
 /* Kurze Merkmale unter der Einleitung */
 .startup-facts {
   display: flex;
@@ -189,7 +196,8 @@ body.bg-startup {
   gap: var(--sp-3);
 }
 
-.startup-card .startup-action-hint {
+.startup-card .startup-action-hint,
+.startup-card .startup-compatibility {
   margin: var(--sp-3) 0 0;
   font-size: var(--font-size-sm);
   color: var(--text-muted);

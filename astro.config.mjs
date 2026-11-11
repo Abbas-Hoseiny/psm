@@ -40,6 +40,7 @@ export default defineConfig({
   site: "https://digitale-psm.de",
   base: "/",
   output: "static",
+  trailingSlash: "always",
   build: {
     inlineStylesheets: "auto",
     assets: "_astro",

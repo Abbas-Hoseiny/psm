@@ -1,0 +1,5 @@
+Contact: mailto:abbas@hoseiny.de
+Expires: 2027-05-11T12:00:00Z
+Preferred-Languages: de, en
+Canonical: https://digitale-psm.de/.well-known/security.txt
+Canonical: https://digitale-psm.de/security.txt

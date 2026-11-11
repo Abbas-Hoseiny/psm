@@ -16,21 +16,71 @@ interface Props {
   bodyClass?: string;
 }
 
-const baseTitle = 'DigitalePSM';
+const baseTitle = 'Digitale PSM';
 const {
   title: pageTitle = '',
   description =
-    'Digitale Berechnung, Dokumentation und Verwaltung von Pflanzenschutzmittel-Anwendungen mit offiziellen BVL-Daten. Aufzeichnungen maschinenlesbar als JSON-Datei und als PDF.',
+    'Pflanzenschutzmittel berechnen und Anwendungen dokumentieren: mit BVL-Daten, JSON-Export und PDF. Kostenlos, ohne Konto, mit lokaler Datenspeicherung.',
   bodyClass = 'bg-startup',
 } = Astro.props as Props;
-const fullTitle = pageTitle ? `${pageTitle} · ${baseTitle}` : baseTitle;
-const canonicalUrl = Astro.url?.href ??
-  (Astro.site ? new URL(Astro.site).href : 'https://digitale-psm.de/');
-// Cache-Busting: Version ändern wenn Bild aktualisiert wird
-const previewImageUrl = 'https://digitale-psm.de/assets/img/og-image.png?v=2';
-const previewImageWidth = 1200;
-const previewImageHeight = 630;
-const keywords = 'Pflanzenschutzmittel, PSM, Pflanzenschutz, Dokumentation, Aufzeichnung, maschinenlesbar, JSON, Berechnung, BVL, Zulassung, Landwirtschaft, Deutschland, Gartenbau, Agrarsoftware, Open Source, kostenlos';
+const fullTitle = pageTitle
+  ? `${pageTitle} · ${baseTitle}`
+  : 'Digitale PSM – Pflanzenschutz einfach dokumentieren';
+// Nur der produktive Host und Pfad, keine Kampagnen- oder PWA-Parameter.
+const siteUrl = Astro.site ?? new URL('https://digitale-psm.de/');
+const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
+const previewImageUrl = new URL('/assets/img/og-digitale-psm-2026-11.jpg', siteUrl).href;
+const previewImageAlt = 'Digitale PSM: Pflanzenschutz einfach dokumentieren – JSON-Export, PDF und lokale Daten.';
+const isHome = Astro.url.pathname === '/';
+const structuredData = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': `${siteUrl.href}#website`,
+      url: siteUrl.href,
+      name: baseTitle,
+      inLanguage: 'de-DE',
+    },
+    {
+      '@type': 'WebPage',
+      '@id': `${canonicalUrl}#webpage`,
+      url: canonicalUrl,
+      name: fullTitle,
+      description,
+      inLanguage: 'de-DE',
+      isPartOf: { '@id': `${siteUrl.href}#website` },
+      primaryImageOfPage: {
+        '@type': 'ImageObject', url: previewImageUrl, width: 1200, height: 630,
+      },
+      ...(isHome ? { mainEntity: { '@id': `${siteUrl.href}#app` } } : {}),
+    },
+    ...(isHome ? [{
+      '@type': 'WebApplication',
+      '@id': `${siteUrl.href}#app`,
+      name: baseTitle,
+      url: siteUrl.href,
+      description,
+      image: previewImageUrl,
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Windows, macOS, Linux',
+      browserRequirements: 'Chrome oder Edge am Computer mit File System Access API und aktiviertem JavaScript',
+      inLanguage: 'de-DE',
+      isAccessibleForFree: true,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+      license: 'https://github.com/Abbas-Hoseiny/psm/blob/main/LICENSE',
+      author: { '@type': 'Person', name: 'Abbas Hoseiny', url: 'https://hoseiny.de/' },
+      featureList: [
+        'Pflanzenschutzmittel-Mengen berechnen',
+        'Pflanzenschutz-Anwendungen dokumentieren',
+        'Offizielle BVL-Zulassungsdaten durchsuchen',
+        'Maschinenlesbarer JSON- und ZIP-Export',
+        'PDF und Druck',
+        'Lokale Datenbank und Offline-Nutzung',
+      ],
+    }] : []),
+  ],
+}).replace(/</g, '\\u003c');
 ---
 
 <!DOCTYPE html>
@@ -41,24 +91,26 @@ const keywords = 'Pflanzenschutzmittel, PSM, Pflanzenschutz, Dokumentation, Aufz
   <title>{fullTitle}</title>
   <link rel="canonical" href={canonicalUrl} />
   <meta name="description" content={description} />
-  <meta name="keywords" content={keywords} />
   <meta name="author" content="Abbas Hoseiny" />
-  <meta name="robots" content="index, follow" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
   <meta name="theme-color" content="#22c55e" />
   <meta property="og:site_name" content={baseTitle} />
   <meta property="og:type" content="website" />
+  <meta property="og:locale" content="de_DE" />
   <meta property="og:url" content={canonicalUrl} />
   <meta property="og:title" content={fullTitle} />
   <meta property="og:description" content={description} />
   <meta property="og:image" content={previewImageUrl} />
-  <meta property="og:image:width" content={previewImageWidth.toString()} />
-  <meta property="og:image:height" content={previewImageHeight.toString()} />
-  <meta property="og:image:alt" content="Digitale PSM - Pflanzenschutzmittel-Dokumentation" />
+  <meta property="og:image:secure_url" content={previewImageUrl} />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content={previewImageAlt} />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={fullTitle} />
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image" content={previewImageUrl} />
-  <meta name="twitter:image:alt" content="Digitale PSM - Pflanzenschutzmittel-Dokumentation" />
+  <meta name="twitter:image:alt" content={previewImageAlt} />
   <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/img/psm-icon-192.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="/assets/img/psm-icon-192.png" />
@@ -69,12 +121,17 @@ const keywords = 'Pflanzenschutzmittel, PSM, Pflanzenschutz, Dokumentation, Aufz
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="DigitalePSM" />
+  <link rel="sitemap" type="application/xml" href="/sitemap-index.xml" />
+  <link rel="describedby" type="text/plain" href="/llms.txt" />
+  <script type="application/ld+json" set:html={structuredData} />
   <slot name="head" />
 </head>
 <body class={bodyClass}>
   <noscript>
+    <style>[data-region="startup"] button[data-action] { display: none; }</style>
     <div class="noscript-warning">
-      Diese Anwendung benötigt JavaScript.
+      Die interaktive App benötigt JavaScript. Die Beschreibung und die
+      <a href="/anleitung/">Anleitung</a> kannst du auch ohne JavaScript lesen.
     </div>
   </noscript>
   
