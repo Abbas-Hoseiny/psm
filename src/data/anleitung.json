@@ -1,5 +1,5 @@
 {
- "stand": "2026-11-10",
+ "stand": "2026-11-11",
  "kapitel": [
   {
    "nr": 0,
@@ -9,7 +9,9 @@
    "dauer": 71.6,
    "bytes": 4109294,
    "brauchst": [],
-   "hinweise": [],
+   "hinweise": [
+    "Deine Aufzeichnungen lädst du in der Übersicht maschinenlesbar als JSON-Datei herunter – mehr dazu in Kapitel 6."
+   ],
    "schritte": [
     {
      "t": 8.4,
@@ -59,7 +61,7 @@
    "titel": "Erste Schritte",
    "sub": "Datenbank anlegen, speichern und beim nächsten Mal weiterarbeiten",
    "dauer": 95.4,
-   "bytes": 6467942,
+   "bytes": 6496285,
    "brauchst": [
     "Einen PC oder Mac mit Chrome oder Edge",
     "Einen Ordner für deine Datenbank-Datei, zum Beispiel „Dokumente“"
@@ -739,7 +741,7 @@
    "titel": "Als App installieren",
    "sub": "Digitale PSM wie ein Programm starten – auch ohne Internet",
    "dauer": 52.9,
-   "bytes": 4343189,
+   "bytes": 4002249,
    "brauchst": [
     "Chrome oder Edge an einem PC oder Mac"
    ],

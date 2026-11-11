@@ -20,7 +20,7 @@ const baseTitle = 'DigitalePSM';
 const {
   title: pageTitle = '',
   description =
-    'Digitale Berechnung, Dokumentation und Verwaltung von Pflanzenschutzmittel-Anwendungen mit offiziellen BVL-Daten.',
+    'Digitale Berechnung, Dokumentation und Verwaltung von Pflanzenschutzmittel-Anwendungen mit offiziellen BVL-Daten. Aufzeichnungen maschinenlesbar als JSON-Datei und als PDF.',
   bodyClass = 'bg-startup',
 } = Astro.props as Props;
 const fullTitle = pageTitle ? `${pageTitle} · ${baseTitle}` : baseTitle;
@@ -30,7 +30,7 @@ const canonicalUrl = Astro.url?.href ??
 const previewImageUrl = 'https://digitale-psm.de/assets/img/og-image.png?v=2';
 const previewImageWidth = 1200;
 const previewImageHeight = 630;
-const keywords = 'Pflanzenschutzmittel, PSM, Pflanzenschutz, Dokumentation, Berechnung, BVL, Zulassung, Landwirtschaft, Deutschland, Gartenbau, Agrarsoftware, Open Source, kostenlos';
+const keywords = 'Pflanzenschutzmittel, PSM, Pflanzenschutz, Dokumentation, Aufzeichnung, maschinenlesbar, JSON, Berechnung, BVL, Zulassung, Landwirtschaft, Deutschland, Gartenbau, Agrarsoftware, Open Source, kostenlos';
 ---
 
 <!DOCTYPE html>

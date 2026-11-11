@@ -307,8 +307,13 @@ export function initStartup(
                 </div>`
                   : `<!-- Szenario 1 & 3: Neuer User → Neu erstellen im Fokus -->
                 <p class="startup-lead">
-                  Für Gärtnereien und landwirtschaftliche Betriebe: Die App berechnet, wie viel Pflanzenschutzmittel du für deine Fläche brauchst, hält jede Anwendung fest und gibt sie als PDF oder Datei aus. Deine Aufzeichnungen bleiben auf deinem Gerät.
+                  Für Gärtnereien und landwirtschaftliche Betriebe: Die App berechnet, wie viel Pflanzenschutzmittel du für deine Fläche brauchst, und hält jede Anwendung fest.
                 </p>
+                <ul class="startup-facts">
+                  <li><i class="bi bi-filetype-json"></i>Maschinenlesbar als JSON-Datei</li>
+                  <li><i class="bi bi-file-earmark-pdf"></i>PDF und Druck</li>
+                  <li><i class="bi bi-hdd"></i>Daten bleiben auf deinem Gerät</li>
+                </ul>
 
                 <!-- Hauptaktion: Neu erstellen, sekundär: Datei öffnen -->
                 <div class="startup-actions">
