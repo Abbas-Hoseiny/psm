@@ -1,0 +1,261 @@
+---
+// Datenschutz: kurze, belegte Angaben dazu, wo Daten bleiben und wo welche
+// übertragen werden. Ändert sich ein Datenfluss (Aufrufzähler, BVL-Abruf,
+// Standort, Speicher im Browser), gehört die Änderung auch hierher.
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageBar from '../../components/PageBar.astro';
+import PageFooter from '../../components/PageFooter.astro';
+import { HITS_STATS_URL } from '../../scripts/core/viewCounter';
+
+const stand = 'November 2026';
+const mail = 'abbas@hoseiny.de';
+---
+
+<BaseLayout
+  title="Datenschutz"
+  description="Datenschutz bei Digitale PSM: kein Konto, keine Cookies, keine Werbung. Was auf deinem Gerät bleibt und an welchen Stellen Daten übertragen werden."
+  bodyClass="bg-app guide-body"
+>
+  <PageBar sub="Datenschutz" href="/datenschutz/" />
+
+  <main class="privacy">
+    <h1>Datenschutz</h1>
+    <p class="privacy-lead">
+      Digitale PSM braucht kein Konto, setzt keine Cookies und zeigt keine
+      Werbung. Was du einträgst, bleibt auf deinem Gerät. Hier steht, an welchen
+      Stellen trotzdem Daten übertragen werden.
+    </p>
+
+    <section class="topic">
+      <i class="bi bi-hdd topic-icon" aria-hidden="true"></i>
+      <div>
+        <h2>Deine Aufzeichnungen</h2>
+        <p>
+          Firmendaten, Mittel, Anwendungen und GPS-Standorte speichert die App
+          in deiner Datenbank-Datei auf deinem Gerät. Diese Datei wird nirgendwohin
+          hochgeladen. Auch Exporte (JSON, ZIP) und PDF entstehen direkt auf
+          deinem Gerät.
+        </p>
+      </div>
+    </section>
+
+    <section class="topic">
+      <i class="bi bi-eye topic-icon" aria-hidden="true"></i>
+      <div>
+        <h2>Aufrufzähler</h2>
+        <p>
+          Die Startseite zeigt, wie oft sie aufgerufen wurde. Dafür lädt dein
+          Browser bei jedem Aufruf der Startseite ein kleines Zählbild vom Dienst
+          hits.sh. Dabei sieht hits.sh die Verbindungsdaten, die jeder Browser
+          mitschickt: IP-Adresse, Zeitpunkt, Browserkennung. Ein Cookie wird nicht
+          gesetzt. Die Zahl der Aufrufe ist öffentlich:
+          <a href={HITS_STATS_URL} target="_blank" rel="noopener noreferrer">Statistik bei hits.sh</a>.
+        </p>
+      </div>
+    </section>
+
+    <section class="topic">
+      <i class="bi bi-github topic-icon" aria-hidden="true"></i>
+      <div>
+        <h2>GitHub Pages</h2>
+        <p>
+          Die App und die Seiten „Info &amp; Lizenz“ und „Statistik“ werden über
+          GitHub Pages ausgeliefert. Beim Aufruf speichert GitHub deine IP-Adresse
+          zu Sicherheitszwecken. Ich erhalte daraus keine Protokolle und keine
+          Besucherstatistik. Einzelheiten stehen in der
+          <a
+            href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement"
+            target="_blank"
+            rel="noopener noreferrer">Datenschutzerklärung von GitHub</a>.
+        </p>
+      </div>
+    </section>
+
+    <section class="topic">
+      <i class="bi bi-database topic-icon" aria-hidden="true"></i>
+      <div>
+        <h2>BVL-Daten</h2>
+        <p>
+          Die Zulassungsdaten des BVL lädst du unter Einstellungen →
+          „BVL &amp; Codes“ mit „Jetzt herunterladen“. Die App holt sie als Datei
+          von GitHub Pages, gesucht wird danach auf deinem Gerät. Sind die Daten
+          einmal geladen, fragt die App beim Öffnen von „BVL &amp; Codes“ dort
+          nach, ob es neuere gibt. Deine Einträge werden dabei nicht übertragen.
+        </p>
+      </div>
+    </section>
+
+    <section class="topic">
+      <i class="bi bi-geo-alt topic-icon" aria-hidden="true"></i>
+      <div>
+        <h2>Standort und Karte</h2>
+        <p>
+          Deinen Standort fragt die App nur ab, wenn du bei den GPS-Standorten auf
+          „Browser-GPS“ tippst – dein Browser fragt dich vorher um Erlaubnis. Die
+          Koordinaten stehen danach nur in deiner Datenbank-Datei. „Karte“ und
+          „Google Maps öffnen“ öffnen Google Maps in einem neuen Tab und übergeben
+          dabei die Koordinaten an Google.
+        </p>
+      </div>
+    </section>
+
+    <section class="topic">
+      <i class="bi bi-window topic-icon" aria-hidden="true"></i>
+      <div>
+        <h2>Speicher im Browser</h2>
+        <p>
+          Damit die App auch ohne Internet läuft, legt dein Browser sie lokal ab.
+          Er merkt sich außerdem, welche Datei du zuletzt geöffnet hast, und
+          einzelne Einstellungen, etwa ob Untertitel an sind. Das sind keine
+          Cookies, und nichts davon wird übertragen. Löschen kannst du das in den
+          Einstellungen deines Browsers bei den Website-Daten.
+        </p>
+      </div>
+    </section>
+
+    <section class="topic">
+      <i class="bi bi-envelope topic-icon" aria-hidden="true"></i>
+      <div>
+        <h2>E-Mail</h2>
+        <p>
+          Schreibst du mir an <a href={`mailto:${mail}`}>{mail}</a>, bewahre ich
+          die Nachricht nur so lange auf, wie es zur Beantwortung nötig ist.
+        </p>
+      </div>
+    </section>
+
+    <section class="topic">
+      <i class="bi bi-box-arrow-up-right topic-icon" aria-hidden="true"></i>
+      <div>
+        <h2>Externe Links</h2>
+        <p>
+          Links zu anderen Seiten, etwa zu GitHub, hits.sh oder Google Maps,
+          öffnen sich in einem neuen Tab. Für diese Seiten gelten deren eigene
+          Regeln.
+        </p>
+      </div>
+    </section>
+
+    <section class="topic">
+      <i class="bi bi-person topic-icon" aria-hidden="true"></i>
+      <div>
+        <h2>Verantwortlich</h2>
+        <p>Abbas Hoseiny · <a href={`mailto:${mail}`}>{mail}</a></p>
+      </div>
+    </section>
+
+    <p class="privacy-stand">Stand: {stand}</p>
+  </main>
+
+  <PageFooter />
+
+  <style>
+    .privacy {
+      width: min(46rem, 100%);
+      margin: 0 auto;
+      padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 3vw, 2rem) 3rem;
+    }
+    .privacy h1 {
+      margin: 0 0 0.5rem;
+      color: #fff;
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .privacy-lead {
+      margin: 0 0 1.75rem;
+      color: var(--text-muted);
+      font-size: 1.125rem;
+      line-height: 1.55;
+    }
+
+    .topic {
+      display: grid;
+      grid-template-columns: 2.5rem minmax(0, 1fr);
+      column-gap: 1rem;
+      padding: 1.25rem 0;
+      border-top: 1px solid var(--border-1);
+    }
+    .topic-icon {
+      display: grid;
+      place-items: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      background: var(--surface-1);
+      border: 1px solid var(--border-1);
+      color: var(--primary-600);
+      font-size: 1.15rem;
+    }
+    .topic h2 {
+      margin: 0.4rem 0 0.4rem;
+      color: #fff;
+      font-size: 1.1875rem;
+      font-weight: 600;
+    }
+    .topic p {
+      margin: 0;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .topic a {
+      color: var(--primary-600);
+      text-underline-offset: 0.15em;
+    }
+    .topic a:hover,
+    .topic a:focus-visible {
+      color: #fff;
+    }
+    .privacy-stand {
+      margin: 0;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border-1);
+      color: var(--text-dim);
+      font-size: 0.875rem;
+    }
+
+    @media (max-width: 575.98px) {
+      .topic {
+        grid-template-columns: 2rem minmax(0, 1fr);
+        column-gap: 0.75rem;
+      }
+      .topic-icon {
+        width: 2rem;
+        height: 2rem;
+        font-size: 1rem;
+      }
+      .topic h2 {
+        margin-top: 0.2rem;
+      }
+    }
+
+    @media print {
+      .privacy {
+        width: 100%;
+        padding: 0;
+      }
+      .privacy h1,
+      .topic h2,
+      .topic p,
+      .privacy-lead {
+        color: #000;
+      }
+      .topic {
+        break-inside: avoid;
+        border-top-color: #ccc;
+      }
+      .topic-icon {
+        border-color: #999;
+        background: none;
+        color: #000;
+      }
+      .topic a {
+        color: #000;
+      }
+      .privacy-stand {
+        border-top-color: #ccc;
+        color: #444;
+      }
+    }
+  </style>
+</BaseLayout>

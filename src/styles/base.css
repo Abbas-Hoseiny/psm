@@ -393,6 +393,12 @@ body.bg-startup {
   font-size: var(--font-size-sm);
 }
 
+.startup-foot-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
 .startup-foot a {
   color: var(--text-muted);
   text-decoration: none;

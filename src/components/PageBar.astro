@@ -1,0 +1,96 @@
+---
+// Kopfzeile der Textseiten (Anleitung, Datenschutz): Marke links, „Zur App“ rechts.
+interface Props {
+  /** Name der Seite neben der Marke, z. B. „Anleitung“. */
+  sub: string;
+  /** Ziel der Marke: die Seite selbst. */
+  href: string;
+}
+
+const { sub, href } = Astro.props as Props;
+---
+
+<header class="guide-bar">
+  <a class="guide-brand" href={href}>
+    <img src="/assets/img/psm-icon-192.png" width="30" height="30" alt="" />
+    <span class="guide-brand-name">Digitale PSM</span>
+    <span class="guide-brand-sub">{sub}</span>
+  </a>
+  <a class="btn btn-psm-primary guide-app" href="/">
+    <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Zur App
+  </a>
+</header>
+
+<style>
+  /* base.css setzt overflow-x: hidden auf body – das würde die fixierte
+     Kopfzeile (und alles andere, das beim Scrollen mitläuft) aushebeln. */
+  :global(body.guide-body) {
+    overflow-x: clip;
+  }
+  :global(body.guide-body .app-root) {
+    padding-bottom: 0;
+  }
+
+  .guide-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem clamp(1rem, 3vw, 2rem);
+    background: rgba(11, 22, 32, 0.92);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border-1);
+  }
+  .guide-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+    min-height: 2.5rem;
+    text-decoration: none;
+    color: var(--text);
+  }
+  /* Schlanker als die Knöpfe der App, damit die Kopfzeile flach bleibt. */
+  .guide-app {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.5rem;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.9375rem;
+    white-space: nowrap;
+  }
+  .guide-brand img {
+    border-radius: 7px;
+  }
+  .guide-brand-name {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .guide-brand-sub {
+    color: var(--text-muted);
+    padding-left: 0.6rem;
+    border-left: 1px solid var(--border-2);
+  }
+
+  @media (max-width: 575.98px) {
+    .guide-brand-sub {
+      display: none;
+    }
+  }
+
+  @media print {
+    :global(body.guide-body) {
+      background: #fff !important;
+      color: #000;
+    }
+    .guide-bar {
+      display: none !important;
+    }
+  }
+</style>

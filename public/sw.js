@@ -25,6 +25,7 @@ const DB_STATE_KEY = 'psm-db-state';
 // App-Shell (muss existieren – sonst schlägt der Install fehl)
 const SHELL_ASSETS = [
   '/',
+  '/datenschutz/',
   '/manifest.json',
   '/assets/img/favicon.svg',
   '/assets/img/anleitung-vorschau.webp',

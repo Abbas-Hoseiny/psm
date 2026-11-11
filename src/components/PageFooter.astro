@@ -1,0 +1,30 @@
+---
+// Fußzeile der Textseiten (Anleitung, Datenschutz)
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="guide-footer">
+  <small>
+    © {currentYear} Digitale PSM ·
+    <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer">Info &amp; Lizenz</a> ·
+    <a href="/datenschutz/">Datenschutz</a>
+  </small>
+</footer>
+
+<style>
+  .guide-footer {
+    margin-top: auto;
+    padding: 1rem clamp(1rem, 3vw, 2rem);
+    border-top: 1px solid var(--border-1);
+    background: var(--surface-1);
+    color: var(--text-muted);
+  }
+
+  @media print {
+    .guide-footer {
+      border-top-color: #ccc;
+      background: none;
+      color: #444;
+    }
+  }
+</style>

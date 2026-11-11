@@ -346,18 +346,24 @@ export function initStartup(
             </div>
           </div>
 
-          <!-- Info & Lizenz + Statistik -->
+          <!-- Info & Lizenz + Datenschutz + Statistik -->
           <div class="startup-foot">
             <a href="https://info.digitale-psm.de" target="_blank" rel="noopener noreferrer">
               <i class="bi bi-info-circle me-1"></i>Info & Lizenz
             </a>
-            <a href="https://st.digitale-psm.de" target="_blank" rel="noopener noreferrer">
-              <i class="bi bi-bar-chart-line me-1"></i>Statistik
+            <a href="/datenschutz/">
+              <i class="bi bi-shield-check me-1"></i>Datenschutz
             </a>
-            <a id="startup-view-counter" class="startup-view-counter" href="${HITS_STATS_URL}" target="_blank" rel="noopener noreferrer" title="Aufruf-Statistik (hits.sh)">
-              <i class="bi bi-eye"></i>
-              <span data-role="view-count"></span>
-            </a>
+            <!-- Statistik und Zähler brechen auf dem Handy gemeinsam um -->
+            <span class="startup-foot-group">
+              <a href="https://st.digitale-psm.de" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-bar-chart-line me-1"></i>Statistik
+              </a>
+              <a id="startup-view-counter" class="startup-view-counter" href="${HITS_STATS_URL}" target="_blank" rel="noopener noreferrer" title="Aufruf-Statistik (hits.sh)">
+                <i class="bi bi-eye"></i>
+                <span data-role="view-count"></span>
+              </a>
+            </span>
           </div>
         </div>
       </div>

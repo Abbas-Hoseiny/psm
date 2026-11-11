@@ -53,7 +53,7 @@
 - **Datenbank:** SQLite WASM (läuft komplett im Browser, lokal gebündelt)
 - **PWA:** Service Worker, Web App Manifest, File Handling API
 - **Offline-First:** Funktioniert ohne Internetverbindung
-- **Datenschutz:** Die Aufzeichnungen bleiben lokal auf dem eigenen Gerät. Aus dem Netz geholt werden nur die BVL-Zulassungsdaten; die Startseite bindet außerdem einen Aufrufzähler ([hits.sh](https://hits.sh)) ein
+- **Datenschutz:** Die Aufzeichnungen bleiben lokal auf dem eigenen Gerät. Aus dem Netz geholt werden nur die BVL-Zulassungsdaten; die Startseite bindet außerdem einen Aufrufzähler ([hits.sh](https://hits.sh)) ein. Die Einzelheiten stehen unter [digitale-psm.de/datenschutz](https://digitale-psm.de/datenschutz/) (`src/pages/datenschutz/index.astro`) – ändert sich ein Datenfluss, gehört die Änderung auch dorthin
 
 ## Installation (Entwicklung)
 
@@ -142,6 +142,7 @@ MIT-Lizenz – siehe [LICENSE](LICENSE), deutsche Übersetzung in [LIZENZ-DE.md]
 
 - App: [digitale-psm.de](https://digitale-psm.de)
 - Anleitung: [digitale-psm.de/anleitung](https://digitale-psm.de/anleitung/)
+- Datenschutz: [digitale-psm.de/datenschutz](https://digitale-psm.de/datenschutz/)
 - Info und Lizenz: [info.digitale-psm.de](https://info.digitale-psm.de)
 - Statistik zur BVL-Datenbank: [st.digitale-psm.de](https://st.digitale-psm.de)
 - Entwickler: [Abbas Hoseiny](https://hoseiny.de/de/projects/digitale-psm/), dort auch die Technik der Datenhaltung im Detail
