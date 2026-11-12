@@ -26,6 +26,22 @@ export const PRINT_PAGE_LAYOUT_STYLES = `
   .psm-print-page__head > tr > td { padding-bottom: 6mm; }
   .psm-print-page__head .print-meta { margin-bottom: 0; }
   .psm-print-page__foot > tr > td { height: 16mm; }
+  /* Mehrseitiger Druck: Zeilen und Überschriften nicht über den Seitenumbruch zerreißen,
+     Spaltenköpfe der inneren Tabellen auf der Folgeseite wiederholen. */
+  .psm-print-page__body table tr,
+  .psm-print-page__body table th,
+  .psm-print-page__body table td {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .psm-print-page__body table thead { display: table-header-group; }
+  .psm-print-page__body h1,
+  .psm-print-page__body h2,
+  .psm-print-page__body h3,
+  .psm-print-page__body h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
   .psm-print-fixed-footer {
     position: fixed;
     left: 0;

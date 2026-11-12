@@ -11,6 +11,7 @@ import { getDatabaseSnapshot } from "@scripts/core/database";
 import { saveDatabase } from "@scripts/core/storage";
 import { escapeHtml } from "@scripts/core/utils";
 import { toast } from "@scripts/core/toast";
+import { isSameMedium } from "@scripts/core/mediumDuplicates";
 import {
   createPagerWidget,
   type PagerWidget,
@@ -164,8 +165,8 @@ function createSection(): HTMLElement {
                 <input type="number" step="any" class="form-control form-control-sm" name="medium-value" placeholder="" required />
               </div>
               <div class="col-6 col-md-4 col-xl-2">
-                <label class="form-label small">Zulassungsnr.</label>
-                <input class="form-control form-control-sm" name="medium-approval" placeholder="" />
+                <label class="form-label small">Zulassungsnr. *</label>
+                <input class="form-control form-control-sm" name="medium-approval" placeholder="" required />
               </div>
               <div class="col-6 col-md-3 col-xl-1">
                 <label class="form-label small">Wartetage</label>
@@ -1114,6 +1115,21 @@ export function initSettings(
     if (!methodId) {
       return;
     }
+    if (!approvalNumber) {
+      toast.warning("Bitte die Zulassungsnummer eintragen.");
+      addForm.querySelector<HTMLInputElement>('[name="medium-approval"]')?.focus();
+      return;
+    }
+    // Dasselbe Mittel nicht zweimal anlegen (gleicher Name mit anderem Wert bleibt erlaubt)
+    const duplicate = getMediumItems(state).find(
+      (item: any) =>
+        item.id !== existing?.id &&
+        isSameMedium(item, { name, unit, methodId, value, zulassungsnummer: approvalNumber })
+    );
+    if (duplicate) {
+      toast.warning(`„${name}“ gibt es mit diesen Angaben schon.`, 6000);
+      return;
+    }
     const wartezeitValue =
       wartezeit != null && !Number.isNaN(wartezeit) ? wartezeit : null;
     const id: string = existing
@@ -1175,14 +1191,7 @@ export function initSettings(
           action: existing ? "updated" : "created",
           id,
         });
-        if (approvalNumber) {
-          toast.success(`„${name}“ gespeichert.`);
-        } else {
-          toast.warning(
-            `„${name}“ gespeichert. Die Zulassungsnummer fehlt noch.`,
-            6000
-          );
-        }
+        toast.success(`„${name}“ gespeichert.`);
       }
     } finally {
       mediumSavePending = false;

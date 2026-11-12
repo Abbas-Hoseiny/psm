@@ -10,6 +10,7 @@ import * as storage from "@scripts/core/storage/sqlite";
 import { saveDatabase } from "@scripts/core/storage";
 import { getDatabaseSnapshot } from "@scripts/core/database";
 import { escapeHtml, debounce } from "@scripts/core/utils";
+import { isSameMedium } from "@scripts/core/mediumDuplicates";
 import {
   createPagerWidget,
   type PagerDirection,
@@ -3004,6 +3005,16 @@ async function handleSaveMediumFromModal(): Promise<void> {
     wartezeit: wartezeit,
     wirkstoff: wirkstoff || null,
   };
+
+  // Dasselbe Mittel nicht zweimal anlegen
+  const currentItems = services.state.getState().mediums?.items;
+  if (
+    Array.isArray(currentItems) &&
+    currentItems.some((item: any) => isSameMedium(item, newMedium))
+  ) {
+    alert(`„${name}“ gibt es mit diesen Angaben schon in deinen Mitteln.`);
+    return;
+  }
 
   // Zum State hinzufügen
   services.state.updateSlice("mediums", (prev) => {

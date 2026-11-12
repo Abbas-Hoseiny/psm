@@ -7,7 +7,7 @@
    "titel": "Überblick",
    "sub": "Pflanzenschutz-Anwendungen berechnen, dokumentieren und nachweisen",
    "dauer": 80.6,
-   "bytes": 4405986,
+   "bytes": 4381184,
    "brauchst": [],
    "hinweise": [
     "Deine Aufzeichnungen lädst du in der Übersicht maschinenlesbar als JSON-Datei herunter – mehr dazu in Kapitel 6."
@@ -147,7 +147,7 @@
    "titel": "Mittel & Profile",
    "sub": "Eigene Mittel anlegen und zu Profilen zusammenfassen",
    "dauer": 91.2,
-   "bytes": 4279844,
+   "bytes": 4284610,
    "brauchst": [
     "Die Angaben vom Etikett deines Mittels: Aufwandmenge je Hektar, Zulassungsnummer, Wartezeit und Wirkstoff"
    ],
@@ -345,14 +345,15 @@
    "slug": "gps-standorte",
    "titel": "GPS-Standorte",
    "sub": "Koordinaten einmal speichern und beim Erfassen übernehmen",
-   "dauer": 84.6,
-   "bytes": 4437875,
+   "dauer": 88.4,
+   "bytes": 4569677,
    "brauchst": [
     "Die Koordinaten deiner Fläche, zum Beispiel aus Google Maps kopiert"
    ],
    "hinweise": [
     "Der aktive Standort lässt sich beim Erfassen mit einem Klick übernehmen.",
-    "Mit „Aktivieren“ in der Liste wechselst du den aktiven Standort."
+    "Mit „Aktivieren“ in der Liste wechselst du den aktiven Standort.",
+    "Fragt dein Browser, ob die Seite die Zwischenablage lesen darf, erlaube es. Sonst klickst du ins Feld und fügst mit Strg+V ein – auch dann werden die Zahlen sofort aufgeteilt."
    ],
    "schritte": [
     {
@@ -361,20 +362,20 @@
     },
     {
      "t": 14.4,
-     "text": "Kopiere die Koordinaten, zum Beispiel aus Google Maps, füge sie ein und klicke auf <b>Einfügen &amp; aufteilen</b>."
+     "text": "Kopiere die Koordinaten, zum Beispiel aus Google Maps, und klicke auf <b>Einfügen &amp; aufteilen</b>. Die App holt die Zahlen aus der Zwischenablage und füllt Breitengrad und Längengrad."
     },
     {
-     "t": 29.7,
+     "t": 33.4,
      "text": "Gib dem Punkt einen <b>Namen</b>. Unter <b>Quelle / Hinweis</b> und <b>Beschreibung</b> hältst du fest, woher die Koordinaten stammen und was der Punkt zeigt. Mit <b>Sofort aktivieren</b> wird er zum aktiven Standort. Klicke dann auf <b>Speichern</b>.",
      "bild": {
       "name": "gps-standorte-1",
       "w": 1600,
-      "h": 644,
+      "h": 645,
       "alt": "Formular für einen neuen GPS-Punkt mit Koordinaten, Name, Quelle, Beschreibung und dem Haken Sofort aktivieren"
      }
     },
     {
-     "t": 60.5,
+     "t": 64.2,
      "text": "Unter <b>Liste</b> siehst du alle gespeicherten Punkte. Der aktive ist markiert, mit <b>Aktivieren</b> wechselst du ihn.",
      "bild": {
       "name": "gps-standorte-2",
@@ -384,7 +385,7 @@
      }
     },
     {
-     "t": 68.6,
+     "t": 72.4,
      "text": "Beim Erfassen übernimmst du den aktiven Standort mit dem Knopf neben dem Feld <b>GPS-Koordinaten</b> – oder du wählst darunter einen anderen gespeicherten Punkt.",
      "bild": {
       "name": "gps-standorte-3",
@@ -397,8 +398,8 @@
    "text": [
     "GPS-Standorte. Du speicherst die Koordinaten deiner Flächen einmal und übernimmst sie beim Erfassen mit einem Klick.",
     "Öffne die „Einstellungen“, den Reiter „GPS-Standorte“ und dort „Neu“.",
-    "Am einfachsten holst du die Koordinaten aus Google Maps: Klicke dort auf die Stelle und kopiere die beiden Zahlen.",
-    "Füge sie hier ein und klicke auf „Einfügen und aufteilen“. Breitengrad und Längengrad werden automatisch gefüllt.",
+    "Am einfachsten holst du die Koordinaten aus Google Maps: Klicke dort mit der rechten Maustaste auf die Stelle und dann auf die beiden Zahlen. Damit sind sie kopiert.",
+    "Klicke dann hier auf „Einfügen und aufteilen“. Die App holt die Zahlen aus der Zwischenablage und füllt Breitengrad und Längengrad.",
     "Gib dem Punkt einen Namen, zum Beispiel den deines Gewächshauses.",
     "Unter „Quelle“ und „Beschreibung“ hältst du fest, woher die Koordinaten stammen und was der Punkt zeigt.",
     "Mit „Sofort aktivieren“ wird der Punkt zum aktiven Standort. Den aktiven Standort übernimmst du beim Erfassen mit einem Klick.",
@@ -416,13 +417,13 @@
    "titel": "Neu erfassen",
    "sub": "Eine Anwendung berechnen und speichern",
    "dauer": 114.0,
-   "bytes": 5125214,
+   "bytes": 5127638,
    "brauchst": [
     "Mindestens ein Mittel in deiner Liste (Kapitel 2 oder 3)"
    ],
    "hinweise": [
     "Felder mit Stern sind Pflicht. Dazu verlangt die App mindestens eine Angabe zur Lage: Standort / Abteil, InVeKoS-Schlag oder GPS-Koordinaten.",
-    "Zu einer vollständigen Aufzeichnung gehören auch der EPPO-Code der Kultur und die Lage der Fläche (InVeKoS-Schlag, sonst GPS-Koordinaten).",
+    "Zu einer vollständigen Aufzeichnung gehört auch die Lage der Fläche (InVeKoS-Schlag, sonst GPS-Koordinaten).",
     "Das BBCH-Stadium und die Uhrzeit gehören dazu, wenn sie für die Anwendung eine Rolle spielen, etwa weil das Mittel nur in bestimmten Entwicklungsstadien oder zu bestimmten Tageszeiten angewendet werden darf.",
     "Fehlt bei einem Mittel die Zulassungsnummer, weist dich die App beim Berechnen darauf hin. Trag sie unter Einstellungen → „Mittel & Profile“ nach.",
     "Jede Anwendung ist unverzüglich aufzuzeichnen. Trag sie am besten gleich nach der Behandlung ein."

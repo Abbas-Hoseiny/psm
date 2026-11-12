@@ -232,9 +232,10 @@ function createSection(
               <div class="col-sm-6 col-lg-3">
                 <label class="form-label calc-label" for="calc-eppo">
                   <span data-label-id="calc-form-eppo">${escapeHtml(labels.calculation.fields.eppoCode.label)}</span>
+                  <span class="calc-required" aria-hidden="true">*</span>
                 </label>
                 <input type="text" list="calc-eppo-options" autocomplete="off" class="form-control calc-input"
-                  id="calc-eppo" name="calc-eppo"
+                  id="calc-eppo" name="calc-eppo" required
                   data-placeholder-id="calc-form-eppo"
                   value="${escapeAttr(formDefaults.eppoCode || "")}" />
                 <datalist id="calc-eppo-options"></datalist>
@@ -1633,6 +1634,13 @@ export function initCalculation(
     if (!rawKultur) {
       toast.warning("Bitte die Kultur angeben.");
       focusField("#calc-kultur");
+      return;
+    }
+    if (!rawEppo) {
+      toast.warning(
+        `Bitte „${fieldLabels.calculation.fields.eppoCode.label}“ ausfüllen.`
+      );
+      focusField("#calc-eppo");
       return;
     }
     if (!rawAreaHa || Number.isNaN(areaHa) || areaHa < 0) {

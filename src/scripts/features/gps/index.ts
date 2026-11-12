@@ -208,7 +208,7 @@ function createSection(): HTMLElement {
                   </button>
                 </div>
                 <small class="form-text text-muted">
-                  Tipp: In Google Maps auf die gewünschte Stelle klicken, beide Zahlen kopieren und hier einfügen. Die Felder unten werden automatisch gefüllt.
+                  Tipp: In Google Maps mit der rechten Maustaste auf die Stelle klicken und die Zahlen anklicken – sie sind damit kopiert. Dann hier „Einfügen &amp; aufteilen“ drücken: Die Felder unten füllen sich von selbst.
                 </small>
               </div>
               <div class="col-md-6">
@@ -384,20 +384,63 @@ function updateMapEntryPoints(state: AppState): void {
   }
 }
 
+/**
+ * Grad/Minuten/Sekunden wie aus Google Maps: 47°41'22.3"N 9°07'15.3"E
+ */
+function parseDmsPair(
+  raw: string,
+): { latitude: number; longitude: number } | null {
+  const pattern =
+    /(\d{1,3})\s*°\s*(\d{1,2})\s*['′’]\s*(\d{1,2}(?:[.,]\d+)?)\s*(?:"|″|”|'')\s*([NSEWO])/gi;
+  const parts = [...raw.matchAll(pattern)];
+  if (parts.length < 2) {
+    return null;
+  }
+  let latitude: number | null = null;
+  let longitude: number | null = null;
+  for (const part of parts.slice(0, 2)) {
+    const value =
+      Number(part[1]) +
+      Number(part[2]) / 60 +
+      Number(part[3].replace(",", ".")) / 3600;
+    const direction = part[4].toUpperCase();
+    if (direction === "N" || direction === "S") {
+      latitude = direction === "S" ? -value : value;
+    } else {
+      longitude = direction === "W" ? -value : value;
+    }
+  }
+  if (latitude == null || longitude == null) {
+    return null;
+  }
+  return { latitude, longitude };
+}
+
 function parseCoordinatePair(
   raw: string,
 ): { latitude: number; longitude: number } | null {
   if (!raw) {
     return null;
   }
-  const sanitized = raw.trim().replace(/\s+/g, " ").replace(/[,;]/g, " ");
-  const matches = sanitized.match(/-?\d+(?:[.,]\d+)?/g);
-  if (!matches || matches.length < 2) {
-    return null;
+  const text = raw.trim().replace(/\s+/g, " ");
+  let pair = parseDmsPair(text);
+  if (!pair) {
+    // Zwei Zahlen mit Dezimalpunkt (47.68952, 9.12091 – auch mitten in einem Maps-Link) ...
+    let matches = text.match(/-?\d{1,3}\.\d+/g);
+    if (!matches || matches.length < 2) {
+      // ... oder mit Dezimalkomma (47,68952 9,12091 oder 47,68952, 9,12091)
+      matches = text.match(/-?\d{1,3},\d+/g);
+    }
+    if (!matches || matches.length < 2) {
+      matches = text.match(/-?\d+/g);
+    }
+    if (!matches || matches.length < 2) {
+      return null;
+    }
+    const normalize = (value: string) => Number(value.replace(",", "."));
+    pair = { latitude: normalize(matches[0]), longitude: normalize(matches[1]) };
   }
-  const normalize = (value: string) => Number(value.replace(/,/g, "."));
-  const latitude = normalize(matches[0]);
-  const longitude = normalize(matches[1]);
+  const { latitude, longitude } = pair;
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return null;
   }
@@ -899,30 +942,59 @@ async function copyToClipboard(payload: string): Promise<void> {
   document.body.removeChild(textarea);
 }
 
-function handleApplyRawCoordinates(): void {
-  if (!refs?.formFields?.rawCoordinates) {
-    return;
-  }
-  const rawValue = refs.formFields.rawCoordinates.value;
+function applyRawCoordinates(rawValue: string): boolean {
   const parsed = parseCoordinatePair(rawValue);
-  if (!parsed) {
-    setMessage(
-      "Koordinaten konnten nicht erkannt werden. Bitte Format 47.68952, 9.12091 verwenden.",
-      "warning",
-      6000,
-    );
-    return;
+  if (!parsed || !refs?.formFields) {
+    return false;
   }
-  const latValue = parsed.latitude.toFixed(6);
-  const lngValue = parsed.longitude.toFixed(6);
   if (refs.formFields.latitude) {
-    refs.formFields.latitude.value = latValue;
+    refs.formFields.latitude.value = parsed.latitude.toFixed(6);
   }
   if (refs.formFields.longitude) {
-    refs.formFields.longitude.value = lngValue;
+    refs.formFields.longitude.value = parsed.longitude.toFixed(6);
   }
   setMessage("Koordinaten übernommen.", "success");
   updateVerifyButtonState();
+  return true;
+}
+
+const RAW_COORDS_HELP =
+  "Koordinaten konnten nicht erkannt werden. Bitte Format 47.68952, 9.12091 verwenden.";
+
+/**
+ * Knopf „Einfügen & aufteilen“: holt die Zwischenablage selbst, schreibt sie
+ * ins Feld und teilt sie auf. Steht dort nichts Brauchbares (oder der Browser
+ * gibt die Zwischenablage nicht frei), gilt der Inhalt des Feldes.
+ */
+async function handleApplyRawCoordinates(): Promise<void> {
+  const field = refs?.formFields?.rawCoordinates;
+  if (!field) {
+    return;
+  }
+  let clipboardDenied = false;
+  try {
+    const clipboardText = (await navigator.clipboard.readText()).trim();
+    if (clipboardText && parseCoordinatePair(clipboardText)) {
+      field.value = clipboardText;
+    }
+  } catch {
+    clipboardDenied = true;
+  }
+  if (applyRawCoordinates(field.value)) {
+    return;
+  }
+  if (!field.value.trim()) {
+    field.focus();
+    setMessage(
+      clipboardDenied
+        ? "Der Browser gibt die Zwischenablage nicht frei. Bitte hier ins Feld klicken und mit Strg+V einfügen."
+        : "In der Zwischenablage stehen keine Koordinaten. Bitte in Google Maps kopieren und noch einmal drücken.",
+      "warning",
+      8000,
+    );
+    return;
+  }
+  setMessage(RAW_COORDS_HELP, "warning", 6000);
 }
 
 function handleVerifyCoordinates(): void {
@@ -1295,7 +1367,7 @@ function attachEventListeners(): void {
         fillCurrentPosition();
         break;
       case "apply-raw-coords":
-        handleApplyRawCoordinates();
+        void handleApplyRawCoordinates();
         break;
       case "verify-coords":
         handleVerifyCoordinates();
@@ -1315,6 +1387,13 @@ function attachEventListeners(): void {
     }, 0);
   });
 
+  // Einfügen ins Feld (Strg+V, Rechtsklick) teilt sofort auf
+  refs.formFields.rawCoordinates?.addEventListener("paste", (event) => {
+    const pasted = event.clipboardData?.getData("text") ?? "";
+    if (parseCoordinatePair(pasted)) {
+      window.setTimeout(() => applyRawCoordinates(pasted), 0);
+    }
+  });
   refs.formFields.latitude?.addEventListener("input", () => {
     updateVerifyButtonState();
   });
