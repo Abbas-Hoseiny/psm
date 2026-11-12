@@ -1,61 +1,67 @@
 WEBVTT
 
-00:00:00.000 --> 00:00:01.520
+00:00:00.000 --> 00:00:01.440
 GPS-Standorte.
 
-00:00:01.920 --> 00:00:05.120
+00:00:01.840 --> 00:00:05.040
 Du speicherst die Koordinaten deiner Flächen einmal und
 
-00:00:05.240 --> 00:00:07.760
+00:00:05.120 --> 00:00:07.760
 übernimmst sie beim Erfassen mit einem Klick.
 
-00:00:08.120 --> 00:00:13.640
+00:00:08.120 --> 00:00:13.960
 Öffne die „Einstellungen“, den Reiter „GPS-Standorte“ und dort „Neu“.
 
-00:00:14.040 --> 00:00:17.440
+00:00:14.400 --> 00:00:17.800
 Am einfachsten holst du die Koordinaten aus Google Maps:
 
-00:00:17.640 --> 00:00:21.000
+00:00:18.000 --> 00:00:21.280
 Klicke dort auf die Stelle und kopiere die beiden Zahlen.
 
-00:00:21.400 --> 00:00:25.640
+00:00:21.680 --> 00:00:25.920
 Füge sie hier ein und klicke auf „Einfügen und aufteilen“.
 
-00:00:25.720 --> 00:00:29.000
+00:00:26.000 --> 00:00:29.360
 Breitengrad und Längengrad werden automatisch gefüllt.
 
-00:00:29.360 --> 00:00:33.760
+00:00:29.720 --> 00:00:34.120
 Gib dem Punkt einen Namen, zum Beispiel den deines Gewächshauses.
 
-00:00:34.160 --> 00:00:38.480
+00:00:34.520 --> 00:00:37.720
+Unter „Quelle“ und „Beschreibung“ hältst du fest,
+
+00:00:37.840 --> 00:00:41.320
+woher die Koordinaten stammen und was der Punkt zeigt.
+
+00:00:41.720 --> 00:00:46.120
 Mit „Sofort aktivieren“ wird der Punkt zum aktiven Standort.
 
-00:00:38.640 --> 00:00:42.480
+00:00:46.200 --> 00:00:49.960
 Den aktiven Standort übernimmst du beim Erfassen mit einem Klick.
 
-00:00:42.880 --> 00:00:47.600
+00:00:50.360 --> 00:00:55.160
 Mit „Browser-GPS“ übernimmst du stattdessen deinen aktuellen Standort,
 
-00:00:47.640 --> 00:00:49.120
+00:00:55.200 --> 00:00:56.680
 wenn dein Gerät ihn kennt.
 
-00:00:49.480 --> 00:00:51.560
+00:00:57.040 --> 00:00:59.120
 Dann klickst du auf „Speichern“.
 
-00:00:52.960 --> 00:00:56.560
+00:01:00.520 --> 00:01:03.920
 Unter „Liste“ siehst du alle gespeicherten Punkte.
 
-00:00:56.640 --> 00:01:00.800
+00:01:04.120 --> 00:01:08.280
 Der aktive ist markiert, mit „Aktivieren“ wechselst du ihn.
 
-00:01:01.200 --> 00:01:04.000
+00:01:08.640 --> 00:01:11.440
 Beim Erfassen übernimmst du den aktiven Standort
 
-00:01:04.080 --> 00:01:07.680
+00:01:11.520 --> 00:01:15.200
 mit dem Knopf neben dem Feld „GPS-Koordinaten“.
 
-00:01:08.040 --> 00:01:12.360
+00:01:15.600 --> 00:01:19.920
 Oder du wählst in der Liste darunter einen anderen gespeicherten Punkt.
 
-00:01:12.760 --> 00:01:16.120
+00:01:20.320 --> 00:01:23.680
 Im nächsten Kapitel erfasst du deine erste Anwendung.

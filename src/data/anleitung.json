@@ -1,52 +1,53 @@
 {
- "stand": "2026-11-11",
+ "stand": "2026-11-12",
  "kapitel": [
   {
    "nr": 0,
    "slug": "ueberblick",
    "titel": "Überblick",
    "sub": "Pflanzenschutz-Anwendungen berechnen, dokumentieren und nachweisen",
-   "dauer": 71.6,
-   "bytes": 4109294,
+   "dauer": 80.6,
+   "bytes": 4405986,
    "brauchst": [],
    "hinweise": [
     "Deine Aufzeichnungen lädst du in der Übersicht maschinenlesbar als JSON-Datei herunter – mehr dazu in Kapitel 6."
    ],
    "schritte": [
     {
-     "t": 8.4,
+     "t": 8.6,
      "text": "Die App hat drei Bereiche: <b>Neu erfassen</b>, <b>Einstellungen</b> und <b>Übersicht</b>."
     },
     {
-     "t": 14.6,
-     "text": "Unter <b>Neu erfassen</b> trägst du ein, wer behandelt, an welchem Tag und die <b>Art der Verwendung</b> – dazu die Kultur, die Fläche und den Standort."
+     "t": 14.5,
+     "text": "Unter <b>Neu erfassen</b> trägst du ein, wer behandelt, an welchem Tag, zu welcher Uhrzeit und die <b>Art der Verwendung</b>. Dazu kommen die Kultur mit <b>EPPO-Code</b> und <b>BBCH-Stadium</b>, die Fläche und ihre Lage: <b>Standort / Abteil</b>, <b>InVeKoS-Schlag</b> und <b>GPS-Koordinaten</b>."
     },
     {
-     "t": 27.1,
+     "t": 35.7,
      "text": "Ein Klick auf <b>Berechnen</b>, und die App rechnet die Menge jedes Mittels für deine Fläche aus."
     },
     {
-     "t": 32.8,
+     "t": 41.4,
      "text": "Mit <b>Aktuelle Berechnung speichern</b> landet die Anwendung in deiner Dokumentation."
     },
     {
-     "t": 38.2,
+     "t": 47.1,
      "text": "In der <b>Übersicht</b> findest du alle gespeicherten Anwendungen wieder. Du kannst sie filtern, drucken und als Datei sichern."
     },
     {
-     "t": 46.6,
+     "t": 55.4,
      "text": "In den <b>Einstellungen</b> pflegst du deine Mittel, lädst die Zulassungsdaten des BVL und speicherst die GPS-Standorte deiner Flächen."
     },
     {
-     "t": 55.3,
+     "t": 64.1,
      "text": "Deine Einträge liegen in einer einzigen Datei auf deinem eigenen Rechner. Du brauchst kein Konto."
     }
    ],
    "text": [
     "Mit Digitale PSM berechnest und dokumentierst du deine Pflanzenschutz-Anwendungen – direkt im Browser, ohne Anmeldung.",
     "Die App hat drei Bereiche: „Neu erfassen“, „Einstellungen“ und „Übersicht“.",
-    "Unter „Neu erfassen“ trägst du ein, wer behandelt, an welchem Tag und die Art der Verwendung.",
-    "Dazu die Kultur, die Fläche und den Standort.",
+    "Unter „Neu erfassen“ trägst du ein, wer behandelt, an welchem Tag, zu welcher Uhrzeit und die Art der Verwendung.",
+    "Dazu kommt die Kultur mit EPPO-Code und BBCH-Stadium.",
+    "Und die Fläche mit ihrer Lage: Standort, InVeKoS-Schlag und GPS-Koordinaten.",
     "Ein Klick auf „Berechnen“, und die App rechnet die Menge jedes Mittels für deine Fläche aus.",
     "Mit „Aktuelle Berechnung speichern“ landet die Anwendung in deiner Dokumentation.",
     "In der „Übersicht“ findest du alle gespeicherten Anwendungen wieder. Du kannst sie filtern, drucken und als Datei sichern.",
@@ -60,8 +61,8 @@
    "slug": "erste-schritte",
    "titel": "Erste Schritte",
    "sub": "Datenbank anlegen, speichern und beim nächsten Mal weiterarbeiten",
-   "dauer": 95.4,
-   "bytes": 6522775,
+   "dauer": 95.1,
+   "bytes": 6372997,
    "brauchst": [
     "Einen PC oder Mac mit Chrome oder Edge",
     "Einen Ordner für deine Datenbank-Datei, zum Beispiel „Dokumente“"
@@ -72,7 +73,7 @@
    ],
    "schritte": [
     {
-     "t": 7.8,
+     "t": 7.7,
      "text": "Öffne <b>digitale-psm.de</b> in Chrome oder Edge und klicke auf <b>Neu erstellen</b>.",
      "bild": {
       "name": "erste-schritte-1",
@@ -82,7 +83,7 @@
      }
     },
     {
-     "t": 23.8,
+     "t": 23.7,
      "text": "Trag deinen <b>Firmennamen</b> ein. <b>Überschrift</b> und <b>Adresse</b> sind freiwillig. Klicke dann auf <b>Erstellen</b>.",
      "bild": {
       "name": "erste-schritte-2",
@@ -102,7 +103,7 @@
      }
     },
     {
-     "t": 56.2,
+     "t": 56.0,
      "text": "Die App ist offen: oben links dein Betrieb, daneben <b>Neu erfassen</b>, <b>Einstellungen</b> und <b>Übersicht</b>.",
      "bild": {
       "name": "erste-schritte-4",
@@ -112,7 +113,7 @@
      }
     },
     {
-     "t": 75.6,
+     "t": 75.2,
      "text": "Beim nächsten Besuch klickst du auf <b>Fortsetzen</b> und bestätigst die Nachfrage des Browsers.",
      "bild": {
       "name": "erste-schritte-5",
@@ -145,8 +146,8 @@
    "slug": "mittel-und-profile",
    "titel": "Mittel & Profile",
    "sub": "Eigene Mittel anlegen und zu Profilen zusammenfassen",
-   "dauer": 91.6,
-   "bytes": 4254539,
+   "dauer": 91.2,
+   "bytes": 4279844,
    "brauchst": [
     "Die Angaben vom Etikett deines Mittels: Aufwandmenge je Hektar, Zulassungsnummer, Wartezeit und Wirkstoff"
    ],
@@ -167,7 +168,7 @@
      }
     },
     {
-     "t": 16.2,
+     "t": 16.0,
      "text": "Unter <b>+ Neues Mittel</b> trägst du <b>Name</b>, <b>Einheit</b>, <b>Methode</b> und <b>Wert</b> ein. Bei „pro Hektar“ ist der Wert die Aufwandmenge je Hektar. Trag auch die <b>Zulassungsnr.</b> ein: Die Zulassungsnummer ist für Pflanzenschutzmittel in jeder Aufzeichnung vorgeschrieben. <b>Wartetage</b> und <b>Wirkstoff</b> brauchst du für die QS-Zertifizierung – trag am besten alle drei ein.",
      "bild": {
       "name": "mittel-und-profile-2",
@@ -177,7 +178,7 @@
      }
     },
     {
-     "t": 46.2,
+     "t": 45.7,
      "text": "Klicke auf <b>Mittel hinzufügen</b>. Das Mittel steht jetzt in deiner Liste. Mit <b>Bearbeiten</b> am Ende der Zeile änderst du es, mit <b>Löschen</b> entfernst du es wieder.",
      "bild": {
       "name": "mittel-und-profile-3",
@@ -187,7 +188,7 @@
      }
     },
     {
-     "t": 57.5,
+     "t": 57.1,
      "text": "Für ein Profil hakst du in der Liste die Mittel an, die zusammen ausgebracht werden. Gib unter <b>Profil erstellen</b> einen Namen ein und klicke auf <b>Profil speichern</b>.",
      "bild": {
       "name": "mittel-und-profile-4",
@@ -197,7 +198,7 @@
      }
     },
     {
-     "t": 72.0,
+     "t": 71.6,
      "text": "Das Profil steht jetzt unter <b>Gespeicherte Profile</b>. Dort kannst du es bearbeiten oder löschen.",
      "bild": {
       "name": "mittel-und-profile-5",
@@ -207,7 +208,7 @@
      }
     },
     {
-     "t": 78.8,
+     "t": 78.3,
      "text": "Beim Erfassen wählst du das Profil unter <b>Mittelprofil</b> aus. Dann berechnet die App nur diese Mittel.",
      "bild": {
       "name": "mittel-und-profile-6",
@@ -240,8 +241,8 @@
    "slug": "bvl-daten-und-codes",
    "titel": "BVL-Daten & Codes",
    "sub": "Zugelassene Mittel suchen und übernehmen, Kulturen und Stadien festlegen",
-   "dauer": 112.6,
-   "bytes": 6798746,
+   "dauer": 112.7,
+   "bytes": 6814176,
    "brauchst": [
     "Eine Internetverbindung für das einmalige Herunterladen der BVL-Daten"
    ],
@@ -255,7 +256,7 @@
      "text": "Öffne die <b>Einstellungen</b> und den Reiter <b>BVL &amp; Codes</b>."
     },
     {
-     "t": 25.2,
+     "t": 25.3,
      "text": "Klicke auf <b>Jetzt herunterladen</b>. Das dauert einen Moment und ist nur einmal nötig.",
      "bild": {
       "name": "bvl-daten-und-codes-1",
@@ -265,7 +266,7 @@
      }
     },
     {
-     "t": 43.1,
+     "t": 43.2,
      "text": "Suche ein Mittel nach Name, Zulassungsnummer oder Wirkstoff und klicke auf <b>Suchen</b>.",
      "bild": {
       "name": "bvl-daten-und-codes-2",
@@ -285,7 +286,7 @@
      }
     },
     {
-     "t": 72.8,
+     "t": 72.6,
      "text": "Das Mittel steht jetzt im Reiter <b>Mittel &amp; Profile</b> in deiner Liste.",
      "bild": {
       "name": "bvl-daten-und-codes-4",
@@ -295,11 +296,11 @@
      }
     },
     {
-     "t": 77.6,
+     "t": 77.2,
      "text": "Zurück im Reiter <b>BVL &amp; Codes</b> öffnest du die Karte <b>EPPO &amp; BBCH Codes</b>."
     },
     {
-     "t": 85.4,
+     "t": 85.0,
      "text": "Tippe unter <b>Kulturen (EPPO-Codes)</b> den Namen deiner Kultur ein und klicke auf den passenden Treffer.",
      "bild": {
       "name": "bvl-daten-und-codes-5",
@@ -309,13 +310,13 @@
      }
     },
     {
-     "t": 94.9,
+     "t": 94.6,
      "text": "Unter <b>Wachstumsstadien (BBCH)</b> genügt die Nummer oder ein Begriff. Ein Klick auf den Treffer speichert ihn.",
      "bild": {
       "name": "bvl-daten-und-codes-6",
       "w": 1600,
       "h": 900,
-      "alt": "Karte Wachstumsstadien (BBCH) mit dem gespeicherten Stadium 65"
+      "alt": "Karte Wachstumsstadien (BBCH) mit dem gespeicherten Stadium 13"
      }
     }
    ],
@@ -344,8 +345,8 @@
    "slug": "gps-standorte",
    "titel": "GPS-Standorte",
    "sub": "Koordinaten einmal speichern und beim Erfassen übernehmen",
-   "dauer": 77.1,
-   "bytes": 4069803,
+   "dauer": 84.6,
+   "bytes": 4437875,
    "brauchst": [
     "Die Koordinaten deiner Fläche, zum Beispiel aus Google Maps kopiert"
    ],
@@ -359,21 +360,21 @@
      "text": "Öffne die <b>Einstellungen</b>, den Reiter <b>GPS-Standorte</b> und dort <b>Neu</b>."
     },
     {
-     "t": 14.0,
+     "t": 14.4,
      "text": "Kopiere die Koordinaten, zum Beispiel aus Google Maps, füge sie ein und klicke auf <b>Einfügen &amp; aufteilen</b>."
     },
     {
-     "t": 29.4,
-     "text": "Gib dem Punkt einen <b>Namen</b>. Mit <b>Sofort aktivieren</b> wird er zum aktiven Standort. Klicke dann auf <b>Speichern</b>.",
+     "t": 29.7,
+     "text": "Gib dem Punkt einen <b>Namen</b>. Unter <b>Quelle / Hinweis</b> und <b>Beschreibung</b> hältst du fest, woher die Koordinaten stammen und was der Punkt zeigt. Mit <b>Sofort aktivieren</b> wird er zum aktiven Standort. Klicke dann auf <b>Speichern</b>.",
      "bild": {
       "name": "gps-standorte-1",
       "w": 1600,
-      "h": 924,
-      "alt": "Formular für einen neuen GPS-Punkt mit Koordinaten, Name und dem Haken Sofort aktivieren"
+      "h": 644,
+      "alt": "Formular für einen neuen GPS-Punkt mit Koordinaten, Name, Quelle, Beschreibung und dem Haken Sofort aktivieren"
      }
     },
     {
-     "t": 53.0,
+     "t": 60.5,
      "text": "Unter <b>Liste</b> siehst du alle gespeicherten Punkte. Der aktive ist markiert, mit <b>Aktivieren</b> wechselst du ihn.",
      "bild": {
       "name": "gps-standorte-2",
@@ -383,7 +384,7 @@
      }
     },
     {
-     "t": 61.2,
+     "t": 68.6,
      "text": "Beim Erfassen übernimmst du den aktiven Standort mit dem Knopf neben dem Feld <b>GPS-Koordinaten</b> – oder du wählst darunter einen anderen gespeicherten Punkt.",
      "bild": {
       "name": "gps-standorte-3",
@@ -399,6 +400,7 @@
     "Am einfachsten holst du die Koordinaten aus Google Maps: Klicke dort auf die Stelle und kopiere die beiden Zahlen.",
     "Füge sie hier ein und klicke auf „Einfügen und aufteilen“. Breitengrad und Längengrad werden automatisch gefüllt.",
     "Gib dem Punkt einen Namen, zum Beispiel den deines Gewächshauses.",
+    "Unter „Quelle“ und „Beschreibung“ hältst du fest, woher die Koordinaten stammen und was der Punkt zeigt.",
     "Mit „Sofort aktivieren“ wird der Punkt zum aktiven Standort. Den aktiven Standort übernimmst du beim Erfassen mit einem Klick.",
     "Mit „Browser-GPS“ übernimmst du stattdessen deinen aktuellen Standort, wenn dein Gerät ihn kennt.",
     "Dann klickst du auf „Speichern“.",
@@ -413,8 +415,8 @@
    "slug": "neu-erfassen",
    "titel": "Neu erfassen",
    "sub": "Eine Anwendung berechnen und speichern",
-   "dauer": 105.7,
-   "bytes": 4609319,
+   "dauer": 114.0,
+   "bytes": 5125214,
    "brauchst": [
     "Mindestens ein Mittel in deiner Liste (Kapitel 2 oder 3)"
    ],
@@ -427,7 +429,7 @@
    ],
    "schritte": [
     {
-     "t": 6.2,
+     "t": 6.1,
      "text": "Trag unter <b>Neu erfassen</b> zuerst die Anwendung ein: <b>Anwender</b>, <b>Datum</b>, <b>Uhrzeit</b> und <b>Art der Verwendung</b>, also was du behandelst – zum Beispiel Agrarfläche oder Gewächshaus. Felder mit Stern sind Pflicht.",
      "bild": {
       "name": "neu-erfassen-1",
@@ -437,7 +439,7 @@
      }
     },
     {
-     "t": 22.3,
+     "t": 22.2,
      "text": "Unter <b>Kultur &amp; Mittel</b> trägst du die <b>Kultur</b> ein und wählst <b>EPPO-Code</b> und <b>BBCH-Stadium</b> aus deinen gespeicherten Codes. Wähle dann dein <b>Mittelprofil</b>: Die App berechnet nur die Mittel aus diesem Profil.",
      "bild": {
       "name": "neu-erfassen-2",
@@ -447,7 +449,7 @@
      }
     },
     {
-     "t": 36.8,
+     "t": 36.7,
      "text": "Unter <b>Fläche &amp; Lage</b> trägst du die <b>Fläche in Hektar</b> ein. Dazu verlangt die App mindestens eine Angabe zur Lage: <b>Standort / Abteil</b>, <b>InVeKoS-Schlag</b> oder <b>GPS-Koordinaten</b>. Steht die Fläche in deinem Agrarantrag, trägst du bei InVeKoS-Schlag ihre Bezeichnung ein.",
      "bild": {
       "name": "neu-erfassen-3",
@@ -457,7 +459,17 @@
      }
     },
     {
-     "t": 66.6,
+     "t": 59.7,
+     "text": "Brauchst du die zusätzlichen Felder für die QS-Zertifizierung, setzt du den Haken bei <b>QS-Zertifizierungsfelder anzeigen</b> und füllst sie aus: <b>Maschine / Gerät</b>, <b>Schaderreger / Grund</b>, <b>Verantwortliche Person</b>, <b>Wetterbedingungen</b> und <b>Behandlungsart</b>.",
+     "bild": {
+      "name": "neu-erfassen-3b",
+      "w": 1600,
+      "h": 451,
+      "alt": "Eingeblendete QS-Zertifizierungsfelder: Maschine / Gerät, Schaderreger / Grund, Verantwortliche Person, Wetterbedingungen und Behandlungsart sind ausgefüllt"
+     }
+    },
+    {
+     "t": 75.1,
      "text": "Klicke auf <b>Berechnen</b>. Die App rechnet für jedes Mittel die Menge aus.",
      "bild": {
       "name": "neu-erfassen-4",
@@ -467,11 +479,11 @@
      }
     },
     {
-     "t": 80.4,
+     "t": 88.8,
      "text": "Mit <b>Drucken / PDF</b> öffnest du den Druckdialog deines Browsers. Dort kannst du drucken oder als PDF speichern."
     },
     {
-     "t": 89.2,
+     "t": 97.5,
      "text": "Wichtig: Erst mit <b>Aktuelle Berechnung speichern</b> landet die Anwendung in deiner Dokumentation. Das Formular ist danach wieder leer.",
      "bild": {
       "name": "neu-erfassen-5",
@@ -494,6 +506,7 @@
     "Steht die Fläche in deinem Agrarantrag, trägst du bei „InVeKoS-Schlag“ ihre Bezeichnung ein.",
     "Die GPS-Koordinaten deines aktiven Standorts übernimmst du mit einem Klick.",
     "Brauchst du die zusätzlichen Felder für die QS-Zertifizierung, blendest du sie mit diesem Schalter ein.",
+    "Dort trägst du das Gerät ein, den Grund der Behandlung, die verantwortliche Person, das Wetter und die Behandlungsart.",
     "Jetzt klickst du auf „Berechnen“.",
     "Die App rechnet für jedes Mittel die Menge aus. Im Beispiel: eineinhalb Kilogramm pro Hektar, ein halber Hektar – das ergibt 0,75 Kilogramm.",
     "Mit „Drucken / PDF“ öffnest du den Druckdialog deines Browsers. Dort kannst du drucken oder als PDF speichern.",
@@ -507,8 +520,8 @@
    "slug": "uebersicht",
    "titel": "Übersicht",
    "sub": "Einträge finden, ansehen, drucken und exportieren",
-   "dauer": 75.9,
-   "bytes": 5742600,
+   "dauer": 75.7,
+   "bytes": 5745004,
    "brauchst": [
     "Mindestens eine gespeicherte Anwendung (Kapitel 5)"
    ],
@@ -520,7 +533,7 @@
    ],
    "schritte": [
     {
-     "t": 7.5,
+     "t": 7.4,
      "text": "Öffne die <b>Übersicht</b>. Du siehst alle gespeicherten Anwendungen, die neuesten stehen oben.",
      "bild": {
       "name": "uebersicht-1",
@@ -530,7 +543,7 @@
      }
     },
     {
-     "t": 13.8,
+     "t": 13.7,
      "text": "Mit dem Filter grenzt du die Liste ein: nach <b>Startdatum</b> und <b>Enddatum</b>, nach <b>Kultur</b> oder nach <b>Anwender</b>. Klicke auf <b>Filtern</b>. Mit <b>Zurücksetzen</b> siehst du wieder alle Einträge.",
      "bild": {
       "name": "uebersicht-2",
@@ -540,7 +553,7 @@
      }
     },
     {
-     "t": 30.2,
+     "t": 30.0,
      "text": "Klicke auf einen Eintrag: Rechts erscheinen alle Angaben. Mit <b>Drucken / PDF</b> druckst du genau diesen einen Eintrag.",
      "bild": {
       "name": "uebersicht-3",
@@ -550,7 +563,7 @@
      }
     },
     {
-     "t": 43.5,
+     "t": 43.2,
      "text": "Für mehrere Einträge setzt du bei jedem den Haken <b>Auswahl</b> – oder du klickst auf <b>Alle auswählen</b>.",
      "bild": {
       "name": "uebersicht-4",
@@ -560,11 +573,11 @@
      }
     },
     {
-     "t": 50.6,
+     "t": 50.4,
      "text": "<b>Drucken</b> und <b>PDF</b> öffnen den Druckdialog mit allen ausgewählten Einträgen. Mit <b>JSON</b> und <b>ZIP</b> lädst du die Auswahl als Datei herunter."
     },
     {
-     "t": 63.5,
+     "t": 63.2,
      "text": "Mit <b>Löschen</b> entfernst du die ausgewählten Einträge aus der Datenbank. Die App fragt vorher nach."
     }
    ],
@@ -588,8 +601,8 @@
    "slug": "archiv-und-bereinigung",
    "titel": "Archiv & Bereinigung",
    "sub": "Ältere Einträge als ZIP-Backup auslagern",
-   "dauer": 74.3,
-   "bytes": 3511102,
+   "dauer": 74.4,
+   "bytes": 3553125,
    "brauchst": [
     "Gespeicherte Anwendungen aus dem Zeitraum, den du auslagern willst"
    ],
@@ -610,11 +623,11 @@
      }
     },
     {
-     "t": 16.4,
+     "t": 16.3,
      "text": "Wähle mit <b>Startdatum</b> und <b>Enddatum</b> den Zeitraum. Unter <b>Ablage</b> notierst du, wo du das Backup aufbewahrst."
     },
     {
-     "t": 27.8,
+     "t": 27.7,
      "text": "Der Haken <b>Nach Export löschen</b> ist gesetzt: Die Einträge werden nach dem Export aus deiner Datenbank entfernt. Willst du sie behalten, nimm den Haken heraus.",
      "bild": {
       "name": "archiv-und-bereinigung-2",
@@ -624,7 +637,7 @@
      }
     },
     {
-     "t": 38.9,
+     "t": 38.7,
      "text": "Klicke auf <b>Erstellen</b>. Das ZIP-Backup landet im Download-Ordner deines Browsers, und die App meldet, wie viele Einträge archiviert und entfernt wurden.",
      "bild": {
       "name": "archiv-und-bereinigung-3",
@@ -634,7 +647,7 @@
      }
     },
     {
-     "t": 50.0,
+     "t": 49.8,
      "text": "Unter <b>Archiv-Historie</b> steht das neue Archiv mit Zeitraum und Anzahl der Einträge. In der Liste stehen nur noch die Einträge außerhalb dieses Zeitraums.",
      "bild": {
       "name": "archiv-und-bereinigung-4",
@@ -644,7 +657,7 @@
      }
     },
     {
-     "t": 61.4,
+     "t": 61.2,
      "text": "Achtung: Ist oben ein Filter gesetzt, etwa eine Kultur, gilt er auch für das Archiv."
     }
    ],
@@ -669,7 +682,7 @@
    "titel": "Backup importieren",
    "sub": "Ein ZIP- oder JSON-Backup wieder in die Datenbank übernehmen",
    "dauer": 55.6,
-   "bytes": 3838094,
+   "bytes": 3906826,
    "brauchst": [
     "Eine Backup-Datei aus der Übersicht oder aus dem Archiv (Kapitel 6 und 7)"
    ],
@@ -689,7 +702,7 @@
      }
     },
     {
-     "t": 15.2,
+     "t": 15.0,
      "text": "Die App zeigt zuerst eine Vorschau: welche Datei, wie viele Einträge, welcher Zeitraum. Bis hierhin ist noch nichts verändert.",
      "bild": {
       "name": "backup-importieren-2",
@@ -699,7 +712,7 @@
      }
     },
     {
-     "t": 24.2,
+     "t": 24.0,
      "text": "Mit <b>Import starten</b> übernimmst du die Einträge. Was schon in deiner Datenbank steht, überspringt die App.",
      "bild": {
       "name": "backup-importieren-3",
@@ -709,7 +722,7 @@
      }
     },
     {
-     "t": 34.2,
+     "t": 34.0,
      "text": "Mit <b>Einträge anzeigen</b> springst du zu den importierten Einträgen. Sie sind in der Liste markiert.",
      "bild": {
       "name": "backup-importieren-4",
@@ -719,7 +732,7 @@
      }
     },
     {
-     "t": 40.9,
+     "t": 40.7,
      "text": "Mit <b>Entfernen</b> hebst du die Markierung wieder auf. Der Zeitraum bleibt als Filter gesetzt – mit <b>Zurücksetzen</b> siehst du wieder alle Einträge."
     }
    ],
@@ -741,7 +754,7 @@
    "titel": "Als App installieren",
    "sub": "Digitale PSM wie ein Programm starten – auch ohne Internet",
    "dauer": 52.9,
-   "bytes": 4014900,
+   "bytes": 4077112,
    "brauchst": [
     "Chrome oder Edge an einem PC oder Mac"
    ],
@@ -751,7 +764,7 @@
    ],
    "schritte": [
     {
-     "t": 6.8,
+     "t": 6.7,
      "text": "Auf der Startseite zeigt dir Digitale PSM einen Hinweis zur Installation. Klicke auf <b>App installieren</b> und bestätige die Nachfrage deines Browsers mit „Installieren“.",
      "bild": {
       "name": "als-app-installieren-1",
@@ -761,15 +774,15 @@
      }
     },
     {
-     "t": 21.7,
+     "t": 21.6,
      "text": "Danach startest du Digitale PSM wie jedes andere Programm: mit eigenem Fenster und eigenem Symbol, über das Startmenü, das Dock oder den Desktop."
     },
     {
-     "t": 32.3,
+     "t": 32.1,
      "text": "Nach dem ersten Start läuft die App auch ohne Internet. Nur für das Laden der BVL-Daten brauchst du eine Verbindung."
     },
     {
-     "t": 39.6,
+     "t": 39.4,
      "text": "Fehlt der Hinweis auf der Startseite? Dann findest du die Installation rechts in der Adressleiste oder im Menü deines Browsers."
     }
    ],
@@ -788,8 +801,8 @@
    "slug": "gut-zu-wissen",
    "titel": "Gut zu wissen",
    "sub": "Browser, Datensicherung und Datenschutz",
-   "dauer": 74.6,
-   "bytes": 1981567,
+   "dauer": 75.1,
+   "bytes": 2011204,
    "brauchst": [],
    "hinweise": [
     "Die Felder richten sich nach den Vorgaben für Pflanzenschutz-Aufzeichnungen (Verordnung (EU) 2023/564, § 11 Pflanzenschutzgesetz). Für vollständige und richtige Angaben bist du selbst verantwortlich – die App ist kostenlos und ohne Gewähr."
@@ -800,23 +813,23 @@
      "text": "<b>Der richtige Browser:</b> Digitale PSM braucht Chrome oder Edge an einem PC oder Mac. Firefox und Safari können deine Datenbank-Datei derzeit nicht direkt auf dem Rechner öffnen und speichern."
     },
     {
-     "t": 19.1,
+     "t": 19.2,
      "text": "<b>Deine Daten bleiben bei dir:</b> Deine Einträge liegen in einer Datei auf deinem Rechner. Es gibt kein Konto und keine Anmeldung, und deine Einträge werden nicht ins Internet übertragen."
     },
     {
-     "t": 29.2,
+     "t": 29.3,
      "text": "<b>Datensicherung:</b> Kopiere deine Datenbank-Datei regelmäßig, zum Beispiel auf einen USB-Stick. Ältere Einträge kannst du zusätzlich als Archiv auslagern – das zeigt Kapitel sieben."
     },
     {
-     "t": 40.8,
+     "t": 41.0,
      "text": "<b>Nachfrage beim Fortsetzen:</b> Beim Fortsetzen fragt der Browser, ob die Seite deine Datei bearbeiten darf. Das ist normal: So schützt der Browser deine Dateien."
     },
     {
-     "t": 49.7,
+     "t": 50.0,
      "text": "<b>Handy und Tablet:</b> Am Handy oder Tablet kannst du diese Anleitung lesen und die Videos ansehen. Zum Arbeiten mit deiner Datenbank brauchst du derzeit einen PC oder Mac."
     },
     {
-     "t": 59.7,
+     "t": 60.2,
      "text": "<b>Ohne Internet:</b> Einmal geöffnet, läuft Digitale PSM auch ohne Internet. Nur das Laden und Aktualisieren der BVL-Daten braucht eine Verbindung."
     }
    ],
