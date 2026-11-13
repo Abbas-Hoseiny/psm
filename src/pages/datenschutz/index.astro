@@ -5,7 +5,6 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageBar from '../../components/PageBar.astro';
 import PageFooter from '../../components/PageFooter.astro';
-import { HITS_STATS_URL } from '../../scripts/core/viewCounter';
 
 const stand = 'November 2026';
 const mail = 'abbas@hoseiny.de';
@@ -44,12 +43,12 @@ const mail = 'abbas@hoseiny.de';
       <div>
         <h2>Aufrufzähler</h2>
         <p>
-          Die Startseite zeigt, wie oft sie aufgerufen wurde. Dafür lädt dein
-          Browser bei jedem Aufruf der Startseite ein kleines Zählbild vom Dienst
-          hits.sh. Dabei sieht hits.sh die Verbindungsdaten, die jeder Browser
-          mitschickt: IP-Adresse, Zeitpunkt, Browserkennung. Ein Cookie wird nicht
-          gesetzt. Die Zahl der Aufrufe ist öffentlich:
-          <a href={HITS_STATS_URL} target="_blank" rel="noopener noreferrer">Statistik bei hits.sh</a>.
+          Die Startseite zeigt, wie oft sie aufgerufen wurde. Dafür meldet dein
+          Browser jeden Aufruf der Startseite an einen eigenen kleinen Zähldienst
+          unter hoseiny.de. Der Dienst erhöht nur eine Zahl und speichert sonst
+          nichts: keine IP-Adresse, kein Cookie, kein Protokoll. Die Verbindung
+          dorthin läuft über Cloudflare; wie bei jedem Abruf im Netz werden dabei
+          IP-Adresse, Zeitpunkt und Browserkennung übertragen.
         </p>
       </div>
     </section>
@@ -131,7 +130,7 @@ const mail = 'abbas@hoseiny.de';
       <div>
         <h2>Externe Links</h2>
         <p>
-          Links zu anderen Seiten, etwa zu GitHub, hits.sh oder Google Maps,
+          Links zu anderen Seiten, etwa zu GitHub oder Google Maps,
           öffnen sich in einem neuen Tab. Für diese Seiten gelten deren eigene
           Regeln.
         </p>

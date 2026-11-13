@@ -1,4 +1,3 @@
-import { HITS_STATS_URL } from "@scripts/core/viewCounter";
 
 /** Identischer Inhalt im statischen HTML und in der interaktiven Startansicht. */
 export function renderLandingMarkup(hasFile = false): string {
@@ -119,10 +118,10 @@ export function renderLandingMarkup(hasFile = false): string {
               <a href="https://st.digitale-psm.de" target="_blank" rel="noopener noreferrer">
                 <i class="bi bi-bar-chart-line me-1"></i>Statistik
               </a>
-              <a id="startup-view-counter" class="startup-view-counter" href="${HITS_STATS_URL}" target="_blank" rel="noopener noreferrer" title="Aufruf-Statistik (hits.sh)">
+              <span id="startup-view-counter" class="startup-view-counter" hidden>
                 <i class="bi bi-eye"></i>
                 <span data-role="view-count"></span>
-              </a>
+              </span>
             </span>
           </div>
         </div>

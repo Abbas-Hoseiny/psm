@@ -1,72 +1,66 @@
 /**
- * Aufruf-Zähler (Besucher-Badge)
+ * Aufruf-Zähler der Startseite
  *
- * Nutzt den kostenlosen Dienst "Hits" (https://hits.sh): keine Anmeldung, kein
- * API-Key, datenschutzfreundlich (keine Cookies, kein Tracking-Script). Jeder
- * Abruf des Badge-Bildes zählt einen Aufruf; die Statistik ist unter
- * https://hits.sh/digitale-psm.de/ einsehbar.
+ * Meldet jeden Aufruf der Startseite an einen eigenen kleinen Zähldienst und
+ * zeigt die Zahl an. Der Dienst erhöht nur eine Zahl: keine Cookies, keine
+ * gespeicherten IP-Adressen, kein Protokoll. Was dabei übertragen wird, steht
+ * in src/pages/datenschutz/index.astro – bei Änderungen dort mitpflegen.
  *
- * Das Badge wird als <img> eingebunden – damit gibt es keine CORS-Probleme und
- * der Dienst liefert die Zahl bereits gerendert. Das Element wird genau EINMAL
- * pro Seitenaufruf erzeugt (Singleton) und bei Neu-Rendern des Startbildschirms
- * nur verschoben, damit nicht mehrfach gezählt wird.
+ * Gezählt wird genau EINMAL pro Seitenaufruf; wird der Startbildschirm neu
+ * gerendert, kommt die schon bekannte Zahl in das neue Element. Offline oder
+ * Dienst nicht erreichbar: Der Zähler bleibt ausgeblendet.
  */
 
-const HITS_PATH = "digitale-psm.de";
-const HITS_BADGE_URL =
-  `https://hits.sh/${HITS_PATH}.svg?` +
-  new URLSearchParams({
-    style: "flat-square",
-    label: "Aufrufe",
-    color: "22c55e",
-    labelColor: "1f2937",
-  }).toString();
+const COUNTER_URL = "https://hoseiny.de/z/psm";
 
-export const HITS_STATS_URL = `https://hits.sh/${HITS_PATH}/`;
-
-let badgeElement: HTMLImageElement | null = null;
-let pendingContainer: HTMLElement | null = null;
+let request: Promise<number | null> | null = null;
+let currentContainer: HTMLElement | null = null;
 let onlineListenerBound = false;
 
-function createBadge(): HTMLImageElement {
-  const img = document.createElement("img");
-  img.src = HITS_BADGE_URL;
-  img.alt = "Aufrufe";
-  img.title = "Seitenaufrufe (hits.sh)";
-  img.height = 20;
-  img.decoding = "async";
-  img.referrerPolicy = "no-referrer";
-  img.style.verticalAlign = "middle";
-  // Offline oder Dienst nicht erreichbar: Badge unsichtbar lassen statt
-  // kaputtes Bild anzuzeigen.
-  img.addEventListener("error", () => {
-    img.style.display = "none";
-  });
-  return img;
+async function countView(): Promise<number | null> {
+  try {
+    const response = await fetch(COUNTER_URL, {
+      method: "POST",
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const data: unknown = await response.json();
+    const count = (data as { count?: unknown } | null)?.count;
+    return typeof count === "number" && Number.isFinite(count) ? count : null;
+  } catch {
+    return null;
+  }
+}
+
+function show(container: HTMLElement, count: number): void {
+  container.textContent = `${count.toLocaleString("de-DE")} Aufrufe`;
+  // Das umgebende Element (Auge + Zahl) ist bis hierhin ausgeblendet
+  container.closest<HTMLElement>(".startup-view-counter")?.removeAttribute("hidden");
 }
 
 /**
- * Hängt das (einmalig erzeugte) Zähler-Badge in den übergebenen Container.
- * Mehrfache Aufrufe verschieben nur das Element und lösen keinen weiteren
- * Zählvorgang aus.
+ * Zeigt den Zähler im übergebenen Element. Mehrfache Aufrufe lösen keinen
+ * weiteren Zählvorgang aus.
  */
 export function mountHitCounter(container: HTMLElement | null): void {
   if (!container) {
     return;
   }
-  // Offline: keine fehlschlagende Anfrage auslösen, sondern das Badge erst
-  // einhängen, sobald die Verbindung wieder da ist (zählt dann den Aufruf).
-  if (typeof navigator !== "undefined" && navigator.onLine === false) {
-    pendingContainer = container;
+  currentContainer = container;
+  // Offline: keine fehlschlagende Anfrage auslösen, sondern erst zählen,
+  // sobald die Verbindung wieder da ist.
+  if (!request && typeof navigator !== "undefined" && navigator.onLine === false) {
     if (!onlineListenerBound) {
       onlineListenerBound = true;
       window.addEventListener(
         "online",
         () => {
-          const target = pendingContainer;
-          pendingContainer = null;
-          if (target?.isConnected) {
-            mountHitCounter(target);
+          if (currentContainer?.isConnected) {
+            mountHitCounter(currentContainer);
           }
         },
         { once: true },
@@ -74,10 +68,10 @@ export function mountHitCounter(container: HTMLElement | null): void {
     }
     return;
   }
-  if (!badgeElement) {
-    badgeElement = createBadge();
-  }
-  if (badgeElement.parentElement !== container) {
-    container.replaceChildren(badgeElement);
-  }
+  request ??= countView();
+  void request.then((count) => {
+    if (count !== null && currentContainer === container && container.isConnected) {
+      show(container, count);
+    }
+  });
 }

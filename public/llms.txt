@@ -19,7 +19,7 @@ Die vollständige App benötigt JavaScript und Chrome oder Edge am Computer mit 
 
 Die App ist kostenlos und ohne Gewähr. Für vollständige und richtige Aufzeichnungen sowie die Prüfung der jeweiligen Zulassung und Anwendungsbestimmungen ist der Betrieb selbst verantwortlich. Ein JSON-Export ist keine Bescheinigung einer behördlichen Anerkennung.
 
-Die Startseite bindet einen Aufrufzähler von hits.sh ein. Hosting erfolgt über GitHub Pages. Verbindungsdaten können dabei an diese Dienste übertragen werden; die Datenschutzerklärung beschreibt diese Datenflüsse. Lokale Speicherung der Aufzeichnungen bedeutet nicht, dass beim Seitenaufruf keinerlei Netzwerkverbindungen stattfinden.
+Die Startseite meldet jeden Aufruf an einen eigenen Zähldienst des Entwicklers (hoseiny.de, über Cloudflare), der nur eine Zahl erhöht. Hosting erfolgt über GitHub Pages. Verbindungsdaten können dabei an diese Dienste übertragen werden; die Datenschutzerklärung beschreibt diese Datenflüsse. Lokale Speicherung der Aufzeichnungen bedeutet nicht, dass beim Seitenaufruf keinerlei Netzwerkverbindungen stattfinden.
 
 ## Offizielle Seiten
 

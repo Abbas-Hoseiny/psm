@@ -53,7 +53,7 @@
 - **Datenbank:** SQLite WASM (läuft komplett im Browser, lokal gebündelt)
 - **PWA:** Service Worker, Web App Manifest, File Handling API
 - **Offline-First:** Funktioniert ohne Internetverbindung
-- **Datenschutz:** Die Aufzeichnungen bleiben lokal auf dem eigenen Gerät. Aus dem Netz geholt werden nur die BVL-Zulassungsdaten; die Startseite bindet außerdem einen Aufrufzähler ([hits.sh](https://hits.sh)) ein. Die Einzelheiten stehen unter [digitale-psm.de/datenschutz](https://digitale-psm.de/datenschutz/) (`src/pages/datenschutz/index.astro`) – ändert sich ein Datenfluss, gehört die Änderung auch dorthin
+- **Datenschutz:** Die Aufzeichnungen bleiben lokal auf dem eigenen Gerät. Aus dem Netz geholt werden nur die BVL-Zulassungsdaten; die Startseite meldet außerdem jeden Aufruf an einen eigenen Zähldienst, der nur eine Zahl erhöht. Die Einzelheiten stehen unter [digitale-psm.de/datenschutz](https://digitale-psm.de/datenschutz/) (`src/pages/datenschutz/index.astro`) – ändert sich ein Datenfluss, gehört die Änderung auch dorthin
 
 ## Installation (Entwicklung)
 

@@ -643,7 +643,7 @@ export function initStartup(
     // Landing neu rendern mit korrektem Zustand
     renderLandingContent(hasFile);
 
-    // Aufruf-Zähler (hits.sh-Badge) einhängen – zählt genau einmal pro Aufruf
+    // Aufruf-Zähler einhängen – zählt genau einmal pro Aufruf
     mountHitCounter(
       landingSection.querySelector<HTMLElement>('[data-role="view-count"]'),
     );

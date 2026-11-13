@@ -424,6 +424,11 @@ body.bg-startup {
   color: var(--text-dim);
 }
 
+/* Bis die Zahl da ist (offline, Dienst nicht erreichbar) bleibt der Zähler weg */
+.startup-foot .startup-view-counter[hidden] {
+  display: none;
+}
+
 /* Schmale Fenster: alles untereinander, Anleitung als kompakte Zeile,
    der Hinweis erst danach – so bleibt die Anleitung ohne Scrollen sichtbar */
 @media (max-width: 991.98px) {
